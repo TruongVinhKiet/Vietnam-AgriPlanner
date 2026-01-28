@@ -1,0 +1,528 @@
+/* =====================================================
+   Smart Advisor - AI Recommendation Panel (Standalone)
+   Đề xuất thông minh dựa trên AI Gemini & rule-based
+   ===================================================== */
+
+/* Smart Advisor Toggle Button */
+.smart-advisor-container {
+    position: fixed;
+    bottom: calc(var(--spacing-6) + 70px);
+    right: var(--spacing-6);
+    z-index: 9998;
+}
+
+/* Special positioning for cultivation page (leaf tool on top) */
+body[data-page="cultivation"] .smart-advisor-container {
+    bottom: calc(var(--spacing-6) + 140px);
+}
+
+.smart-advisor-toggle {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-full);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 20px rgba(47, 127, 52, 0.4);
+    transition: all var(--transition-normal);
+    position: relative;
+}
+
+.smart-advisor-toggle:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 25px rgba(47, 127, 52, 0.5);
+}
+
+.smart-advisor-toggle .material-symbols-outlined {
+    font-size: 26px;
+    color: white;
+    transition: transform var(--transition-fast);
+}
+
+.smart-advisor-toggle.active .material-symbols-outlined {
+    transform: rotate(180deg);
+}
+
+/* Pulse animation for new recommendations */
+.smart-advisor-toggle.has-recommendations::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: var(--radius-full);
+    border: 2px solid var(--color-primary);
+    animation: pulse-ring 2s infinite;
+}
+
+@keyframes pulse-ring {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.15); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Badge for recommendation count */
+.smart-advisor-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 20px;
+    height: 20px;
+    background: #ef4444;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+}
+
+/* Smart Advisor Panel */
+.smart-advisor-panel {
+    position: absolute;
+    bottom: 65px;
+    right: 0;
+    width: 380px;
+    max-width: calc(100vw - 48px);
+    max-height: min(550px, calc(100vh - 200px));
+    background: var(--color-surface-light);
+    border-radius: var(--radius-2xl);
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(20px) scale(0.95);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.smart-advisor-panel.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+}
+
+/* Panel Header */
+.advisor-header {
+    padding: var(--spacing-4);
+    background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+}
+
+.advisor-header__icon {
+    width: 44px;
+    height: 44px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.advisor-header__icon .material-symbols-outlined {
+    font-size: 24px;
+}
+
+.advisor-header__info {
+    flex: 1;
+}
+
+.advisor-header__title {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+}
+
+.advisor-header__status {
+    font-size: var(--font-size-xs);
+    opacity: 0.85;
+}
+
+.advisor-header__close {
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: var(--radius-md);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--transition-fast);
+}
+
+.advisor-header__close:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Farm Stats */
+.advisor-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-3);
+    padding: var(--spacing-4);
+    background: var(--color-bg-light);
+    border-bottom: 1px solid var(--color-border-light);
+}
+
+.advisor-stat {
+    text-align: center;
+}
+
+.advisor-stat__value {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--color-primary);
+}
+
+.advisor-stat__label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+/* Recommendations Container */
+.advisor-recommendations {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--spacing-3);
+    max-height: 320px;
+}
+
+/* Loading State */
+.advisor-loading {
+    text-align: center;
+    padding: var(--spacing-8);
+}
+
+.advisor-loading__spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--color-border-light);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    margin: 0 auto var(--spacing-3);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.advisor-loading__text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+/* Recommendation Cards */
+.recommendation-card {
+    background: white;
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-3);
+    margin-bottom: var(--spacing-2);
+    transition: all var(--transition-fast);
+}
+
+.recommendation-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 2px 10px rgba(47, 127, 52, 0.1);
+}
+
+.recommendation-card:last-child {
+    margin-bottom: 0;
+}
+
+/* Card Header */
+.recommendation-card__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-2);
+}
+
+.recommendation-card__icon {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.recommendation-card__icon .material-symbols-outlined {
+    font-size: 18px;
+    color: white;
+}
+
+/* Icon colors by type */
+.recommendation-card__icon.expand {
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+}
+
+.recommendation-card__icon.livestock {
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+}
+
+.recommendation-card__icon.finance {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+}
+
+.recommendation-card__icon.buy {
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+}
+
+.recommendation-card__icon.warning {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.recommendation-card__content {
+    flex: 1;
+    min-width: 0;
+}
+
+.recommendation-card__type {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.recommendation-card__title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.recommendation-card__desc {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+    margin-bottom: var(--spacing-2);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Compact Details */
+.recommendation-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-1);
+    margin-bottom: var(--spacing-2);
+}
+
+.rec-detail {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-light);
+    color: var(--color-text-secondary);
+}
+
+.rec-detail.positive {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.rec-detail.negative {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.rec-detail.roi {
+    background: #dbeafe;
+    color: #1e40af;
+    font-weight: 600;
+}
+
+/* Actions */
+.recommendation-actions {
+    display: flex;
+    gap: var(--spacing-2);
+    align-items: center;
+}
+
+.recommendation-btn {
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    transition: all var(--transition-fast);
+}
+
+.recommendation-btn--primary {
+    flex: 1;
+    padding: 6px 12px;
+    background: var(--color-primary);
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.recommendation-btn--primary:hover {
+    background: var(--color-primary-dark);
+}
+
+.recommendation-btn--secondary {
+    width: 28px;
+    height: 28px;
+    background: var(--color-bg-light);
+    color: var(--color-text-muted);
+    justify-content: center;
+}
+
+.recommendation-btn--secondary:hover {
+    background: #fee2e2;
+    color: #ef4444;
+}
+
+.recommendation-btn .icon-sm {
+    font-size: 14px;
+}
+
+/* Panel Footer */
+.advisor-footer {
+    padding: var(--spacing-3) var(--spacing-4);
+    border-top: 1px solid var(--color-border-light);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--color-bg-light);
+}
+
+.advisor-ai-status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.advisor-ai-status__dot {
+    width: 8px;
+    height: 8px;
+    background: var(--color-success);
+    border-radius: 50%;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Primary AI (Gemini) */
+.advisor-ai-status__dot.primary {
+    background: #3b82f6; /* Blue */
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Backup AI (OpenRouter Gemma) */
+.advisor-ai-status__dot.backup {
+    background: #22c55e; /* Green */
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Rule-based fallback */
+.advisor-ai-status__dot.fallback {
+    background: #f59e0b; /* Yellow/Warning */
+    animation: none;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.advisor-refresh {
+    padding: var(--spacing-2) var(--spacing-3);
+    background: transparent;
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    transition: all var(--transition-fast);
+}
+
+.advisor-refresh:hover {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+.advisor-refresh.loading .material-symbols-outlined {
+    animation: spin 1s linear infinite;
+}
+
+/* Error State */
+.advisor-error {
+    text-align: center;
+    padding: var(--spacing-6);
+    color: var(--color-error);
+}
+
+.advisor-error .material-symbols-outlined {
+    font-size: 36px;
+    margin-bottom: var(--spacing-2);
+}
+
+/* Empty State */
+.advisor-empty {
+    text-align: center;
+    padding: var(--spacing-8);
+    color: var(--color-text-muted);
+}
+
+.advisor-empty .material-symbols-outlined {
+    font-size: 48px;
+    margin-bottom: var(--spacing-3);
+    opacity: 0.5;
+}
+
+.advisor-empty__title {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-2);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .smart-advisor-container {
+        bottom: calc(var(--spacing-4) + 60px);
+        right: var(--spacing-4);
+    }
+
+    body[data-page="cultivation"] .smart-advisor-container {
+        bottom: calc(var(--spacing-4) + 130px);
+    }
+
+    .smart-advisor-toggle {
+        width: 50px;
+        height: 50px;
+    }
+
+    .smart-advisor-panel {
+        width: calc(100vw - 32px);
+        max-height: 70vh;
+        right: -8px;
+    }
+
+    .advisor-stats {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}

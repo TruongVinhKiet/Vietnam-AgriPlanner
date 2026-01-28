@@ -1,0 +1,12 @@
+# Ignore backend uploads directory to prevent auto-reload when uploading files
+backend/uploads/
+backend/target/
+**/*.jpg
+**/*.jpeg
+**/*.png
+**/*.gif
+**/*.mp4
+**/*.mov
+**/*.avi
+**/*.webm
+

@@ -1,0 +1,18 @@
+/* =====================================================
+   AgriPlanner - Main CSS Import File
+   ===================================================== */
+
+/* Import all CSS files in order */
+@import url('./variables.css');
+@import url('./base.css');
+@import url('./layout.css');
+@import url('./components.css');
+
+/* Page-specific styles - import as needed */
+/* @import url('./pages/dashboard.css'); */
+/* @import url('./pages/auth.css'); */
+/* @import url('./pages/cultivation.css'); */
+/* @import url('./pages/livestock.css'); */
+/* @import url('./pages/analytics.css'); */
+/* @import url('./pages/settings.css'); */
+/* @import url('./pages/help.css'); */

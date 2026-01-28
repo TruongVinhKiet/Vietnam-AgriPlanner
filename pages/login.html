@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriPlanner - Đăng nhập</title>
+    <meta name="description" content="Đăng nhập vào hệ thống quản lý nông trại AgriPlanner">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../css/variables.css">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/pages/auth.css">
+    <link rel="stylesheet" href="../css/chatbot.css">
+
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+</head>
+
+<body data-page="login">
+    <div class="auth-container">
+        <!-- Left Panel - Hero -->
+        <div class="auth-hero">
+            <div class="auth-hero__bg">
+                <img src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1600" alt="Nông trại"
+                    class="auth-hero__bg-image">
+                <div class="auth-hero__overlay"></div>
+            </div>
+
+            <div class="auth-hero__logo">
+                <div class="auth-hero__logo-icon">
+                    <span class="material-symbols-outlined">eco</span>
+                </div>
+                <span class="auth-hero__logo-text">AgriPlanner</span>
+            </div>
+
+            <div class="auth-hero__content">
+                <div class="auth-hero__stars">
+                    <span class="material-symbols-outlined auth-hero__star">star</span>
+                    <span class="material-symbols-outlined auth-hero__star">star</span>
+                    <span class="material-symbols-outlined auth-hero__star">star</span>
+                    <span class="material-symbols-outlined auth-hero__star">star</span>
+                    <span class="material-symbols-outlined auth-hero__star">star</span>
+                </div>
+                <blockquote class="auth-hero__quote">
+                    "AgriPlanner đã giúp tôi tăng năng suất 40% trong năm đầu tiên. Giao diện trực quan và dữ liệu phân
+                    tích đáng kinh ngạc."
+                </blockquote>
+                <p class="auth-hero__author">Nguyễn Văn Minh</p>
+                <p class="auth-hero__author-role">Chủ trang trại, Đồng bằng sông Cửu Long</p>
+
+                <div class="auth-hero__stats">
+                    <div class="auth-stat">
+                        <p class="auth-stat__value">10K+</p>
+                        <p class="auth-stat__label">Nông trại tin dùng</p>
+                    </div>
+                    <div class="auth-stat">
+                        <p class="auth-stat__value">99%</p>
+                        <p class="auth-stat__label">Đánh giá tích cực</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Login Form -->
+        <div class="auth-form-panel">
+            <!-- Mobile Logo -->
+            <div class="auth-mobile-logo">
+                <div class="auth-mobile-logo__icon">
+                    <span class="material-symbols-outlined">eco</span>
+                </div>
+                <span class="auth-mobile-logo__text">AgriPlanner</span>
+            </div>
+
+            <form class="auth-form" id="login-form">
+                <div class="auth-form__header">
+                    <h1 class="auth-form__title">Chào mừng trở lại</h1>
+                    <p class="auth-form__subtitle">
+                        Chưa có tài khoản? <a href="register.html">Đăng ký miễn phí</a>
+                    </p>
+                </div>
+
+                <div class="auth-form__fields">
+                    <div class="auth-form__field">
+                        <label class="auth-form__label" for="email">Email</label>
+                        <div class="auth-form__input-wrapper">
+                            <input type="email" id="email" class="auth-form__input" placeholder="Nhập email" required>
+                            <span class="material-symbols-outlined auth-form__input-icon">mail</span>
+                        </div>
+                    </div>
+
+                    <div class="auth-form__field">
+                        <label class="auth-form__label" for="password">Mật khẩu</label>
+                        <div class="auth-form__input-wrapper">
+                            <input type="password" id="password" class="auth-form__input" placeholder="Nhập mật khẩu"
+                                required>
+                            <span class="material-symbols-outlined auth-form__input-icon" id="toggle-password"
+                                style="cursor: pointer;">visibility_off</span>
+                        </div>
+                    </div>
+
+                    <div class="auth-form__options">
+                        <label class="auth-form__remember">
+                            <input type="checkbox" class="auth-form__remember-checkbox">
+                            <span class="auth-form__remember-label">Ghi nhớ đăng nhập</span>
+                        </label>
+                        <a href="#" class="auth-form__forgot">Quên mật khẩu?</a>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn--primary auth-form__submit">
+                    Đăng nhập
+                </button>
+
+                <div class="auth-form__divider">
+                    <div class="auth-form__divider-line"></div>
+                    <span class="auth-form__divider-text">hoặc</span>
+                </div>
+
+                <button type="button" class="auth-form__social">
+                    <svg class="auth-form__social-icon" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                            fill="#4285F4" />
+                        <path fill="currentColor"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                            fill="#34A853" />
+                        <path fill="currentColor"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                            fill="#FBBC05" />
+                        <path fill="currentColor"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                            fill="#EA4335" />
+                    </svg>
+                    <span class="auth-form__social-text">Đăng nhập với Google</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/auth.js"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/animations.js"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+        // ... (existing toggle password code) ...
+        document.getElementById('toggle-password').addEventListener('click', function () {
+            const passwordInput = document.getElementById('password');
+            const icon = this;
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.textContent = 'visibility';
+            } else {
+                passwordInput.type = 'password';
+                icon.textContent = 'visibility_off';
+            }
+        });
+
+        // Initialize Google Login
+        window.onload = function () {
+            google.accounts.id.initialize({
+                client_id: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com", // Replace with valid ID
+                callback: handleGoogleCredentialResponse
+            });
+            // We can render a button or just use our custom button to trigger logic if we use the implicit flow or just token logic
+            // But for custom button, we might need 'google.accounts.id.prompt()' or similar.
+            // Simplified: Bind click to the existing custom button? 
+            // Actually, best practice is to render the Google button into a container, but for this custom UI, 
+            // we can try to use the JS API to request token or just standard button.
+            // Let's us bind the click:
+            const googleBtn = document.querySelector('.auth-form__social');
+            if (googleBtn) {
+                googleBtn.onclick = () => {
+                    // Trigger Google Sign In Prompt
+                    google.accounts.id.prompt();
+                };
+            }
+        }
+
+        function handleGoogleCredentialResponse(response) {
+            // Decode the JWT or send it to backend
+            const responsePayload = parseJwt(response.credential);
+
+            // Send to backend
+            loginWithGoogle(responsePayload.sub, responsePayload.email, responsePayload.name, responsePayload.picture);
+        }
+
+        function parseJwt(token) {
+            var base64Url = token.split('.')[1];
+            var base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            var jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function (c) {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            }).join(''));
+
+            return JSON.parse(jsonPayload);
+        }
+
+        async function loginWithGoogle(googleId, email, fullName, avatarUrl) {
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/google', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ googleId, email, fullName, avatarUrl })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    storeAuthAndRedirect(data);
+                } else {
+                    if (data.accountLocked) {
+                        showErrorModal('Tài khoản đã bị khóa!', data.message, true, email);
+                    } else {
+                        showErrorModal('Đăng nhập Google thất bại', data.message);
+                    }
+                }
+            } catch (error) {
+                console.error(error);
+                showErrorModal('Lỗi kết nối', 'Không thể kết nối đến máy chủ.');
+            }
+        }
+
+        // Forgot Password Logic
+        document.querySelector('.auth-form__forgot').addEventListener('click', function (e) {
+            e.preventDefault();
+            showForgotPasswordModal();
+        });
+
+        function showForgotPasswordModal() {
+            const html = `
+                <div id="forgot-modal" class="modal-overlay">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Quên mật khẩu?</h3>
+                            <p>Nhập email để nhận mã xác thực đặt lại mật khẩu</p>
+                        </div>
+                        <div class="modal-body">
+                            <input type="email" id="forgot-email" class="modal-input" placeholder="Nhập email của bạn">
+                        </div>
+                        <div class="modal-footer">
+                            <button onclick="document.getElementById('forgot-modal').remove()" class="btn btn--secondary">Hủy</button>
+                            <button onclick="requestForgotOtp()" class="btn btn--primary">Gửi mã</button>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.insertAdjacentHTML('beforeend', html);
+        }
+
+        async function requestForgotOtp() {
+            const email = document.getElementById('forgot-email').value;
+            if (!email) return alert("Vui lòng nhập email");
+
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/forgot-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await response.json();
+
+                document.getElementById('forgot-modal').remove();
+                if (response.ok) {
+                    showResetPasswordModal(email);
+                } else {
+                    showErrorModal('Lỗi', data.message);
+                }
+            } catch (e) {
+                console.error(e);
+                showErrorModal('Lỗi', 'Không thể gửi yêu cầu');
+            }
+        }
+
+        function showResetPasswordModal(email) {
+            const html = `
+                <div id="reset-modal" class="modal-overlay">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Đặt lại mật khẩu</h3>
+                            <p>Nhập mã OTP và mật khẩu mới cho ${email}</p>
+                        </div>
+                        <div class="modal-body">
+                            <input type="text" id="reset-otp" class="modal-input modal-otp-input" placeholder="OTP" maxlength="6">
+                            <input type="password" id="reset-new-pass" class="modal-input" placeholder="Mật khẩu mới">
+                        </div>
+                        <div class="modal-footer">
+                            <button onclick="document.getElementById('reset-modal').remove()" class="btn btn--secondary">Hủy</button>
+                            <button onclick="submitResetPassword('${email}')" class="btn btn--primary">Đổi mật khẩu</button>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.insertAdjacentHTML('beforeend', html);
+        }
+
+        async function submitResetPassword(email) {
+            const otp = document.getElementById('reset-otp').value;
+            const newPassword = document.getElementById('reset-new-pass').value;
+
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, otp, newPassword })
+                });
+                const data = await response.json();
+
+                document.getElementById('reset-modal').remove();
+                if (response.ok) {
+                    showErrorModal('Thành công', 'Mật khẩu đã được đặt lại. Vui lòng đăng nhập.');
+                } else {
+                    showErrorModal('Thất bại', data.message);
+                }
+            } catch (e) {
+                console.error(e);
+                showErrorModal('Lỗi', 'Không thể đặt lại mật khẩu');
+            }
+        }
+
+        // ... (existing socket/animation code can stay, ensuring no duplicate listeners) ...
+
+        // Form animation on load
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof gsap !== 'undefined') {
+                gsap.fromTo('.auth-form',
+                    { opacity: 0, y: 30 },
+                    { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }
+                );
+
+                gsap.fromTo('.auth-hero__content',
+                    { opacity: 0, x: -30 },
+                    { opacity: 1, x: 0, duration: 0.6, delay: 0.2, ease: 'power2.out' }
+                );
+            }
+        });
+
+        // ... (login form submit handler) ...
+        document.getElementById('login-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const submitBtn = document.querySelector('.auth-form__submit');
+
+            // Loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="material-symbols-outlined spinning">sync</span> Đang xử lý...';
+
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    storeAuthAndRedirect(data);
+                } else {
+                    if (data.accountLocked) {
+                        showErrorModal('Tài khoản đã bị khóa!', data.message, true, email);
+                    } else if (data.requiresTwoFactor) {
+                        show2faModal(email, password);
+                    } else {
+                        showErrorModal('Đăng nhập thất bại', data.message || 'Email hoặc mật khẩu không chính xác');
+                    }
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showErrorModal('Lỗi kết nối', 'Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Đăng nhập';
+            }
+        });
+
+        // ... (rest of helper functions) ...
+        function storeAuthAndRedirect(data) {
+            localStorage.setItem('authToken', data.token);
+            localStorage.setItem('userEmail', data.email);
+            localStorage.setItem('userName', data.fullName);
+            localStorage.setItem('userRole', data.role);
+            localStorage.setItem('userAvatar', data.avatarUrl || ''); // Store avatar
+            redirectUser(data.role);
+        }
+
+        function redirectUser(role) {
+            if (role === 'SYSTEM_ADMIN') {
+                window.location.href = 'admin.html';
+            } else if (role === 'WORKER') {
+                window.location.href = 'worker_dashboard.html';
+            } else {
+                window.location.href = '../index.html';
+            }
+        }
+
+        // ... (rest of existing functions: show2faModal, verify2faLogin, showErrorModal, requestUnlock, etc) ...
+
+        function show2faModal(email, password) {
+            const html = `
+                <div id="2fa-modal" class="modal-overlay">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Xác thực 2 bước</h3>
+                            <p>Nhập mã xác thực từ ứng dụng Google Authenticator</p>
+                        </div>
+                        <div class="modal-body">
+                            <input type="text" id="2fa-code-input" class="modal-input modal-otp-input" placeholder="------" maxlength="6">
+                        </div>
+                        <div class="modal-footer">
+                            <button onclick="document.getElementById('2fa-modal').remove()" class="btn btn--secondary">Hủy</button>
+                            <button onclick="verify2faLogin('${email}', '${password}')" class="btn btn--primary">Xác nhận</button>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.insertAdjacentHTML('beforeend', html);
+            document.getElementById('2fa-code-input').focus();
+        }
+
+        async function verify2faLogin(email, password) {
+            const code = document.getElementById('2fa-code-input').value;
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, twoFactorCode: code })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    storeAuthAndRedirect(data);
+                } else {
+                    showErrorModal('Lỗi xác thực', data.message || 'Mã xác thực không đúng');
+                }
+            } catch (error) {
+                console.error(error);
+                showErrorModal('Lỗi kết nối', 'Không thể kết nối đến máy chủ.');
+            }
+        }
+
+        function showErrorModal(title, message, isLockout = false, email = null) {
+            // Remove existing modals if any
+            document.querySelectorAll('.modal-overlay').forEach(el => el.remove());
+
+            const unlockButton = isLockout ?
+                `<button onclick="requestUnlock('${email}')" class="btn btn--primary">Gửi mail mở khóa</button>` : '';
+
+            const html = `
+                <div id="error-modal" class="modal-overlay">
+                    <div class="modal-content" style="border-top: 4px solid #ef4444;">
+                        <div class="modal-header">
+                            <h3 style="color: #ef4444; display: flex; align-items: center; gap: 8px;">
+                                <span class="material-symbols-outlined">error</span> ${title}
+                            </h3>
+                            <p style="margin-top: 8px; line-height: 1.5;">${message}</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button onclick="document.getElementById('error-modal').remove()" class="btn btn--secondary">Đóng</button>
+                            ${unlockButton}
+                        </div>
+                    </div>
+                </div>`;
+            document.body.insertAdjacentHTML('beforeend', html);
+        }
+
+        async function requestUnlock(email) {
+            if (!email) return;
+            document.getElementById('error-modal').remove();
+
+            try {
+                const response = await fetch('http://localhost:8080/api/security/unlock/request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await response.json();
+
+                if (response.ok) {
+                    showUnlockOtpModal(email);
+                    // Optional: show success toast "Email sent"
+                } else {
+                    showErrorModal('Lỗi', data.message || 'Không thể gửi yêu cầu mở khóa');
+                }
+            } catch (error) {
+                console.error(error);
+                showErrorModal('Lỗi kết nối', 'Không thể gửi yêu cầu.');
+            }
+        }
+
+        function showUnlockOtpModal(email) {
+            const html = `
+                <div id="unlock-modal" class="modal-overlay">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3>Mở khóa tài khoản</h3>
+                            <p>Nhập mã OTP đã được gửi đến email ${email}</p>
+                        </div>
+                        <div class="modal-body">
+                            <input type="text" id="unlock-otp-input" class="modal-input modal-otp-input" placeholder="------" maxlength="6">
+                        </div>
+                        <div class="modal-footer">
+                            <button onclick="document.getElementById('unlock-modal').remove()" class="btn btn--secondary">Hủy</button>
+                            <button onclick="submitUnlockOtp('${email}')" class="btn btn--primary">Mở khóa</button>
+                        </div>
+                    </div>
+                </div>`;
+            document.body.insertAdjacentHTML('beforeend', html);
+            document.getElementById('unlock-otp-input').focus();
+        }
+
+        async function submitUnlockOtp(email) {
+            const otp = document.getElementById('unlock-otp-input').value;
+            try {
+                const response = await fetch('http://localhost:8080/api/security/unlock/confirm', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, otp })
+                });
+                const data = await response.json();
+
+                document.getElementById('unlock-modal').remove();
+
+                if (response.ok) {
+                    showErrorModal('Thành công', data.message, false); // Re-use modal for success message or define showSuccessModal
+                    // Or simple alert for success is acceptable, but let's stick to modal styling
+                    // Actually let's just use the error modal style but with green header if we wanted, 
+                    // but "Thành công" title is enough for now. 
+                    // To make it look nice, let's just make a generic showMessageModal later or just use this one.
+                } else {
+                    showErrorModal('Mở khóa thất bại', data.message);
+                }
+            } catch (error) {
+                console.error(error);
+                showErrorModal('Lỗi kết nối', 'Không thể mở khóa tài khoản.');
+            }
+        }
+
+        // Add Shared Modal Styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .modal-overlay {
+                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;
+                animation: fadeIn 0.2s;
+            }
+            .modal-content {
+                background: white; padding: 32px; border-radius: 16px; width: 400px; max-width: 90%;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.1); animation: slideUp 0.3s;
+                display: flex; flex-direction: column; gap: 16px;
+            }
+            .modal-header h3 { font-size: 20px; font-weight: 600; color: #111827; margin: 0; }
+            .modal-header p { font-size: 14px; color: #6b7280; margin: 4px 0 0 0; }
+            .modal-body { display: flex; flex-direction: column; gap: 12px; }
+            .modal-input {
+                width: 100%; padding: 12px 16px; border: 1px solid #e5e7eb; border-radius: 8px;
+                font-size: 14px; outline: none; transition: border-color 0.2s;
+            }
+            .modal-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1); }
+            .modal-otp-input {
+                text-align: center; letter-spacing: 8px; font-size: 24px; font-weight: 600; color: var(--color-primary);
+            }
+            .modal-footer { display: flex; gap: 12px; justify-content: flex-end; margin-top: 8px; }
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+
+</html>

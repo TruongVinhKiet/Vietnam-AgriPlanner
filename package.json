@@ -1,0 +1,26 @@
+{
+    "name": "agriplanner-frontend",
+    "version": "1.0.0",
+    "description": "AgriPlanner - Smart Agricultural Management System",
+    "main": "index.html",
+    "scripts": {
+        "start": "python -m http.server 8000 & start chrome http://localhost:8000",
+        "dev": "browser-sync start --config bs-config.js",
+        "test": "echo \"No tests configured yet\""
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/your-username/agriplanner.git"
+    },
+    "keywords": [
+        "agriculture",
+        "farm-management",
+        "smart-farming",
+        "iot"
+    ],
+    "author": "AgriPlanner Team",
+    "license": "MIT",
+    "devDependencies": {
+        "browser-sync": "^2.29.3"
+    }
+}

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Hành trình Nông sản - AgriPlanner</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../css/pages/traceability-view.css">
+</head>
+
+<body>
+    <div class="story-container">
+        <!-- Header Section -->
+        <header class="story-header" id="header-section">
+            <div class="product-image-container">
+                <img src="../assets/images/placeholder_crop.png" alt="Product Image" id="product-image"
+                    class="product-image">
+                <div class="verified-badge">
+                    <span class="material-symbols-outlined">verified</span>
+                    <span>Đã xác thực</span>
+                </div>
+                <button class="back-button" onclick="window.close()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="product-info">
+                <h1 id="product-name">Đang tải...</h1>
+                <p class="farm-name">
+                    <span class="material-symbols-outlined">agriculture</span>
+                    <span id="farm-name">AgriPlanner Farm</span>
+                </p>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <span class="material-symbols-outlined icon green">straighten</span>
+                        <div class="value" id="field-area">-- m²</div>
+                        <div class="label">Diện tích</div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="material-symbols-outlined icon blue">location_on</span>
+                        <div class="value" id="field-location">Cần Thơ</div>
+                        <div class="label">Địa điểm</div>
+                    </div>
+                    <div class="stat-card">
+                        <span class="material-symbols-outlined icon amber">calendar_month</span>
+                        <div class="value" id="planting-date">--/--</div>
+                        <div class="label">Ngày trồng</div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Timeline Section -->
+        <main class="timeline-section">
+            <div class="section-header">
+                <h3 class="section-title">
+                    <span class="material-symbols-outlined">history</span>
+                    Nhật ký Canh tác
+                </h3>
+                <span class="activity-count" id="activity-count">0 hoạt động</span>
+            </div>
+
+            <div class="timeline" id="timeline-container">
+                <!-- Timeline items injected by JS -->
+                <div class="timeline-loader">
+                    <div class="loader-spinner"></div>
+                    <span>Đang tải dữ liệu chuỗi khối...</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="story-footer">
+            <div class="blockchain-badge">
+                <span class="material-symbols-outlined">link</span>
+                <span>Minh bạch bởi AgriPlanner Blockchain</span>
+            </div>
+            <p class="scan-time">Scanned at: <span id="scan-time"></span></p>
+        </footer>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script>
+        const API_BASE = CONFIG.API_BASE_URL;
+
+        // Activity type mapping
+        const activityIcons = {
+            'PLANTING': { icon: 'eco', class: 'planting', label: 'Trồng cây' },
+            'CROP_SELECTED': { icon: 'eco', class: 'planting', label: 'Chọn cây trồng' },
+            'FERTILIZE': { icon: 'compost', class: 'fertilize', label: 'Bón phân' },
+            'FERTILIZING': { icon: 'compost', class: 'fertilize', label: 'Bón phân' },
+            'WATERING': { icon: 'water_drop', class: 'watering', label: 'Tưới nước' },
+            'PESTICIDE': { icon: 'bug_report', class: 'pesticide', label: 'Phun thuốc' },
+            'SEEDING': { icon: 'grass', class: 'seeding', label: 'Gieo hạt' },
+            'HARVEST': { icon: 'agriculture', class: 'harvest', label: 'Thu hoạch' }
+        };
+
+        async function loadTraceability() {
+            const params = new URLSearchParams(window.location.search);
+            const fieldId = params.get('fieldId');
+
+            if (!fieldId) {
+                showError('Không tìm thấy mã ruộng');
+                return;
+            }
+
+            // Set scan time
+            document.getElementById('scan-time').textContent = new Date().toLocaleString('vi-VN');
+
+            try {
+                const response = await fetch(`${API_BASE}/traceability/${fieldId}`);
+                if (!response.ok) throw new Error('Failed to load');
+
+                const data = await response.json();
+                renderData(data);
+            } catch (error) {
+                console.error('Error loading traceability:', error);
+                showError('Không thể tải dữ liệu truy xuất nguồn gốc');
+            }
+        }
+
+        function renderData(data) {
+            // Update product info
+            document.getElementById('product-name').textContent = data.cropName || 'Nông sản';
+            document.getElementById('farm-name').textContent = data.fieldName || 'AgriPlanner Farm';
+
+            // Update stats
+            if (data.areaSqm) {
+                const areaDisplay = data.areaSqm > 10000
+                    ? (data.areaSqm / 10000).toFixed(2) + ' ha'
+                    : data.areaSqm.toFixed(0) + ' m²';
+                document.getElementById('field-area').textContent = areaDisplay;
+            }
+
+            if (data.plantingDate) {
+                const date = new Date(data.plantingDate);
+                document.getElementById('planting-date').textContent =
+                    date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+            }
+
+            // Update crop image based on data
+            setCropImage(data);
+
+            // Render timeline
+            renderTimeline(data.activities || []);
+        }
+
+        function setCropImage(data) {
+            // Set crop image
+            const img = document.getElementById('product-image');
+            // Try specific crop image from map, or Unsplash search, or fallback
+            const cropImages = {
+                'Lúa': 'https://images.unsplash.com/photo-1536617621258-3011c7501a35?w=600',
+                'Ngô': 'https://images.unsplash.com/photo-1551754655-244346eb4523?w=600',
+                'Khoai lang': 'https://images.unsplash.com/photo-1596547610056-9a27b876fc15?w=600'
+            };
+
+            // Use provided image, or mapped image, or generic search
+            const cropName = data.cropName || 'Nông sản';
+            // Use a reliable placeholder if everything else fails
+            const placeholderUrl = "https://placehold.co/600x400/1e293b/FFF?text=AgriPlanner+Product";
+
+            img.src = data.cropImage || cropImages[cropName] || placeholderUrl;
+
+            img.onerror = () => {
+                if (img.src !== placeholderUrl) {
+                    img.src = placeholderUrl;
+                }
+            };
+        }
+
+        function renderTimeline(activities) {
+            const container = document.getElementById('timeline-container');
+            const activityCount = document.getElementById('activity-count');
+
+            activityCount.textContent = `${activities.length} hoạt động`;
+
+            if (!activities || activities.length === 0) {
+                container.innerHTML = `
+                    <div class="timeline-empty">
+                        <span class="material-symbols-outlined">schedule</span>
+                        <p>Chưa có hoạt động nào được ghi nhận</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = activities.map((activity, index) => {
+                const config = activityIcons[activity.activityType] || { icon: 'agriculture', class: 'default', label: activity.activityType };
+                const date = new Date(activity.performedAt);
+
+                return `
+                    <div class="timeline-item" style="animation-delay: ${index * 0.1}s">
+                        <div class="timeline-dot ${config.class}">
+                            <span class="material-symbols-outlined">${config.icon}</span>
+                        </div>
+                        <div class="timeline-card">
+                            <div class="timeline-date">
+                                <span class="material-symbols-outlined">schedule</span>
+                                ${date.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </div>
+                            <div class="timeline-title">${config.label}</div>
+                            <div class="timeline-subtitle" style="font-size: 0.85em; color: #94a3b8; margin-bottom: 4px;">
+                                <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">grid_view</span>
+                                ${activity.fieldName || 'Ruộng'}
+                            </div>
+                            <div class="timeline-description">${activity.description || ''}</div>
+                            ${(activity.cost || activity.quantity) ? `
+                                <div class="timeline-meta">
+                                    ${activity.quantity ? `
+                                        <div class="meta-chip quantity">
+                                            <span class="material-symbols-outlined">inventory_2</span>
+                                            ${activity.quantity} ${activity.unit || ''}
+                                        </div>
+                                    ` : ''}
+                                    ${activity.cost > 0 ? `
+                                        <div class="meta-chip cost">
+                                            <span class="material-symbols-outlined">payments</span>
+                                            ${new Intl.NumberFormat('vi-VN').format(activity.cost)}đ
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showError(message) {
+            document.getElementById('product-name').textContent = 'Lỗi';
+            document.getElementById('timeline-container').innerHTML = `
+                <div class="timeline-empty">
+                    <span class="material-symbols-outlined">error</span>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+
+        // Load on page ready
+        document.addEventListener('DOMContentLoaded', loadTraceability);
+    </script>
+</body>
+
+</html>

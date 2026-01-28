@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Unified Admin Dashboard Overview - AgriPlanner</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#10b77f",
+                        "background-light": "#f6f8f7",
+                        "background-dark": "#10221c",
+                        "emerald-custom": "#10b981",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<div class="flex h-screen overflow-hidden">
+<!-- 280px Left Sidebar -->
+<aside class="w-[280px] bg-emerald-custom flex flex-col h-full shadow-xl z-20 transition-all duration-300">
+<div class="p-6 flex flex-col h-full justify-between">
+<div>
+<!-- Brand Header -->
+<div class="flex items-center gap-3 mb-10 px-2">
+<div class="bg-white/20 p-2 rounded-lg">
+<span class="material-symbols-outlined text-white text-3xl">potted_plant</span>
+</div>
+<div class="flex flex-col">
+<h1 class="text-white text-xl font-bold leading-tight">AgriPlanner</h1>
+<p class="text-white/70 text-xs font-medium uppercase tracking-wider">System Admin</p>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="flex flex-col gap-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/20 text-white font-semibold transition-all" href="#">
+<span class="material-symbols-outlined text-[24px]">dashboard</span>
+<span class="text-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined text-[24px]">group</span>
+<span class="text-sm">Users</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined text-[24px]">eco</span>
+<span class="text-sm">Crops</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined text-[24px]">shopping_basket</span>
+<span class="text-sm">Shop Items</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined text-[24px]">pets</span>
+<span class="text-sm">Animals</span>
+</a>
+</nav>
+</div>
+<!-- Bottom Actions -->
+<div class="pt-6 border-t border-white/10">
+<a class="flex items-center gap-3 px-4 py-3 rounded-xl text-white/80 hover:bg-white/10 hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined text-[24px]">logout</span>
+<span class="text-sm">Logout</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 bg-[#f9fafb] dark:bg-background-dark overflow-y-auto">
+<!-- Top Navigation Bar -->
+<header class="sticky top-0 z-10 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-8 py-4 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<h2 class="text-slate-900 dark:text-white text-2xl font-bold tracking-tight">System Overview</h2>
+</div>
+<div class="flex items-center gap-4">
+<button class="relative p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-all">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+</button>
+<div class="h-8 w-px bg-slate-200 dark:bg-slate-700 mx-1"></div>
+<div class="flex items-center gap-3 cursor-pointer group">
+<div class="w-10 h-10 rounded-full bg-slate-200 bg-cover bg-center border-2 border-transparent group-hover:border-primary transition-all" data-alt="Professional female admin profile portrait" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDB5vP7RWIisXN74ld58ZFLXCdgIvJjUVfXSubwQSD8mfs8EeFQ4HL4zKyz1wTWt5rQUGhvw2BQ3X9DY7ue1B-tqAFwmf1FRvOIRZGRKhwbCYVdGTl-dRY38ETKcQ0Uo7qm51qsXEIo4qB6GHg3JKKFOy7b3QdQqlrfdyZCYJQr5ACmRwMpC1Q3clkSvk01QDix-fb8sfc-ZAL8k8_ktiuhJ37anYNSiMljh07BRfELIuINs6nkvRoJos7ReQH-lcLMFVG3DvAI6w_G')"></div>
+<div class="hidden md:block">
+<p class="text-sm font-bold text-slate-900 dark:text-white leading-none">Sarah Jenkins</p>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Global Administrator</p>
+</div>
+</div>
+</div>
+</header>
+<!-- Dashboard Content -->
+<div class="p-8 max-w-[1400px]">
+<!-- KPI Stats Row -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+<!-- Stat Card 1 -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Total Users</p>
+<h3 class="text-slate-900 dark:text-white text-3xl font-extrabold tracking-tight">1,240</h3>
+<div class="flex items-center mt-2 text-primary text-xs font-bold">
+<span class="material-symbols-outlined text-sm mr-1">trending_up</span>
+                                +12% this month
+                            </div>
+</div>
+<div class="bg-primary/10 p-4 rounded-xl">
+<span class="material-symbols-outlined text-primary text-3xl">group</span>
+</div>
+</div>
+<!-- Stat Card 2 -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Crop Types</p>
+<h3 class="text-slate-900 dark:text-white text-3xl font-extrabold tracking-tight">45</h3>
+<div class="flex items-center mt-2 text-primary text-xs font-bold">
+<span class="material-symbols-outlined text-sm mr-1">add_circle</span>
+                                3 new additions
+                            </div>
+</div>
+<div class="bg-primary/10 p-4 rounded-xl">
+<span class="material-symbols-outlined text-primary text-3xl">potted_plant</span>
+</div>
+</div>
+<!-- Stat Card 3 -->
+<div class="bg-white dark:bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<div>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-medium mb-1">Shop Products</p>
+<h3 class="text-slate-900 dark:text-white text-3xl font-extrabold tracking-tight">128</h3>
+<div class="flex items-center mt-2 text-orange-500 text-xs font-bold">
+<span class="material-symbols-outlined text-sm mr-1">warning</span>
+                                8 items low stock
+                            </div>
+</div>
+<div class="bg-primary/10 p-4 rounded-xl">
+<span class="material-symbols-outlined text-primary text-3xl">shopping_bag</span>
+</div>
+</div>
+</div>
+<!-- Recent Activity Section -->
+<div class="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden">
+<div class="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<h4 class="text-lg font-bold text-slate-900 dark:text-white">Recent Activity</h4>
+<button class="text-primary text-sm font-bold hover:underline">View All</button>
+</div>
+<div class="@container">
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead>
+<tr class="bg-slate-50/50 dark:bg-slate-800/50">
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider w-1/2">Activity</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">User</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Timestamp</th>
+<th class="px-6 py-4 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-right">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-xl">person_add</span>
+</div>
+<p class="text-sm font-semibold text-slate-900 dark:text-white">New user registered: David Chen</p>
+</div>
+</td>
+<td class="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">Admin</td>
+<td class="px-6 py-5 text-sm text-slate-500 dark:text-slate-400 italic">2 mins ago</td>
+<td class="px-6 py-5 text-right">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                                Success
+                                            </span>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-xl">edit</span>
+</div>
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Crop data updated: Organic Corn</p>
+</div>
+</td>
+<td class="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">System</td>
+<td class="px-6 py-5 text-sm text-slate-500 dark:text-slate-400 italic">1 hour ago</td>
+<td class="px-6 py-5 text-right">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                                Success
+                                            </span>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-xl">add_shopping_cart</span>
+</div>
+<p class="text-sm font-semibold text-slate-900 dark:text-white">New shop item added: High-Yield Seeds</p>
+</div>
+</td>
+<td class="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">Vendor</td>
+<td class="px-6 py-5 text-sm text-slate-500 dark:text-slate-400 italic">3 hours ago</td>
+<td class="px-6 py-5 text-right">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                                                Pending
+                                            </span>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-xl">settings</span>
+</div>
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Server maintenance schedule initiated</p>
+</div>
+</td>
+<td class="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">System</td>
+<td class="px-6 py-5 text-sm text-slate-500 dark:text-slate-400 italic">5 hours ago</td>
+<td class="px-6 py-5 text-right">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                                Success
+                                            </span>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+<span class="material-symbols-outlined text-xl">inventory_2</span>
+</div>
+<p class="text-sm font-semibold text-slate-900 dark:text-white">Inventory Restock: Fertilizers</p>
+</div>
+</td>
+<td class="px-6 py-5 text-sm text-slate-600 dark:text-slate-400">Logistics</td>
+<td class="px-6 py-5 text-sm text-slate-500 dark:text-slate-400 italic">Yesterday</td>
+<td class="px-6 py-5 text-right">
+<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                                Success
+                                            </span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

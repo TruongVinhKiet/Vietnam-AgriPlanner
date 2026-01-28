@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AgriPlanner - Users Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10B981", // Emerald 500
+                        primaryDark: "#059669", // Emerald 600
+                        "background-light": "#F3F4F6", // Gray 100
+                        "background-dark": "#111827", // Gray 900
+                        "surface-light": "#FFFFFF",
+                        "surface-dark": "#1F2937", // Gray 800
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                    },
+                },
+            },
+        };
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-body antialiased transition-colors duration-200">
+<div class="flex h-screen overflow-hidden">
+<aside class="w-64 bg-primary text-white flex flex-col fixed h-full z-30 transition-all duration-300">
+<div class="flex items-center px-6 py-8">
+<div class="bg-white/20 p-2 rounded-lg mr-3">
+<span class="material-icons-round text-white text-2xl">spa</span>
+</div>
+<div>
+<h1 class="text-xl font-bold tracking-wide">AgriPlanner</h1>
+<p class="text-xs text-green-100 uppercase tracking-wider font-medium">System Admin</p>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-2 mt-4">
+<a class="flex items-center px-4 py-3 text-white/80 hover:bg-white/10 hover:text-white rounded-lg transition-colors group" href="#">
+<span class="material-icons-round mr-3">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center px-4 py-3 bg-white/20 text-white rounded-lg shadow-sm transition-colors group" href="#">
+<span class="material-icons-round mr-3">group</span>
+<span class="font-medium">Users</span>
+</a>
+<a class="flex items-center px-4 py-3 text-white/80 hover:bg-white/10 hover:text-white rounded-lg transition-colors group" href="#">
+<span class="material-icons-round mr-3">eco</span>
+<span class="font-medium">Crops</span>
+</a>
+<a class="flex items-center px-4 py-3 text-white/80 hover:bg-white/10 hover:text-white rounded-lg transition-colors group" href="#">
+<span class="material-icons-round mr-3">shopping_basket</span>
+<span class="font-medium">Shop Items</span>
+</a>
+<a class="flex items-center px-4 py-3 text-white/80 hover:bg-white/10 hover:text-white rounded-lg transition-colors group" href="#">
+<span class="material-icons-round mr-3">pets</span>
+<span class="font-medium">Animals</span>
+</a>
+</nav>
+<div class="p-4 border-t border-white/10">
+<a class="flex items-center px-4 py-3 text-white/80 hover:text-white transition-colors group" href="#">
+<span class="material-icons-round mr-3 transform rotate-180">logout</span>
+<span class="font-medium">Logout</span>
+</a>
+</div>
+</aside>
+<div class="flex-1 flex flex-col ml-64 min-w-0 overflow-hidden">
+<header class="bg-surface-light dark:bg-surface-dark border-b border-gray-200 dark:border-gray-700 h-20 flex items-center justify-between px-8 sticky top-0 z-20">
+<h2 class="text-2xl font-bold text-gray-800 dark:text-white">Users Management</h2>
+<div class="flex items-center gap-6">
+<button class="relative text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 transition-colors">
+<span class="material-icons-round text-2xl">notifications</span>
+<span class="absolute top-0 right-0 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-800"></span>
+</button>
+<div class="flex items-center gap-3 border-l border-gray-200 dark:border-gray-700 pl-6">
+<img alt="Profile" class="h-10 w-10 rounded-full object-cover ring-2 ring-primary ring-offset-2 dark:ring-offset-gray-800" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAmBzQq0TH37oH6lQvTe5qEOkvAAv1zObAEwo85G2SbQW3W803zL5rwmtClV9Gp6EGLcWGO3hcA9qQPxytdfgJHOvQEXY5Rk7MHqUKufXNeHscEGIxEfymKJtz_J1TV6O9hglhwqkzK7U1PScy2I_QylEYimDaVLCf41yHV8STfcCdtO6lMLLI2Bm0fRD0bD_vXDA5I1qM0YGjC3xl5xRg2QyfWCQ-gvNRcmp5XfCLkwOhSmFMSI6L1HT0rkWIU0i_Nb78wlDJCaDUj"/>
+<div class="hidden md:block">
+<p class="text-sm font-semibold text-gray-700 dark:text-gray-200">Sarah Jenkins</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">Global Administrator</p>
+</div>
+</div>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto p-8">
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+<div class="relative w-full sm:w-72">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-icons-round text-gray-400 text-lg">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg leading-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm transition duration-150 ease-in-out shadow-sm" placeholder="Search users by name or email..." type="text"/>
+</div>
+<button class="flex items-center justify-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-primary hover:bg-primaryDark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200">
+<span class="material-icons-round text-lg mr-2">add</span>
+                        Add New User
+                    </button>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+<div class="overflow-x-auto">
+<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+<thead class="bg-gray-50 dark:bg-gray-800">
+<tr>
+<th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">
+                                        User
+                                    </th>
+<th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">
+                                        Role
+                                    </th>
+<th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">
+                                        Status
+                                    </th>
+<th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">
+                                        Last Active
+                                    </th>
+<th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider" scope="col">
+                                        Actions
+                                    </th>
+</tr>
+</thead>
+<tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="flex-shrink-0 h-10 w-10">
+<img alt="David Chen" class="h-10 w-10 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCdXthnyRTulRjG1dee-oo1vEPsvenwUAn_MpP0COmzKkZEc-i4YNIMLpqWeLcL6AOJkRgwU_5-y8vFEphlZG1D_gyahg7Yo3GMSEPzIBFcg0LCYJKbjF_r1OcyCITFHSupOoyTIKNYBAgC1a77a4dpEuASthSFKxBq3BOn70HqQ0MNmfx9ZEzeVk9ftsDuBsM9iBj0cgl97b23lF_eYVhsy9kJ0fNvmP9AMFd3O34OHE3SfzvtQRDqTJKNZFxdDeeaPIqjoIaE37vH"/>
+</div>
+<div class="ml-4">
+<div class="text-sm font-medium text-gray-900 dark:text-white">David Chen</div>
+<div class="text-sm text-gray-500 dark:text-gray-400">david.chen@agriplanner.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="text-sm text-gray-700 dark:text-gray-300">Regional Manager</div>
+<div class="text-xs text-gray-500 dark:text-gray-500">North District</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        2 mins ago
+                                    </td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<div class="flex items-center justify-end space-x-3">
+<button class="text-gray-400 hover:text-primary dark:text-gray-500 dark:hover:text-primary transition-colors" title="View Details">
+<span class="material-icons-round text-xl">visibility</span>
+</button>
+<button class="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 transition-colors" title="Edit User">
+<span class="material-icons-round text-xl">edit</span>
+</button>
+<button class="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors" title="Delete User">
+<span class="material-icons-round text-xl">delete_outline</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="flex-shrink-0 h-10 w-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold text-sm">
+                                                MK
+                                            </div>
+<div class="ml-4">
+<div class="text-sm font-medium text-gray-900 dark:text-white">Maria Kostas</div>
+<div class="text-sm text-gray-500 dark:text-gray-400">m.kostas@farmtech.io</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="text-sm text-gray-700 dark:text-gray-300">Data Analyst</div>
+<div class="text-xs text-gray-500 dark:text-gray-500">System Wide</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        Yesterday
+                                    </td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<div class="flex items-center justify-end space-x-3">
+<button class="text-gray-400 hover:text-primary dark:text-gray-500 dark:hover:text-primary transition-colors">
+<span class="material-icons-round text-xl">visibility</span>
+</button>
+<button class="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 transition-colors">
+<span class="material-icons-round text-xl">edit</span>
+</button>
+<button class="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors">
+<span class="material-icons-round text-xl">delete_outline</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="flex-shrink-0 h-10 w-10">
+<img alt="Robert Fox" class="h-10 w-10 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBGN7hFKcut6N0vGu0-2S1ronYV2zPvrcslLpicoVXWpyp8Ly4mY1fAMu6sieQ7ma-oGTRzQmdCOKm--JGOHQ0fdGsUVxozYzText2LxjE6OrML-87UICB7pKBce0aOOCUnHIpf0xZmd8TqUWwhYx2skJiGdTVJ_Ul5lu4k66AgtoM_tCkFSUnVqsPs6bByYBx7EkU8Ha5SXi8q5piThxqpvaEJujaWpYC667LTFk5dvdJiIS63U-h8QhnLcUxUZsnRUbXKHk7jc1kd"/>
+</div>
+<div class="ml-4">
+<div class="text-sm font-medium text-gray-900 dark:text-white">Robert Fox</div>
+<div class="text-sm text-gray-500 dark:text-gray-400">rob.fox@logistics.net</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="text-sm text-gray-700 dark:text-gray-300">Field Agent</div>
+<div class="text-xs text-gray-500 dark:text-gray-500">Logistics</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                                            Locked
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        1 week ago
+                                    </td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<div class="flex items-center justify-end space-x-3">
+<button class="text-gray-400 hover:text-primary dark:text-gray-500 dark:hover:text-primary transition-colors">
+<span class="material-icons-round text-xl">visibility</span>
+</button>
+<button class="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 transition-colors">
+<span class="material-icons-round text-xl">edit</span>
+</button>
+<button class="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors">
+<span class="material-icons-round text-xl">delete_outline</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="flex-shrink-0 h-10 w-10 bg-pink-100 rounded-full flex items-center justify-center text-pink-600 font-bold text-sm">
+                                                EL
+                                            </div>
+<div class="ml-4">
+<div class="text-sm font-medium text-gray-900 dark:text-white">Eleanor Lewis</div>
+<div class="text-sm text-gray-500 dark:text-gray-400">eleanor.l@agriplanner.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="text-sm text-gray-700 dark:text-gray-300">Administrator</div>
+<div class="text-xs text-gray-500 dark:text-gray-500">System Admin</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        Just now
+                                    </td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<div class="flex items-center justify-end space-x-3">
+<button class="text-gray-400 hover:text-primary dark:text-gray-500 dark:hover:text-primary transition-colors">
+<span class="material-icons-round text-xl">visibility</span>
+</button>
+<button class="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 transition-colors">
+<span class="material-icons-round text-xl">edit</span>
+</button>
+<button class="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors">
+<span class="material-icons-round text-xl">delete_outline</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center">
+<div class="flex-shrink-0 h-10 w-10">
+<img alt="Jerome Bell" class="h-10 w-10 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBosMDAnJHFU1gbP0ZwU9Y7VEVdeRKX9D7kdM_DSJ0Kph8Ye_cDVpjJR5byUzSB2bVaWApKPTjwXhiw-R9C0sFWlRPhYTcRKgrY0MR0YWyMdzMb0TtVD-50rPl8cRrxf1KFlXecrUq0sOXwjMJGM0JOcvbGt9kmdbHhV9u5YEqec_RR9HH2iMfRApYneLEaBNulSWE1SjMBAAYfaLNBJPE6r_IFLouGjWskfjyPlbP23qiQ4-jCeqskkLiWKBVai6aKJGFWwYmPijLU"/>
+</div>
+<div class="ml-4">
+<div class="text-sm font-medium text-gray-900 dark:text-white">Jerome Bell</div>
+<div class="text-sm text-gray-500 dark:text-gray-400">j.bell@partners.com</div>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="text-sm text-gray-700 dark:text-gray-300">Vendor</div>
+<div class="text-xs text-gray-500 dark:text-gray-500">External Partner</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800">
+                                            Pending
+                                        </span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        2 days ago
+                                    </td>
+<td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+<div class="flex items-center justify-end space-x-3">
+<button class="text-gray-400 hover:text-primary dark:text-gray-500 dark:hover:text-primary transition-colors">
+<span class="material-icons-round text-xl">visibility</span>
+</button>
+<button class="text-gray-400 hover:text-blue-500 dark:text-gray-500 dark:hover:text-blue-400 transition-colors">
+<span class="material-icons-round text-xl">edit</span>
+</button>
+<button class="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors">
+<span class="material-icons-round text-xl">delete_outline</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="bg-white dark:bg-gray-900 px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between sm:px-6">
+<div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+<div>
+<p class="text-sm text-gray-700 dark:text-gray-400">
+                                    Showing
+                                    <span class="font-medium text-gray-900 dark:text-white">1</span>
+                                    to
+                                    <span class="font-medium text-gray-900 dark:text-white">5</span>
+                                    of
+                                    <span class="font-medium text-gray-900 dark:text-white">1,240</span>
+                                    results
+                                </p>
+</div>
+<div>
+<nav aria-label="Pagination" class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+<a class="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700" href="#">
+<span class="sr-only">Previous</span>
+<span class="material-icons-round text-lg">chevron_left</span>
+</a>
+<a aria-current="page" class="z-10 bg-primary border-primary text-white relative inline-flex items-center px-4 py-2 border text-sm font-medium" href="#">
+                                        1
+                                    </a>
+<a class="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 relative inline-flex items-center px-4 py-2 border text-sm font-medium" href="#">
+                                        2
+                                    </a>
+<a class="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hidden md:inline-flex relative items-center px-4 py-2 border text-sm font-medium" href="#">
+                                        3
+                                    </a>
+<span class="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-700 dark:text-gray-400">
+                                        ...
+                                    </span>
+<a class="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hidden md:inline-flex relative items-center px-4 py-2 border text-sm font-medium" href="#">
+                                        8
+                                    </a>
+<a class="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 relative inline-flex items-center px-4 py-2 border text-sm font-medium" href="#">
+                                        9
+                                    </a>
+<a class="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 relative inline-flex items-center px-4 py-2 border text-sm font-medium" href="#">
+                                        10
+                                    </a>
+<a class="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700" href="#">
+<span class="sr-only">Next</span>
+<span class="material-icons-round text-lg">chevron_right</span>
+</a>
+</nav>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+
+</body></html>

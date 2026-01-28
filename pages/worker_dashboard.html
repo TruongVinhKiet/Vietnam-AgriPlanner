@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>AgriPlanner - Trang Công Nhân</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet">
+    <script>window.TAILWIND_SUPPRESS_CDN_WARNING = true;</script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10B981",
+                        "primary-dark": "#059669",
+                        "primary-light": "#34D399",
+                        "background-light": "#F3F4F6",
+                        "background-dark": "#111827",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                },
+            },
+        };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .sidebar-item.active {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .task-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .view-section {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .sidebar-item {
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-item:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.15);
+            transform: translateX(4px);
+        }
+
+        /* Stats cards hover effect */
+        .stats-card {
+            transition: all 0.3s ease;
+        }
+
+        .stats-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px -10px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Button hover effects */
+        button {
+            transition: all 0.2s ease;
+        }
+
+        /* Task tab styling */
+        .task-tab {
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .task-tab::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: #10B981;
+            transition: width 0.3s ease;
+        }
+
+        .task-tab:hover::after,
+        .task-tab.active::after {
+            width: 100%;
+        }
+
+        /* Smooth scrollbar */
+        main::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        main::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        main::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+
+        main::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+        }
+
+        /* Header shadow on scroll */
+        header {
+            transition: box-shadow 0.3s ease;
+        }
+
+        header.scrolled {
+            box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body class="bg-background-light font-body antialiased">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-primary text-white flex flex-col h-full shadow-xl z-20">
+            <div class="p-6 flex items-center gap-3">
+                <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                    <span class="material-icons-round text-2xl">hardware</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold leading-tight">AgriPlanner</h1>
+                    <p class="text-xs text-white/70 uppercase tracking-wider font-medium">Worker Portal</p>
+                </div>
+            </div>
+
+            <nav class="flex-1 px-4 space-y-2 mt-4" id="sidebar-nav">
+                <a href="#"
+                    class="sidebar-item active flex items-center gap-3 px-4 py-3 rounded-lg text-white transition-colors"
+                    data-tab="home">
+                    <span class="material-icons-round">home</span>
+                    <span class="font-medium">Trang chủ</span>
+                </a>
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="tasks">
+                    <span class="material-icons-round">assignment</span>
+                    <span class="font-medium">Công việc</span>
+                </a>
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="assets">
+                    <span class="material-icons-round">account_balance_wallet</span>
+                    <span class="font-medium">Tài sản</span>
+                </a>
+                <div class="my-4 border-t border-white/10"></div>
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="settings">
+                    <span class="material-icons-round">settings</span>
+                    <span class="font-medium">Cài đặt</span>
+                </a>
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="help">
+                    <span class="material-icons-round">help</span>
+                    <span class="font-medium">Trợ giúp</span>
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-white/10">
+                <button id="logout-btn"
+                    class="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-white/80 hover:bg-white/10 transition-colors">
+                    <span class="material-icons-round">logout</span>
+                    <span class="font-medium">Đăng xuất</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <header
+                class="bg-white border-b border-gray-200 h-20 flex items-center justify-between px-8 sticky top-0 z-10">
+                <h2 id="page-title" class="text-2xl font-bold text-gray-800">Tổng quan</h2>
+                <div class="flex items-center gap-6">
+                    <div id="weather-widget"
+                        class="flex items-center gap-2 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 text-sm font-medium text-blue-800">
+                        <span class="material-symbols-outlined text-base">cloud</span>
+                        <span>Đang tải...</span>
+                    </div>
+
+                    <div class="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full border border-green-200">
+                        <span class="material-symbols-outlined text-green-600">account_balance_wallet</span>
+                        <span id="worker-balance" class="font-bold text-green-700">0 VNĐ</span>
+                    </div>
+
+                    <div class="flex items-center gap-3 pl-6 border-l border-gray-200">
+                        <div id="worker-avatar"
+                            class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
+                            W</div>
+                        <div>
+                            <p id="worker-name" class="text-sm font-semibold text-gray-700">Công nhân</p>
+                            <p class="text-xs text-gray-500">Worker</p>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main id="main-content" class="flex-1 overflow-y-auto p-8 bg-gray-50">
+                <!-- Views -->
+                <div id="view-home" class="view-section">
+                    <!-- Home Content: Overview, Today's Tasks Summary -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div class="text-gray-500 text-sm font-medium mb-1">Công việc hôm nay</div>
+                            <div class="text-3xl font-bold text-gray-800" id="home-today-count">0</div>
+                            <div class="text-green-600 text-sm mt-2 flex items-center gap-1">
+                                <span class="material-icons-round text-sm">schedule</span> Cần hoàn thành
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div class="text-gray-500 text-sm font-medium mb-1">Thu nhập tháng này</div>
+                            <div class="text-3xl font-bold text-gray-800" id="home-income">0 ₫</div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <div class="text-gray-500 text-sm font-medium mb-1">Thời tiết hôm nay</div>
+                            <div class="text-3xl font-bold text-gray-800" id="home-weather-temp">--°C</div>
+                            <div class="text-blue-600 text-sm mt-2" id="home-weather-desc">--</div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h3 class="text-lg font-bold text-gray-800 mb-4">Công việc ưu tiên</h3>
+                        <div id="home-tasks-list" class="space-y-3">
+                            <!-- Tasks injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-tasks" class="view-section hidden">
+                    <!-- Task Tabs -->
+                    <div class="flex border-b border-gray-200 mb-6">
+                        <button
+                            class="task-tab active px-6 py-3 text-sm font-medium text-primary border-b-2 border-primary"
+                            data-type="CULTIVATION">Trồng trọt</button>
+                        <button class="task-tab px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700"
+                            data-type="LIVESTOCK">Chăn nuôi</button>
+                        <button class="task-tab px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700"
+                            data-type="OTHER">Khác</button>
+                    </div>
+                    <div id="tasks-list-container" class="space-y-4">
+                        <!-- Tasks List -->
+                    </div>
+                </div>
+
+                <div id="view-assets" class="view-section hidden">
+                    <div class="flex flex-col gap-6">
+                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                            <div>
+                                <h3 class="text-xl font-bold text-gray-800">Tài sản</h3>
+                                <p class="text-sm text-gray-500">Theo dõi dòng tiền và lịch sử giao dịch</p>
+                            </div>
+                            <div class="flex gap-3">
+                                <button onclick="openTopUpModal()" class="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark">
+                                    <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 6px;">add</span>
+                                    Nạp tiền
+                                </button>
+                                <button onclick="exportReport()" class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50">
+                                    <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 6px;">download</span>
+                                    Xuất báo cáo
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="rounded-2xl p-6 text-white overflow-hidden" style="background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%); box-shadow: 0 10px 40px rgba(16, 185, 129, 0.25);">
+                            <div class="text-sm opacity-90 flex items-center gap-2">
+                                <span class="material-symbols-outlined">account_balance_wallet</span>
+                                Tổng số dư hiện tại
+                            </div>
+                            <div class="text-4xl font-bold mt-2" id="total-balance">0 VNĐ</div>
+                            <div class="flex flex-wrap gap-10 mt-5">
+                                <div>
+                                    <div class="text-xs opacity-80">Thu nhập tháng này</div>
+                                    <div class="font-semibold" id="month-income">+0 VNĐ</div>
+                                </div>
+                                <div>
+                                    <div class="text-xs opacity-80">Chi tiêu tháng này</div>
+                                    <div class="font-semibold" id="month-expense">-0 VNĐ</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="bg-white rounded-xl border border-gray-100 p-5">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h4 class="font-bold text-gray-800 flex items-center gap-2">
+                                        <span class="material-symbols-outlined" style="font-size: 20px; color: #10b981;">payments</span>
+                                        Thông tin lương
+                                    </h4>
+                                    <button id="payroll-refresh-btn" class="text-primary font-medium text-sm hover:text-primary-dark">Tải lại</button>
+                                </div>
+                                <div id="salary-settings-summary" class="text-sm text-gray-500">Đang tải...</div>
+                            </div>
+
+                            <div class="bg-white rounded-xl border border-gray-100 overflow-hidden lg:col-span-2">
+                                <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+                                    <h4 class="font-bold text-gray-800">Lịch sử nhận lương</h4>
+                                    <span id="salary-payments-count" class="text-xs font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full">0</span>
+                                </div>
+                                <div id="salary-payments-list" class="divide-y divide-gray-100">
+                                    <div class="p-10 text-center text-gray-500">Đang tải...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="bg-white rounded-xl border border-gray-100 p-5">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-xs text-gray-500 font-medium">Tổng thu nhập</div>
+                                        <div class="text-xl font-bold text-gray-800" id="stat-total-income">0 VNĐ</div>
+                                    </div>
+                                    <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:#d1fae5; color:#059669;">
+                                        <span class="material-symbols-outlined">arrow_downward</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-xl border border-gray-100 p-5">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-xs text-gray-500 font-medium">Tổng chi tiêu</div>
+                                        <div class="text-xl font-bold text-gray-800" id="stat-total-expense">0 VNĐ</div>
+                                    </div>
+                                    <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:#fee2e2; color:#dc2626;">
+                                        <span class="material-symbols-outlined">arrow_upward</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-xl border border-gray-100 p-5">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-xs text-gray-500 font-medium">Lợi nhuận ròng</div>
+                                        <div class="text-xl font-bold text-gray-800" id="stat-net-profit">0 VNĐ</div>
+                                    </div>
+                                    <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:#dbeafe; color:#2563eb;">
+                                        <span class="material-symbols-outlined">trending_up</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-xl border border-gray-100 p-5">
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <div class="text-xs text-gray-500 font-medium">Số giao dịch</div>
+                                        <div class="text-xl font-bold text-gray-800" id="stat-tx-count">0</div>
+                                    </div>
+                                    <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:#fef3c7; color:#d97706;">
+                                        <span class="material-symbols-outlined">receipt_long</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="bg-white rounded-xl border border-gray-100 p-5 lg:col-span-2">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h4 class="font-bold text-gray-800">Thu nhập & Chi tiêu (30 ngày)</h4>
+                                </div>
+                                <div class="h-72">
+                                    <canvas id="incomeExpenseChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="bg-white rounded-xl border border-gray-100 p-5">
+                                <div class="flex items-center justify-between mb-4">
+                                    <h4 class="font-bold text-gray-800">Phân bổ chi tiêu</h4>
+                                </div>
+                                <div class="h-72">
+                                    <canvas id="expenseBreakdownChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                            <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+                                <h4 class="font-bold text-gray-800">Giao dịch gần đây</h4>
+                                <button onclick="loadMoreTransactions()" class="text-primary font-medium text-sm hover:text-primary-dark">Xem tất cả</button>
+                            </div>
+                            <div id="transactions-list" class="divide-y divide-gray-100"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-settings" class="view-section hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                        <div class="lg:col-span-1">
+                            <div class="bg-white rounded-xl border border-gray-100 p-3">
+                                <button class="worker-settings-nav w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left font-medium text-primary bg-green-50" data-target="worker-profile-settings">
+                                    <span class="material-symbols-outlined" style="font-size: 20px;">person</span>
+                                    Hồ sơ
+                                </button>
+                                <button class="worker-settings-nav w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left font-medium text-gray-700 hover:bg-gray-50" data-target="worker-security-settings">
+                                    <span class="material-symbols-outlined" style="font-size: 20px;">security</span>
+                                    Bảo mật
+                                </button>
+                                <button class="worker-settings-nav w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left font-medium text-gray-700 hover:bg-gray-50" data-target="worker-preferences-settings">
+                                    <span class="material-symbols-outlined" style="font-size: 20px;">tune</span>
+                                    Tùy chọn
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-3 space-y-6">
+                            <div id="worker-profile-settings" class="worker-settings-section">
+                                <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                                    <div class="p-6 border-b border-gray-100 flex items-center justify-between">
+                                        <div>
+                                            <h3 class="text-lg font-bold text-gray-800">Hồ sơ</h3>
+                                            <p class="text-sm text-gray-500">Cập nhật thông tin tài khoản</p>
+                                        </div>
+                                        <button id="save-profile-btn" class="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark">
+                                            <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 6px;">save</span>
+                                            Lưu
+                                        </button>
+                                    </div>
+                                    <div class="p-6 space-y-6">
+                                        <div class="flex items-center gap-4">
+                                            <div id="profile-avatar" class="w-16 h-16 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xl">W</div>
+                                            <div>
+                                                <div class="font-semibold text-gray-800" id="profile-name-display">Công nhân</div>
+                                                <button id="change-avatar-btn" class="mt-1 text-sm font-medium text-primary hover:text-primary-dark">Đổi ảnh đại diện</button>
+                                            </div>
+                                        </div>
+
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Họ và tên</label>
+                                                <input type="text" id="profile-fullname" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary">
+                                            </div>
+                                            <div>
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Số điện thoại</label>
+                                                <input type="text" id="profile-phone" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="VD: 0901234567">
+                                            </div>
+                                            <div class="md:col-span-2">
+                                                <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                                                <input type="email" id="profile-email" class="w-full rounded-lg border-gray-300 bg-gray-50" disabled>
+                                            </div>
+                                        </div>
+
+                                        <div class="border-t border-gray-100 pt-6">
+                                            <h4 class="font-bold text-gray-800 mb-3">Địa chỉ</h4>
+                                            <div class="flex flex-col md:flex-row gap-3">
+                                                <input type="text" id="user-address-input" class="flex-1 rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="Nhập địa chỉ của bạn">
+                                                <button id="search-address-btn" class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50">Tìm</button>
+                                                <button id="current-location-btn" class="px-4 py-2 rounded-lg bg-green-50 text-primary font-medium hover:bg-green-100">Vị trí hiện tại</button>
+                                            </div>
+                                            <div class="mt-4 rounded-xl overflow-hidden border border-gray-200" style="height: 300px;" id="settings-address-map"></div>
+                                            <div class="mt-3 text-sm text-gray-500">Tọa độ: <span id="address-lat">--</span>, <span id="address-lng">--</span></div>
+                                            <div class="mt-4">
+                                                <button id="save-address-btn" class="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark">
+                                                    <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 6px;">save</span>
+                                                    Lưu địa chỉ
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="worker-security-settings" class="worker-settings-section hidden">
+                                <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                                    <div class="p-6 border-b border-gray-100">
+                                        <h3 class="text-lg font-bold text-gray-800">Bảo mật</h3>
+                                        <p class="text-sm text-gray-500">Đổi mật khẩu, email và xác thực 2 lớp</p>
+                                    </div>
+                                    <div class="p-6 space-y-6">
+                                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                            <div>
+                                                <div class="font-semibold text-gray-800">Đổi mật khẩu</div>
+                                                <div class="text-sm text-gray-500">Yêu cầu OTP qua email</div>
+                                            </div>
+                                            <button id="change-password-btn" class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50">Đổi mật khẩu</button>
+                                        </div>
+                                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                                            <div>
+                                                <div class="font-semibold text-gray-800">Đổi email</div>
+                                                <div class="text-sm text-gray-500">Yêu cầu OTP qua email</div>
+                                            </div>
+                                            <button id="change-email-btn" class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50">Đổi email</button>
+                                        </div>
+                                        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                            <div>
+                                                <div class="font-semibold text-gray-800">Xác thực 2 bước (2FA)</div>
+                                                <div class="text-sm text-gray-500">Tăng cường bảo mật cho tài khoản</div>
+                                            </div>
+                                            <label class="inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" id="two-factor-toggle" class="sr-only peer">
+                                                <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-primary">
+                                                    <div class="absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-all peer-checked:translate-x-full"></div>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="worker-preferences-settings" class="worker-settings-section hidden">
+                                <div class="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                                    <div class="p-6 border-b border-gray-100">
+                                        <h3 class="text-lg font-bold text-gray-800">Tùy chọn</h3>
+                                        <p class="text-sm text-gray-500">Cài đặt hiển thị và trải nghiệm</p>
+                                    </div>
+                                    <div class="p-6 space-y-6">
+                                        <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                                            <div>
+                                                <div class="font-semibold text-gray-800">Chế độ tối</div>
+                                                <div class="text-sm text-gray-500">Bật/tắt giao diện tối</div>
+                                            </div>
+                                            <label class="inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" id="dark-mode-toggle" class="sr-only peer">
+                                                <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-primary">
+                                                    <div class="absolute top-[2px] left-[2px] bg-white border border-gray-300 rounded-full h-5 w-5 transition-all peer-checked:translate-x-full"></div>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-help" class="view-section hidden">
+                    <div class="max-w-4xl mx-auto space-y-6">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                            <div class="flex items-center gap-3 mb-5">
+                                <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                                    <span class="material-icons-round">support_agent</span>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-gray-800">Gửi yêu cầu hỗ trợ</h3>
+                                    <p class="text-sm text-gray-500">Gửi phản hồi trực tiếp cho chủ trang trại</p>
+                                </div>
+                            </div>
+
+                            <form id="help-request-form" class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Tiêu đề (tuỳ chọn)</label>
+                                    <input id="help-title" type="text" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="VD: Báo lỗi / Xin vật tư / Hỏi quy trình">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Nội dung</label>
+                                    <textarea id="help-message" rows="4" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary" placeholder="Mô tả chi tiết vấn đề bạn đang gặp..."></textarea>
+                                </div>
+                                <div class="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                                    <button id="help-refresh-btn" type="button" class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50">Tải lại</button>
+                                    <button type="submit" class="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark">Gửi yêu cầu</button>
+                                </div>
+                                <div id="help-form-status" class="text-sm text-gray-500 hidden"></div>
+                            </form>
+                        </div>
+
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                            <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+                                <h4 class="font-bold text-gray-800">Lịch sử yêu cầu</h4>
+                                <span id="help-requests-count" class="text-xs font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full">0</span>
+                            </div>
+                            <div id="help-requests-list" class="divide-y divide-gray-100">
+                                <div class="p-10 text-center text-gray-500">Chưa có yêu cầu nào.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/worker_dashboard.js"></script>
+    <script>
+        // Add scroll shadow effect to header
+        const mainContent = document.querySelector('main');
+        const header = document.querySelector('header');
+        if (mainContent && header) {
+            mainContent.addEventListener('scroll', () => {
+                if (mainContent.scrollTop > 10) {
+                    header.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

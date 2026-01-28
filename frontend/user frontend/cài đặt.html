@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AgriPlanner Settings</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2f7f34",
+                        "sidebar-bg": "#1B5E20",
+                        "background-light": "#F5F7FA",
+                        "background-dark": "#141e15",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "0.75rem", "xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }.toggle-checkbox:checked {
+            right: 0;
+            border-color: #2f7f34;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #2f7f34;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-800 dark:text-slate-100 overflow-hidden h-screen flex">
+<aside class="w-[260px] h-full bg-sidebar-bg flex flex-col shrink-0 transition-all duration-300 z-20">
+<div class="h-16 flex items-center px-6 gap-3 border-b border-white/10">
+<div class="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined !text-[20px]">eco</span>
+</div>
+<h1 class="text-white text-lg font-bold tracking-wide">AgriPlanner</h1>
+</div>
+<nav class="flex-1 overflow-y-auto py-6 px-3 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">potted_plant</span>
+<span class="text-sm font-medium">Cultivation</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">pest_control_rodent</span>
+<span class="text-sm font-medium">Livestock</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">bar_chart</span>
+<span class="text-sm font-medium">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/20 text-white group transition-colors" href="#">
+<span class="material-symbols-outlined !text-[24px]">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+<div class="flex-1"></div>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group mb-2" href="#">
+<span class="material-symbols-outlined !text-[24px]">help</span>
+<span class="text-sm font-medium">Help</span>
+</a>
+</nav>
+<div class="p-4 border-t border-white/10">
+<div class="flex items-center gap-3 px-2 py-2 rounded-lg bg-white/5 border border-white/10">
+<div class="w-8 h-8 rounded-full bg-cover bg-center" data-alt="User avatar image" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDCMN1BzSnHgFxeyKEvWsG_QZ7RRtaDeDC8da2PFWOdIOql1NQCIo7EyyLhovyGTv1IssyE0ElFcEa4Vw-V8109xsNhBf99T3NkTDvtYBU47tW1lefo65wDbOMoAbD7PjTIEurzbP6iG_cbmo4nHkWq5Ui67icWuS_TELGtKpV-77MezNda4FST6uqiwz7I-b6lE7ansa-imri7RnOY44Du1B8I1k4Rv_dGiOsudGGjdZD0rsUyhKsP7Eo6RCFsaG5tXK4lTjqA9wxs');"></div>
+<div class="flex flex-col overflow-hidden">
+<p class="text-xs font-bold text-white truncate">John Farmer</p>
+<p class="text-[10px] text-white/60 truncate">john@agriplanner.com</p>
+</div>
+</div>
+</div>
+</aside>
+<div class="flex-1 flex flex-col h-full relative overflow-hidden">
+<header class="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-8 shrink-0 z-10">
+<div class="w-full max-w-md">
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400 !text-[20px]">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg leading-5 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm transition duration-150 ease-in-out" placeholder="Search settings..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="relative p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
+<span class="material-symbols-outlined !text-[24px]">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-800"></span>
+</button>
+<div class="flex items-center gap-3 pl-6 border-l border-slate-200 dark:border-slate-700">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-bold text-slate-800 dark:text-white">John Farmer</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Farm Manager</p>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-white shadow-sm bg-cover bg-center cursor-pointer hover:ring-2 hover:ring-primary transition-all" data-alt="User profile picture" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCHFCTqN0OM4sPkXOIJq6yxGJaRp5CFHphT4D3h5kTOVuH5XYva-_dBSZW4xFkV4oYoFHd-mgQi2uwLpx8Y2d0nY-kTjVoTY-fsw_cVVCZMuHwe1uAiUGLxaflzoYqbhM8v8nkGBQyp3yT7yk_pAadyFgKQ0ZfaPxHWGc8-v3chAxzKzK48oNsygXDarEGdKrgTsJ54TT58oJ-WPS65S_kwcNajqy3wIMFodmRWYftN04hShgSUMQ8hrtuIVt2uMPn6xk_ckF1LZRfp');"></div>
+</div>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto p-8 bg-background-light dark:bg-background-dark">
+<div class="max-w-6xl mx-auto flex flex-col gap-6">
+<div class="flex items-end justify-between">
+<div>
+<h2 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Settings &amp; Configuration</h2>
+<p class="text-slate-500 dark:text-slate-400 mt-1">Manage your account settings and preferences.</p>
+</div>
+</div>
+<div class="flex flex-col lg:flex-row gap-8 items-start mt-2">
+<aside class="w-full lg:w-64 shrink-0 flex flex-col gap-1">
+<button class="flex items-center gap-3 px-4 py-3 rounded-lg bg-white dark:bg-slate-800 text-primary font-semibold shadow-sm border border-slate-200 dark:border-slate-700 transition-all text-left">
+<span class="material-symbols-outlined !text-[20px]">person</span>
+                        Profile
+                    </button>
+<button class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors text-left">
+<span class="material-symbols-outlined !text-[20px]">database</span>
+                        Master Data
+                    </button>
+<button class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors text-left">
+<span class="material-symbols-outlined !text-[20px]">shield</span>
+                        Security
+                    </button>
+<button class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors text-left">
+<span class="material-symbols-outlined !text-[20px]">notifications</span>
+                        Notifications
+                    </button>
+<div class="my-2 border-b border-slate-200 dark:border-slate-700 w-full"></div>
+<button class="flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left">
+<span class="material-symbols-outlined !text-[20px]">logout</span>
+                        Sign Out
+                    </button>
+</aside>
+<div class="flex-1 w-full space-y-6">
+<section class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">Public Profile</h3>
+<span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">Active</span>
+</div>
+<div class="p-6">
+<div class="flex flex-col md:flex-row gap-8 items-start">
+<div class="flex flex-col items-center gap-3 shrink-0">
+<div class="w-24 h-24 rounded-full border-4 border-slate-100 dark:border-slate-700 bg-cover bg-center shadow-inner" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCHFCTqN0OM4sPkXOIJq6yxGJaRp5CFHphT4D3h5kTOVuH5XYva-_dBSZW4xFkV4oYoFHd-mgQi2uwLpx8Y2d0nY-kTjVoTY-fsw_cVVCZMuHwe1uAiUGLxaflzoYqbhM8v8nkGBQyp3yT7yk_pAadyFgKQ0ZfaPxHWGc8-v3chAxzKzK48oNsygXDarEGdKrgTsJ54TT58oJ-WPS65S_kwcNajqy3wIMFodmRWYftN04hShgSUMQ8hrtuIVt2uMPn6xk_ckF1LZRfp');"></div>
+<button class="text-sm font-medium text-primary hover:text-green-700 transition-colors">Change Picture</button>
+</div>
+<div class="flex-1 w-full grid grid-cols-1 md:grid-cols-2 gap-6">
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">First Name</label>
+<input class="block w-full rounded-lg border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm sm:text-sm" type="text" value="John"/>
+</div>
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Last Name</label>
+<input class="block w-full rounded-lg border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm sm:text-sm" type="text" value="Farmer"/>
+</div>
+<div class="md:col-span-2">
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
+<div class="relative">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400 !text-[18px]">mail</span>
+</div>
+<input class="pl-10 block w-full rounded-lg border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm sm:text-sm" type="email" value="john@agriplanner.com"/>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Role</label>
+<select class="block w-full rounded-lg border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm sm:text-sm">
+<option>Farm Manager</option>
+<option>Administrator</option>
+<option>Viewer</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Phone Number</label>
+<input class="block w-full rounded-lg border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-white focus:border-primary focus:ring-primary shadow-sm sm:text-sm" type="tel" value="+1 (555) 012-3456"/>
+</div>
+</div>
+</div>
+<div class="mt-6 flex justify-end gap-3">
+<button class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">Cancel</button>
+<button class="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-green-800 rounded-lg shadow-sm transition-colors">Save Changes</button>
+</div>
+</div>
+</section>
+<section class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">System Preferences</h3>
+</div>
+<div class="p-6 space-y-6">
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-slate-900 dark:text-white">Dark Mode</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Enable dark theme for low-light environments.</span>
+</div>
+<label class="inline-flex relative items-center cursor-pointer" for="dark-mode-toggle">
+<input class="sr-only peer" id="dark-mode-toggle" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<hr class="border-slate-100 dark:border-slate-700"/>
+<div class="flex items-center justify-between">
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-slate-900 dark:text-white">Email Notifications</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Receive weekly summary reports via email.</span>
+</div>
+<label class="inline-flex relative items-center cursor-pointer" for="email-notif-toggle">
+<input checked="" class="sr-only peer" id="email-notif-toggle" type="checkbox"/>
+<div class="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary dark:peer-focus:ring-primary rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</section>
+<section class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+<div>
+<h3 class="text-lg font-bold text-slate-900 dark:text-white">Master Data Registry</h3>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Core configurations for crop and field types.</p>
+</div>
+<button class="flex items-center gap-1 text-xs font-semibold text-primary border border-primary/20 bg-primary/5 hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors">
+<span class="material-symbols-outlined !text-[16px]">add</span>
+                                Add Entry
+                            </button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm text-slate-600 dark:text-slate-300">
+<thead class="bg-slate-50 dark:bg-slate-700/50 text-xs uppercase font-semibold text-slate-500 dark:text-slate-400">
+<tr>
+<th class="px-6 py-3">Category</th>
+<th class="px-6 py-3">Code</th>
+<th class="px-6 py-3">Description</th>
+<th class="px-6 py-3">Status</th>
+<th class="px-6 py-3 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+<td class="px-6 py-3 font-medium text-slate-900 dark:text-white">Crop Type</td>
+<td class="px-6 py-3 font-mono text-xs">WHT-01</td>
+<td class="px-6 py-3">Winter Wheat (Hard Red)</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
+                                            </span>
+</td>
+<td class="px-6 py-3 text-right">
+<button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"><span class="material-symbols-outlined !text-[18px]">edit</span></button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+<td class="px-6 py-3 font-medium text-slate-900 dark:text-white">Fertilizer</td>
+<td class="px-6 py-3 font-mono text-xs">NPK-20</td>
+<td class="px-6 py-3">Standard NPK 20-20-20 Mix</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> Active
+                                            </span>
+</td>
+<td class="px-6 py-3 text-right">
+<button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"><span class="material-symbols-outlined !text-[18px]">edit</span></button>
+</td>
+</tr>
+<tr class="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+<td class="px-6 py-3 font-medium text-slate-900 dark:text-white">Soil Unit</td>
+<td class="px-6 py-3 font-mono text-xs">PH-LVL</td>
+<td class="px-6 py-3">Soil Acidity Measure (pH)</td>
+<td class="px-6 py-3">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400">
+<span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Archived
+                                            </span>
+</td>
+<td class="px-6 py-3 text-right">
+<button class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"><span class="material-symbols-outlined !text-[18px]">edit</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700 text-center text-xs text-slate-400">
+<p>© 2023 AgriPlanner Inc. All rights reserved.</p>
+</div>
+</div>
+</main>
+</div>
+
+</body></html>

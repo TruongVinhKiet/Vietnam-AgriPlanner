@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriPlanner - Trang chủ</title>
+    <meta name="description" content="AgriPlanner - Hệ thống quản lý nông trại thông minh">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/pages/dashboard.css">
+    <link rel="stylesheet" href="css/chatbot.css">
+    <link rel="stylesheet" href="css/smart-advisor.css">
+
+    <!-- GSAP Animation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- Chart.js for Financial Forecast -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body data-page="dashboard">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar__header">
+                <div class="sidebar__logo-icon">
+                    <span class="material-symbols-outlined">eco</span>
+                </div>
+                <h1 class="sidebar__logo-text">AgriPlanner</h1>
+            </div>
+
+            <nav class="sidebar__nav">
+                <a href="index.html" class="sidebar__nav-link active">
+                    <span class="material-symbols-outlined">home</span>
+                    <span>Trang chủ</span>
+                </a>
+                <a href="pages/cultivation.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">potted_plant</span>
+                    <span>Trồng trọt</span>
+                </a>
+                <a href="pages/livestock.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">egg</span>
+                    <span>Chăn nuôi</span>
+                </a>
+                <a href="pages/labor.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">engineering</span>
+                    <span>Nhân công</span>
+                </a>
+                <a href="pages/shop.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">store</span>
+                    <span>Cửa hàng</span>
+                </a>
+                <a href="pages/cooperative.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">groups</span>
+                    <span>Hợp tác xã</span>
+                </a>
+                <a href="pages/community.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">forum</span>
+                    <span>Cộng đồng</span>
+                </a>
+                <a href="pages/analytics.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                    <span>Tài sản</span>
+                </a>
+                <a href="pages/settings.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">settings</span>
+                    <span>Cài đặt</span>
+                </a>
+
+                <div class="sidebar__spacer"></div>
+
+                <a href="pages/help.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">help</span>
+                    <span>Trợ giúp</span>
+                </a>
+            </nav>
+
+            <div class="sidebar__footer">
+                <div class="sidebar__user">
+                    <div class="sidebar__user-avatar" id="sidebar-avatar"></div>
+                    <div class="sidebar__user-info">
+                        <p class="sidebar__user-name" id="sidebar-name">Đang tải...</p>
+                        <p class="sidebar__user-email" id="sidebar-email"></p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Wrapper -->
+        <div class="main-wrapper">
+            <!-- Header -->
+            <header class="header">
+                <div class="header__search">
+                    <span class="material-symbols-outlined header__search-icon">search</span>
+                    <input type="text" class="header__search-input" placeholder="Tìm kiếm dữ liệu nông trại...">
+                </div>
+
+                <div class="header__actions">
+                    <button class="header__notification">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <span class="header__notification-badge"></span>
+                    </button>
+
+                    <div class="header__user">
+                        <div class="header__user-info">
+                            <p class="header__user-name" id="header-name">Đang tải...</p>
+                            <p class="header__user-role">Chủ trang trại</p>
+                        </div>
+                        <div class="header__user-avatar" id="header-avatar"></div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="main-content">
+                <div class="main-content__container">
+                    <!-- Page Header -->
+                    <div class="page-header">
+                        <div>
+                            <h2 class="page-header__title">Tổng quan nông trại</h2>
+                            <p class="page-header__subtitle">Đây là những gì đang diễn ra tại nông trại của bạn hôm nay.
+                            </p>
+                        </div>
+                        <div class="date-badge">
+                            <span class="material-symbols-outlined date-badge__icon">calendar_today</span>
+                            <span class="date-badge__text" id="current-date">Đang tải...</span>
+                        </div>
+                    </div>
+
+                    <!-- KPI Cards Grid -->
+                    <div class="dashboard-grid">
+                        <!-- Card 1: Total Area -->
+                        <div class="card kpi-card fade-in">
+                            <div class="kpi-card__header">
+                                <div class="kpi-card__icon kpi-card__icon--green">
+                                    <span class="material-symbols-outlined">landscape</span>
+                                </div>
+                                <span class="badge badge--neutral">Tổng</span>
+                            </div>
+                            <p class="kpi-card__label">Tổng diện tích</p>
+                            <h3 class="kpi-card__value" id="kpi-total-area">-- <span class="kpi-card__unit">Hecta</span>
+                            </h3>
+                        </div>
+
+                        <!-- Card 2: Capital -->
+                        <div class="card kpi-card fade-in">
+                            <div class="kpi-card__header">
+                                <div class="kpi-card__icon kpi-card__icon--blue">
+                                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                                </div>
+                                <span class="badge badge--neutral">Số dư</span>
+                            </div>
+                            <p class="kpi-card__label">Vốn</p>
+                            <h3 class="kpi-card__value" id="kpi-balance">--</h3>
+                        </div>
+
+                        <!-- Card 3: Profit -->
+                        <div class="card kpi-card fade-in">
+                            <div class="kpi-card__header">
+                                <div class="kpi-card__icon kpi-card__icon--emerald">
+                                    <span class="material-symbols-outlined">payments</span>
+                                </div>
+                                <span class="badge badge--success" id="profit-badge">
+                                    <span class="material-symbols-outlined icon-sm">trending_up</span>
+                                    Lãi
+                                </span>
+                            </div>
+                            <p class="kpi-card__label">Lợi nhuận</p>
+                            <h3 class="kpi-card__value" id="kpi-profit" style="color: var(--color-primary);">--</h3>
+                        </div>
+
+                        <!-- Card 4: Weather -->
+                        <div class="card kpi-card fade-in">
+                            <div class="kpi-card__header">
+                                <div class="kpi-card__icon kpi-card__icon--orange" id="weather-icon-bg">
+                                    <span class="material-symbols-outlined" id="weather-icon">sunny</span>
+                                </div>
+                                <span class="badge badge--neutral">Hiện tại</span>
+                            </div>
+                            <p class="kpi-card__label">Thời tiết</p>
+                            <h3 class="kpi-card__value" id="kpi-weather">--°C <span class="kpi-card__unit"
+                                    id="weather-desc">Đang tải...</span></h3>
+                        </div>
+                    </div>
+
+                    <!-- Charts & Tasks Section -->
+                    <div class="chart-section" style="margin-top: var(--spacing-6);">
+                        <!-- Financial Forecast Chart -->
+                        <div class="card fade-in">
+                            <div class="card__header">
+                                <div>
+                                    <h3 class="card__title">Dự báo tài chính</h3>
+                                    <p class="card__subtitle" id="forecast-subtitle">Doanh thu vs Chi phí dự kiến</p>
+                                </div>
+                                <div class="chart-legend">
+                                    <div class="chart-legend__item">
+                                        <span class="chart-legend__dot"
+                                            style="background-color: var(--color-primary);"></span>
+                                        <span class="chart-legend__label">Doanh thu dự kiến</span>
+                                    </div>
+                                    <div class="chart-legend__item">
+                                        <span class="chart-legend__dot" style="background-color: #ef4444;"></span>
+                                        <span class="chart-legend__label">Chi phí</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card__body">
+                                <div style="height: 300px; position: relative;">
+                                    <canvas id="forecastChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Daily Tasks Widget -->
+                        <div class="card fade-in">
+                            <div class="card__header">
+                                <h3 class="card__title">Công việc hôm nay</h3>
+                                <button class="btn btn--secondary" style="padding: 4px 12px; font-size: 12px;">Xem tất
+                                    cả</button>
+                            </div>
+                            <div class="card__body" style="padding: var(--spacing-2);">
+                                <div id="tasks-container">
+                                    <div style="text-align: center; padding: 40px; color: #9ca3af;">
+                                        <span class="material-symbols-outlined"
+                                            style="font-size: 48px;">construction</span>
+                                        <p style="margin-top: 8px;">Tính năng đang phát triển</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/auth.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/animations.js"></script>
+    <script src="js/sidebar.js"></script>
+    <script src="js/chatbot.js"></script>
+    <script src="js/smart-advisor.js"></script>
+    <script src="js/main.js"></script>
+
+    <script>
+        const API_BASE = CONFIG.API_BASE_URL || 'http://localhost:8080/api';
+        let forecastChart = null;
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Redirect based on role
+            const userRole = localStorage.getItem('userRole');
+            if (userRole === 'SYSTEM_ADMIN') {
+                window.location.href = 'pages/admin.html'; // Correct path from root
+                return;
+            }
+            if (userRole === 'WORKER') {
+                window.location.href = 'pages/worker_dashboard.html'; // Correct path from root
+                return;
+            }
+
+            updateCurrentDate();
+            await loadDashboardData();
+            await loadWeather();
+        });
+
+        // Update current date in real-time
+        function updateCurrentDate() {
+            const now = new Date();
+            const options = {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            };
+            document.getElementById('current-date').textContent = now.toLocaleDateString('vi-VN', options);
+
+            // Update every minute
+            setTimeout(updateCurrentDate, 60000);
+        }
+
+        // Get user email from JWT token or localStorage
+        function getUserEmail() {
+            // Try JWT token first
+            const token = localStorage.getItem('token');
+            if (token) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    if (payload.sub || payload.email) {
+                        return payload.sub || payload.email;
+                    }
+                } catch (e) {
+                    console.warn('Could not decode token, trying localStorage');
+                }
+            }
+            // Fallback to localStorage
+            const storedEmail = localStorage.getItem('userEmail');
+            if (storedEmail) {
+                return storedEmail;
+            }
+            return null;
+        }
+
+        // Load dashboard data from API
+        async function loadDashboardData() {
+            const email = getUserEmail();
+            if (!email) {
+                console.warn('No user email found');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/dashboard/stats?email=${encodeURIComponent(email)}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+
+                    // Update KPI cards
+                    document.getElementById('kpi-total-area').innerHTML =
+                        `${formatNumber(data.totalAreaHectares || 0)} <span class="kpi-card__unit">Hecta</span>`;
+
+                    document.getElementById('kpi-balance').textContent = formatCurrency(data.balance || 0);
+
+                    const profit = data.profit || 0;
+                    document.getElementById('kpi-profit').textContent = formatCurrency(profit);
+
+                    // Update profit badge
+                    const profitBadge = document.getElementById('profit-badge');
+                    if (profit >= 0) {
+                        profitBadge.className = 'badge badge--success';
+                        profitBadge.innerHTML = '<span class="material-symbols-outlined icon-sm">trending_up</span>Lãi';
+                        document.getElementById('kpi-profit').style.color = 'var(--color-primary)';
+                    } else {
+                        profitBadge.className = 'badge badge--danger';
+                        profitBadge.innerHTML = '<span class="material-symbols-outlined icon-sm">trending_down</span>Lỗ';
+                        document.getElementById('kpi-profit').style.color = '#dc2626';
+                    }
+
+                    // Update forecast chart
+                    if (data.harvestForecast) {
+                        updateForecastChart(data.harvestForecast);
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading dashboard:', e);
+            }
+        }
+
+        // Load weather from OpenWeather API using CONFIG
+        async function loadWeather() {
+            try {
+                // Use same location as cultivation page from CONFIG
+                const lat = CONFIG.DEFAULT_LOCATION?.lat || 10.045162;
+                const lon = CONFIG.DEFAULT_LOCATION?.lng || 105.746857;
+                const apiKey = CONFIG.OPENWEATHER_API_KEY;
+
+                if (!apiKey) {
+                    console.warn('OpenWeather API key not configured');
+                    return;
+                }
+
+                const res = await fetch(
+                    `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=vi`
+                );
+
+                if (res.ok) {
+                    const weather = await res.json();
+                    const temp = Math.round(weather.main.temp);
+                    const desc = weather.weather[0].description;
+                    const icon = getWeatherIcon(weather.weather[0].main);
+
+                    document.getElementById('kpi-weather').innerHTML =
+                        `${temp}°C <span class="kpi-card__unit">${capitalizeFirst(desc)}</span>`;
+                    document.getElementById('weather-icon').textContent = icon;
+                }
+            } catch (e) {
+                console.error('Error loading weather:', e);
+            }
+        }
+
+        // Get Material icon for weather
+        function getWeatherIcon(main) {
+            const icons = {
+                'Clear': 'sunny',
+                'Clouds': 'cloud',
+                'Rain': 'rainy',
+                'Drizzle': 'grain',
+                'Thunderstorm': 'thunderstorm',
+                'Snow': 'ac_unit',
+                'Mist': 'mist',
+                'Fog': 'foggy'
+            };
+            return icons[main] || 'sunny';
+        }
+
+        // Update forecast chart with real data
+        function updateForecastChart(forecast) {
+            const ctx = document.getElementById('forecastChart').getContext('2d');
+
+            const labels = forecast.map(f => f.month);
+            const incomeData = forecast.map(f => f.expectedIncome || 0);
+            const expenseData = forecast.map(f => f.expense || 0);
+
+            // Find max value for scale
+            const maxValue = Math.max(...incomeData, ...expenseData) || 1000000;
+
+            if (forecastChart) {
+                forecastChart.destroy();
+            }
+
+            forecastChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Doanh thu dự kiến',
+                            data: incomeData,
+                            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                            borderColor: '#10b981',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Chi phí',
+                            data: expenseData,
+                            backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                            borderColor: '#ef4444',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.raw)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: (value) => formatCompact(value)
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Update subtitle with current year
+            const now = new Date();
+            document.getElementById('forecast-subtitle').textContent =
+                `Doanh thu vs Chi phí dự kiến (${now.getFullYear()})`;
+        }
+
+        // Format currency
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('vi-VN').format(amount) + ' VNĐ';
+        }
+
+        // Format number
+        function formatNumber(num) {
+            return new Intl.NumberFormat('vi-VN').format(num);
+        }
+
+        // Format compact
+        function formatCompact(num) {
+            if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
+            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return (num / 1000).toFixed(0) + 'K';
+            return num;
+        }
+
+        // Capitalize first letter
+        function capitalizeFirst(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+    </script>
+</body>
+
+</html>

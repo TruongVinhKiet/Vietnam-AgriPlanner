@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AgriPlanner - Crops Master Data</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10B981", // Emerald 500 equivalent matching the sidebar
+                        "primary-dark": "#059669",
+                        "sidebar": "#10B981",
+                        "sidebar-hover": "#34D399",
+                        "background-light": "#F3F4F6",
+                        "background-dark": "#111827",
+                        "card-light": "#FFFFFF",
+                        "card-dark": "#1F2937",
+                        "text-light": "#1F2937",
+                        "text-dark": "#F9FAFB",
+                        "text-muted-light": "#6B7280",
+                        "text-muted-dark": "#9CA3AF",
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                    },
+                },
+            },
+        };
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-sans transition-colors duration-200">
+<div class="flex h-screen overflow-hidden">
+<aside class="w-64 bg-sidebar flex flex-col justify-between shadow-xl z-10 flex-shrink-0 transition-all duration-300">
+<div>
+<div class="flex items-center gap-3 px-6 py-8">
+<div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center text-white">
+<span class="material-icons-outlined text-2xl">local_florist</span>
+</div>
+<div class="flex flex-col text-white">
+<h1 class="text-xl font-bold leading-tight">AgriPlanner</h1>
+<span class="text-xs text-emerald-100 uppercase tracking-wider font-medium">System Admin</span>
+</div>
+</div>
+<nav class="flex flex-col gap-2 px-4 mt-4">
+<a class="flex items-center gap-3 px-4 py-3 text-white rounded-lg hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-outlined text-xl">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-white rounded-lg hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-outlined text-xl">people</span>
+<span class="font-medium">Users</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-white/20 text-white rounded-lg shadow-inner" href="#">
+<span class="material-icons-outlined text-xl">grass</span>
+<span class="font-medium">Crops</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-white rounded-lg hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-outlined text-xl">storefront</span>
+<span class="font-medium">Shop Items</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-white rounded-lg hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-outlined text-xl">pets</span>
+<span class="font-medium">Animals</span>
+</a>
+</nav>
+</div>
+<div class="px-4 pb-8">
+<div class="w-full border-t border-emerald-400/30 mb-6"></div>
+<a class="flex items-center gap-3 px-4 py-2 text-white hover:text-emerald-100 transition-colors group" href="#">
+<span class="material-icons-outlined text-xl transform group-hover:-translate-x-1 transition-transform">logout</span>
+<span class="font-medium">Logout</span>
+</a>
+</div>
+</aside>
+<main class="flex-1 overflow-y-auto h-full flex flex-col">
+<header class="bg-card-light dark:bg-card-dark shadow-sm px-8 py-5 flex items-center justify-between sticky top-0 z-20">
+<h2 class="text-2xl font-bold text-text-light dark:text-text-dark">Crops Master Data</h2>
+<div class="flex items-center gap-6">
+<button class="relative p-2 text-text-muted-light dark:text-text-muted-dark hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+<span class="material-icons-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+</button>
+<div class="h-8 w-px bg-gray-200 dark:bg-gray-700"></div>
+<div class="flex items-center gap-3">
+<img alt="Sarah Jenkins" class="w-10 h-10 rounded-full border-2 border-white shadow-sm object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsYaOjIOuhL_b7H9UZOJ4aNsh8x3NBGP8xpbIW1dNtJbARhMSZCPCucpIknEKO0uBykipNVAJ3JWwI3_zCDlrLlnDo4791k-orTH5I-lYc6lOxSq7Uv3b7WxrzOq3m_7U9dLWD8DaKLzJYGRtj02a3n4g-CBMEWGQoK3U1F59ppq2E_aSCK2GiAgg9IGMO_r98Rga4mow_-K_nElTXmu_M5iHfERGdOVTpML5J9k8EuPo0vur26h5V033xNny6L9tWBZGBH-ZVMrML"/>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-text-light dark:text-text-dark leading-none">Sarah Jenkins</span>
+<span class="text-xs text-text-muted-light dark:text-text-muted-dark mt-1">Global Administrator</span>
+</div>
+</div>
+</div>
+</header>
+<div class="p-8">
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+<div class="relative w-full sm:w-72">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-icons-outlined text-gray-400">search</span>
+<input class="w-full pl-10 pr-4 py-2.5 rounded-lg border-gray-200 dark:border-gray-700 bg-white dark:bg-card-dark text-text-light dark:text-text-dark focus:ring-2 focus:ring-primary focus:border-transparent transition-all shadow-sm" placeholder="Search crops..." type="text"/>
+</div>
+<button class="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg shadow-md hover:shadow-lg transition-all font-medium">
+<span class="material-icons-outlined text-lg">add</span>
+                        Add New Crop
+                    </button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+<div class="bg-card-light dark:bg-card-dark p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-between">
+<div>
+<p class="text-sm text-text-muted-light dark:text-text-muted-dark font-medium">Active Crops</p>
+<h3 class="text-3xl font-bold text-text-light dark:text-text-dark mt-1">45</h3>
+<p class="text-xs text-emerald-500 font-medium mt-2 flex items-center gap-1">
+<span class="material-icons-outlined text-xs">trending_up</span>
+                                +3 new additions
+                            </p>
+</div>
+<div class="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg flex items-center justify-center text-primary">
+<span class="material-icons-outlined text-2xl">grass</span>
+</div>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-between">
+<div>
+<p class="text-sm text-text-muted-light dark:text-text-muted-dark font-medium">Pending Review</p>
+<h3 class="text-3xl font-bold text-text-light dark:text-text-dark mt-1">8</h3>
+<p class="text-xs text-orange-500 font-medium mt-2 flex items-center gap-1">
+<span class="material-icons-outlined text-xs">warning</span>
+                                Needs approval
+                            </p>
+</div>
+<div class="w-12 h-12 bg-orange-50 dark:bg-orange-900/30 rounded-lg flex items-center justify-center text-orange-500">
+<span class="material-icons-outlined text-2xl">pending_actions</span>
+</div>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 flex items-center justify-between">
+<div>
+<p class="text-sm text-text-muted-light dark:text-text-muted-dark font-medium">Archived</p>
+<h3 class="text-3xl font-bold text-text-light dark:text-text-dark mt-1">12</h3>
+<p class="text-xs text-text-muted-light dark:text-text-muted-dark mt-2">
+                                Seasonal inactive
+                            </p>
+</div>
+<div class="w-12 h-12 bg-gray-50 dark:bg-gray-800 rounded-lg flex items-center justify-center text-gray-400">
+<span class="material-icons-outlined text-2xl">inventory_2</span>
+</div>
+</div>
+</div>
+<div class="bg-card-light dark:bg-card-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+<div class="p-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+<h3 class="font-bold text-lg text-text-light dark:text-text-dark">All Crops</h3>
+<div class="flex gap-2">
+<button class="p-2 text-gray-400 hover:text-primary transition-colors">
+<span class="material-icons-outlined">filter_list</span>
+</button>
+<button class="p-2 text-gray-400 hover:text-primary transition-colors">
+<span class="material-icons-outlined">more_vert</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
+<th class="px-6 py-4 text-xs font-semibold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider w-12">
+<input class="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</th>
+<th class="px-6 py-4 text-xs font-semibold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider">Crop Name</th>
+<th class="px-6 py-4 text-xs font-semibold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider">Category</th>
+<th class="px-6 py-4 text-xs font-semibold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider">Growth Duration</th>
+<th class="px-6 py-4 text-xs font-semibold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider">Season</th>
+<th class="px-6 py-4 text-xs font-semibold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider">Status</th>
+<th class="px-6 py-4 text-xs font-semibold text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="px-6 py-4">
+<input class="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center flex-shrink-0 text-yellow-600 dark:text-yellow-500">
+<span class="material-icons-outlined">agriculture</span>
+</div>
+<div>
+<p class="font-medium text-text-light dark:text-text-dark text-sm">Organic Corn</p>
+<p class="text-xs text-text-muted-light dark:text-text-muted-dark">Zea mays var.</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-sm text-text-light dark:text-text-dark">Cereal Grain</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-icons-outlined text-gray-400 text-sm">schedule</span>
+<span class="text-sm text-text-light dark:text-text-dark">60 - 100 days</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-sm text-text-light dark:text-text-dark">Summer/Fall</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors">
+<span class="material-icons-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
+<span class="material-icons-outlined text-lg">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="px-6 py-4">
+<input class="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0 text-red-600 dark:text-red-500">
+<span class="material-icons-outlined">local_florist</span>
+</div>
+<div>
+<p class="font-medium text-text-light dark:text-text-dark text-sm">Roma Tomato</p>
+<p class="text-xs text-text-muted-light dark:text-text-muted-dark">Solanum lycopersicum</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-sm text-text-light dark:text-text-dark">Vegetable</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-icons-outlined text-gray-400 text-sm">schedule</span>
+<span class="text-sm text-text-light dark:text-text-dark">70 - 80 days</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-sm text-text-light dark:text-text-dark">Spring/Summer</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors">
+<span class="material-icons-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
+<span class="material-icons-outlined text-lg">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="px-6 py-4">
+<input class="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0 text-purple-600 dark:text-purple-500">
+<span class="material-icons-outlined">spa</span>
+</div>
+<div>
+<p class="font-medium text-text-light dark:text-text-dark text-sm">Lavender</p>
+<p class="text-xs text-text-muted-light dark:text-text-muted-dark">Lavandula</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-sm text-text-light dark:text-text-dark">Herb</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-icons-outlined text-gray-400 text-sm">schedule</span>
+<span class="text-sm text-text-light dark:text-text-dark">90 - 100 days</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-sm text-text-light dark:text-text-dark">Perennial</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
+                                            In Review
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors">
+<span class="material-icons-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
+<span class="material-icons-outlined text-lg">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="px-6 py-4">
+<input class="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0 text-orange-600 dark:text-orange-500">
+<span class="material-icons-outlined">circle</span>
+</div>
+<div>
+<p class="font-medium text-text-light dark:text-text-dark text-sm">Sweet Potato</p>
+<p class="text-xs text-text-muted-light dark:text-text-muted-dark">Ipomoea batatas</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-sm text-text-light dark:text-text-dark">Root Vegetable</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-icons-outlined text-gray-400 text-sm">schedule</span>
+<span class="text-sm text-text-light dark:text-text-dark">90 - 120 days</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-sm text-text-light dark:text-text-dark">Summer</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400">
+                                            Inactive
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors">
+<span class="material-icons-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
+<span class="material-icons-outlined text-lg">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group border-none">
+<td class="px-6 py-4">
+<input class="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4" type="checkbox"/>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0 text-green-600 dark:text-green-500">
+<span class="material-icons-outlined">grass</span>
+</div>
+<div>
+<p class="font-medium text-text-light dark:text-text-dark text-sm">Wheat</p>
+<p class="text-xs text-text-muted-light dark:text-text-muted-dark">Triticum</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-sm text-text-light dark:text-text-dark">Cereal Grain</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-icons-outlined text-gray-400 text-sm">schedule</span>
+<span class="text-sm text-text-light dark:text-text-dark">110 - 130 days</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="text-sm text-text-light dark:text-text-dark">Spring/Winter</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
+                                            Active
+                                        </span>
+</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors">
+<span class="material-icons-outlined text-lg">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors">
+<span class="material-icons-outlined text-lg">delete</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+<div class="text-sm text-text-muted-light dark:text-text-muted-dark">
+                            Showing <span class="font-medium text-text-light dark:text-text-dark">1</span> to <span class="font-medium text-text-light dark:text-text-dark">5</span> of <span class="font-medium text-text-light dark:text-text-dark">45</span> results
+                        </div>
+<div class="flex gap-2">
+<button class="px-3 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50">Previous</button>
+<button class="px-3 py-1 text-sm bg-primary text-white rounded-md hover:bg-primary-dark">1</button>
+<button class="px-3 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">2</button>
+<button class="px-3 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">3</button>
+<span class="px-2 py-1 text-gray-400">...</span>
+<button class="px-3 py-1 text-sm border border-gray-200 dark:border-gray-700 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">Next</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+</body></html>

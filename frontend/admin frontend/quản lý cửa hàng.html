@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AgriPlanner - Shop Inventory</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10B981", // Emerald 500 matching the screenshot sidebar
+                        "background-light": "#F9FAFB", // Gray 50
+                        "background-dark": "#111827", // Gray 900
+                        "surface-light": "#FFFFFF",
+                        "surface-dark": "#1F2937",
+                        "sidebar-green": "#10B981",
+                        "sidebar-active": "rgba(255, 255, 255, 0.2)",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        sans: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                        'xl': '0.75rem',
+                        '2xl': '1rem',
+                    },
+                },
+            },
+        };
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #4b5563;
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-gray-800 dark:text-gray-100 h-screen flex overflow-hidden">
+<aside class="w-64 bg-sidebar-green text-white flex flex-col flex-shrink-0 transition-all duration-300">
+<div class="p-6 flex items-center space-x-3">
+<div class="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+<span class="material-icons-round text-2xl">local_florist</span>
+</div>
+<div>
+<h1 class="text-xl font-bold leading-tight">AgriPlanner</h1>
+<p class="text-xs text-green-100 opacity-80 uppercase tracking-wider">System Admin</p>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
+<a class="flex items-center space-x-3 px-4 py-3 rounded-xl text-white hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-round">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-xl text-white hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-round">people</span>
+<span class="font-medium">Users</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-xl text-white hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-round">eco</span>
+<span class="font-medium">Crops</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-xl bg-sidebar-active backdrop-blur-sm text-white shadow-inner" href="#">
+<span class="material-icons-round">storefront</span>
+<span class="font-medium">Shop Items</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-xl text-white hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-round">pets</span>
+<span class="font-medium">Animals</span>
+</a>
+</nav>
+<div class="p-4 border-t border-white/10">
+<a class="flex items-center space-x-3 px-4 py-3 rounded-xl text-white hover:bg-white/10 transition-colors group" href="#">
+<span class="material-icons-round transform rotate-180 group-hover:-translate-x-1 transition-transform">logout</span>
+<span class="font-medium">Logout</span>
+</a>
+</div>
+</aside>
+<main class="flex-1 flex flex-col min-w-0 overflow-hidden bg-background-light dark:bg-background-dark">
+<header class="bg-surface-light dark:bg-surface-dark border-b border-gray-200 dark:border-gray-700 px-8 py-5 flex justify-between items-center sticky top-0 z-10 shadow-sm">
+<div>
+<h2 class="text-2xl font-bold text-gray-900 dark:text-white">Shop Inventory</h2>
+<p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage products, stock levels, and store listings.</p>
+</div>
+<div class="flex items-center space-x-6">
+<button class="relative p-2 text-gray-500 hover:text-primary dark:text-gray-400 transition-colors">
+<span class="material-icons-round">notifications</span>
+<span class="absolute top-2 right-2 h-2 w-2 bg-red-500 rounded-full border border-white dark:border-gray-800"></span>
+</button>
+<div class="flex items-center space-x-3 pl-6 border-l border-gray-200 dark:border-gray-700">
+<img alt="Admin Profile" class="h-10 w-10 rounded-full object-cover border-2 border-primary/20" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCKT54c5TByk_h7rr0309UH_e_Fet9s0CeQHE-pH0OD_tshkS72cUXWogaO3GTgCYT5nnAXvBvfp3lwSTC166AwX32NU6FEgnfOXwUYEpWATzaDTus7_egVigx-J5X6P0y4ibE_ZKVjIRcXPXIqhF-PPAGxUXAgqOtzRzxULuDlAP2lW8Wbm8tm564NtQbMZZ6i-d0t9OswVXDQfryUiW_mJhU17biXIPWR1nCBnWSRBBpT3GxKpGa7AT_Hz1tZfCxuoE-3cZHZr9jv"/>
+<div class="hidden md:block">
+<p class="text-sm font-semibold text-gray-900 dark:text-white">Sarah Jenkins</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">Global Administrator</p>
+</div>
+</div>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto p-8">
+<div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+<div class="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+<div class="relative">
+<span class="material-icons-round absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">search</span>
+<input class="pl-10 pr-4 py-2.5 w-full sm:w-64 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-shadow shadow-sm" placeholder="Search products..." type="text"/>
+</div>
+<div class="relative">
+<select class="appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none shadow-sm cursor-pointer">
+<option>All Categories</option>
+<option>Seeds</option>
+<option>Fertilizers</option>
+<option>Tools</option>
+<option>Machinery</option>
+</select>
+<span class="material-icons-round absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+</div>
+<div class="relative">
+<select class="appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:ring-2 focus:ring-primary focus:border-transparent outline-none shadow-sm cursor-pointer">
+<option>Status: All</option>
+<option>Active</option>
+<option>Low Stock</option>
+<option>Out of Stock</option>
+<option>Draft</option>
+</select>
+<span class="material-icons-round absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none">expand_more</span>
+</div>
+</div>
+<button class="flex items-center space-x-2 bg-primary hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl shadow-lg shadow-emerald-500/30 transition-all transform hover:-translate-y-0.5">
+<span class="material-icons-round text-sm">add</span>
+<span class="font-medium">Add New Item</span>
+</button>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-gray-50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700">
+<th class="p-4 pl-6 text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">Product</th>
+<th class="p-4 text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">Category</th>
+<th class="p-4 text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">Price</th>
+<th class="p-4 text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">Stock Level</th>
+<th class="p-4 text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">Status</th>
+<th class="p-4 text-xs font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase text-right pr-6">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="p-4 pl-6">
+<div class="flex items-center space-x-4">
+<div class="h-12 w-12 rounded-lg bg-gray-100 dark:bg-gray-700 overflow-hidden flex-shrink-0 border border-gray-200 dark:border-gray-600">
+<img alt="Wheat Seeds" class="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDodBTdPkgYV96pDp89FFPYBRlX9hfLgMJHkmXykq2fNLcpGca6rXeMcfoqnPidBBAnlWlc3fTUs_yrJBDDn4gizhdRjx4fKsPjfxfogbAte5ge50r0Ww5gNDohvcT-k-5iwVVP9X7buZErdaOdg7_c4eVSb9IdMHsjjPJU-el2spS82FXOEGz2_HT-tByYz3-fUkHZy88vk9iXtnuFt4UEhjTmVzD_dy8mVdNJYGz2KCg-x-r7TvHh85GLx2H_x0lmwYRPpEDPBN3g"/>
+</div>
+<div>
+<p class="font-semibold text-gray-900 dark:text-white">High-Yield Wheat Seeds</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">SKU: WHT-2023-A</p>
+</div>
+</div>
+</td>
+<td class="p-4 text-sm text-gray-600 dark:text-gray-300">Seeds &amp; Grains</td>
+<td class="p-4 text-sm font-medium text-gray-900 dark:text-white">$24.50</td>
+<td class="p-4">
+<div class="flex items-center space-x-2">
+<div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+<div class="bg-emerald-500 h-2 rounded-full" style="width: 85%"></div>
+</div>
+<span class="text-xs font-medium text-gray-600 dark:text-gray-300">450 units</span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+                                        Active
+                                    </span>
+</td>
+<td class="p-4 text-right pr-6">
+<div class="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-gray-400 hover:text-primary hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors" title="Edit">
+<span class="material-icons-round text-base">edit</span>
+</button>
+<button class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete">
+<span class="material-icons-round text-base">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="p-4 pl-6">
+<div class="flex items-center space-x-4">
+<div class="h-12 w-12 rounded-lg bg-gray-100 dark:bg-gray-700 overflow-hidden flex-shrink-0 border border-gray-200 dark:border-gray-600">
+<img alt="Organic Fertilizer" class="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDqCLAb2t8NVpDxau6cej8_wN3h4hq70aAR88fVtBW6blizvbHE8Yx-OcxYjG6nlJ5AJSJ6zoh8JU1yF5fsx2VL-6N82cBDCcTnUOMtX_0fWbnobXdvXZe7vhjnzfSJXXhDUTvx-ee-zG-xGyp0Dm5CYkS4sxxG9y8v2FaSmXVwmYew3dnpd1_8YA1jMPC-7yxx3Utm9LwuCbTsth9GwZMGCGFQt38FiAKsRKMY_chctNcKrqH5prf4LTjUUYj7VC8cm_N06cqYGTjT"/>
+</div>
+<div>
+<p class="font-semibold text-gray-900 dark:text-white">Organic Nitrogen Plus</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">SKU: FRT-ORG-50</p>
+</div>
+</div>
+</td>
+<td class="p-4 text-sm text-gray-600 dark:text-gray-300">Fertilizers</td>
+<td class="p-4 text-sm font-medium text-gray-900 dark:text-white">$55.00</td>
+<td class="p-4">
+<div class="flex items-center space-x-2">
+<div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+<div class="bg-amber-400 h-2 rounded-full" style="width: 15%"></div>
+</div>
+<span class="text-xs font-medium text-amber-600 dark:text-amber-400 flex items-center">
+<span class="material-icons-round text-[14px] mr-1">warning</span>
+                                            12 units
+                                        </span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                                        Low Stock
+                                    </span>
+</td>
+<td class="p-4 text-right pr-6">
+<div class="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-gray-400 hover:text-primary hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors" title="Edit">
+<span class="material-icons-round text-base">edit</span>
+</button>
+<button class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete">
+<span class="material-icons-round text-base">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="p-4 pl-6">
+<div class="flex items-center space-x-4">
+<div class="h-12 w-12 rounded-lg bg-gray-100 dark:bg-gray-700 overflow-hidden flex-shrink-0 border border-gray-200 dark:border-gray-600">
+<img alt="Tractor" class="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDA8nh2AvRaPXbDXqXkKB0JPwjmMczPiWSzho7JdCpAGarZutAxRUlEhYsgy9QDFvs4lD6YIr3brHMu-aZpai9AsFJKQiG-HpdS0h8U-sCGb2G8AqbgXApb2geOgsVhJWWxubhkTyCvtjhiSJ4yCC6j4GN72PuYQ_F-YsJBL3uM_nOo3AxX3HQ_asQrs3PASehIT55Af4jYd4yOw4xBmlCcaJEte2L5fw3W4bSEu8rrvaS7V1zaGlJab8LNw6Ihocpi6NmG7WbpoOrc"/>
+</div>
+<div>
+<p class="font-semibold text-gray-900 dark:text-white">Compact Tractor X500</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">SKU: MCH-TRC-X5</p>
+</div>
+</div>
+</td>
+<td class="p-4 text-sm text-gray-600 dark:text-gray-300">Machinery</td>
+<td class="p-4 text-sm font-medium text-gray-900 dark:text-white">$15,999.00</td>
+<td class="p-4">
+<div class="flex items-center space-x-2">
+<div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+<div class="bg-red-500 h-2 rounded-full" style="width: 0%"></div>
+</div>
+<span class="text-xs font-medium text-red-600 dark:text-red-400">0 units</span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-200 dark:border-red-800">
+                                        Out of Stock
+                                    </span>
+</td>
+<td class="p-4 text-right pr-6">
+<div class="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-gray-400 hover:text-primary hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors" title="Edit">
+<span class="material-icons-round text-base">edit</span>
+</button>
+<button class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete">
+<span class="material-icons-round text-base">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="p-4 pl-6">
+<div class="flex items-center space-x-4">
+<div class="h-12 w-12 rounded-lg bg-gray-100 dark:bg-gray-700 overflow-hidden flex-shrink-0 border border-gray-200 dark:border-gray-600">
+<img alt="Irrigation Hose" class="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBRT3XCp_gSbDuNlIT9JEbk9vPVYILReMnr-4vSPGnZtQh6xXCSB6nZ-XPN7FVLe76sep_AaQJvMtNhDcztIHyaT18U9oc0KDbgeBnOrEWF57DJe9t1iJJGWfPFahX0fHxls8o2BRmi-7Y0HzcL2Ve8HsTibWGHI6J7WdTgY8v4_5Z6FgBCdbfeL12xOLawDFDvstzUE22Ssak-MBAX4i9EL90vrzzfPiuIlf5jCBu3w5AIVsDI4vRs7HBhMFy5kqj3sufaie1UpVzO"/>
+</div>
+<div>
+<p class="font-semibold text-gray-900 dark:text-white">Drip Irrigation Kit</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">SKU: IRR-DRP-PRO</p>
+</div>
+</div>
+</td>
+<td class="p-4 text-sm text-gray-600 dark:text-gray-300">Tools &amp; Irrigation</td>
+<td class="p-4 text-sm font-medium text-gray-900 dark:text-white">$120.00</td>
+<td class="p-4">
+<div class="flex items-center space-x-2">
+<div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+<div class="bg-emerald-500 h-2 rounded-full" style="width: 60%"></div>
+</div>
+<span class="text-xs font-medium text-gray-600 dark:text-gray-300">64 units</span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+                                        Active
+                                    </span>
+</td>
+<td class="p-4 text-right pr-6">
+<div class="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-gray-400 hover:text-primary hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors" title="Edit">
+<span class="material-icons-round text-base">edit</span>
+</button>
+<button class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete">
+<span class="material-icons-round text-base">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="p-4 pl-6">
+<div class="flex items-center space-x-4">
+<div class="h-12 w-12 rounded-lg bg-gray-100 dark:bg-gray-700 overflow-hidden flex-shrink-0 border border-gray-200 dark:border-gray-600 flex items-center justify-center">
+<span class="material-icons-round text-gray-400">image_not_supported</span>
+</div>
+<div>
+<p class="font-semibold text-gray-900 dark:text-white">Seasonal Corn Seeds</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">SKU: CRN-SEA-24</p>
+</div>
+</div>
+</td>
+<td class="p-4 text-sm text-gray-600 dark:text-gray-300">Seeds &amp; Grains</td>
+<td class="p-4 text-sm font-medium text-gray-900 dark:text-white">$18.00</td>
+<td class="p-4">
+<div class="flex items-center space-x-2">
+<div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+<div class="bg-gray-400 h-2 rounded-full" style="width: 100%"></div>
+</div>
+<span class="text-xs font-medium text-gray-600 dark:text-gray-300">100 units</span>
+</div>
+</td>
+<td class="p-4">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
+                                        Draft
+                                    </span>
+</td>
+<td class="p-4 text-right pr-6">
+<div class="flex justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-2 text-gray-400 hover:text-primary hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors" title="Edit">
+<span class="material-icons-round text-base">edit</span>
+</button>
+<button class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete">
+<span class="material-icons-round text-base">delete</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="flex items-center justify-between px-6 py-4 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+<p class="text-sm text-gray-500 dark:text-gray-400">
+                        Showing <span class="font-medium text-gray-900 dark:text-white">1</span> to <span class="font-medium text-gray-900 dark:text-white">5</span> of <span class="font-medium text-gray-900 dark:text-white">128</span> items
+                    </p>
+<div class="flex space-x-2">
+<button class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors" disabled="">
+                            Previous
+                        </button>
+<button class="px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                            Next
+                        </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+
+</body></html>

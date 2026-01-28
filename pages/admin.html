@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>AgriPlanner - Quản trị Hệ thống</title>
+    <meta name="description" content="Trang quản trị hệ thống AgriPlanner" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+        rel="stylesheet">
+
+    <!-- TailwindCSS -->
+    <script>window.TAILWIND_SUPPRESS_CDN_WARNING = true;</script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10B981",
+                        "primary-dark": "#059669",
+                        "primary-light": "#34D399",
+                        "background-light": "#F3F4F6",
+                        "background-dark": "#111827",
+                        "card-light": "#FFFFFF",
+                        "card-dark": "#1F2937",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                },
+            },
+        };
+    </script>
+
+    <!-- GSAP for Animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <!-- Chart.js for Analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+    <!-- Leaflet for Maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- TinyMCE Rich Text Editor -->
+    <script src="https://cdn.tiny.cloud/1/x5pn02jzgcicwr4b4rrlj53weq9oksqomhpmz81xiwvojzkh/tinymce/6/tinymce.min.js"
+        referrerpolicy="origin"></script>
+
+    <!-- Admin & Cooperative Styles -->
+    <link rel="stylesheet" href="../css/cooperative.css" />
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .sidebar-item.active {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .modal-overlay {
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        .modal-content {
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .table-row {
+            transition: all 0.2s;
+        }
+
+        .table-row:hover {
+            background: #f9fafb;
+        }
+
+        .action-btn {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .table-row:hover .action-btn {
+            opacity: 1;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a1a1a1;
+        }
+    </style>
+</head>
+
+<body class="bg-background-light font-body antialiased">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-primary text-white flex flex-col h-full shadow-xl z-20">
+            <div class="p-6 flex items-center gap-3">
+                <div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
+                    <span class="material-icons-round text-2xl">eco</span>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold leading-tight">AgriPlanner</h1>
+                    <p class="text-xs text-white/70 uppercase tracking-wider font-medium">System Admin</p>
+                </div>
+            </div>
+
+            <nav class="flex-1 px-4 space-y-2 mt-4" id="sidebar-nav">
+                <a href="#"
+                    class="sidebar-item active flex items-center gap-3 px-4 py-3 rounded-lg text-white transition-colors"
+                    data-tab="dashboard">
+                    <span class="material-icons-round">dashboard</span>
+                    <span class="font-medium">Tổng quan</span>
+                </a>
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="users">
+                    <span class="material-icons-round">group</span>
+                    <span class="font-medium">Người dùng</span>
+                </a>
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="crops">
+                    <span class="material-icons-round">grass</span>
+                    <span class="font-medium">Cây trồng</span>
+                </a>
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="shop-items">
+                    <span class="material-icons-round">storefront</span>
+                    <span class="font-medium">Sản phẩm</span>
+                </a>
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="animals">
+                    <span class="material-icons-round">pets</span>
+                    <span class="font-medium">Chăn nuôi</span>
+                </a>
+
+
+                <div class="border-t border-white/10 my-3"></div>
+
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="orders">
+                    <span class="material-icons-round">local_shipping</span>
+                    <span class="font-medium">Đơn hàng</span>
+                </a>
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="cooperatives">
+                    <span class="material-icons-round">groups</span>
+                    <span class="font-medium">Hợp tác xã</span>
+                </a>
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="community">
+                    <span class="material-icons-round">forum</span>
+                    <span class="font-medium">Cộng đồng</span>
+                </a>
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="price-analysis">
+                    <span class="material-icons-round">analytics</span>
+                    <span class="font-medium">Phân tích giá</span>
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-white/10">
+                <button id="logout-btn"
+                    class="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-white/80 hover:bg-white/10 transition-colors">
+                    <span class="material-icons-round">logout</span>
+                    <span class="font-medium">Đăng xuất</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <!-- Header -->
+            <header
+                class="bg-white border-b border-gray-200 h-20 flex items-center justify-between px-8 sticky top-0 z-10">
+                <h2 id="page-title" class="text-2xl font-bold text-gray-800">Tổng quan Hệ thống</h2>
+                <div class="flex items-center gap-6">
+                    <button class="relative p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                        <span class="material-icons-round text-2xl">notifications</span>
+                        <span
+                            class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                    </button>
+                    <div class="flex items-center gap-3 pl-6 border-l border-gray-200">
+                        <div id="admin-avatar"
+                            class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">
+                            A</div>
+                        <div>
+                            <p id="admin-name" class="text-sm font-semibold text-gray-700">Admin</p>
+                            <p class="text-xs text-gray-500">Quản trị viên</p>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content Area -->
+            <main id="main-content" class="flex-1 overflow-y-auto p-8">
+                <!-- Content injected by JS -->
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal Container -->
+    <div id="modal-container"></div>
+    <div id="modal" class="modal"></div>
+
+    <!-- Scripts -->
+    <script src="../js/config.js"></script>
+    <script src="../js/admin.js"></script>
+</body>
+
+</html>

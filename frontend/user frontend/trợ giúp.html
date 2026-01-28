@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AgriPlanner - Help &amp; Support</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2f7f34",
+                        "sidebar-bg": "#1B5E20",
+                        "background-light": "#F5F7FA",
+                        "background-dark": "#141e15",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "0.75rem", "xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }details > summary {
+            list-style: none;
+        }
+        details > summary::-webkit-details-marker {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-800 dark:text-slate-100 overflow-hidden h-screen flex">
+<aside class="w-[260px] h-full bg-sidebar-bg flex flex-col shrink-0 transition-all duration-300 z-20">
+<div class="h-16 flex items-center px-6 gap-3 border-b border-white/10">
+<div class="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined !text-[20px]">eco</span>
+</div>
+<h1 class="text-white text-lg font-bold tracking-wide">AgriPlanner</h1>
+</div>
+<nav class="flex-1 overflow-y-auto py-6 px-3 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">potted_plant</span>
+<span class="text-sm font-medium">Cultivation</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">pest_control_rodent</span>
+<span class="text-sm font-medium">Livestock</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">bar_chart</span>
+<span class="text-sm font-medium">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+<div class="flex-1"></div>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/20 text-white group mb-2 transition-colors shadow-inner" href="#">
+<span class="material-symbols-outlined !text-[24px]">help</span>
+<span class="text-sm font-medium">Help</span>
+</a>
+</nav>
+<div class="p-4 border-t border-white/10">
+<div class="flex items-center gap-3 px-2 py-2 rounded-lg bg-white/5 border border-white/10">
+<div class="w-8 h-8 rounded-full bg-cover bg-center" data-alt="User avatar image" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDCMN1BzSnHgFxeyKEvWsG_QZ7RRtaDeDC8da2PFWOdIOql1NQCIo7EyyLhovyGTv1IssyE0ElFcEa4Vw-V8109xsNhBf99T3NkTDvtYBU47tW1lefo65wDbOMoAbD7PjTIEurzbP6iG_cbmo4nHkWq5Ui67icWuS_TELGtKpV-77MezNda4FST6uqiwz7I-b6lE7ansa-imri7RnOY44Du1B8I1k4Rv_dGiOsudGGjdZD0rsUyhKsP7Eo6RCFsaG5tXK4lTjqA9wxs');"></div>
+<div class="flex flex-col overflow-hidden">
+<p class="text-xs font-bold text-white truncate">John Farmer</p>
+<p class="text-[10px] text-white/60 truncate">john@agriplanner.com</p>
+</div>
+</div>
+</div>
+</aside>
+<div class="flex-1 flex flex-col h-full relative overflow-hidden">
+<header class="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-8 shrink-0 z-10">
+<div class="text-sm breadcrumbs text-slate-500">
+<span>Support</span> <span class="mx-2">/</span> <span class="text-slate-900 dark:text-white font-semibold">Help Center</span>
+</div>
+<div class="flex items-center gap-6">
+<button class="relative p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
+<span class="material-symbols-outlined !text-[24px]">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-800"></span>
+</button>
+<div class="flex items-center gap-3 pl-6 border-l border-slate-200 dark:border-slate-700">
+<div class="w-10 h-10 rounded-full border-2 border-white shadow-sm bg-cover bg-center cursor-pointer hover:ring-2 hover:ring-primary transition-all" data-alt="User profile picture" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCHFCTqN0OM4sPkXOIJq6yxGJaRp5CFHphT4D3h5kTOVuH5XYva-_dBSZW4xFkV4oYoFHd-mgQi2uwLpx8Y2d0nY-kTjVoTY-fsw_cVVCZMuHwe1uAiUGLxaflzoYqbhM8v8nkGBQyp3yT7yk_pAadyFgKQ0ZfaPxHWGc8-v3chAxzKzK48oNsygXDarEGdKrgTsJ54TT58oJ-WPS65S_kwcNajqy3wIMFodmRWYftN04hShgSUMQ8hrtuIVt2uMPn6xk_ckF1LZRfp');"></div>
+</div>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto bg-background-light dark:bg-background-dark scroll-smooth">
+<div class="bg-gradient-to-b from-primary/10 to-transparent pt-16 pb-12 px-6">
+<div class="max-w-3xl mx-auto text-center">
+<h2 class="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6">How can we help you?</h2>
+<div class="relative group max-w-2xl mx-auto shadow-lg rounded-xl">
+<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-primary !text-[24px]">search</span>
+</div>
+<input class="block w-full pl-12 pr-4 py-4 border-0 rounded-xl text-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:ring-2 focus:ring-primary transition shadow-sm" placeholder="Search for articles, guides, or troubleshooting..." type="text"/>
+</div>
+</div>
+</div>
+<div class="max-w-6xl mx-auto px-6 pb-20 flex flex-col gap-12 -mt-4">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer group text-center">
+<div class="w-16 h-16 mx-auto bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 transition-colors">
+<span class="material-symbols-outlined text-blue-600 !text-[32px]">menu_book</span>
+</div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Documentation</h3>
+<p class="text-slate-500 dark:text-slate-400 text-sm">Browse detailed guides on how to use AgriPlanner efficiently.</p>
+</div>
+<div class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer group text-center">
+<div class="w-16 h-16 mx-auto bg-purple-50 dark:bg-purple-900/20 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-purple-100 dark:group-hover:bg-purple-900/40 transition-colors">
+<span class="material-symbols-outlined text-purple-600 !text-[32px]">play_circle</span>
+</div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Video Tutorials</h3>
+<p class="text-slate-500 dark:text-slate-400 text-sm">Watch step-by-step videos to master farm management tools.</p>
+</div>
+<div class="bg-white dark:bg-slate-800 p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg hover:-translate-y-1 transition-all cursor-pointer group text-center">
+<div class="w-16 h-16 mx-auto bg-green-50 dark:bg-green-900/20 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-green-100 dark:group-hover:bg-green-900/40 transition-colors">
+<span class="material-symbols-outlined text-primary !text-[32px]">support_agent</span>
+</div>
+<h3 class="text-xl font-bold text-slate-900 dark:text-white mb-2">Contact Support</h3>
+<p class="text-slate-500 dark:text-slate-400 text-sm">Can't find what you need? Talk to our support team.</p>
+</div>
+</div>
+<div class="max-w-3xl mx-auto w-full">
+<h3 class="text-2xl font-bold text-slate-900 dark:text-white text-center mb-8">Frequently Asked Questions</h3>
+<div class="space-y-4">
+<details class="group bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+<summary class="flex justify-between items-center p-5 cursor-pointer font-semibold text-slate-800 dark:text-slate-200 select-none hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                            How do I export my financial reports?
+                            <span class="material-symbols-outlined transition-transform duration-300 group-open:rotate-180 text-slate-400">expand_more</span>
+</summary>
+<div class="p-5 pt-0 text-slate-600 dark:text-slate-400 leading-relaxed border-t border-transparent group-open:border-slate-100 dark:group-open:border-slate-700">
+                            You can export reports by navigating to the Analytics tab, selecting "Financials", and clicking the "Export" button in the top right corner. Formats available include PDF and CSV.
+                        </div>
+</details>
+<details class="group bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+<summary class="flex justify-between items-center p-5 cursor-pointer font-semibold text-slate-800 dark:text-slate-200 select-none hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                            Can I integrate IoT soil sensors?
+                            <span class="material-symbols-outlined transition-transform duration-300 group-open:rotate-180 text-slate-400">expand_more</span>
+</summary>
+<div class="p-5 pt-0 text-slate-600 dark:text-slate-400 leading-relaxed border-t border-transparent group-open:border-slate-100 dark:group-open:border-slate-700">
+                            Yes, AgriPlanner supports various IoT devices. Go to Settings &gt; Integrations to connect your compatible soil moisture and temperature sensors via API keys.
+                        </div>
+</details>
+<details class="group bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+<summary class="flex justify-between items-center p-5 cursor-pointer font-semibold text-slate-800 dark:text-slate-200 select-none hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                            How do I update livestock vaccination records?
+                            <span class="material-symbols-outlined transition-transform duration-300 group-open:rotate-180 text-slate-400">expand_more</span>
+</summary>
+<div class="p-5 pt-0 text-slate-600 dark:text-slate-400 leading-relaxed border-t border-transparent group-open:border-slate-100 dark:group-open:border-slate-700">
+                            Navigate to the Livestock dashboard, select the specific animal or herd, and click on the "Medical History" tab. From there, you can add new vaccination entries.
+                        </div>
+</details>
+<details class="group bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+<summary class="flex justify-between items-center p-5 cursor-pointer font-semibold text-slate-800 dark:text-slate-200 select-none hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                            How do I reset my account password?
+                            <span class="material-symbols-outlined transition-transform duration-300 group-open:rotate-180 text-slate-400">expand_more</span>
+</summary>
+<div class="p-5 pt-0 text-slate-600 dark:text-slate-400 leading-relaxed border-t border-transparent group-open:border-slate-100 dark:group-open:border-slate-700">
+                            If you are logged out, click "Forgot Password" on the login screen. If you are logged in, go to Settings &gt; Security and click "Change Password" to send a reset link to your email.
+                        </div>
+</details>
+</div>
+</div>
+<div class="text-center pt-8 border-t border-slate-200 dark:border-slate-700">
+<p class="text-slate-500">Still have questions?</p>
+<a class="inline-block mt-2 font-semibold text-primary hover:text-green-800 hover:underline transition-colors" href="#">Visit the Community Forum →</a>
+</div>
+</div>
+</main>
+<div class="fixed bottom-8 right-8 z-50">
+<button class="group w-14 h-14 bg-primary rounded-full shadow-lg shadow-green-900/20 flex items-center justify-center text-white hover:scale-110 hover:bg-green-700 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-green-300">
+<span class="material-symbols-outlined !text-[28px] group-hover:animate-pulse">chat_bubble</span>
+</button>
+</div>
+</div>
+
+</body></html>

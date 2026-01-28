@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Edit Livestock Record - AgriPlanner</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#10b981", // Emerald 500
+              "primary-dark": "#059669", // Emerald 600
+              "background-light": "#f3f4f6", // Gray 100
+              "background-dark": "#111827", // Gray 900
+              "surface-light": "#ffffff",
+              "surface-dark": "#1f2937", // Gray 800
+              "border-light": "#e5e7eb", // Gray 200
+              "border-dark": "#374151", // Gray 700
+            },
+            fontFamily: {
+              display: ["Inter", "sans-serif"],
+              sans: ["Inter", "sans-serif"],
+            },
+            borderRadius: {
+              DEFAULT: "0.5rem",
+              xl: "0.75rem",
+              '2xl': "1rem",
+            },
+          },
+        },
+      };
+    </script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #4b5563; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-gray-900 dark:text-gray-100 flex h-screen overflow-hidden transition-colors duration-200">
+<aside class="w-64 bg-primary flex-shrink-0 flex flex-col justify-between hidden md:flex">
+<div>
+<div class="h-16 flex items-center px-6 mb-6">
+<div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center mr-3">
+<span class="material-icons-outlined text-white text-xl">spa</span>
+</div>
+<div>
+<h1 class="text-white font-bold text-lg leading-tight">AgriPlanner</h1>
+<p class="text-emerald-100 text-xs font-medium">SYSTEM ADMIN</p>
+</div>
+</div>
+<nav class="px-3 space-y-1">
+<a class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-emerald-100 hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-outlined mr-3 text-xl">dashboard</span>
+                    Dashboard
+                </a>
+<a class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-emerald-100 hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-outlined mr-3 text-xl">people</span>
+                    Users
+                </a>
+<a class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-emerald-100 hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-outlined mr-3 text-xl">eco</span>
+                    Crops
+                </a>
+<a class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-emerald-100 hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-outlined mr-3 text-xl">storefront</span>
+                    Shop Items
+                </a>
+<a class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg bg-white/20 text-white shadow-sm" href="#">
+<span class="material-icons-outlined mr-3 text-xl">pets</span>
+                    Animals
+                </a>
+</nav>
+</div>
+<div class="p-4">
+<a class="group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-emerald-100 hover:bg-white/10 transition-colors" href="#">
+<span class="material-icons-outlined mr-3 text-xl">logout</span>
+                Logout
+            </a>
+</div>
+</aside>
+<main class="flex-1 overflow-y-auto relative">
+<header class="h-16 bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark flex items-center justify-between px-6 sticky top-0 z-10">
+<div class="flex items-center">
+<button class="md:hidden mr-4 text-gray-500 dark:text-gray-400">
+<span class="material-icons-outlined">menu</span>
+</button>
+<div class="flex items-center text-sm breadcrumbs text-gray-500 dark:text-gray-400">
+<a class="hover:text-primary transition-colors" href="#">Livestock</a>
+<span class="material-icons-outlined text-sm mx-2">chevron_right</span>
+<a class="hover:text-primary transition-colors" href="#">Milky Way</a>
+<span class="material-icons-outlined text-sm mx-2">chevron_right</span>
+<span class="text-gray-900 dark:text-white font-medium">Edit Record</span>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 relative">
+<span class="material-icons-outlined">notifications</span>
+<span class="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-800"></span>
+</button>
+<div class="flex items-center pl-4 border-l border-border-light dark:border-border-dark">
+<img alt="User avatar" class="h-8 w-8 rounded-full object-cover border border-gray-200 dark:border-gray-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBEVEOR8vVkbtO-V3sVyw0uP22c8F0t5u7_jPakaplkOmY03O2Y2IedBfWyhDivFcqB-LwO7sdY83zAK1-aBI65kXCfUW3sonSVPMupOCFIdhoWTLbUXuV0p67BRJUyA18PupdSU7MSQdxO2rG4PrJ8BosfoP7Ckq-Lg2K-qUW8Xgq0jtru8sHu1Nft-zXCMkCe5-nPIt0VgxV4hxJl6i2tiBmAcRsfO3Vk4Yy5oYzxnHALPJdqhHWEgU9S1n11bQX7z-rRPYJ_ho88"/>
+<div class="ml-3 hidden sm:block">
+<p class="text-sm font-medium text-gray-700 dark:text-gray-200">Sarah Jenkins</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">Global Administrator</p>
+</div>
+</div>
+</div>
+</header>
+<div class="p-6 max-w-5xl mx-auto">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center">
+<a class="mr-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400" href="#">
+<span class="material-icons-outlined">arrow_back</span>
+</a>
+<h2 class="text-2xl font-bold text-gray-900 dark:text-white">Edit Livestock Record</h2>
+</div>
+<button class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:opacity-80 transition-opacity" onclick="document.documentElement.classList.toggle('dark')">
+<span class="material-icons-outlined text-sm block dark:hidden">dark_mode</span>
+<span class="material-icons-outlined text-sm hidden dark:block">light_mode</span>
+</button>
+</div>
+<form class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
+<div class="border-b border-border-light dark:border-border-dark bg-gray-50 dark:bg-gray-800/50">
+<nav aria-label="Tabs" class="flex -mb-px">
+<a class="w-1/3 py-4 px-1 text-center border-b-2 border-primary text-primary font-medium text-sm flex items-center justify-center" href="#">
+<span class="material-icons-outlined mr-2 text-lg">info</span>
+                            Basic Info
+                        </a>
+<a class="w-1/3 py-4 px-1 text-center border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 font-medium text-sm flex items-center justify-center" href="#">
+<span class="material-icons-outlined mr-2 text-lg">home_work</span>
+                            Facility &amp; Location
+                        </a>
+<a class="w-1/3 py-4 px-1 text-center border-b-2 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 font-medium text-sm flex items-center justify-center" href="#">
+<span class="material-icons-outlined mr-2 text-lg">monitor_heart</span>
+                            Health &amp; Genetics
+                        </a>
+</nav>
+</div>
+<div class="p-6 md:p-8 space-y-8">
+<div>
+<h3 class="text-lg leading-6 font-medium text-gray-900 dark:text-white mb-4 flex items-center">
+                            Identity &amp; Status
+                        </h3>
+<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+<div class="md:col-span-3 flex flex-col items-center justify-center">
+<div class="relative group cursor-pointer">
+<div class="h-32 w-32 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center border-2 border-dashed border-blue-200 dark:border-blue-700 overflow-hidden">
+<span class="material-icons-outlined text-blue-400 text-4xl">water_drop</span>
+</div>
+<div class="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-icons-outlined text-white">edit</span>
+</div>
+</div>
+<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Change Photo</p>
+</div>
+<div class="md:col-span-9 grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div class="col-span-1">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="name">Animal Name</label>
+<input class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5" id="name" name="name" type="text" value="Milky Way"/>
+</div>
+<div class="col-span-1">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="tag-id">Tag ID / Number</label>
+<div class="mt-1 flex rounded-md shadow-sm">
+<span class="inline-flex items-center px-3 rounded-l-md border border-r-0 border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 sm:text-sm">
+                                            #CW
+                                        </span>
+<input class="flex-1 min-w-0 block w-full px-3 py-2.5 rounded-none rounded-r-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-primary focus:ring-primary sm:text-sm" id="tag-id" name="tag-id" type="text" value="8291"/>
+</div>
+</div>
+<div class="col-span-1">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="breed">Breed</label>
+<select class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5" id="breed" name="breed">
+<option>Holstein Friesian</option>
+<option>Jersey</option>
+<option>Angus</option>
+</select>
+</div>
+<div class="col-span-1">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="dob">Date of Birth</label>
+<input class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5" id="dob" name="dob" type="date" value="2020-03-12"/>
+<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Age: 3 yrs 7 mos</p>
+</div>
+<div class="col-span-1 sm:col-span-2">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Health Status Tag</label>
+<div class="flex items-center space-x-4">
+<label class="inline-flex items-center">
+<input checked="" class="form-radio text-primary focus:ring-primary bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600" name="status" type="radio"/>
+<span class="ml-2 text-sm text-gray-700 dark:text-gray-300 bg-green-100 text-green-800 px-2 py-0.5 rounded-full dark:bg-green-900/30 dark:text-green-300">Good Health</span>
+</label>
+<label class="inline-flex items-center">
+<input class="form-radio text-yellow-500 focus:ring-yellow-500 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600" name="status" type="radio"/>
+<span class="ml-2 text-sm text-gray-700 dark:text-gray-300 bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full dark:bg-yellow-900/30 dark:text-yellow-300">Observation</span>
+</label>
+<label class="inline-flex items-center">
+<input class="form-radio text-red-500 focus:ring-red-500 bg-gray-100 dark:bg-gray-700 border-gray-300 dark:border-gray-600" name="status" type="radio"/>
+<span class="ml-2 text-sm text-gray-700 dark:text-gray-300 bg-red-100 text-red-800 px-2 py-0.5 rounded-full dark:bg-red-900/30 dark:text-red-300">Critical</span>
+</label>
+</div>
+</div>
+</div>
+</div>
+</div>
+<hr class="border-border-light dark:border-border-dark"/>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-1">
+<h3 class="text-lg font-medium text-gray-900 dark:text-white">Facility &amp; Location</h3>
+<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Current assignment within the farm infrastructure.</p>
+</div>
+<div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div class="col-span-1">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="barn-id">Barn ID</label>
+<div class="mt-1 relative rounded-md shadow-sm">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-icons-outlined text-gray-400 text-sm">home_work</span>
+</div>
+<select class="block w-full pl-10 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5" id="barn-id" name="barn-id">
+<option selected="" value="B-04">Barn B-04</option>
+<option value="B-01">Barn B-01</option>
+<option value="B-02">Barn B-02</option>
+</select>
+</div>
+</div>
+<div class="col-span-1">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="pen-number">Pen Number</label>
+<div class="mt-1 relative rounded-md shadow-sm">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-icons-outlined text-gray-400 text-sm">grid_view</span>
+</div>
+<input class="block w-full pl-10 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5" id="pen-number" name="pen-number" type="text" value="P-12"/>
+</div>
+</div>
+<div class="col-span-1 sm:col-span-2">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="feed-type">Feed Type Assignment</label>
+<div class="mt-1 relative rounded-md shadow-sm">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-icons-outlined text-gray-400 text-sm">restaurant</span>
+</div>
+<select class="block w-full pl-10 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5" id="feed-type" name="feed-type">
+<option selected="" value="Mix A2">Mix A2 (High Protein)</option>
+<option value="Mix B1">Mix B1 (Standard)</option>
+<option value="Grazing">Grazing Only</option>
+</select>
+</div>
+</div>
+</div>
+</div>
+<hr class="border-border-light dark:border-border-dark"/>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-1">
+<h3 class="text-lg font-medium text-gray-900 dark:text-white">Genetics &amp; Vitals</h3>
+<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Parentage information and last recorded vitals.</p>
+</div>
+<div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div class="col-span-1 sm:col-span-2">
+<h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Genetic Lineage</h4>
+</div>
+<div class="col-span-1">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="sire">Sire (Father)</label>
+<input class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5" id="sire" name="sire" type="text" value="Thunderbolt #TB-90"/>
+<span class="text-xs text-green-600 dark:text-green-400 mt-1 block">✓ Verified Record</span>
+</div>
+<div class="col-span-1">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="dam">Dam (Mother)</label>
+<input class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5" id="dam" name="dam" type="text" value="Luna #LN-55"/>
+</div>
+<div class="col-span-1 sm:col-span-2 mt-2">
+<h4 class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Last Vitals Check</h4>
+</div>
+<div class="col-span-1">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="heart-rate">Heart Rate (bpm)</label>
+<input class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5" id="heart-rate" name="heart-rate" type="number" value="72"/>
+</div>
+<div class="col-span-1">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="temperature">Temperature (°C)</label>
+<input class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5" id="temperature" name="temperature" step="0.1" type="number" value="38.6"/>
+</div>
+<div class="col-span-1 sm:col-span-2">
+<label class="block text-sm font-medium text-gray-700 dark:text-gray-300" for="vaccination">Last Vaccination Date</label>
+<div class="mt-1 relative rounded-md shadow-sm">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-icons-outlined text-gray-400 text-sm">event</span>
+</div>
+<input class="block w-full pl-10 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary focus:ring-primary sm:text-sm py-2.5" id="vaccination" name="vaccination" type="date" value="2023-10-24"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-t border-border-light dark:border-border-dark flex items-center justify-end space-x-3">
+<button class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary" type="button">
+                        Cancel
+                    </button>
+<button class="px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors flex items-center" type="submit">
+<span class="material-icons-outlined text-sm mr-2">save</span>
+                        Save Changes
+                    </button>
+</div>
+</form>
+</div>
+</main>
+
+</body></html>

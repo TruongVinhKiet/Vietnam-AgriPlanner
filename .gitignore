@@ -1,0 +1,31 @@
+# Dependency directories
+node_modules/
+target/
+
+# Sensitive Environment Variables & Secrets
+backend/.env
+backend/src/main/resources/application.properties
+backend/src/main/resources/application-dev.properties
+backend/src/main/resources/application-prod.properties
+
+# Database Data
+database/
+
+# IDE & Editor configs
+.vscode/
+.idea/
+*.iml
+.settings/
+.classpath
+.project
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.log

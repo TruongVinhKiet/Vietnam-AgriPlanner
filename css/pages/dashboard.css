@@ -1,0 +1,153 @@
+/* =====================================================
+   AgriPlanner - Dashboard Page Styles
+   ===================================================== */
+
+/* Dashboard specific styles */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-6);
+}
+
+@media (max-width: 1200px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 640px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Chart Section */
+.chart-section {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--spacing-6);
+}
+
+@media (max-width: 1024px) {
+    .chart-section {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Bar Chart */
+.bar-chart {
+    position: relative;
+    min-height: 300px;
+    padding-top: var(--spacing-4);
+}
+
+.bar-chart__grid {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.bar-chart__grid-line {
+    width: 100%;
+    height: 0;
+    border-bottom: 1px dashed var(--color-border-light);
+}
+
+.bar-chart__bars {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 0 var(--spacing-8);
+}
+
+.bar-chart__group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex: 1;
+}
+
+.bar-chart__bar-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 100%;
+    justify-content: center;
+}
+
+.bar-chart__bar {
+    width: 20px;
+    border-radius: 2px 2px 0 0;
+    transition: all var(--transition-slower);
+}
+
+.bar-chart__bar--revenue {
+    background-color: var(--color-primary);
+}
+
+.bar-chart__bar--expense {
+    background-color: #f97316;
+}
+
+.bar-chart__bar:hover {
+    opacity: 0.8;
+    transform: scaleY(1.02);
+    transform-origin: bottom;
+}
+
+.bar-chart__label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+}
+
+/* Chart Legend */
+.chart-legend {
+    display: flex;
+    gap: var(--spacing-4);
+}
+
+.chart-legend__item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+}
+
+.chart-legend__dot {
+    width: 12px;
+    height: 12px;
+    border-radius: var(--radius-full);
+}
+
+.chart-legend__label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+}
+
+/* Date Badge */
+.date-badge {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-4);
+    background-color: var(--color-surface-light);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.date-badge__icon {
+    color: var(--color-text-secondary);
+}
+
+.date-badge__text {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+}

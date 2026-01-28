@@ -1,0 +1,101 @@
+/* Traceability QR Modal - Marketplace Style */
+
+/* Override modal for centered dark theme */
+#traceability-modal .modal-content {
+    position: relative !important;
+    width: 90vw !important;
+    max-width: 420px !important;
+    height: auto !important;
+    background: #0f172a !important;
+    color: #e2e8f0 !important;
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+    text-align: center;
+}
+
+#traceability-modal .modal-header {
+    background: #1e293b !important;
+    border-bottom: 1px solid #334155 !important;
+    padding: 16px 24px !important;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#traceability-modal .modal-header h3 {
+    color: #fff !important;
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+#traceability-modal .close-modal {
+    color: #94a3b8 !important;
+    font-size: 28px;
+    cursor: pointer;
+}
+
+#traceability-modal .close-modal:hover {
+    color: #fff;
+}
+
+#traceability-modal .modal-body {
+    padding: 32px 24px !important;
+    background: #0f172a;
+}
+
+#traceability-modal .modal-body p {
+    color: #94a3b8;
+    margin-bottom: 24px;
+    font-size: 14px;
+}
+
+/* QR Code Container */
+#qr-code-display {
+    margin: 0 auto 24px !important;
+    width: 200px !important;
+    height: 200px !important;
+    background: #fff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: none !important;
+    border-radius: 16px !important;
+    padding: 12px;
+}
+
+#qr-code-display img {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 8px !important;
+}
+
+/* Link Button */
+#traceability-modal .btn--secondary {
+    background: #334155 !important;
+    color: #e2e8f0 !important;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+#traceability-modal .btn--secondary:hover {
+    background: #475569 !important;
+}
+
+/* Button icon color modifier for sky */
+.field-action-btn__icon--sky {
+    color: #0ea5e9;
+}
+
+.field-action-btn__icon--amber {
+    color: #f59e0b;
+}

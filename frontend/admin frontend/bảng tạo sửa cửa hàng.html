@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AgriPlanner - Edit Product Inventory</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10B981", // Emerald 500
+                        primaryDark: "#059669", // Emerald 600
+                        "background-light": "#F3F4F6", // Gray 100
+                        "background-dark": "#111827", // Gray 900
+                        "surface-light": "#FFFFFF",
+                        "surface-dark": "#1F2937", // Gray 800
+                        "text-primary-light": "#111827",
+                        "text-primary-dark": "#F9FAFB",
+                        "text-secondary-light": "#6B7280",
+                        "text-secondary-dark": "#9CA3AF",
+                        "border-light": "#E5E7EB",
+                        "border-dark": "#374151",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                        "xl": "1rem",
+                    },
+                },
+            },
+        };
+    </script>
+</head>
+<body class="font-body bg-background-light dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark h-screen overflow-hidden flex transition-colors duration-200">
+<aside class="w-64 bg-primary flex flex-col justify-between shrink-0 h-full text-white">
+<div>
+<div class="h-20 flex items-center px-6">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+<span class="material-icons text-white text-lg">spa</span>
+</div>
+<div>
+<h1 class="font-bold text-lg leading-tight">AgriPlanner</h1>
+<p class="text-[10px] opacity-80 font-medium tracking-wider">SYSTEM ADMIN</p>
+</div>
+</div>
+</div>
+<nav class="mt-4 px-2 space-y-1">
+<a class="flex items-center px-4 py-3 rounded-lg hover:bg-white/10 transition-colors opacity-90 hover:opacity-100" href="#">
+<span class="material-icons mr-3 text-[20px]">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg hover:bg-white/10 transition-colors opacity-90 hover:opacity-100" href="#">
+<span class="material-icons mr-3 text-[20px]">people</span>
+<span class="font-medium">Users</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg hover:bg-white/10 transition-colors opacity-90 hover:opacity-100" href="#">
+<span class="material-icons mr-3 text-[20px]">eco</span>
+<span class="font-medium">Crops</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg bg-white/20 text-white font-medium shadow-sm" href="#">
+<span class="material-icons mr-3 text-[20px]">storefront</span>
+<span>Shop Items</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg hover:bg-white/10 transition-colors opacity-90 hover:opacity-100" href="#">
+<span class="material-icons mr-3 text-[20px]">pets</span>
+<span class="font-medium">Animals</span>
+</a>
+</nav>
+</div>
+<div class="p-4 border-t border-white/10">
+<a class="flex items-center px-4 py-3 rounded-lg hover:bg-white/10 transition-colors opacity-90 hover:opacity-100" href="#">
+<span class="material-icons mr-3 text-[20px]">logout</span>
+<span class="font-medium">Logout</span>
+</a>
+</div>
+</aside>
+<main class="flex-1 overflow-y-auto h-full flex flex-col">
+<header class="bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark px-8 py-4 flex items-center justify-between sticky top-0 z-10">
+<div class="flex items-center gap-4">
+<button class="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-text-secondary-light dark:text-text-secondary-dark">
+<span class="material-icons">arrow_back</span>
+</button>
+<div>
+<div class="flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark mb-1">
+<span>Shop Items</span>
+<span class="material-icons text-[14px]">chevron_right</span>
+<span>Fertilizers</span>
+<span class="material-icons text-[14px]">chevron_right</span>
+<span class="text-text-primary-light dark:text-text-primary-dark font-medium">Edit Product</span>
+</div>
+<h2 class="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">Edit Product Inventory</h2>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-text-secondary-light dark:text-text-secondary-dark">
+<span class="material-icons">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-surface-light dark:border-surface-dark"></span>
+</button>
+<div class="h-8 w-[1px] bg-border-light dark:bg-border-dark"></div>
+<div class="flex items-center gap-3">
+<img alt="Sarah Jenkins" class="w-10 h-10 rounded-full border border-border-light dark:border-border-dark object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIHCVPExsWvGFoK0cPZI8h5Gia82h1i7-6GU6xhom58aosdc72BXA6bTekBNPvg0iUjZAi7NDF3Wz19wuKSV7lE-zrjK0QxgcBGjn0SC5Lp3bmj6JxoeH2pXolYb_s-760eSWBT8u3i3Jpp76iqkd1_yCAID5w36Gfksj4wQHHekzPyfXpBcEifRhY4F5uRiuwPH2sO0xA-vfyR_CwRr4TqPwyS5mEhLWPqliBWbJbvWHZpsnvcBBwlv-lWqnPdSsKIWSLu87EbQYQ"/>
+<div class="hidden md:block">
+<p class="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Sarah Jenkins</p>
+<p class="text-xs text-text-secondary-light dark:text-text-secondary-dark">Global Administrator</p>
+</div>
+</div>
+</div>
+</header>
+<div class="p-8 max-w-7xl mx-auto w-full">
+<form action="#" method="POST">
+<div class="grid grid-cols-12 gap-6">
+<div class="col-span-12 lg:col-span-4 space-y-6">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 shadow-sm border border-border-light dark:border-border-dark">
+<h3 class="text-lg font-semibold mb-4 text-text-primary-light dark:text-text-primary-dark">Product Image</h3>
+<div class="relative group w-full aspect-square bg-gray-50 dark:bg-gray-900 rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center justify-center overflow-hidden hover:border-primary transition-colors cursor-pointer">
+<img alt="Organic Fertilizer Bag" class="absolute inset-0 w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBLoW2Hln6PzCw8SfDSzU_dHSlS1eFSQ6-nHUZ_VyVIu36rZY6VdHQRFGfr40SoCCaJsNFE-dLG_jvt6fkxTSpR1pg0Wx5-rfbUeCO9scBWJ2yoTCAzMsDHGCYbsaWxXQTfuKYiA1dPs9sFaQFSFnjlGFGiUqLpePy3mTA9Z-Ptaa633xQjygO170731z9h2UceVF9b6OA47CBRkNJlYD73piy_SjeHzdRMdAECDX0F_SfOlLGRPLf8MWHIsJ0gqkSQ4TdACMRkvwgW"/>
+<div class="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-icons text-white text-3xl mb-2">cloud_upload</span>
+<p class="text-white text-sm font-medium">Click to change image</p>
+</div>
+<div class="absolute top-3 left-3 bg-yellow-400/90 text-yellow-900 text-xs font-bold px-2 py-1 rounded">
+                                    Low Stock
+                                </div>
+</div>
+<p class="mt-3 text-xs text-center text-text-secondary-light dark:text-text-secondary-dark">
+                                Allowed formats: JPG, PNG. Max size: 2MB.
+                            </p>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 shadow-sm border border-border-light dark:border-border-dark">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Stock Alert</h3>
+<div class="flex items-center">
+<input checked="" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded" id="stock-alert-toggle" type="checkbox"/>
+<label class="ml-2 text-sm text-text-secondary-light dark:text-text-secondary-dark" for="stock-alert-toggle">Enable</label>
+</div>
+</div>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between mb-1">
+<label class="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark" for="current-stock">Current Stock</label>
+<span class="text-sm font-bold text-orange-500">12 units left</span>
+</div>
+<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+<div class="bg-orange-400 h-2.5 rounded-full" style="width: 25%"></div>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1" for="low-stock-threshold">Low Stock Threshold</label>
+<div class="relative rounded-md shadow-sm">
+<input class="block w-full pl-3 pr-12 py-2 sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark focus:ring-primary focus:border-primary" id="low-stock-threshold" name="low-stock-threshold" type="number" value="20"/>
+<div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+<span class="text-gray-500 sm:text-sm">units</span>
+</div>
+</div>
+<p class="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">Alert triggers when stock falls below this value.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-8 space-y-6">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 shadow-sm border border-border-light dark:border-border-dark">
+<h3 class="text-lg font-semibold mb-6 text-text-primary-light dark:text-text-primary-dark border-b border-border-light dark:border-border-dark pb-4">General Information</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="col-span-1 md:col-span-2">
+<label class="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1" for="product-name">Product Name</label>
+<input class="block w-full shadow-sm sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark focus:ring-primary focus:border-primary py-2.5" id="product-name" name="product-name" type="text" value="Organic Nitrogen Plus"/>
+</div>
+<div>
+<label class="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1" for="sku">SKU</label>
+<div class="relative rounded-md shadow-sm">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="text-gray-400 material-icons text-sm">qr_code</span>
+</div>
+<input class="block w-full pl-10 sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark focus:ring-primary focus:border-primary py-2.5" id="sku" name="sku" type="text" value="FRT-ORG-50"/>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1" for="category">Category</label>
+<select class="block w-full pl-3 pr-10 py-2.5 text-base border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm rounded-md bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark" id="category" name="category">
+<option>Seeds</option>
+<option selected="">Fertilizers</option>
+<option>Tools</option>
+<option>Pesticides</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1" for="supplier">Supplier</label>
+<div class="relative rounded-md shadow-sm">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="text-gray-400 material-icons text-sm">business</span>
+</div>
+<input class="block w-full pl-10 sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark focus:ring-primary focus:border-primary py-2.5" id="supplier" name="supplier" type="text" value="GreenEarth Agros"/>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1" for="location">Storage Location</label>
+<div class="relative rounded-md shadow-sm">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="text-gray-400 material-icons text-sm">warehouse</span>
+</div>
+<input class="block w-full pl-10 sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark focus:ring-primary focus:border-primary py-2.5" id="location" name="location" type="text" value="Warehouse A, Row 4"/>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 shadow-sm border border-border-light dark:border-border-dark">
+<h3 class="text-lg font-semibold mb-6 text-text-primary-light dark:text-text-primary-dark border-b border-border-light dark:border-border-dark pb-4">Pricing &amp; Specification</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div>
+<label class="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1" for="price">Unit Price</label>
+<div class="relative rounded-md shadow-sm">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="text-gray-500 sm:text-sm">$</span>
+</div>
+<input class="block w-full pl-7 pr-12 sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark focus:ring-primary focus:border-primary py-2.5" id="price" name="price" placeholder="0.00" type="number" value="55.00"/>
+<div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+<span class="text-gray-500 sm:text-sm">USD</span>
+</div>
+</div>
+</div>
+<div>
+<label class="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-1" for="weight">Unit Weight</label>
+<div class="relative rounded-md shadow-sm">
+<input class="block w-full pl-3 pr-12 sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark focus:ring-primary focus:border-primary py-2.5" id="weight" name="weight" type="number" value="50"/>
+<div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+<span class="text-gray-500 sm:text-sm">lbs</span>
+</div>
+</div>
+</div>
+<div class="col-span-1 md:col-span-2">
+<label class="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-2">Product Badges</label>
+<div class="flex gap-3">
+<label class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 cursor-pointer select-none">
+<input checked="" class="rounded text-primary focus:ring-primary border-gray-300 h-4 w-4 mr-2" type="checkbox"/>
+                                            Organic Certified
+                                        </label>
+<label class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 cursor-pointer select-none">
+<input checked="" class="rounded text-blue-600 focus:ring-blue-500 border-gray-300 h-4 w-4 mr-2" type="checkbox"/>
+                                            Best Seller
+                                        </label>
+<label class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-300 cursor-pointer select-none">
+<input class="rounded text-purple-600 focus:ring-purple-500 border-gray-300 h-4 w-4 mr-2" type="checkbox"/>
+                                            New Arrival
+                                        </label>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl p-6 shadow-sm border border-border-light dark:border-border-dark">
+<h3 class="text-lg font-semibold mb-4 text-text-primary-light dark:text-text-primary-dark">Product Description</h3>
+<div class="mt-1">
+<textarea class="shadow-sm focus:ring-primary focus:border-primary block w-full sm:text-sm border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark" id="description" name="description" placeholder="Enter detailed product description..." rows="5">A premium blend of organic nitrogen sources designed to promote rapid vegetative growth. Suitable for all crop types, especially leafy greens and corn. Slow-release formula ensures nutrient availability for up to 8 weeks. Certified organic by OMRI. Keep in a cool, dry place.</textarea>
+</div>
+<p class="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark text-right">
+                                245 / 500 characters
+                            </p>
+</div>
+</div>
+</div>
+<div class="mt-8 flex items-center justify-between bg-surface-light dark:bg-surface-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm sticky bottom-6 z-10">
+<div class="flex items-center">
+<button class="inline-flex items-center px-4 py-2 border border-primary text-sm font-medium rounded-md text-primary bg-transparent hover:bg-green-50 dark:hover:bg-green-900/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors" type="button">
+<span class="material-icons text-sm mr-2">inventory_2</span>
+                            Quick Restock
+                        </button>
+<span class="mx-4 text-gray-300 dark:text-gray-600">|</span>
+<p class="text-sm text-text-secondary-light dark:text-text-secondary-dark">Last edited on Oct 26, 2023</p>
+</div>
+<div class="flex gap-4">
+<button class="inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-gray-800 text-base font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary sm:w-auto sm:text-sm" type="button">
+                            Cancel
+                        </button>
+<button class="inline-flex justify-center rounded-md border border-transparent shadow-sm px-6 py-2 bg-primary text-base font-medium text-white hover:bg-primaryDark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary sm:w-auto sm:text-sm" type="submit">
+<span class="material-icons text-sm mr-2">save</span>
+                            Save Product
+                        </button>
+</div>
+</div>
+</form>
+<div class="h-8"></div> 
+</div>
+</main>
+
+</body></html>

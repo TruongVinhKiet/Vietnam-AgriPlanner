@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AgriPlanner - Livestock Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10b981", // Emerald 500 equivalent, adjusting to match screenshot
+                        "primary-dark": "#059669",
+                        "sidebar-bg": "#10b981", // Solid emerald color from screenshot
+                        "background-light": "#F3F4F6", // Gray 100
+                        "background-dark": "#111827", // Gray 900
+                        "surface-light": "#FFFFFF",
+                        "surface-dark": "#1F2937", // Gray 800
+                        "text-light": "#111827",
+                        "text-secondary-light": "#6B7280",
+                        "text-dark": "#F9FAFB",
+                        "text-secondary-dark": "#9CA3AF",
+                        "success-light": "#ECFDF5",
+                        "success-text": "#047857",
+                        "warning-light": "#FFFBEB",
+                        "warning-text": "#B45309",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                        'xl': '1rem',
+                        '2xl': '1.5rem',
+                    },
+                },
+            },
+        };
+    </script>
+</head>
+<body class="font-body bg-background-light dark:bg-background-dark text-text-light dark:text-text-dark transition-colors duration-200">
+<div class="flex h-screen overflow-hidden">
+<aside class="w-64 bg-sidebar-bg text-white flex flex-col flex-shrink-0 transition-all duration-300">
+<div class="p-6 flex items-center gap-3">
+<div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+<span class="material-symbols-outlined text-white">spa</span>
+</div>
+<div>
+<h1 class="text-xl font-bold leading-tight">AgriPlanner</h1>
+<p class="text-xs text-white/80 font-medium tracking-wide">SYSTEM ADMIN</p>
+</div>
+</div>
+<nav class="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition-colors" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition-colors" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-medium">Users</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition-colors" href="#">
+<span class="material-symbols-outlined">eco</span>
+<span class="font-medium">Crops</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition-colors" href="#">
+<span class="material-symbols-outlined">storefront</span>
+<span class="font-medium">Shop Items</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/20 text-white shadow-sm transition-colors" href="#">
+<span class="material-symbols-outlined">pets</span>
+<span class="font-medium">Animals</span>
+</a>
+</nav>
+<div class="p-4 border-t border-white/10">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white hover:bg-white/10 transition-colors" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-medium">Logout</span>
+</a>
+</div>
+</aside>
+<div class="flex-1 flex flex-col h-full overflow-hidden">
+<header class="bg-surface-light dark:bg-surface-dark border-b border-gray-200 dark:border-gray-700 h-20 flex items-center justify-between px-8 flex-shrink-0 z-10">
+<div class="flex items-center gap-4">
+<a class="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-text-secondary-light dark:text-text-secondary-dark transition-colors" href="#">
+<span class="material-symbols-outlined">arrow_back</span>
+</a>
+<h2 class="text-2xl font-bold text-gray-900 dark:text-white">Livestock Detail</h2>
+</div>
+<div class="flex items-center gap-6">
+<button class="relative p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+</button>
+<div class="flex items-center gap-3 border-l pl-6 border-gray-200 dark:border-gray-700">
+<img alt="Profile" class="w-10 h-10 rounded-full object-cover border-2 border-white dark:border-gray-700 shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyC9XH0H8OpcA6o4v9vb9T52Q7V7FTPlOuyuNoOQF6EUv6WqbHmliNxdQZEu8TG9M6ikYugOutlkGZWPeyHnzBfZOqqsNvnCBw0dOWmyI3UnyrJ8Mu3QPyi4-Wl8tNSungEJEMfIaPeseM7-YmFrtmWN3W8qYiyNM4HOZjoVYXTW6XT4sZnmIH9nALlbbgYAED1sWrdfteyWRVCAuRTPPloOimNge8hDK_cJsSjTPe0uNVVKMAAR9_lULo28j8oFiSkTQ9FeN4FNZJ"/>
+<div class="hidden md:block">
+<p class="text-sm font-semibold text-gray-900 dark:text-white">Sarah Jenkins</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">Global Administrator</p>
+</div>
+</div>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto p-8">
+<div class="max-w-7xl mx-auto space-y-6">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+<div class="flex items-center gap-6">
+<div class="w-20 h-20 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-4xl text-blue-500 dark:text-blue-400">water_drop</span>
+</div>
+<div>
+<div class="flex items-center gap-3 mb-1">
+<h1 class="text-2xl font-bold text-gray-900 dark:text-white">Milky Way</h1>
+<span class="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs font-semibold rounded-full border border-green-200 dark:border-green-800 flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                            Good Health
+                                        </span>
+</div>
+<div class="flex flex-wrap items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-lg">tag</span>
+                                            ID: #CW-8291
+                                        </span>
+<span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-lg">pets</span>
+                                            Breed: Holstein Friesian
+                                        </span>
+<span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+<span class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-lg">calendar_today</span>
+                                            DOB: Mar 12, 2020 (3 yrs)
+                                        </span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-3 w-full md:w-auto">
+<button class="flex-1 md:flex-none items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium flex gap-2">
+<span class="material-symbols-outlined">edit</span>
+                                    Edit
+                                </button>
+<button class="flex-1 md:flex-none items-center justify-center px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-lg transition-colors font-medium flex gap-2 shadow-sm shadow-primary/30">
+<span class="material-symbols-outlined">add_circle</span>
+                                    Add Record
+                                </button>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="lg:col-span-2 space-y-6">
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+<div class="flex items-center gap-3 mb-2">
+<div class="p-2 bg-rose-50 dark:bg-rose-900/20 rounded-lg text-rose-500 dark:text-rose-400">
+<span class="material-symbols-outlined">monitor_heart</span>
+</div>
+<span class="text-sm font-medium text-gray-500 dark:text-gray-400">Heart Rate</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold text-gray-900 dark:text-white">72</span>
+<span class="text-sm text-gray-500 dark:text-gray-400 mb-1">bpm</span>
+</div>
+<div class="mt-2 text-xs text-green-600 dark:text-green-400 flex items-center">
+<span class="material-symbols-outlined text-sm mr-1">trending_flat</span>
+                                        Normal range
+                                    </div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+<div class="flex items-center gap-3 mb-2">
+<div class="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg text-orange-500 dark:text-orange-400">
+<span class="material-symbols-outlined">thermometer</span>
+</div>
+<span class="text-sm font-medium text-gray-500 dark:text-gray-400">Temperature</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold text-gray-900 dark:text-white">38.6</span>
+<span class="text-sm text-gray-500 dark:text-gray-400 mb-1">°C</span>
+</div>
+<div class="mt-2 text-xs text-green-600 dark:text-green-400 flex items-center">
+<span class="material-symbols-outlined text-sm mr-1">check_circle</span>
+                                        Optimal
+                                    </div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+<div class="flex items-center gap-3 mb-2">
+<div class="p-2 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-purple-500 dark:text-purple-400">
+<span class="material-symbols-outlined">water_full</span>
+</div>
+<span class="text-sm font-medium text-gray-500 dark:text-gray-400">Milk Yield (Daily)</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="text-2xl font-bold text-gray-900 dark:text-white">28.4</span>
+<span class="text-sm text-gray-500 dark:text-gray-400 mb-1">L</span>
+</div>
+<div class="mt-2 text-xs text-green-600 dark:text-green-400 flex items-center">
+<span class="material-symbols-outlined text-sm mr-1">trending_up</span>
+                                        +2.1% this week
+                                    </div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+<div class="flex items-center justify-between mb-6">
+<h3 class="text-lg font-bold text-gray-900 dark:text-white">Weight Tracking</h3>
+<select class="bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm rounded-lg focus:ring-primary focus:border-primary block p-2">
+<option>Last 6 Months</option>
+<option>Last Year</option>
+<option>All Time</option>
+</select>
+</div>
+<div class="relative h-64 w-full">
+<canvas id="weightChart"></canvas>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+<div class="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+<h3 class="text-lg font-bold text-gray-900 dark:text-white">Health History</h3>
+<a class="text-sm font-medium text-primary hover:text-primary-dark hover:underline" href="#">View All</a>
+</div>
+<div class="divide-y divide-gray-200 dark:divide-gray-700">
+<div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0 text-green-600 dark:text-green-400">
+<span class="material-symbols-outlined">vaccines</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="text-sm font-semibold text-gray-900 dark:text-white">Routine Vaccination (FMD)</h4>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Administered by Dr. A. Smith</p>
+</div>
+<span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">Oct 24, 2023</span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0 text-blue-600 dark:text-blue-400">
+<span class="material-symbols-outlined">medical_services</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="text-sm font-semibold text-gray-900 dark:text-white">General Checkup</h4>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Physical exam, hoof trimming</p>
+</div>
+<span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">Sep 15, 2023</span>
+</div>
+</div>
+</div>
+</div>
+<div class="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+<div class="flex items-start gap-4">
+<div class="w-10 h-10 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center flex-shrink-0 text-yellow-600 dark:text-yellow-400">
+<span class="material-symbols-outlined">warning</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="text-sm font-semibold text-gray-900 dark:text-white">Minor Injury - Left Leg</h4>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Treated with topical antibiotic</p>
+</div>
+<span class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">Aug 02, 2023</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="lg:col-span-1 space-y-6">
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+<h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Facility &amp; Location</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+<div class="flex items-center gap-3">
+<div class="text-gray-400 dark:text-gray-500">
+<span class="material-symbols-outlined">home_work</span>
+</div>
+<span class="text-sm font-medium text-gray-700 dark:text-gray-300">Barn ID</span>
+</div>
+<span class="text-sm font-bold text-gray-900 dark:text-white">B-04</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+<div class="flex items-center gap-3">
+<div class="text-gray-400 dark:text-gray-500">
+<span class="material-symbols-outlined">grid_view</span>
+</div>
+<span class="text-sm font-medium text-gray-700 dark:text-gray-300">Pen Number</span>
+</div>
+<span class="text-sm font-bold text-gray-900 dark:text-white">P-12</span>
+</div>
+<div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
+<div class="flex items-center gap-3">
+<div class="text-gray-400 dark:text-gray-500">
+<span class="material-symbols-outlined">restaurant</span>
+</div>
+<span class="text-sm font-medium text-gray-700 dark:text-gray-300">Feed Type</span>
+</div>
+<span class="text-sm font-bold text-gray-900 dark:text-white">Mix A2</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+<h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Genetic Lineage</h3>
+<div class="relative pl-4 border-l-2 border-gray-200 dark:border-gray-700 space-y-6">
+<div class="relative">
+<div class="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-primary ring-4 ring-white dark:ring-gray-800"></div>
+<p class="text-xs text-gray-400 font-semibold mb-1">SIRE (FATHER)</p>
+<div class="flex items-center gap-2">
+<span class="font-medium text-gray-900 dark:text-white">Thunderbolt #TB-90</span>
+<span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">A+ Grade</span>
+</div>
+</div>
+<div class="relative">
+<div class="absolute -left-[21px] top-1 w-3 h-3 rounded-full bg-primary ring-4 ring-white dark:ring-gray-800"></div>
+<p class="text-xs text-gray-400 font-semibold mb-1">DAM (MOTHER)</p>
+<div class="flex items-center gap-2">
+<span class="font-medium text-gray-900 dark:text-white">Luna #LN-55</span>
+<span class="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">High Yield</span>
+</div>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+<h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4">Upcoming Schedule</h3>
+<div class="space-y-3">
+<div class="flex gap-3 items-start p-3 border border-orange-200 bg-orange-50 dark:bg-orange-900/10 dark:border-orange-900/30 rounded-lg">
+<span class="material-symbols-outlined text-orange-500 text-xl mt-0.5">notification_important</span>
+<div>
+<p class="text-sm font-semibold text-gray-900 dark:text-white">Dietary Adjustment</p>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Due: Tomorrow, 8:00 AM</p>
+</div>
+</div>
+<div class="flex gap-3 items-start p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+<span class="material-symbols-outlined text-gray-400 text-xl mt-0.5">event</span>
+<div>
+<p class="text-sm font-semibold text-gray-900 dark:text-white">Quarterly Inspection</p>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Due: Nov 15, 2023</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+<script>
+        // Chart Configuration
+        const ctx = document.getElementById('weightChart').getContext('2d');
+        const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)';
+        const textColor = isDarkMode ? '#9CA3AF' : '#6B7280';
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'],
+                datasets: [{
+                    label: 'Weight (kg)',
+                    data: [580, 595, 610, 622, 635, 642],
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderWidth: 2,
+                    tension: 0.4,
+                    fill: true,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#10b981',
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: isDarkMode ? '#1F2937' : '#FFFFFF',
+                        titleColor: isDarkMode ? '#F9FAFB' : '#111827',
+                        bodyColor: isDarkMode ? '#D1D5DB' : '#4B5563',
+                        borderColor: isDarkMode ? '#374151' : '#E5E7EB',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: false,
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: false,
+                        grid: {
+                            color: gridColor,
+                            drawBorder: false,
+                        },
+                        ticks: {
+                            color: textColor,
+                            font: {
+                                family: "'Inter', sans-serif"
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false,
+                            drawBorder: false,
+                        },
+                        ticks: {
+                            color: textColor,
+                            font: {
+                                family: "'Inter', sans-serif"
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+
+</body></html>

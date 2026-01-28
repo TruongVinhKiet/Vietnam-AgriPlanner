@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kết quả Phân tích Sâu bệnh - AgriPlanner</title>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
+    <link rel="stylesheet" href="../css/layout.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <style>
+        .result-container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            border: 1px solid #e2e8f0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            background: #f1f5f9;
+        }
+
+        .pest-details-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 32px;
+        }
+
+        .pest-image-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .pest-image {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+        }
+
+        .pest-severity-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 16px;
+            margin-left: 16px;
+        }
+
+        .severity-HIGH,
+        .severity-CRITICAL {
+            background: #fee2e2;
+            color: #ef4444;
+        }
+
+        .severity-MEDIUM {
+            background: #ffedd5;
+            color: #f97316;
+        }
+
+        .severity-LOW {
+            background: #dcfce7;
+            color: #10b981;
+        }
+
+        .info-section {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            border: 1px solid #e2e8f0;
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .treatment-card {
+            background: #ecfdf5;
+            border: 1px solid #10b981;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+
+        .loading-state {
+            text-align: center;
+            padding: 60px;
+        }
+
+        @media (max-width: 768px) {
+            .pest-details-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- Sidebar placeholder if needed, or just header -->
+        <div class="result-container">
+            <div class="result-header">
+                <a href="cultivation.html" class="back-btn">
+                    <span class="material-symbols-outlined">arrow_back</span>
+                </a>
+                <div>
+                    <h1 style="margin:0; font-size: 24px;">Kết quả phân tích</h1>
+                    <p style="margin:0; color: #64748b; font-size: 14px;">Độ tin cậy: <span
+                            style="color: #10b981; font-weight: 700;">97.5%</span></p>
+                </div>
+            </div>
+
+            <div id="content-loading" class="loading-state">
+                <span class="material-symbols-outlined"
+                    style="font-size: 48px; color: #94a3b8; animation: spin 2s linear infinite;">progress_activity</span>
+                <p>Đang tải thông tin...</p>
+            </div>
+
+            <div id="content-loaded" class="pest-details-grid" style="display: none;">
+                <div class="pest-image-card">
+                    <img id="pest-img" class="pest-image" src="" alt="Pest Image">
+                    <span id="pest-severity" class="pest-severity-badge">
+                        <span class="material-symbols-outlined icon-filled">warning</span>
+                        <span id="severity-text">HIGH</span>
+                    </span>
+                    <div style="padding: 16px;">
+                        <h2 id="pest-name" style="margin: 0; font-size: 20px;">Sâu...</h2>
+                        <p id="pest-scientific" style="font-style: italic; color: #64748b; margin-top: 4px;">Scientific
+                            Name</p>
+                    </div>
+                </div>
+
+                <div class="info-column">
+                    <div class="info-section">
+                        <h3 class="section-title">
+                            <span class="material-symbols-outlined" style="color: #3b82f6;">info</span>
+                            Mô tả triệu chứng
+                        </h3>
+                        <p id="pest-description" style="line-height: 1.6; color: #334155;">...</p>
+                    </div>
+
+                    <div class="info-section">
+                        <h3 class="section-title">
+                            <span class="material-symbols-outlined" style="color: #ef4444;">medical_services</span>
+                            Đề xuất xử lý (Thuốc)
+                        </h3>
+                        <p style="color: #64748b; font-size: 14px; margin-bottom: 12px;">Dựa trên dữ liệu thuốc phun có
+                            sẵn trong hệ thống:</p>
+                        <div class="treatment-card">
+                            <div style="display: flex; gap: 12px;">
+                                <span class="material-symbols-outlined" style="color: #059669;">sanitizer</span>
+                                <div>
+                                    <h4 style="margin: 0 0 8px; color: #065f46;">Thuốc đặc trị</h4>
+                                    <p id="pest-treatment" style="margin: 0; color: #047857; font-weight: 500;">...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="info-section">
+                        <h3 class="section-title">
+                            <span class="material-symbols-outlined" style="color: #f59e0b;">shield</span>
+                            Biện pháp phòng ngừa
+                        </h3>
+                        <p id="pest-prevention" style="line-height: 1.6; color: #334155;">...</p>
+                    </div>
+
+                    <button class="btn btn--primary" style="width: 100%;"
+                        onclick="window.location.href='cultivation.html'">
+                        Quay lại trang Trồng trọt
+                    </button>
+                </div>
+            </div>
+
+            <div id="content-error" class="loading-state" style="display: none;">
+                <span class="material-symbols-outlined" style="font-size: 48px; color: #ef4444;">error</span>
+                <p>Không tìm thấy thông tin sâu bệnh này.</p>
+                <a href="cultivation.html" class="btn btn--secondary" style="margin-top: 16px;">Quay lại</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const pestName = urlParams.get('pest');
+
+            if (!pestName) {
+                showError();
+                return;
+            }
+
+            try {
+                // Fetch all pests
+                const response = await fetch(`${CONFIG.API_BASE_URL}/pests/definitions`);
+                if (!response.ok) throw new Error('API Error');
+
+                const pests = await response.json();
+                const pest = pests.find(p => p.name.toLowerCase() === pestName.toLowerCase()) ||
+                    pests.find(p => p.name.includes(pestName)); // Fallback partial match
+
+                if (pest) {
+                    displayPest(pest);
+                } else {
+                    showError();
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError();
+            }
+        });
+
+        function displayPest(pest) {
+            document.getElementById('content-loading').style.display = 'none';
+            document.getElementById('content-loaded').style.display = 'grid';
+
+            document.getElementById('pest-name').textContent = pest.name;
+            document.getElementById('pest-scientific').textContent = pest.scientificName || '';
+            document.getElementById('pest-img').src = pest.imageUrl || 'https://via.placeholder.com/300';
+            document.getElementById('pest-description').textContent = pest.description;
+            document.getElementById('pest-treatment').textContent = pest.treatment;
+            document.getElementById('pest-prevention').textContent = pest.prevention;
+
+            const severityEl = document.getElementById('pest-severity');
+            severityEl.className = `pest-severity-badge severity-${pest.severity}`;
+            document.getElementById('severity-text').textContent = pest.severity;
+        }
+
+        function showError() {
+            document.getElementById('content-loading').style.display = 'none';
+            document.getElementById('content-error').style.display = 'block';
+        }
+    </script>
+</body>
+
+</html>

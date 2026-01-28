@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriPlanner - Đăng ký</title>
+    <meta name="description" content="Tạo tài khoản AgriPlanner để quản lý nông trại thông minh">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../css/variables.css">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/pages/auth.css">
+    <link rel="stylesheet" href="../css/chatbot.css">
+
+    <!-- GSAP -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+</head>
+
+<body data-page="register">
+    <div class="auth-container">
+        <!-- Left Panel - Hero -->
+        <div class="auth-hero">
+            <div class="auth-hero__bg">
+                <img src="https://images.unsplash.com/photo-1625246333195-78d9c38ad449?w=1600" alt="Cánh đồng lúa"
+                    class="auth-hero__bg-image">
+                <div class="auth-hero__overlay"></div>
+            </div>
+
+            <div class="auth-hero__logo">
+                <div class="auth-hero__logo-icon">
+                    <span class="material-symbols-outlined">eco</span>
+                </div>
+                <span class="auth-hero__logo-text">AgriPlanner</span>
+            </div>
+
+            <div class="auth-hero__content">
+                <div class="auth-hero__stars">
+                    <span class="material-symbols-outlined auth-hero__star">star</span>
+                    <span class="material-symbols-outlined auth-hero__star">star</span>
+                    <span class="material-symbols-outlined auth-hero__star">star</span>
+                    <span class="material-symbols-outlined auth-hero__star">star</span>
+                    <span class="material-symbols-outlined auth-hero__star">star</span>
+                </div>
+                <blockquote class="auth-hero__quote">
+                    "Công nghệ hiện đại kết hợp kinh nghiệm truyền thống - AgriPlanner giúp chúng tôi đạt được điều đó."
+                </blockquote>
+                <p class="auth-hero__author">Trần Thị Hoa</p>
+                <p class="auth-hero__author-role">Giám đốc HTX Nông nghiệp, Tây Nguyên</p>
+
+                <div class="auth-hero__stats">
+                    <div class="auth-stat">
+                        <p class="auth-stat__value">500K+</p>
+                        <p class="auth-stat__label">Hecta được quản lý</p>
+                    </div>
+                    <div class="auth-stat">
+                        <p class="auth-stat__value">35%</p>
+                        <p class="auth-stat__label">Tăng năng suất</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Register Form -->
+        <div class="auth-form-panel">
+            <!-- Mobile Logo -->
+            <div class="auth-mobile-logo">
+                <div class="auth-mobile-logo__icon">
+                    <span class="material-symbols-outlined">eco</span>
+                </div>
+                <span class="auth-mobile-logo__text">AgriPlanner</span>
+            </div>
+
+            <form class="auth-form" id="register-form">
+                <div class="auth-form__header">
+                    <h1 class="auth-form__title">Tạo tài khoản</h1>
+                    <p class="auth-form__subtitle">
+                        Đã có tài khoản? <a href="login.html">Đăng nhập</a>
+                    </p>
+                </div>
+
+                <div class="auth-form__fields">
+                    <!-- Vai trò - FIRST -->
+                    <div class="auth-form__field">
+                        <label class="auth-form__label" for="role">Vai trò của bạn</label>
+                        <div class="auth-form__input-wrapper">
+                            <select id="role" class="auth-form__input auth-form__select" required>
+                                <option value="" disabled selected>Chọn vai trò...</option>
+                                <option value="OWNER">Chủ trang trại - Tạo và quản lý nông trại</option>
+                                <option value="WORKER">Nhân công - Làm việc tại nông trại có sẵn</option>
+                                <option value="SYSTEM_ADMIN">Quản trị viên hệ thống</option>
+                            </select>
+                            <span class="material-symbols-outlined auth-form__input-icon">badge</span>
+                        </div>
+                        <p class="auth-form__role-hint" id="role-hint"
+                            style="font-size: 12px; color: var(--color-text-muted); margin-top: 4px;"></p>
+                    </div>
+
+                    <!-- Invitation Code - Only for SYSTEM_ADMIN -->
+                    <div class="auth-form__field" id="invitation-code-field" style="display: none;">
+                        <label class="auth-form__label" for="invitationCode">Mã mời quản trị viên</label>
+                        <div class="auth-form__input-wrapper">
+                            <input type="text" id="invitationCode" class="auth-form__input" placeholder="Nhập mã mời">
+                            <span class="material-symbols-outlined auth-form__input-icon">key</span>
+                        </div>
+                    </div>
+
+                    <!-- Tên nông trại - Dynamic based on role -->
+                    <div class="auth-form__field" id="farm-field">
+                        <label class="auth-form__label" for="farmName" id="farm-label">Tên nông trại</label>
+                        <div class="auth-form__input-wrapper" id="farm-input-wrapper">
+                            <!-- Default: text input for OWNER -->
+                            <input type="text" id="farmName" class="auth-form__input"
+                                placeholder="Nhập tên nông trại của bạn">
+                            <span class="material-symbols-outlined auth-form__input-icon">agriculture</span>
+                        </div>
+                    </div>
+
+                    <!-- Họ và tên -->
+                    <div class="auth-form__field">
+                        <label class="auth-form__label" for="fullName">Họ và tên</label>
+                        <div class="auth-form__input-wrapper">
+                            <input type="text" id="fullName" class="auth-form__input" placeholder="Nhập họ và tên"
+                                required>
+                            <span class="material-symbols-outlined auth-form__input-icon">person</span>
+                        </div>
+                    </div>
+
+                    <!-- Số điện thoại -->
+                    <div class="auth-form__field">
+                        <label class="auth-form__label" for="phone">Số điện thoại</label>
+                        <div class="auth-form__input-wrapper">
+                            <input type="tel" id="phone" class="auth-form__input" placeholder="Nhập số điện thoại">
+                            <span class="material-symbols-outlined auth-form__input-icon">phone</span>
+                        </div>
+                    </div>
+
+                    <div class="auth-form__field">
+                        <label class="auth-form__label" for="email">Email</label>
+                        <div class="auth-form__input-wrapper">
+                            <input type="email" id="email" class="auth-form__input" placeholder="Nhập email" required>
+                            <span class="material-symbols-outlined auth-form__input-icon">mail</span>
+                        </div>
+                    </div>
+
+                    <div class="auth-form__field">
+                        <label class="auth-form__label" for="password">Mật khẩu</label>
+                        <div class="auth-form__input-wrapper">
+                            <input type="password" id="password" class="auth-form__input"
+                                placeholder="Nhập mật khẩu (tối thiểu 8 ký tự)" required minlength="8">
+                            <span class="material-symbols-outlined auth-form__input-icon" id="toggle-password"
+                                style="cursor: pointer;">visibility_off</span>
+                        </div>
+                    </div>
+
+                    <div class="auth-form__field">
+                        <label class="auth-form__label" for="confirmPassword">Nhập lại mật khẩu</label>
+                        <div class="auth-form__input-wrapper">
+                            <input type="password" id="confirmPassword" class="auth-form__input"
+                                placeholder="Nhập lại mật khẩu" required minlength="8">
+                            <span class="material-symbols-outlined auth-form__input-icon" id="toggle-confirm-password"
+                                style="cursor: pointer;">visibility_off</span>
+                        </div>
+                    </div>
+
+                    <div class="auth-form__terms">
+                        <input type="checkbox" class="auth-form__terms-checkbox" id="terms" required>
+                        <label for="terms" class="auth-form__terms-text">
+                            Tôi đồng ý với <a href="#">Điều khoản dịch vụ</a> và <a href="#">Chính sách bảo mật</a> của
+                            AgriPlanner
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn--primary auth-form__submit">
+                    Tạo tài khoản
+                </button>
+
+                <div class="auth-form__divider">
+                    <div class="auth-form__divider-line"></div>
+                    <span class="auth-form__divider-text">hoặc</span>
+                </div>
+
+                <button type="button" class="auth-form__social">
+                    <svg class="auth-form__social-icon" viewBox="0 0 24 24">
+                        <path fill="currentColor"
+                            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                            fill="#4285F4" />
+                        <path fill="currentColor"
+                            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                            fill="#34A853" />
+                        <path fill="currentColor"
+                            d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                            fill="#FBBC05" />
+                        <path fill="currentColor"
+                            d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                            fill="#EA4335" />
+                    </svg>
+                    <span class="auth-form__social-text">Đăng ký với Google</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/auth.js"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/animations.js"></script>
+    <script>
+        // Toggle password visibility
+        document.getElementById('toggle-password').addEventListener('click', function () {
+            const passwordInput = document.getElementById('password');
+            const icon = this;
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.textContent = 'visibility';
+            } else {
+                passwordInput.type = 'password';
+                icon.textContent = 'visibility_off';
+            }
+        });
+
+        // Toggle confirm password visibility
+        document.getElementById('toggle-confirm-password').addEventListener('click', function () {
+            const passwordInput = document.getElementById('confirmPassword');
+            const icon = this;
+
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                icon.textContent = 'visibility';
+            } else {
+                passwordInput.type = 'password';
+                icon.textContent = 'visibility_off';
+            }
+        });
+
+        // Success modal function
+        function showSuccessModal(message, isWorker = false) {
+            const modalHtml = `
+                <div id="success-modal" style="
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0,0,0,0.5);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 9999;
+                    animation: fadeIn 0.3s ease;
+                ">
+                    <div style="
+                        background: white;
+                        padding: 40px;
+                        border-radius: 16px;
+                        text-align: center;
+                        max-width: 450px;
+                        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                        animation: slideUp 0.3s ease;
+                    ">
+                        <div style="
+                            width: 80px;
+                            height: 80px;
+                            background: linear-gradient(135deg, ${isWorker ? '#3b82f6, #1d4ed8' : '#10b981, #059669'});
+                            border-radius: 50%;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            margin: 0 auto 24px;
+                        ">
+                            <span class="material-symbols-outlined" style="font-size: 48px; color: white;">${isWorker ? 'description' : 'check_circle'}</span>
+                        </div>
+                        <h2 style="color: #1f2937; margin-bottom: 12px; font-size: 24px;">${isWorker ? '📋 Hồ sơ đã gửi!' : '🎉 Chúc mừng!'}</h2>
+                        <p style="color: #6b7280; margin-bottom: 24px; font-size: 16px; line-height: 1.6;">
+                            ${message || (isWorker ? 
+                                'Hồ sơ ứng tuyển của bạn đã được gửi thành công!<br>Chủ trang trại sẽ xem xét và phê duyệt.<br>Bạn sẽ nhận thông báo khi được duyệt.' : 
+                                'Đăng ký tài khoản thành công!<br>Bạn sẽ được chuyển đến trang đăng nhập.')}
+                        </p>
+                        ${isWorker ? `
+                            <div style="background: #eff6ff; padding: 16px; border-radius: 8px; margin-bottom: 24px; text-align: left;">
+                                <p style="color: #1e40af; font-size: 14px; margin: 0; display: flex; align-items: center; gap: 8px;">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">info</span>
+                                    Sau khi được duyệt, bạn có thể đăng nhập và bắt đầu nhận công việc.
+                                </p>
+                            </div>
+                        ` : ''}
+                        <button onclick="window.location.href='login.html'" style="
+                            background: linear-gradient(135deg, ${isWorker ? '#3b82f6, #1d4ed8' : '#10b981, #059669'});
+                            color: white;
+                            border: none;
+                            padding: 14px 32px;
+                            border-radius: 8px;
+                            font-size: 16px;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: transform 0.2s;
+                        " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">${isWorker ? 'Đã hiểu' : 'Đăng nhập ngay'}</button>
+                    </div>
+                </div>
+                <style>
+                    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+                </style>
+            `;
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+            // Auto redirect after 5 seconds for workers, 3 for others
+            setTimeout(() => {
+                window.location.href = 'login.html';
+            }, isWorker ? 5000 : 3000);
+        }
+
+        // Form animation on load
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof gsap !== 'undefined') {
+                gsap.fromTo('.auth-form',
+                    { opacity: 0, y: 30 },
+                    { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }
+                );
+
+                gsap.fromTo('.auth-hero__content',
+                    { opacity: 0, x: -30 },
+                    { opacity: 1, x: 0, duration: 0.6, delay: 0.2, ease: 'power2.out' }
+                );
+            }
+        });
+
+        // Verification function
+        async function handleVerification(email) {
+            const otpCode = prompt("Vui lòng nhập mã xác thực (OTP) đã gửi tới email của bạn:");
+            if (!otpCode) return;
+
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/verify-registration', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, otp: otpCode })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccessModal();
+                } else {
+                    alert(data.message || 'Xác thực thất bại');
+                }
+            } catch (error) {
+                console.error('Verify error:', error);
+                alert('Lỗi kết nối');
+            }
+        }
+
+        // Form submission handler
+        document.getElementById('register-form').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const fullName = document.getElementById('fullName').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            const phone = document.getElementById('phone')?.value || '';
+            const role = document.getElementById('role').value;
+            const invitationCode = document.getElementById('invitationCode').value;
+            const submitBtn = document.querySelector('.auth-form__submit');
+
+            if (!role) {
+                alert('Vui lòng chọn vai trò của bạn');
+                return;
+            }
+
+            // Validate password match
+            if (password !== confirmPassword) {
+                alert('Mật khẩu nhập lại không khớp!');
+                return;
+            }
+
+            // Loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="material-symbols-outlined spinning">sync</span> Đang xử lý...';
+
+            // Build request body
+            const requestBody = { fullName, email, password, phone, role };
+
+            // Get farm info or invitation code based on role
+            const farmField = document.getElementById('farmName');
+            if (role === 'OWNER') {
+                requestBody.farmName = farmField.value;
+            } else if (role === 'WORKER') {
+                requestBody.farmId = parseInt(farmField.value);
+                // Get CV fields
+                const cvBio = document.getElementById('cv-bio');
+                const cvSkill = document.getElementById('cv-skill');
+                const cvExperience = document.getElementById('cv-experience');
+                
+                let cvProfile = '';
+                if (cvBio && cvBio.value) cvProfile += cvBio.value;
+                if (cvSkill && cvSkill.value) cvProfile += `\nKỹ năng chính: ${cvSkill.options[cvSkill.selectedIndex].text}`;
+                if (cvExperience && cvExperience.value) cvProfile += `\nKinh nghiệm: ${cvExperience.options[cvExperience.selectedIndex].text}`;
+                
+                requestBody.cvProfile = cvProfile;
+            } else if (role === 'SYSTEM_ADMIN') {
+                requestBody.invitationCode = invitationCode;
+            }
+
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    if (data.requiresApproval) {
+                        // WORKER registration - show special modal
+                        showSuccessModal(data.message, true);
+                    } else if (data.requiresVerification) {
+                        // SYSTEM_ADMIN registration - needs OTP
+                        alert(data.message);
+                        handleVerification(email);
+                    } else {
+                        // OWNER registration - direct success
+                        showSuccessModal();
+                    }
+                } else {
+                    alert(data.message || 'Đăng ký thất bại');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Tạo tài khoản';
+                }
+            } catch (error) {
+                console.error('Register error:', error);
+                alert('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Tạo tài khoản';
+            }
+        });
+
+        // Role change handler - updates farm field dynamically
+        document.getElementById('role').addEventListener('change', async function () {
+            const role = this.value;
+            const farmField = document.getElementById('farm-field');
+            const farmLabel = document.getElementById('farm-label');
+            const farmWrapper = document.getElementById('farm-input-wrapper');
+            const invitationField = document.getElementById('invitation-code-field');
+            const roleHint = document.getElementById('role-hint');
+
+            // Reset display
+            farmField.style.display = 'block';
+            invitationField.style.display = 'none';
+
+            // Update hint
+            const hints = {
+                'OWNER': 'Bạn sẽ có quyền tạo trang trại mới và quản lý toàn bộ dữ liệu.',
+                'WORKER': 'Bạn sẽ làm việc tại một nông trại có sẵn trong hệ thống.',
+                'SYSTEM_ADMIN': 'Quản trị viên hệ thống - Cần mã mời để đăng ký.'
+            };
+            roleHint.textContent = hints[role] || '';
+
+            if (role === 'OWNER') {
+                // Show text input for farm name
+                farmLabel.textContent = 'Tên nông trại của bạn';
+                farmWrapper.innerHTML = `
+                    <input type="text" id="farmName" class="auth-form__input" placeholder="Nhập tên nông trại bạn muốn tạo" required>
+                    <span class="material-symbols-outlined auth-form__input-icon">agriculture</span>
+                `;
+            } else if (role === 'WORKER') {
+                // Show CV Form
+                farmLabel.textContent = 'Chọn nông trại ứng tuyển';
+                farmWrapper.innerHTML = `
+                    <select id="farmName" class="auth-form__input auth-form__select" required>
+                        <option value="" disabled selected>Đang tải danh sách...</option>
+                    </select>
+                    <span class="material-symbols-outlined auth-form__input-icon">agriculture</span>
+                `;
+
+                // Add Professional CV Form
+                const cvHtml = `
+                    <div id="cv-section" class="cv-section" style="margin-top: 24px; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); padding: 24px; border-radius: 16px; border: 2px solid #a7f3d0; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px dashed #6ee7b7;">
+                            <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);">
+                                <span class="material-symbols-outlined" style="color: white; font-size: 28px;">description</span>
+                            </div>
+                            <div>
+                                <h3 style="font-size: 18px; font-weight: 700; color: #065f46; margin: 0;">Hồ sơ ứng tuyển</h3>
+                                <p style="font-size: 13px; color: #047857; margin: 4px 0 0 0;">Thông tin sẽ được gửi đến chủ trang trại</p>
+                            </div>
+                        </div>
+                        
+                        <div class="auth-form__field" style="margin-bottom: 16px;">
+                            <label class="auth-form__label" style="color: #065f46; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                <span class="material-symbols-outlined" style="font-size: 18px;">person</span>
+                                Giới thiệu bản thân & Kinh nghiệm
+                            </label>
+                            <textarea id="cv-bio" class="auth-form__input" rows="4" 
+                                placeholder="Ví dụ: 3 năm kinh nghiệm trồng lúa, biết lái máy cày..." 
+                                style="padding: 12px; background: white; border: 2px solid #6ee7b7; border-radius: 8px; transition: all 0.2s;"
+                                onfocus="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 0 3px rgba(16, 185, 129, 0.2)'"
+                                onblur="this.style.borderColor='#6ee7b7'; this.style.boxShadow='none'"></textarea>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                            <div class="auth-form__field">
+                                <label class="auth-form__label" style="color: #065f46; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">work</span>
+                                    Kỹ năng chính
+                                </label>
+                                <select id="cv-skill" class="auth-form__input auth-form__select" style="background: white; border: 2px solid #6ee7b7;">
+                                    <option value="">Chọn kỹ năng...</option>
+                                    <option value="farming">🌾 Trồng trọt</option>
+                                    <option value="livestock">🐄 Chăn nuôi</option>
+                                    <option value="machinery">🚜 Vận hành máy móc</option>
+                                    <option value="irrigation">💧 Tưới tiêu</option>
+                                    <option value="pesticide">🧪 Phun thuốc BVTV</option>
+                                    <option value="harvest">🌾 Thu hoạch</option>
+                                    <option value="other">📦 Khác</option>
+                                </select>
+                            </div>
+                            <div class="auth-form__field">
+                                <label class="auth-form__label" style="color: #065f46; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                                    <span class="material-symbols-outlined" style="font-size: 18px;">schedule</span>
+                                    Năm kinh nghiệm
+                                </label>
+                                <select id="cv-experience" class="auth-form__input auth-form__select" style="background: white; border: 2px solid #6ee7b7;">
+                                    <option value="0">Chưa có kinh nghiệm</option>
+                                    <option value="1">1 - 2 năm</option>
+                                    <option value="3">3 - 5 năm</option>
+                                    <option value="5">5 - 10 năm</option>
+                                    <option value="10">Trên 10 năm</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top: 20px; padding: 16px; background: white; border-radius: 8px; border: 1px dashed #6ee7b7;">
+                            <p style="font-size: 12px; color: #059669; margin: 0; display: flex; align-items: center; gap: 6px;">
+                                <span class="material-symbols-outlined" style="font-size: 16px;">info</span>
+                                Hồ sơ của bạn sẽ được gửi đến chủ trang trại để xét duyệt. Sau khi được duyệt, bạn có thể bắt đầu nhận và thực hiện công việc.
+                            </p>
+                        </div>
+                    </div>
+                `;
+                // Insert CV section after farm field
+                if (!document.getElementById('cv-section')) {
+                    farmField.insertAdjacentHTML('afterend', cvHtml);
+                }
+
+                // Fetch farms from API
+                try {
+                    const response = await fetch('http://localhost:8080/api/farms/list');
+                    let farms = await response.json();
+
+                    // Filter farms with quota > 0 (if backend sends quota, otherwise fetch full details)
+                    // The /list endpoint currently returns simplified map. 
+                    // We might need to fetch full /api/farms or update /list to include quota.
+                    // Assuming /list returns {id, name} only from my previous check.
+                    // Let's try to fetch full list or rely on backend.
+                    // BETTER: Fetch /api/farms (full) which I added in FarmController as GET /
+                    const fullResponse = await fetch('http://localhost:8080/api/farms');
+                    if (fullResponse.ok) {
+                        farms = await fullResponse.json();
+                    }
+
+                    const farmSelect = document.getElementById('farmName');
+                    farmSelect.innerHTML = '<option value="" disabled selected>Chọn nông trại...</option>';
+
+                    // Filter: Quota > 0
+                    const hiringFarms = farms.filter(f => (f.recruitmentQuota && f.recruitmentQuota > 0));
+
+                    if (hiringFarms.length === 0) {
+                        farmSelect.innerHTML = '<option value="" disabled selected>Không có nông trại nào đang tuyển</option>';
+                        farmSelect.disabled = true;
+                    } else {
+                        farmSelect.disabled = false;
+                        hiringFarms.forEach(farm => {
+                            const option = document.createElement('option');
+                            option.value = farm.id;
+                            option.textContent = `${farm.name} (Tuyển: ${farm.recruitmentQuota})`;
+                            farmSelect.appendChild(option);
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error fetching farms:', error);
+                    document.getElementById('farmName').innerHTML = '<option value="" disabled selected>Lỗi tải danh sách</option>';
+                }
+            } else if (role === 'SYSTEM_ADMIN') {
+                farmField.style.display = 'none';
+                invitationField.style.display = 'block';
+                // Remove CV if exists
+                const cvSection = document.getElementById('cv-section');
+                if (cvSection) cvSection.remove();
+            } else {
+                // Owner or others: Remove CV if exists
+                const cvSection = document.getElementById('cv-section');
+                if (cvSection) cvSection.remove();
+            }
+        });
+
+        // Update Submit Handler to include CV
+        // (Note: The existing submit handler reads fields by ID. We need to grab cv-bio if it exists)
+        const originalSubmit = document.getElementById('register-form').onsubmit; // This might be null if added via addEventListener
+
+        // We already have an event listener. We need to Modify it.
+        // Since we can't easily modify the existing listener in this Replace block without replacing the whole block,
+        // I will rely on the fact that I'm editing the 'change' handler, but I also need to update the 'submit' handler logic.
+        // Wait, the previous Replace block didn't include the submit handler. The submit handler is lines 351-418.
+        // I should probably replace the submit handler separately or ensure this block covers what's needed.
+        // The current replacement is covering the 'change' event listener (lines 421-480 from original view).
+        // I will invoke a separate Replace call for the submit handler to capture 'cvProfile'.
+
+    </script>
+</body>
+
+</html>

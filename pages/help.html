@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriPlanner - Trợ giúp</title>
+    <meta name="description" content="Trung tâm hỗ trợ và câu hỏi thường gặp">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="../css/variables.css">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/layout.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/pages/help.css">
+    <link rel="stylesheet" href="../css/chatbot.css">
+    <link rel="stylesheet" href="../css/smart-advisor.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+</head>
+
+<body data-page="help">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar__header">
+                <div class="sidebar__logo-icon"><span class="material-symbols-outlined">eco</span></div>
+                <h1 class="sidebar__logo-text">AgriPlanner</h1>
+            </div>
+            <nav class="sidebar__nav">
+                <a href="../index.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">home</span><span>Trang chủ</span></a>
+                <a href="cultivation.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">potted_plant</span><span>Trồng trọt</span></a>
+                <a href="livestock.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">egg</span><span>Chăn nuôi</span></a>
+                <a href="labor.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">engineering</span><span>Nhân công</span></a>
+                <a href="shop.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">store</span><span>Cửa hàng</span></a>
+                <a href="cooperative.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">groups</span><span>Hợp tác xã</span></a>
+                <a href="community.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">forum</span><span>Cộng đồng</span></a>
+                <a href="analytics.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">account_balance_wallet</span><span>Tài sản</span></a>
+                <a href="settings.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">settings</span><span>Cài đặt</span></a>
+                <div class="sidebar__spacer"></div>
+                <a href="help.html" class="sidebar__nav-link active"><span
+                        class="material-symbols-outlined">help</span><span>Trợ giúp</span></a>
+            </nav>
+            <div class="sidebar__footer">
+                <div class="sidebar__user">
+                    <div class="sidebar__user-avatar"
+                        style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDCMN1BzSnHgFxeyKEvWsG_QZ7RRtaDeDC8da2PFWOdIOql1NQCIo7EyyLhovyGTv1IssyE0ElFcEa4Vw-V8109xsNhBf99T3NkTDvtYBU47tW1lefo65wDbOMoAbD7PjTIEurzbP6iG_cbmo4nHkWq5Ui67icWuS_TELGtKpV-77MezNda4FST6uqiwz7I-b6lE7ansa-imri7RnOY44Du1B8I1k4Rv_dGiOsudGGjdZD0rsUyhKsP7Eo6RCFsaG5tXK4lTjqA9wxs');">
+                    </div>
+                    <div class="sidebar__user-info">
+                        <p class="sidebar__user-name">John Farmer</p>
+                        <p class="sidebar__user-email">john@agriplanner.com</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="header">
+                <nav style="font-size: 14px; color: var(--color-text-secondary);">
+                    <a href="../index.html" style="color: inherit;">Dashboard</a>
+                    <span style="margin: 0 8px;">›</span>
+                    <span style="color: var(--color-text-primary); font-weight: 600;">Trợ giúp & Hỗ trợ</span>
+                </nav>
+                <div class="header__actions">
+                    <button class="header__notification"><span
+                            class="material-symbols-outlined">notifications</span><span
+                            class="header__notification-badge"></span></button>
+                    <div class="header__user">
+                        <div class="header__user-info">
+                            <p class="header__user-name">John Farmer</p>
+                            <p class="header__user-role">Farm Manager</p>
+                        </div>
+                        <div class="header__user-avatar"
+                            style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCHFCTqN0OM4sPkXOIJq6yxGJaRp5CFHphT4D3h5kTOVuH5XYva-_dBSZW4xFkV4oYoFHd-mgQi2uwLpx8Y2d0nY-kTjVoTY-fsw_cVVCZMuHwe1uAiUGLxaflzoYqbhM8v8nkGBQyp3yT7yk_pAadyFgKQ0ZfaPxHWGc8-v3chAxzKzK48oNsygXDarEGdKrgTsJ54TT58oJ-WPS65S_kwcNajqy3wIMFodmRWYftN04hShgSUMQ8hrtuIVt2uMPn6xk_ckF1LZRfp');">
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <main class="main-content" style="padding: 0;">
+                <!-- Help Hero -->
+                <div class="help-hero">
+                    <h1 class="help-hero__title fade-in">Chúng tôi có thể giúp gì cho bạn?</h1>
+                    <div class="help-search fade-in">
+                        <span class="material-symbols-outlined help-search__icon">search</span>
+                        <input type="text" class="help-search__input"
+                            placeholder="Tìm kiếm hướng dẫn, câu hỏi thường gặp...">
+                    </div>
+                </div>
+
+                <div class="help-content">
+                    <!-- Help Categories -->
+                    <div class="help-categories">
+                        <div class="card help-category-card fade-in">
+                            <div class="help-category-card__icon help-category-card__icon--blue"><span
+                                    class="material-symbols-outlined">description</span></div>
+                            <h3 class="help-category-card__title">Tài liệu</h3>
+                            <p class="help-category-card__description">Hướng dẫn sử dụng chi tiết và tài liệu API</p>
+                        </div>
+                        <div class="card help-category-card fade-in">
+                            <div class="help-category-card__icon help-category-card__icon--purple"><span
+                                    class="material-symbols-outlined">play_circle</span></div>
+                            <h3 class="help-category-card__title">Video hướng dẫn</h3>
+                            <p class="help-category-card__description">Xem các video hướng dẫn từng bước</p>
+                        </div>
+                        <div class="card help-category-card fade-in">
+                            <div class="help-category-card__icon help-category-card__icon--green"><span
+                                    class="material-symbols-outlined">support_agent</span></div>
+                            <h3 class="help-category-card__title">Liên hệ hỗ trợ</h3>
+                            <p class="help-category-card__description">Nói chuyện trực tiếp với đội ngũ hỗ trợ</p>
+                        </div>
+                    </div>
+
+                    <!-- Chat with Admin Section -->
+                    <div class="admin-chat-section fade-in" style="margin-bottom: 32px;">
+                        <div class="card" style="overflow: hidden;">
+                            <div class="admin-chat-header"
+                                style="background: linear-gradient(135deg, var(--color-primary), #45a049); color: white; padding: 16px 20px; display: flex; align-items: center; gap: 12px;">
+                                <div
+                                    style="width: 44px; height: 44px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                    <span class="material-symbols-outlined">support_agent</span>
+                                </div>
+                                <div style="flex: 1;">
+                                    <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Chat với Quản trị viên
+                                    </h3>
+                                    <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.85;">Nhận hỗ trợ trực tiếp và
+                                        thông báo hệ thống</p>
+                                </div>
+                                <span id="admin-online-status"
+                                    style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
+                                    <span
+                                        style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></span>
+                                    Trực tuyến
+                                </span>
+                            </div>
+                            <div id="admin-chat-messages"
+                                style="height: 300px; overflow-y: auto; padding: 16px; background: #f9fafb;">
+                                <!-- Messages will be loaded here -->
+                                <div style="text-align: center; color: #9ca3af; padding: 60px 20px;">
+                                    <span class="material-symbols-outlined"
+                                        style="font-size: 48px; margin-bottom: 8px;">chat</span>
+                                    <p>Chưa có tin nhắn nào</p>
+                                    <p style="font-size: 12px;">Gửi tin nhắn để bắt đầu cuộc trò chuyện</p>
+                                </div>
+                            </div>
+                            <div
+                                style="padding: 12px 16px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; align-items: center;">
+                                <input type="text" id="admin-chat-input" placeholder="Nhập tin nhắn..."
+                                    style="flex: 1; padding: 12px 16px; border: 1px solid #e5e7eb; border-radius: 24px; font-size: 14px; outline: none; transition: border-color 0.2s;"
+                                    onfocus="this.style.borderColor='var(--color-primary)'"
+                                    onblur="this.style.borderColor='#e5e7eb'"
+                                    onkeypress="if(event.key==='Enter') sendAdminMessage()">
+                                <button onclick="sendAdminMessage()"
+                                    style="width: 44px; height: 44px; background: var(--color-primary); color: white; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s, background 0.2s;"
+                                    onmouseover="this.style.background='#45a049'"
+                                    onmouseout="this.style.background='var(--color-primary)'">
+                                    <span class="material-symbols-outlined">send</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FAQ Section -->
+                    <div class="faq-section">
+                        <h2 class="faq-section__title fade-in">Câu hỏi thường gặp</h2>
+                        <div class="faq-list">
+                            <details class="card faq-item fade-in">
+                                <summary class="faq-item__summary">Làm thế nào để thêm cánh đồng mới?<span
+                                        class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                <div class="faq-item__content">Để thêm cánh đồng mới, vào mục <strong>Trồng
+                                        trọt</strong> từ thanh bên, sau đó nhấp vào nút <strong>Thêm khu vực</strong>.
+                                    Nhập thông tin như tên, diện tích, loại đất và tọa độ. Hệ thống sẽ tự động tích hợp
+                                    dữ liệu cảm biến nếu có thiết bị được kết nối.</div>
+                            </details>
+                            <details class="card faq-item fade-in">
+                                <summary class="faq-item__summary">Làm sao để theo dõi lịch tiêm phòng vật nuôi?<span
+                                        class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                <div class="faq-item__content">Vào mục <strong>Chăn nuôi</strong>, chọn chuồng cần theo
+                                    dõi. Trong bảng chi tiết bên phải, bạn sẽ thấy phần <strong>Lịch tiêm phòng</strong>
+                                    với trạng thái từng vaccine. Bạn có thể thêm lịch mới hoặc đánh dấu đã tiêm.</div>
+                            </details>
+                            <details class="card faq-item fade-in">
+                                <summary class="faq-item__summary">Dữ liệu cảm biến được cập nhật như thế nào?<span
+                                        class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                <div class="faq-item__content">Dữ liệu cảm biến được cập nhật theo thời gian thực thông
+                                    qua kết nối IoT. Các cảm biến gửi dữ liệu mỗi 15 phút. Bạn có thể xem lịch sử dữ
+                                    liệu và thiết lập cảnh báo khi giá trị vượt ngưỡng trong phần <strong>Cài đặt >
+                                        Thông báo</strong>.</div>
+                            </details>
+                            <details class="card faq-item fade-in">
+                                <summary class="faq-item__summary">Tôi có thể xuất báo cáo tài chính không?<span
+                                        class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                <div class="faq-item__content">Có, bạn có thể xuất báo cáo tài chính ở định dạng PDF
+                                    hoặc Excel. Vào mục <strong>Thống kê</strong>, chọn khoảng thời gian cần báo cáo,
+                                    sau đó nhấp nút <strong>Xuất báo cáo</strong>. Báo cáo sẽ bao gồm doanh thu, chi
+                                    phí, và lợi nhuận chi tiết.</div>
+                            </details>
+                            <details class="card faq-item fade-in">
+                                <summary class="faq-item__summary">Làm thế nào để mời thêm thành viên vào nông
+                                    trại?<span class="material-symbols-outlined faq-item__icon">expand_more</span>
+                                </summary>
+                                <div class="faq-item__content">Vào <strong>Cài đặt > Hồ sơ</strong>, cuộn xuống phần
+                                    <strong>Quản lý đội ngũ</strong>. Nhấp <strong>Mời thành viên</strong>, nhập email
+                                    và chọn vai trò (Admin, Manager, Staff). Người được mời sẽ nhận email với link đăng
+                                    ký.
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+
+                    <!-- Help Footer -->
+                    <div class="help-footer fade-in">
+                        <p class="help-footer__text">Không tìm thấy câu trả lời?</p>
+                        <a href="#" class="help-footer__link">Liên hệ đội ngũ hỗ trợ →</a>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+
+
+    <script src="../js/auth.js"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/animations.js"></script>
+    <script src="../js/sidebar.js"></script>
+    <script src="../js/chatbot.js"></script>
+    <script src="../js/help.js"></script>
+    <script src="../js/smart-advisor.js"></script>
+    <script src="../js/main.js"></script>
+</body>
+
+</html>

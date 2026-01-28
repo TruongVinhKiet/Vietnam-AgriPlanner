@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AgriPlanner - Livestock Registry</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#10B981", // Emerald 500 equivalent from screenshot
+              "primary-dark": "#059669", // Emerald 600 for hover states
+              "background-light": "#F3F4F6", // Gray 100
+              "background-dark": "#111827", // Gray 900
+              "surface-light": "#FFFFFF",
+              "surface-dark": "#1F2937",
+              "sidebar-bg": "#0EA579", // Custom matching the green sidebar
+            },
+            fontFamily: {
+              sans: ["Inter", "sans-serif"],
+            },
+            borderRadius: {
+              DEFAULT: "0.5rem",
+            },
+          },
+        },
+      };
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-sans text-gray-800 dark:text-gray-100 h-screen flex overflow-hidden">
+<aside class="w-64 bg-sidebar-bg text-white flex flex-col justify-between shrink-0 transition-colors duration-200">
+<div>
+<div class="p-6 flex items-center gap-3">
+<div class="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+<span class="material-icons text-white">spa</span>
+</div>
+<div>
+<h1 class="font-bold text-lg leading-tight">AgriPlanner</h1>
+<p class="text-xs text-green-100 opacity-80 font-medium">SYSTEM ADMIN</p>
+</div>
+</div>
+<nav class="px-4 mt-6 space-y-2">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-white/90 hover:text-white" href="#">
+<span class="material-icons text-[20px]">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-white/90 hover:text-white" href="#">
+<span class="material-icons text-[20px]">people</span>
+<span class="font-medium">Users</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-white/90 hover:text-white" href="#">
+<span class="material-icons text-[20px]">eco</span>
+<span class="font-medium">Crops</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-white/90 hover:text-white" href="#">
+<span class="material-icons text-[20px]">storefront</span>
+<span class="font-medium">Shop Items</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/20 text-white shadow-sm backdrop-blur-sm" href="#">
+<span class="material-icons text-[20px]">pets</span>
+<span class="font-medium">Animals</span>
+</a>
+</nav>
+</div>
+<div class="p-4 border-t border-white/10">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-white/90 hover:text-white group" href="#">
+<span class="material-icons text-[20px] group-hover:translate-x-1 transition-transform">logout</span>
+<span class="font-medium">Logout</span>
+</a>
+</div>
+</aside>
+<main class="flex-1 flex flex-col min-w-0 overflow-hidden bg-background-light dark:bg-background-dark">
+<header class="h-20 bg-surface-light dark:bg-surface-dark border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-8 shrink-0">
+<h2 class="text-2xl font-bold text-gray-900 dark:text-white">Livestock Registry</h2>
+<div class="flex items-center gap-6">
+<button class="relative p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+<span class="material-icons">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
+</button>
+<div class="h-8 w-px bg-gray-200 dark:bg-gray-700"></div>
+<div class="flex items-center gap-3">
+<img alt="Sarah Jenkins" class="w-10 h-10 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaxwogrFsMZhbovpj_3WRwjRR4oPP-NQifuXi3xLwXJyYJk0Tg5zfsHC6zcDd8jplFwsiDlmKp-CWGAPAlusvnE8R6qCNXEmegq0Ki_AzB5Em2uSa1qOh6Lews7ZKb4JN4WUzrgZ2DSMXrhVsi3K9b3_mNaMVHAihC3rkDtdcKLpccjdvpAdLwmJJVprwpZFbwn3_eTIKCuwO_-buPhM05Kx0Yq7uGIarAnTuifIosaKP7-tl8UOWov4F3NPMBeJkCQDOfoFsA4yCA"/>
+<div class="hidden md:block">
+<p class="text-sm font-semibold text-gray-900 dark:text-white leading-none">Sarah Jenkins</p>
+<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Global Administrator</p>
+</div>
+</div>
+</div>
+</header>
+<div class="flex-1 overflow-auto p-8">
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
+<div>
+<p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Livestock</p>
+<h3 class="text-3xl font-bold text-gray-900 dark:text-white mt-1">2,845</h3>
+<p class="text-xs font-medium text-emerald-600 dark:text-emerald-400 mt-2 flex items-center gap-1">
+<span class="material-icons text-sm">trending_up</span>
+                            +5.2% this month
+                        </p>
+</div>
+<div class="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+<span class="material-icons text-2xl">pets</span>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center justify-between">
+<div>
+<p class="text-sm font-medium text-gray-500 dark:text-gray-400">Health Alerts</p>
+<h3 class="text-3xl font-bold text-gray-900 dark:text-white mt-1">12</h3>
+<p class="text-xs font-medium text-orange-600 dark:text-orange-400 mt-2 flex items-center gap-1">
+<span class="material-icons text-sm">warning</span>
+                            Requires attention
+                        </p>
+</div>
+<div class="w-12 h-12 bg-orange-50 dark:bg-orange-900/30 rounded-xl flex items-center justify-center text-orange-600 dark:text-orange-400">
+<span class="material-icons text-2xl">medical_services</span>
+</div>
+</div>
+<div class="bg-gradient-to-br from-emerald-500 to-teal-600 p-6 rounded-xl shadow-md text-white flex flex-col justify-center items-start">
+<h3 class="text-lg font-bold mb-2">Register New Entry</h3>
+<p class="text-sm text-emerald-50 mb-4 opacity-90">Add new animals to the registry database.</p>
+<button class="bg-white text-emerald-600 hover:bg-emerald-50 px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-colors flex items-center gap-2">
+<span class="material-icons text-sm">add</span>
+                        Add New Animal
+                    </button>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+<div class="p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+<h3 class="text-lg font-bold text-gray-900 dark:text-white">Recent Entries</h3>
+<div class="flex items-center gap-3">
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-icons text-gray-400 text-lg">search</span>
+<input class="pl-10 pr-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 dark:text-white w-64" placeholder="Search ID or Breed..." type="text"/>
+</div>
+<button class="flex items-center gap-2 px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+<span class="material-icons text-lg">filter_list</span>
+                            Filter
+                        </button>
+<button class="md:hidden bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors flex items-center gap-2">
+<span class="material-icons text-lg">add</span>
+</button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-gray-50 dark:bg-gray-800/50 text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 font-semibold border-b border-gray-100 dark:border-gray-700">
+<th class="px-6 py-4">Animal</th>
+<th class="px-6 py-4">ID Tag</th>
+<th class="px-6 py-4">Category</th>
+<th class="px-6 py-4">Breed</th>
+<th class="px-6 py-4">Health Status</th>
+<th class="px-6 py-4">Last Checkup</th>
+<th class="px-6 py-4 text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 dark:divide-gray-700 text-sm">
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+<span class="material-icons text-xl">water_drop</span> 
+</div>
+<div>
+<p class="font-medium text-gray-900 dark:text-white">Milky Way</p>
+<p class="text-xs text-gray-500">Dairy Cow</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 font-mono text-gray-600 dark:text-gray-400">#CW-8291</td>
+<td class="px-6 py-4 text-gray-600 dark:text-gray-300">Cattle</td>
+<td class="px-6 py-4 text-gray-600 dark:text-gray-300">Holstein Friesian</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                        Good Health
+                                    </span>
+</td>
+<td class="px-6 py-4 text-gray-500 dark:text-gray-400">Oct 24, 2023</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit">
+<span class="material-icons text-lg">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete">
+<span class="material-icons text-lg">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+<span class="material-icons text-xl">egg</span> 
+</div>
+<div>
+<p class="font-medium text-gray-900 dark:text-white">Batch A-22</p>
+<p class="text-xs text-gray-500">Layers</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 font-mono text-gray-600 dark:text-gray-400">#PL-9921</td>
+<td class="px-6 py-4 text-gray-600 dark:text-gray-300">Poultry</td>
+<td class="px-6 py-4 text-gray-600 dark:text-gray-300">Rhode Island Red</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                                        Warning
+                                    </span>
+</td>
+<td class="px-6 py-4 text-gray-500 dark:text-gray-400">Yesterday</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit">
+<span class="material-icons text-lg">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete">
+<span class="material-icons text-lg">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center">
+<span class="material-icons text-xl">grass</span> 
+</div>
+<div>
+<p class="font-medium text-gray-900 dark:text-white">Wooly #4</p>
+<p class="text-xs text-gray-500">Wool Producer</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 font-mono text-gray-600 dark:text-gray-400">#SH-1029</td>
+<td class="px-6 py-4 text-gray-600 dark:text-gray-300">Sheep</td>
+<td class="px-6 py-4 text-gray-600 dark:text-gray-300">Merino</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                        Good Health
+                                    </span>
+</td>
+<td class="px-6 py-4 text-gray-500 dark:text-gray-400">Oct 20, 2023</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit">
+<span class="material-icons text-lg">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete">
+<span class="material-icons text-lg">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 flex items-center justify-center">
+<span class="material-icons text-xl">savings</span> 
+</div>
+<div>
+<p class="font-medium text-gray-900 dark:text-white">Big Red</p>
+<p class="text-xs text-gray-500">Breeder</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 font-mono text-gray-600 dark:text-gray-400">#PG-5521</td>
+<td class="px-6 py-4 text-gray-600 dark:text-gray-300">Swine</td>
+<td class="px-6 py-4 text-gray-600 dark:text-gray-300">Duroc</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                                        Quarantined
+                                    </span>
+</td>
+<td class="px-6 py-4 text-gray-500 dark:text-gray-400">Today</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit">
+<span class="material-icons text-lg">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete">
+<span class="material-icons text-lg">delete</span>
+</button>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+<span class="material-icons text-xl">water_drop</span>
+</div>
+<div>
+<p class="font-medium text-gray-900 dark:text-white">Bella</p>
+<p class="text-xs text-gray-500">Dairy Cow</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4 font-mono text-gray-600 dark:text-gray-400">#CW-8292</td>
+<td class="px-6 py-4 text-gray-600 dark:text-gray-300">Cattle</td>
+<td class="px-6 py-4 text-gray-600 dark:text-gray-300">Jersey</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                                        Good Health
+                                    </span>
+</td>
+<td class="px-6 py-4 text-gray-500 dark:text-gray-400">Sep 15, 2023</td>
+<td class="px-6 py-4 text-right">
+<div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<button class="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors" title="Edit">
+<span class="material-icons text-lg">edit</span>
+</button>
+<button class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors" title="Delete">
+<span class="material-icons text-lg">delete</span>
+</button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+<p class="text-sm text-gray-500 dark:text-gray-400">Showing 1-5 of 45 results</p>
+<div class="flex items-center gap-2">
+<button class="p-2 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50">
+<span class="material-icons text-base">chevron_left</span>
+</button>
+<button class="p-2 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800">
+<span class="material-icons text-base">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<div class="h-8"></div>
+</div>
+</main>
+
+</body></html>

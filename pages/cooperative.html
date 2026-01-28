@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriPlanner - Hợp tác xã</title>
+    <meta name="description" content="Quản lý hợp tác xã nông nghiệp">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="../css/variables.css">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/layout.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/pages/cooperative.css">
+    <link rel="stylesheet" href="../css/chatbot.css">
+    <link rel="stylesheet" href="../css/smart-advisor.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+</head>
+
+<body data-page="cooperative">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar__header">
+                <div class="sidebar__logo-icon"><span class="material-symbols-outlined">eco</span></div>
+                <h1 class="sidebar__logo-text">AgriPlanner</h1>
+            </div>
+            <nav class="sidebar__nav">
+                <a href="../index.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">home</span><span>Trang chủ</span></a>
+                <a href="cultivation.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">potted_plant</span><span>Trồng trọt</span></a>
+                <a href="livestock.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">egg</span><span>Chăn nuôi</span></a>
+                <a href="labor.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">engineering</span><span>Nhân công</span></a>
+                <a href="shop.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">store</span><span>Cửa hàng</span></a>
+                <a href="cooperative.html" class="sidebar__nav-link active"><span
+                        class="material-symbols-outlined">groups</span><span>Hợp tác xã</span></a>
+                <a href="community.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">forum</span><span>Cộng đồng</span></a>
+                <a href="analytics.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">account_balance_wallet</span><span>Tài sản</span></a>
+                <a href="settings.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">settings</span><span>Cài đặt</span></a>
+                <div class="sidebar__spacer"></div>
+                <a href="help.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">help</span><span>Trợ giúp</span></a>
+            </nav>
+            <div class="sidebar__footer">
+                <div class="sidebar__user">
+                    <div class="sidebar__user-avatar" id="sidebar-avatar"></div>
+                    <div class="sidebar__user-info">
+                        <p class="sidebar__user-name" id="sidebar-name">Đang tải...</p>
+                        <p class="sidebar__user-email" id="sidebar-email">...</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="header">
+                <div class="header__search">
+                    <span class="material-symbols-outlined header__search-icon">search</span>
+                    <input type="text" class="header__search-input" id="coop-search" placeholder="Tìm kiếm...">
+                </div>
+                <div class="header__actions">
+                    <button class="header__notification">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <span class="header__notification-badge" id="notification-count">0</span>
+                    </button>
+                    <div class="balance-display" id="balance-display">
+                        <span class="material-symbols-outlined">account_balance_wallet</span>
+                        <span id="user-balance">0 VNĐ</span>
+                    </div>
+                </div>
+            </header>
+
+            <main class="main-content">
+                <div class="main-content__container">
+                    <!-- No Cooperative State -->
+                    <div class="no-coop-container" id="no-coop-container">
+                        <div class="no-coop-content">
+                            <div class="no-coop-icon">
+                                <span class="material-symbols-outlined">groups</span>
+                            </div>
+                            <h2>Chào mừng đến với Hợp tác xã</h2>
+                            <p>Bạn chưa tham gia hợp tác xã nào. Tạo mới hoặc tham gia bằng mã mời.</p>
+
+                            <div class="no-coop-actions">
+                                <button class="btn btn--primary btn--lg" onclick="openRegisterModal()">
+                                    <span class="material-symbols-outlined icon-sm">add_circle</span>
+                                    Đăng ký tạo HTX
+                                </button>
+
+                                <div class="join-section">
+                                    <p class="join-label">Hoặc nhập mã mời để tham gia</p>
+                                    <div class="join-input-group">
+                                        <input type="text" id="invite-code-input" placeholder="Nhập mã mời (6 ký tự)"
+                                            maxlength="6" style="text-transform: uppercase;">
+                                        <button class="btn btn--success" onclick="joinByInviteCode()">
+                                            <span class="material-symbols-outlined icon-sm">login</span>
+                                            Tham gia
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cooperative Dashboard (hidden by default) -->
+                    <div class="coop-dashboard" id="coop-dashboard" style="display: none;">
+                        <!-- Page Header -->
+                        <div class="page-header">
+                            <div>
+                                <h2 class="page-header__title" id="coop-name">Hợp tác xã</h2>
+                                <p class="page-header__subtitle">
+                                    Mã HTX: <span id="coop-code">---</span> |
+                                    Mã mời: <strong id="coop-invite-code">---</strong>
+                                    <button class="btn-icon btn--sm" onclick="copyInviteCode()" title="Sao chép mã mời">
+                                        <span class="material-symbols-outlined">content_copy</span>
+                                    </button>
+                                </p>
+                            </div>
+                            <div class="header-actions">
+                                <div class="coop-balance-display">
+                                    <span class="material-symbols-outlined">savings</span>
+                                    <span>Quỹ: <strong id="coop-balance">0 VNĐ</strong></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- KPI Cards -->
+                        <div class="coop-kpi-grid">
+                            <div class="card kpi-card">
+                                <div class="kpi-card__header">
+                                    <div class="kpi-card__icon kpi-card__icon--blue">
+                                        <span class="material-symbols-outlined">group</span>
+                                    </div>
+                                </div>
+                                <p class="kpi-card__label">Thành viên</p>
+                                <h3 class="kpi-card__value" id="kpi-members">0</h3>
+                            </div>
+                            <div class="card kpi-card">
+                                <div class="kpi-card__header">
+                                    <div class="kpi-card__icon kpi-card__icon--green">
+                                        <span class="material-symbols-outlined">savings</span>
+                                    </div>
+                                </div>
+                                <p class="kpi-card__label">Quỹ chung</p>
+                                <h3 class="kpi-card__value" id="kpi-balance">0đ</h3>
+                            </div>
+                            <div class="card kpi-card">
+                                <div class="kpi-card__header">
+                                    <div class="kpi-card__icon kpi-card__icon--orange">
+                                        <span class="material-symbols-outlined">shopping_cart</span>
+                                    </div>
+                                </div>
+                                <p class="kpi-card__label">Đợt gom mua</p>
+                                <h3 class="kpi-card__value" id="kpi-buy-campaigns">0</h3>
+                            </div>
+                            <div class="card kpi-card">
+                                <div class="kpi-card__header">
+                                    <div class="kpi-card__icon kpi-card__icon--emerald">
+                                        <span class="material-symbols-outlined">sell</span>
+                                    </div>
+                                </div>
+                                <p class="kpi-card__label">Đợt gom bán</p>
+                                <h3 class="kpi-card__value" id="kpi-sell-campaigns">0</h3>
+                            </div>
+                        </div>
+
+                        <!-- Tabs -->
+                        <div class="coop-tabs card">
+                            <button class="coop-tab active" data-tab="overview" onclick="switchTab('overview')">
+                                <span class="material-symbols-outlined">dashboard</span>
+                                <span>Tổng quan</span>
+                            </button>
+                            <button class="coop-tab" data-tab="group-buy" onclick="switchTab('group-buy')">
+                                <span class="material-symbols-outlined">shopping_cart</span>
+                                <span>Gom mua</span>
+                            </button>
+                            <button class="coop-tab" data-tab="group-sell" onclick="switchTab('group-sell')">
+                                <span class="material-symbols-outlined">sell</span>
+                                <span>Gom bán</span>
+                            </button>
+                            <button class="coop-tab" data-tab="inventory" onclick="switchTab('inventory')">
+                                <span class="material-symbols-outlined">inventory_2</span>
+                                <span>Kho HTX</span>
+                            </button>
+                            <button class="coop-tab" data-tab="distribution" onclick="switchTab('distribution')">
+                                <span class="material-symbols-outlined">pie_chart</span>
+                                <span>Phân chia</span>
+                            </button>
+                            <button class="coop-tab" data-tab="members" onclick="switchTab('members')">
+                                <span class="material-symbols-outlined">group</span>
+                                <span>Thành viên</span>
+                            </button>
+                            <button class="coop-tab" data-tab="fund" onclick="switchTab('fund')">
+                                <span class="material-symbols-outlined">account_balance</span>
+                                <span>Quỹ</span>
+                            </button>
+                            <button class="coop-tab" data-tab="history" onclick="switchTab('history')">
+                                <span class="material-symbols-outlined">history</span>
+                                <span>Lịch sử</span>
+                            </button>
+                            <button class="coop-tab leader-only" data-tab="dissolution"
+                                onclick="switchTab('dissolution')" id="dissolution-tab">
+                                <span class="material-symbols-outlined">delete_forever</span>
+                                <span>Giải thể</span>
+                            </button>
+                        </div>
+
+                        <!-- Tab Contents -->
+                        <div class="tab-content" id="tab-overview">
+                            <div class="overview-grid">
+                                <!-- Active Buy Campaigns -->
+                                <div class="card">
+                                    <div class="card__header">
+                                        <h3 class="card__title">
+                                            <span class="material-symbols-outlined">shopping_cart</span>
+                                            Đợt gom mua đang mở
+                                        </h3>
+                                        <button class="btn btn--sm btn--outline" onclick="switchTab('group-buy')">
+                                            Xem tất cả
+                                        </button>
+                                    </div>
+                                    <div class="card__body">
+                                        <div class="campaigns-list" id="overview-buy-campaigns">
+                                            <div class="empty-state">
+                                                <span class="material-symbols-outlined">inbox</span>
+                                                <p>Chưa có đợt gom mua nào</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Active Sell Campaigns -->
+                                <div class="card">
+                                    <div class="card__header">
+                                        <h3 class="card__title">
+                                            <span class="material-symbols-outlined">sell</span>
+                                            Đợt gom bán đang mở
+                                        </h3>
+                                        <button class="btn btn--sm btn--outline" onclick="switchTab('group-sell')">
+                                            Xem tất cả
+                                        </button>
+                                    </div>
+                                    <div class="card__body">
+                                        <div class="campaigns-list" id="overview-sell-campaigns">
+                                            <div class="empty-state">
+                                                <span class="material-symbols-outlined">inbox</span>
+                                                <p>Chưa có đợt gom bán nào</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Recent Transactions -->
+                                <div class="card" style="grid-column: span 2;">
+                                    <div class="card__header">
+                                        <h3 class="card__title">
+                                            <span class="material-symbols-outlined">receipt_long</span>
+                                            Giao dịch gần đây
+                                        </h3>
+                                        <button class="btn btn--sm btn--outline" onclick="switchTab('fund')">
+                                            Xem tất cả
+                                        </button>
+                                    </div>
+                                    <div class="card__body">
+                                        <div class="transactions-list" id="overview-transactions">
+                                            <div class="empty-state">
+                                                <span class="material-symbols-outlined">receipt_long</span>
+                                                <p>Chưa có giao dịch nào</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="tab-group-buy" style="display: none;">
+                            <div class="card">
+                                <div class="card__header">
+                                    <h3 class="card__title">Danh sách đợt gom mua</h3>
+                                    <button class="btn btn--primary" id="create-buy-btn" onclick="openCreateBuyModal()">
+                                        <span class="material-symbols-outlined icon-sm">add</span>
+                                        Tạo đợt gom mua
+                                    </button>
+                                </div>
+                                <div class="card__body">
+                                    <div class="campaigns-grid" id="group-buy-list">
+                                        <div class="empty-state">
+                                            <span class="material-symbols-outlined">shopping_cart</span>
+                                            <p>Chưa có đợt gom mua nào</p>
+                                            <small>Bấm "Tạo đợt gom mua" để bắt đầu</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="tab-group-sell" style="display: none;">
+                            <div class="card">
+                                <div class="card__header">
+                                    <h3 class="card__title">Danh sách đợt gom bán</h3>
+                                    <button class="btn btn--primary" id="create-sell-btn"
+                                        onclick="openCreateSellModal()">
+                                        <span class="material-symbols-outlined icon-sm">add</span>
+                                        Tạo đợt gom bán
+                                    </button>
+                                </div>
+                                <div class="card__body">
+                                    <div class="campaigns-grid" id="group-sell-list">
+                                        <div class="empty-state">
+                                            <span class="material-symbols-outlined">sell</span>
+                                            <p>Chưa có đợt gom bán nào</p>
+                                            <small>Bấm "Tạo đợt gom bán" để bắt đầu</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="tab-members" style="display: none;">
+                            <div class="card">
+                                <div class="card__header">
+                                    <h3 class="card__title">Danh sách thành viên</h3>
+                                    <div class="invite-code-display">
+                                        <span>Mã mời:</span>
+                                        <strong id="members-invite-code">---</strong>
+                                        <button class="btn-icon" onclick="copyInviteCode()">
+                                            <span class="material-symbols-outlined">content_copy</span>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card__body">
+                                    <div class="members-list" id="members-list">
+                                        <!-- Members loaded by JS -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-content" id="tab-fund" style="display: none;">
+                            <div class="fund-layout">
+                                <div class="card">
+                                    <div class="card__header">
+                                        <h3 class="card__title">Nạp tiền vào quỹ</h3>
+                                    </div>
+                                    <div class="card__body">
+                                        <div class="deposit-form">
+                                            <div class="form-group">
+                                                <label>Số tiền (VNĐ)</label>
+                                                <input type="number" id="deposit-amount" min="10000" step="10000"
+                                                    placeholder="Nhập số tiền muốn nạp">
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Ghi chú (tùy chọn)</label>
+                                                <input type="text" id="deposit-note" placeholder="VD: Đóng góp tháng 1">
+                                            </div>
+                                            <div class="deposit-info">
+                                                <p>Số dư cá nhân: <strong id="personal-balance">0 VNĐ</strong></p>
+                                            </div>
+                                            <button class="btn btn--success btn--block" onclick="depositToFund()">
+                                                <span class="material-symbols-outlined icon-sm">savings</span>
+                                                Nạp vào quỹ
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="card">
+                                    <div class="card__header">
+                                        <h3 class="card__title">Lịch sử giao dịch quỹ</h3>
+                                    </div>
+                                    <div class="card__body">
+                                        <div class="fund-transactions" id="fund-transactions">
+                                            <!-- Transactions loaded by JS -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- History Tab -->
+                        <div class="tab-content" id="tab-history" style="display: none;">
+                            <div class="card">
+                                <div class="card__header">
+                                    <h3 class="card__title">
+                                        <span class="material-symbols-outlined">history</span>
+                                        Lịch sử hoạt động
+                                    </h3>
+                                </div>
+                                <div class="card__body">
+                                    <div class="history-list" id="history-list">
+                                        <div class="empty-state">
+                                            <span class="material-symbols-outlined">history</span>
+                                            <p>Chưa có lịch sử hoạt động</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Inventory Tab (Kho HTX) -->
+                        <div class="tab-content" id="tab-inventory" style="display: none;">
+                            <div class="card">
+                                <div class="card__header">
+                                    <h3 class="card__title">
+                                        <span class="material-symbols-outlined">inventory_2</span>
+                                        Kho Hợp tác xã
+                                    </h3>
+                                </div>
+                                <div class="card__body">
+                                    <div class="inventory-summary" id="inventory-summary">
+                                        <div class="summary-grid">
+                                            <div class="summary-item">
+                                                <span class="material-symbols-outlined">category</span>
+                                                <div>
+                                                    <p class="summary-label">Tổng sản phẩm</p>
+                                                    <p class="summary-value" id="inv-total-products">0</p>
+                                                </div>
+                                            </div>
+                                            <div class="summary-item">
+                                                <span class="material-symbols-outlined">payments</span>
+                                                <div>
+                                                    <p class="summary-label">Tổng giá trị</p>
+                                                    <p class="summary-value" id="inv-total-value">0đ</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="inventory-list" id="inventory-list">
+                                        <div class="empty-state">
+                                            <span class="material-symbols-outlined">inventory_2</span>
+                                            <p>Kho HTX chưa có sản phẩm</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Distribution Tab (Phân chia) -->
+                        <div class="tab-content" id="tab-distribution" style="display: none;">
+                            <div class="card">
+                                <div class="card__header">
+                                    <h3 class="card__title">
+                                        <span class="material-symbols-outlined">pie_chart</span>
+                                        Phân chia Đóng góp & Thu nhập
+                                    </h3>
+                                </div>
+                                <div class="card__body">
+                                    <!-- Charts Row -->
+                                    <div class="distribution-charts">
+                                        <div class="chart-container">
+                                            <h4>Tỷ lệ đóng góp</h4>
+                                            <canvas id="contributionPieChart"></canvas>
+                                        </div>
+                                        <div class="chart-container">
+                                            <h4>Thu nhập theo thành viên</h4>
+                                            <canvas id="earningsBarChart"></canvas>
+                                        </div>
+                                    </div>
+
+                                    <!-- Contribution Table -->
+                                    <div class="contribution-table-container" style="margin-top: var(--spacing-5);">
+                                        <h4>Chi tiết đóng góp từng thành viên</h4>
+                                        <table class="contribution-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Thành viên</th>
+                                                    <th>Số lượng góp</th>
+                                                    <th>Tỷ lệ (%)</th>
+                                                    <th>Thu nhập</th>
+                                                    <th>Trạng thái</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="contribution-table-body">
+                                                <tr>
+                                                    <td colspan="5" class="empty-state">Chưa có dữ liệu đóng góp</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dissolution Tab (Leader only) -->
+                        <div class="tab-content leader-only" id="tab-dissolution" style="display: none;">
+                            <div class="card dissolution-card">
+                                <div class="card__header">
+                                    <h3 class="card__title" style="color: var(--color-error);">
+                                        <span class="material-symbols-outlined">warning</span>
+                                        Yêu cầu giải thể Hợp tác xã
+                                    </h3>
+                                </div>
+                                <div class="card__body">
+                                    <!-- Pending request status -->
+                                    <div id="dissolution-status" style="display: none;">
+                                        <div class="alert alert--warning">
+                                            <span class="material-symbols-outlined">pending</span>
+                                            <div>
+                                                <strong>Đã có yêu cầu giải thể đang chờ xử lý</strong>
+                                                <p id="dissolution-status-text">Vui lòng chờ Admin phê duyệt.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Dissolution form -->
+                                    <div id="dissolution-form">
+                                        <div class="alert alert--info" style="margin-bottom: var(--spacing-5);">
+                                            <span class="material-symbols-outlined">info</span>
+                                            <p>Khi HTX bị giải thể, tất cả thành viên sẽ bị loại và quỹ chung sẽ được
+                                                hoàn trả theo quy định.</p>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Lý do giải thể (*)</label>
+                                            <textarea id="dissolution-reason" rows="4"
+                                                placeholder="Nhập lý do chi tiết muốn giải thể HTX..."></textarea>
+                                        </div>
+
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label>Số điện thoại liên hệ</label>
+                                                <input type="tel" id="dissolution-phone" placeholder="Số điện thoại">
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Email liên hệ</label>
+                                                <input type="email" id="dissolution-email" placeholder="Email">
+                                            </div>
+                                        </div>
+
+                                        <div class="form-actions" style="margin-top: var(--spacing-5);">
+                                            <button class="btn btn--danger" onclick="submitDissolutionRequest()">
+                                                <span class="material-symbols-outlined icon-sm">delete_forever</span>
+                                                Gửi yêu cầu giải thể
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Register Cooperative Modal -->
+    <div class="modal" id="register-modal">
+        <div class="modal__overlay" onclick="closeRegisterModal()"></div>
+        <div class="modal__content register-modal-content">
+            <div class="modal__header">
+                <h3 class="modal__title">
+                    <span class="material-symbols-outlined">add_circle</span>
+                    Đăng ký tạo Hợp tác xã
+                </h3>
+                <button class="modal__close" onclick="closeRegisterModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="form-group">
+                    <label>Tên Hợp tác xã *</label>
+                    <input type="text" id="reg-coop-name" placeholder="HTX Nông nghiệp An Bình">
+                </div>
+                <div class="form-group">
+                    <label>Họ tên trưởng nhóm</label>
+                    <input type="text" id="reg-leader-name" readonly>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Số điện thoại liên hệ</label>
+                        <input type="tel" id="reg-phone" placeholder="Số điện thoại">
+                    </div>
+                    <div class="form-group">
+                        <label>Số thành viên dự kiến</label>
+                        <input type="number" id="reg-max-members" min="5" max="100" value="20">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Địa chỉ liên hệ</label>
+                    <textarea id="reg-address" rows="2" placeholder="Địa chỉ trụ sở HTX"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Mô tả (tùy chọn)</label>
+                    <textarea id="reg-description" rows="3" placeholder="Giới thiệu về HTX..."></textarea>
+                </div>
+                <div class="register-note">
+                    <span class="material-symbols-outlined">info</span>
+                    <span>Đơn đăng ký sẽ được gửi đến Admin xét duyệt. Sau khi duyệt, bạn sẽ nhận được mã mời để mời
+                        thành viên tham gia.</span>
+                </div>
+            </div>
+            <div class="modal__footer">
+                <button class="btn btn--outline" onclick="closeRegisterModal()">Hủy</button>
+                <button class="btn btn--primary" onclick="submitRegistration()">
+                    <span class="material-symbols-outlined icon-sm">send</span>
+                    Gửi đăng ký
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Group Buy Modal -->
+    <div class="modal" id="create-buy-modal">
+        <div class="modal__overlay" onclick="closeCreateBuyModal()"></div>
+        <div class="modal__content">
+            <div class="modal__header">
+                <h3 class="modal__title">
+                    <span class="material-symbols-outlined">shopping_cart</span>
+                    Tạo đợt gom mua
+                </h3>
+                <button class="modal__close" onclick="closeCreateBuyModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="form-group">
+                    <label>Sản phẩm *</label>
+                    <select id="buy-shop-item">
+                        <option value="">-- Chọn sản phẩm --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tiêu đề đợt gom *</label>
+                    <input type="text" id="buy-title" placeholder="Gom mua phân NPK tháng 1">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Mục tiêu số lượng *</label>
+                        <input type="number" id="buy-target" min="1" placeholder="500">
+                    </div>
+                    <div class="form-group">
+                        <label>Giá sỉ (VNĐ) *</label>
+                        <input type="number" id="buy-wholesale-price" min="0" placeholder="Giá sau giảm">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Hạn chót</label>
+                    <input type="datetime-local" id="buy-deadline">
+                </div>
+                <div class="buy-preview" id="buy-preview" style="display: none;">
+                    <div class="preview-item">
+                        <img id="preview-item-image" src="" alt="">
+                        <div class="preview-info">
+                            <h4 id="preview-item-name">---</h4>
+                            <p>Giá gốc: <span id="preview-retail-price">0đ</span></p>
+                            <p class="discount-info">Giảm: <strong id="preview-discount">0%</strong></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__footer">
+                <button class="btn btn--outline" onclick="closeCreateBuyModal()">Hủy</button>
+                <button class="btn btn--primary" onclick="createGroupBuy()">
+                    <span class="material-symbols-outlined icon-sm">add</span>
+                    Tạo đợt gom
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contribute Modal -->
+    <div class="modal" id="contribute-modal">
+        <div class="modal__overlay" onclick="closeContributeModal()"></div>
+        <div class="modal__content">
+            <div class="modal__header">
+                <h3 class="modal__title">
+                    <span class="material-symbols-outlined">add_shopping_cart</span>
+                    Tham gia gom mua
+                </h3>
+                <button class="modal__close" onclick="closeContributeModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="contribute-info" id="contribute-info">
+                    <!-- Campaign info loaded by JS -->
+                </div>
+                <div class="form-group">
+                    <label>Số lượng tham gia *</label>
+                    <input type="number" id="contribute-quantity" min="1" placeholder="Nhập số lượng">
+                </div>
+                <div class="form-group">
+                    <label>Địa chỉ nhận hàng</label>
+                    <select id="contribute-address">
+                        <option value="">-- Chọn địa chỉ --</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal__footer">
+                <button class="btn btn--outline" onclick="closeContributeModal()">Hủy</button>
+                <button class="btn btn--success" onclick="submitContribution()">
+                    <span class="material-symbols-outlined icon-sm">check</span>
+                    Xác nhận tham gia
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Group Sell Modal -->
+    <div class="modal" id="create-sell-modal">
+        <div class="modal__overlay" onclick="closeCreateSellModal()"></div>
+        <div class="modal__content">
+            <div class="modal__header">
+                <h3 class="modal__title">
+                    <span class="material-symbols-outlined">sell</span>
+                    Tạo đợt gom bán
+                </h3>
+                <button class="modal__close" onclick="closeCreateSellModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="form-group">
+                    <label>Nông sản *</label>
+                    <select id="sell-crop-select" onchange="updateSellPreview()">
+                        <option value="">-- Chọn nông sản --</option>
+                    </select>
+                </div>
+                <div class="sell-preview" id="sell-preview" style="display: none;">
+                    <div class="preview-info">
+                        <p>Giá thị trường: <strong id="sell-market-price">0đ</strong>/kg</p>
+                        <p class="hint">Đặt giá thu mua cao hơn để thu hút thành viên góp sản phẩm</p>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Tiêu đề đợt gom *</label>
+                    <input type="text" id="sell-title" placeholder="Thu mua lúa vụ đông xuân">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Số lượng cần *</label>
+                        <input type="number" id="sell-target-qty" min="1" placeholder="1000">
+                    </div>
+                    <div class="form-group">
+                        <label>Đơn vị</label>
+                        <input type="text" id="sell-unit" value="kg" placeholder="kg">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Giá thu mua (VNĐ/đơn vị) *</label>
+                    <input type="number" id="sell-min-price" min="0" placeholder="Giá thu mua từ thành viên">
+                </div>
+                <div class="form-group">
+                    <label>Hạn chót</label>
+                    <input type="datetime-local" id="sell-deadline">
+                </div>
+                <div class="form-group">
+                    <label>Mô tả yêu cầu</label>
+                    <textarea id="sell-description" rows="2" placeholder="Yêu cầu chất lượng, ghi chú..."></textarea>
+                </div>
+            </div>
+            <div class="modal__footer">
+                <button class="btn btn--outline" onclick="closeCreateSellModal()">Hủy</button>
+                <button class="btn btn--primary" onclick="createGroupSell()">
+                    <span class="material-symbols-outlined icon-sm">add</span>
+                    Tạo đợt gom bán
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Chatbot -->
+    <div id="chatbot-container"></div>
+
+    <script src="../js/auth.js"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/sidebar.js"></script>
+    <script src="../js/chatbot.js"></script>
+    <script src="../js/smart-advisor.js"></script>
+    <script src="../js/cooperative.js"></script>
+</body>
+
+</html>

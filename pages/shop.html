@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriPlanner - Cửa hàng</title>
+    <meta name="description" content="Cửa hàng vật tư nông nghiệp">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="../css/variables.css">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/layout.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/pages/shop.css">
+    <link rel="stylesheet" href="../css/chatbot.css">
+    <link rel="stylesheet" href="../css/smart-advisor.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+
+<body data-page="shop">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar__header">
+                <div class="sidebar__logo-icon"><span class="material-symbols-outlined">eco</span></div>
+                <h1 class="sidebar__logo-text">AgriPlanner</h1>
+            </div>
+            <nav class="sidebar__nav">
+                <a href="../index.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">home</span><span>Trang chủ</span></a>
+                <a href="cultivation.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">potted_plant</span><span>Trồng trọt</span></a>
+                <a href="livestock.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">egg</span><span>Chăn nuôi</span></a>
+                <a href="labor.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">engineering</span><span>Nhân công</span></a>
+                <a href="shop.html" class="sidebar__nav-link active"><span
+                        class="material-symbols-outlined">store</span><span>Cửa hàng</span></a>
+                <a href="cooperative.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">groups</span><span>Hợp tác xã</span></a>
+                <a href="community.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">forum</span><span>Cộng đồng</span></a>
+                <a href="analytics.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">account_balance_wallet</span><span>Tài sản</span></a>
+                <a href="settings.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">settings</span><span>Cài đặt</span></a>
+                <div class="sidebar__spacer"></div>
+                <a href="help.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">help</span><span>Trợ giúp</span></a>
+            </nav>
+            <div class="sidebar__footer">
+                <div class="sidebar__user">
+                    <div class="sidebar__user-avatar" id="sidebar-avatar"></div>
+                    <div class="sidebar__user-info">
+                        <p class="sidebar__user-name" id="sidebar-name">Đang tải...</p>
+                        <p class="sidebar__user-email" id="sidebar-email">...</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="header">
+                <div class="header__search">
+                    <span class="material-symbols-outlined header__search-icon">search</span>
+                    <input type="text" class="header__search-input" id="shop-search" placeholder="Tìm sản phẩm...">
+                </div>
+                <div class="header__actions">
+                    <button class="header__notification" onclick="toggleOrdersPanel()">
+                        <span class="material-symbols-outlined">receipt_long</span>
+                        <span class="header__notification-badge" id="orders-count">0</span>
+                    </button>
+                    <button class="header__notification" onclick="toggleCartPanel()">
+                        <span class="material-symbols-outlined">shopping_cart</span>
+                        <span class="header__notification-badge" id="cart-count">0</span>
+                    </button>
+                    <button class="header__notification" onclick="toggleInventoryPanel()">
+                        <span class="material-symbols-outlined">inventory_2</span>
+                        <span class="header__notification-badge" id="inventory-count">0</span>
+                    </button>
+                    <div class="balance-display" id="balance-display">
+                        <span class="material-symbols-outlined">account_balance_wallet</span>
+                        <span id="user-balance">0 VNĐ</span>
+                    </div>
+                </div>
+            </header>
+
+            <main class="main-content">
+                <div class="main-content__container">
+                    <!-- Page Header -->
+                    <div class="page-header fade-in">
+                        <div>
+                            <h2 class="page-header__title">Cửa hàng Vật tư</h2>
+                            <p class="page-header__subtitle">Mua sắm hạt giống, phân bón, thức ăn chăn nuôi và dụng cụ
+                            </p>
+                        </div>
+                        <button class="btn btn--outline" onclick="toggleInventoryPanel()">
+                            <span class="material-symbols-outlined icon-sm">inventory_2</span>
+                            Kho của tôi
+                        </button>
+                    </div>
+
+                    <!-- Shop Layout -->
+                    <div class="shop-layout">
+                        <!-- Main Shop Area -->
+                        <div class="shop-main">
+                            <!-- Category Tabs -->
+                            <div class="category-tabs card fade-in">
+                                <button class="category-tab active" data-category="ALL">
+                                    <span class="material-symbols-outlined">apps</span>
+                                    <span>Tất cả</span>
+                                </button>
+                                <button class="category-tab" data-category="HAT_GIONG">
+                                    <span class="material-symbols-outlined">grass</span>
+                                    <span>Hạt giống</span>
+                                </button>
+                                <button class="category-tab" data-category="CON_GIONG">
+                                    <span class="material-symbols-outlined">pets</span>
+                                    <span>Con giống</span>
+                                </button>
+                                <button class="category-tab" data-category="PHAN_BON">
+                                    <span class="material-symbols-outlined">compost</span>
+                                    <span>Phân bón</span>
+                                </button>
+                                <button class="category-tab" data-category="THUC_AN">
+                                    <span class="material-symbols-outlined">set_meal</span>
+                                    <span>Thức ăn</span>
+                                </button>
+                                <button class="category-tab" data-category="THUOC_TRU_SAU">
+                                    <span class="material-symbols-outlined">bug_report</span>
+                                    <span>Thuốc BVTV</span>
+                                </button>
+                                <button class="category-tab" data-category="MAY_MOC">
+                                    <span class="material-symbols-outlined">agriculture</span>
+                                    <span>Máy móc</span>
+                                </button>
+                            </div>
+
+                            <!-- Featured Section -->
+                            <div class="featured-section card fade-in" id="featured-section">
+                                <div class="featured-header">
+                                    <h3><span class="material-symbols-outlined">star</span> Sản phẩm nổi bật</h3>
+                                </div>
+                                <div class="featured-grid" id="featured-grid">
+                                    <!-- Featured items loaded by JS -->
+                                </div>
+                            </div>
+
+                            <!-- Products Grid -->
+                            <div class="products-section card fade-in">
+                                <div class="products-header">
+                                    <h3 id="category-title">Tất cả sản phẩm</h3>
+                                    <div class="products-sort">
+                                        <select id="sort-select">
+                                            <option value="popular">Phổ biến nhất</option>
+                                            <option value="price-low">Giá thấp → cao</option>
+                                            <option value="price-high">Giá cao → thấp</option>
+                                            <option value="name">Theo tên</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="products-grid" id="products-grid">
+                                    <!-- Products loaded by JS -->
+                                </div>
+                                <div class="products-empty" id="products-empty" style="display: none;">
+                                    <span class="material-symbols-outlined">inventory_2</span>
+                                    <p>Không tìm thấy sản phẩm</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Inventory Sidebar (collapsible) -->
+                        <aside class="inventory-panel card" id="inventory-panel">
+                            <div class="inventory-header">
+                                <h3><span class="material-symbols-outlined">inventory_2</span> Kho của tôi</h3>
+                                <button class="btn-icon" onclick="toggleInventoryPanel()">
+                                    <span class="material-symbols-outlined">close</span>
+                                </button>
+                            </div>
+
+                            <div class="inventory-summary">
+                                <div class="inventory-stat">
+                                    <span class="inventory-stat__value" id="inv-total-items">0</span>
+                                    <span class="inventory-stat__label">Mặt hàng</span>
+                                </div>
+                                <div class="inventory-stat">
+                                    <span class="inventory-stat__value" id="inv-total-value">0đ</span>
+                                    <span class="inventory-stat__label">Tổng giá trị</span>
+                                </div>
+                            </div>
+
+                            <div class="inventory-categories" id="inventory-categories">
+                                <!-- Inventory items by category -->
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Purchase Modal -->
+    <div class="modal" id="purchase-modal">
+        <div class="modal__overlay" onclick="closePurchaseModal()"></div>
+        <div class="modal__content purchase-modal-content">
+            <div class="modal__header">
+                <h3 class="modal__title">Mua hàng</h3>
+                <button class="modal__close" onclick="closePurchaseModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="purchase-item-info">
+                    <div class="purchase-item-image" id="purchase-item-image"></div>
+                    <div class="purchase-item-details">
+                        <h4 id="purchase-item-name">Tên sản phẩm</h4>
+                        <p class="purchase-item-desc" id="purchase-item-desc">Mô tả</p>
+                        <div class="purchase-item-price">
+                            <span class="price-current" id="purchase-item-price">0đ</span>
+                            <span class="price-unit" id="purchase-item-unit">/kg</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="purchase-form">
+                    <div class="form-group">
+                        <label>Số lượng</label>
+                        <div class="quantity-input">
+                            <button class="qty-btn" onclick="adjustQuantity(-1)">
+                                <span class="material-symbols-outlined">remove</span>
+                            </button>
+                            <input type="number" id="purchase-quantity" value="1" min="1">
+                            <button class="qty-btn" onclick="adjustQuantity(1)">
+                                <span class="material-symbols-outlined">add</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="purchase-summary">
+                        <div class="summary-row">
+                            <span>Đơn giá:</span>
+                            <span id="summary-unit-price">0đ</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Số lượng:</span>
+                            <span id="summary-quantity">1</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Tổng cộng:</span>
+                            <span id="summary-total">0đ</span>
+                        </div>
+                        <div class="summary-row balance">
+                            <span>Số dư hiện tại:</span>
+                            <span id="summary-balance">0đ</span>
+                        </div>
+                        <div class="summary-row remaining">
+                            <span>Số dư sau mua:</span>
+                            <span id="summary-remaining">0đ</span>
+                        </div>
+                    </div>
+
+                    <div class="inventory-note" id="inventory-note" style="display: none;">
+                        <span class="material-symbols-outlined">info</span>
+                        <span>Bạn đã có <strong id="existing-stock">0</strong> trong kho</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__footer">
+                <button class="btn btn--outline" onclick="closePurchaseModal()">Hủy</button>
+                <button class="btn btn--success" id="add-to-cart-btn" onclick="addToCartFromModal()">
+                    <span class="material-symbols-outlined icon-sm">add_shopping_cart</span>
+                    Thêm vào giỏ
+                </button>
+                <button class="btn btn--primary" id="purchase-btn" onclick="confirmPurchase()">
+                    <span class="material-symbols-outlined icon-sm">shopping_cart</span>
+                    Mua ngay
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cart Panel (Sidebar) -->
+    <aside class="cart-panel" id="cart-panel">
+        <div class="cart-header">
+            <h3><span class="material-symbols-outlined">shopping_cart</span> Giỏ hàng</h3>
+            <button class="btn-icon" onclick="toggleCartPanel()">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <div class="cart-summary">
+            <div class="cart-stat">
+                <span class="cart-stat__value" id="cart-total-items">0</span>
+                <span class="cart-stat__label">Sản phẩm</span>
+            </div>
+            <div class="cart-stat">
+                <span class="cart-stat__value" id="cart-total-value">0đ</span>
+                <span class="cart-stat__label">Tổng tiền</span>
+            </div>
+        </div>
+
+        <div class="cart-items" id="cart-items">
+            <div class="cart-empty" id="cart-empty">
+                <span class="material-symbols-outlined">remove_shopping_cart</span>
+                <p>Giỏ hàng trống</p>
+                <small>Thêm sản phẩm để bắt đầu mua sắm</small>
+            </div>
+        </div>
+
+        <div class="cart-footer" id="cart-footer" style="display: none;">
+            <button class="btn btn--outline btn--block" onclick="clearCart()">
+                <span class="material-symbols-outlined icon-sm">delete</span>
+                Xóa tất cả
+            </button>
+            <button class="btn btn--primary btn--block" onclick="checkoutCart()">
+                <span class="material-symbols-outlined icon-sm">payment</span>
+                Thanh toán (<span id="cart-checkout-total">0đ</span>)
+            </button>
+        </div>
+    </aside>
+    <div class="cart-overlay" id="cart-overlay" onclick="toggleCartPanel()"></div>
+
+    <!-- Orders Panel (Sidebar) -->
+    <aside class="orders-panel" id="orders-panel">
+        <div class="orders-header">
+            <h3><span class="material-symbols-outlined">receipt_long</span> Đơn hàng của tôi</h3>
+            <button class="btn-icon" onclick="toggleOrdersPanel()">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+
+        <div class="orders-tabs">
+            <button class="orders-tab active" data-status="ALL" onclick="filterOrders('ALL')">Tất cả</button>
+            <button class="orders-tab" data-status="PROCESSING" onclick="filterOrders('PROCESSING')">Đang xử lý</button>
+            <button class="orders-tab" data-status="SHIPPING" onclick="filterOrders('SHIPPING')">Đang giao</button>
+            <button class="orders-tab" data-status="DELIVERED" onclick="filterOrders('DELIVERED')">Đã giao</button>
+        </div>
+
+        <div class="orders-list" id="orders-list">
+            <div class="orders-empty" id="orders-empty">
+                <span class="material-symbols-outlined">receipt_long</span>
+                <p>Chưa có đơn hàng</p>
+                <small>Đơn hàng của bạn sẽ hiển thị ở đây</small>
+            </div>
+        </div>
+    </aside>
+    <div class="orders-overlay" id="orders-overlay" onclick="toggleOrdersPanel()"></div>
+
+    <!-- Review Modal -->
+    <div class="modal" id="review-modal">
+        <div class="modal__overlay" onclick="closeReviewModal()"></div>
+        <div class="modal__content review-modal-content">
+            <div class="modal__header">
+                <h3 class="modal__title">
+                    <span class="material-symbols-outlined">rate_review</span>
+                    Đánh giá sản phẩm
+                </h3>
+                <button class="modal__close" onclick="closeReviewModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="review-item-info" id="review-item-info">
+                    <div class="review-item-image" id="review-item-image"></div>
+                    <div class="review-item-details">
+                        <h4 id="review-item-name">Tên sản phẩm</h4>
+                        <p class="review-item-purchase" id="review-item-purchase">Đã mua: 0 kg</p>
+                    </div>
+                </div>
+
+                <div class="review-form">
+                    <div class="rating-input">
+                        <label>Đánh giá của bạn</label>
+                        <div class="star-rating" id="star-rating">
+                            <button class="star-btn" data-rating="1"><span
+                                    class="material-symbols-outlined">star</span></button>
+                            <button class="star-btn" data-rating="2"><span
+                                    class="material-symbols-outlined">star</span></button>
+                            <button class="star-btn" data-rating="3"><span
+                                    class="material-symbols-outlined">star</span></button>
+                            <button class="star-btn" data-rating="4"><span
+                                    class="material-symbols-outlined">star</span></button>
+                            <button class="star-btn" data-rating="5"><span
+                                    class="material-symbols-outlined">star</span></button>
+                        </div>
+                        <span class="rating-text" id="rating-text">Chọn số sao</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="review-comment">Nhận xét (tuỳ chọn)</label>
+                        <textarea id="review-comment" rows="4"
+                            placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm này..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__footer">
+                <button class="btn btn--outline" onclick="closeReviewModal()">Hủy</button>
+                <button class="btn btn--primary" id="submit-review-btn" onclick="submitReview()">
+                    <span class="material-symbols-outlined icon-sm">send</span>
+                    Gửi đánh giá
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Product Reviews Modal -->
+    <div class="modal" id="product-reviews-modal">
+        <div class="modal__overlay" onclick="closeProductReviewsModal()"></div>
+        <div class="modal__content reviews-modal-content">
+            <div class="modal__header">
+                <h3 class="modal__title">
+                    <span class="material-symbols-outlined">reviews</span>
+                    Đánh giá từ người mua
+                </h3>
+                <button class="modal__close" onclick="closeProductReviewsModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="reviews-summary" id="reviews-summary">
+                    <!-- Summary loaded by JS -->
+                </div>
+                <div class="reviews-list" id="reviews-list">
+                    <!-- Reviews loaded by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Checkout Modal -->
+    <div class="modal" id="checkout-modal">
+        <div class="modal__overlay" onclick="closeCheckoutModal()"></div>
+        <div class="modal__content checkout-modal-content">
+            <div class="modal__header">
+                <h3 class="modal__title">
+                    <span class="material-symbols-outlined">shopping_cart_checkout</span>
+                    Thanh toán
+                </h3>
+                <button class="modal__close" onclick="closeCheckoutModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <!-- Purchase Type Selection -->
+                <div class="checkout-section purchase-type-section">
+                    <h4>Chọn hình thức mua</h4>
+                    <div class="purchase-type-options">
+                        <button class="purchase-type-btn active" data-type="WEBSITE_ORDER"
+                            onclick="selectPurchaseType('WEBSITE_ORDER')">
+                            <span class="material-symbols-outlined">local_shipping</span>
+                            <span class="type-name">Đặt qua website</span>
+                            <span class="type-desc">Giao hàng tận nơi</span>
+                        </button>
+                        <button class="purchase-type-btn" data-type="SELF_PURCHASE"
+                            onclick="selectPurchaseType('SELF_PURCHASE')">
+                            <span class="material-symbols-outlined">store</span>
+                            <span class="type-name">Tự mua</span>
+                            <span class="type-desc">Đã mua bên ngoài</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cart Items Summary -->
+                <div class="checkout-section">
+                    <h4>Sản phẩm</h4>
+                    <div class="checkout-items" id="checkout-items">
+                        <!-- Items loaded by JS -->
+                    </div>
+                </div>
+
+                <!-- Self Purchase Form (hidden by default) -->
+                <div class="checkout-section self-purchase-form" id="self-purchase-form" style="display: none;">
+                    <h4>Thông tin mua hàng</h4>
+                    <div class="form-group">
+                        <label>Giá đã mua (VNĐ)</label>
+                        <input type="number" id="self-purchase-price" min="0" placeholder="Nhập tổng giá bạn đã trả">
+                    </div>
+                    <div class="form-group">
+                        <label>Ghi chú (tùy chọn)</label>
+                        <textarea id="self-purchase-notes" rows="2" placeholder="Nơi mua, ghi chú..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Website Order Form -->
+                <div class="checkout-section website-order-form" id="website-order-form">
+                    <!-- Shipping Address -->
+                    <div class="shipping-address-section">
+                        <h4>
+                            <span class="material-symbols-outlined">location_on</span>
+                            Địa chỉ giao hàng
+                        </h4>
+                        <div class="address-display" id="selected-address">
+                            <p>Chưa có địa chỉ. <a href="settings.html">Thêm địa chỉ</a></p>
+                        </div>
+                        <button class="btn btn--outline btn--sm" onclick="openAddressSelector()">
+                            <span class="material-symbols-outlined icon-sm">edit_location</span>
+                            Chọn địa chỉ khác
+                        </button>
+                    </div>
+
+                    <!-- Shipping Method -->
+                    <div class="shipping-method-section">
+                        <h4>
+                            <span class="material-symbols-outlined">local_shipping</span>
+                            Phương thức vận chuyển
+                        </h4>
+                        <div class="shipping-options" id="shipping-options">
+                            <!-- Shipping options loaded by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Payment Method -->
+                    <div class="payment-method-section">
+                        <h4>
+                            <span class="material-symbols-outlined">payment</span>
+                            Hình thức thanh toán
+                        </h4>
+                        <div class="payment-options">
+                            <label class="payment-option active">
+                                <input type="radio" name="payment" value="PAY_NOW" checked
+                                    onchange="selectPaymentMethod('PAY_NOW')">
+                                <span class="option-content">
+                                    <span class="material-symbols-outlined">credit_card</span>
+                                    <span class="option-info">
+                                        <span class="option-name">Thanh toán ngay</span>
+                                        <span class="option-desc">Giảm 5% tổng đơn hàng</span>
+                                    </span>
+                                    <span class="option-badge">-5%</span>
+                                </span>
+                            </label>
+                            <label class="payment-option">
+                                <input type="radio" name="payment" value="PAY_ON_DELIVERY"
+                                    onchange="selectPaymentMethod('PAY_ON_DELIVERY')">
+                                <span class="option-content">
+                                    <span class="material-symbols-outlined">payments</span>
+                                    <span class="option-info">
+                                        <span class="option-name">Thanh toán khi nhận</span>
+                                        <span class="option-desc">Trả tiền khi nhận hàng</span>
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Summary -->
+                <div class="checkout-section order-summary-section">
+                    <h4>Chi tiết thanh toán</h4>
+                    <div class="order-summary">
+                        <div class="summary-row">
+                            <span>Tạm tính:</span>
+                            <span id="checkout-subtotal">0 VNĐ</span>
+                        </div>
+                        <div class="summary-row" id="shipping-fee-row">
+                            <span>Phí vận chuyển:</span>
+                            <span id="checkout-shipping">0 VNĐ</span>
+                        </div>
+                        <div class="summary-row discount-row" id="discount-row" style="display: none;">
+                            <span>Giảm giá (5%):</span>
+                            <span id="checkout-discount">-0 VNĐ</span>
+                        </div>
+                        <div class="summary-row total-row">
+                            <span>Tổng cộng:</span>
+                            <span id="checkout-total">0 VNĐ</span>
+                        </div>
+                        <div class="summary-row balance-row">
+                            <span>Số dư hiện tại:</span>
+                            <span id="checkout-balance">0 VNĐ</span>
+                        </div>
+                        <div class="summary-row remaining-row">
+                            <span>Số dư còn lại:</span>
+                            <span id="checkout-remaining">0 VNĐ</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__footer">
+                <button class="btn btn--outline" onclick="closeCheckoutModal()">Hủy</button>
+                <button class="btn btn--primary" id="place-order-btn" onclick="placeOrder()">
+                    <span class="material-symbols-outlined icon-sm">shopping_cart_checkout</span>
+                    Đặt hàng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Address Selector Modal -->
+    <div class="modal" id="address-selector-modal">
+        <div class="modal__overlay" onclick="closeAddressSelector()"></div>
+        <div class="modal__content address-modal-content">
+            <div class="modal__header">
+                <h3 class="modal__title">
+                    <span class="material-symbols-outlined">location_on</span>
+                    Chọn địa chỉ giao hàng
+                </h3>
+                <button class="modal__close" onclick="closeAddressSelector()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="addresses-list" id="addresses-list">
+                    <!-- Addresses loaded by JS -->
+                </div>
+                <button class="btn btn--outline btn--block" onclick="openNewAddressForm()">
+                    <span class="material-symbols-outlined icon-sm">add_location</span>
+                    Thêm địa chỉ mới
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Address Modal -->
+    <div class="modal" id="new-address-modal">
+        <div class="modal__overlay" onclick="closeNewAddressForm()"></div>
+        <div class="modal__content address-form-modal-content">
+            <div class="modal__header">
+                <h3 class="modal__title">
+                    <span class="material-symbols-outlined">add_location</span>
+                    Thêm địa chỉ mới
+                </h3>
+                <button class="modal__close" onclick="closeNewAddressForm()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="form-group">
+                    <label>Địa chỉ đầy đủ *</label>
+                    <textarea id="new-address-input" rows="2"
+                        placeholder="VD: 123 Nguyễn Văn A, Phường X, Quận Y, TP.HCM"></textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Họ tên người nhận</label>
+                        <input type="text" id="new-address-name" placeholder="Tên người nhận">
+                    </div>
+                    <div class="form-group">
+                        <label>Số điện thoại</label>
+                        <input type="tel" id="new-address-phone" placeholder="0123456789">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Nhãn (tùy chọn)</label>
+                    <input type="text" id="new-address-label" placeholder="VD: Nhà, Công ty, ...">
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" id="new-address-default">
+                    <label for="new-address-default">Đặt làm địa chỉ mặc định</label>
+                </div>
+            </div>
+            <div class="modal__footer">
+                <button class="btn btn--outline" onclick="closeNewAddressForm()">Hủy</button>
+                <button class="btn btn--primary" onclick="saveNewAddress()">
+                    <span class="material-symbols-outlined icon-sm">save</span>
+                    Lưu địa chỉ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Tracking Modal -->
+    <div class="modal" id="tracking-modal">
+        <div class="modal__overlay" onclick="closeTrackingModal()"></div>
+        <div class="modal__content tracking-modal-content">
+            <div class="modal__header">
+                <h3 class="modal__title">
+                    <span class="material-symbols-outlined">local_shipping</span>
+                    Theo dõi đơn hàng
+                </h3>
+                <button class="modal__close" onclick="closeTrackingModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="tracking-info" id="tracking-info">
+                    <div class="tracking-order-code">
+                        <span class="material-symbols-outlined">receipt</span>
+                        <span id="tracking-order-code">ORD-XXXXXXXX-XXX</span>
+                    </div>
+                    <div class="tracking-status" id="tracking-status">
+                        <span class="status-badge shipping">Đang giao hàng</span>
+                    </div>
+                    <div class="tracking-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="tracking-progress-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-text">
+                            <span id="tracking-progress-percent">0%</span>
+                            <span id="tracking-eta">Dự kiến: --</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="tracking-map" id="tracking-map">
+                    <!-- Leaflet map loaded by JS -->
+                </div>
+                <div class="tracking-details" id="tracking-details">
+                    <div class="tracking-route">
+                        <div class="route-point origin">
+                            <span class="material-symbols-outlined">warehouse</span>
+                            <span id="tracking-origin">Kho hàng</span>
+                        </div>
+                        <div class="route-line"></div>
+                        <div class="route-point destination">
+                            <span class="material-symbols-outlined">home</span>
+                            <span id="tracking-destination">Địa chỉ nhận</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__footer">
+                <button class="btn btn--outline" onclick="closeTrackingModal()">Đóng</button>
+                <button class="btn btn--success" id="confirm-received-btn" onclick="confirmOrderReceived()">
+                    <span class="material-symbols-outlined icon-sm">check_circle</span>
+                    Đã nhận hàng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Chatbot -->
+    <div id="chatbot-container"></div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/sidebar.js"></script>
+    <script src="../js/chatbot.js"></script>
+    <script src="../js/smart-advisor.js"></script>
+    <script src="../js/shop.js"></script>
+</body>
+
+</html>

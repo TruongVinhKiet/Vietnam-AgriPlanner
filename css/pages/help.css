@@ -1,0 +1,273 @@
+/* =====================================================
+   AgriPlanner - Help Page Styles
+   ===================================================== */
+
+/* Help Hero Section */
+.help-hero {
+    background: linear-gradient(to bottom, rgba(47, 127, 52, 0.1), transparent);
+    padding: var(--spacing-12) var(--spacing-6) var(--spacing-10);
+    text-align: center;
+}
+
+.help-hero__title {
+    font-size: var(--font-size-4xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-6);
+}
+
+@media (max-width: 768px) {
+    .help-hero__title {
+        font-size: var(--font-size-3xl);
+    }
+}
+
+/* Help Search */
+.help-search {
+    position: relative;
+    max-width: 640px;
+    margin: 0 auto;
+    box-shadow: var(--shadow-lg);
+    border-radius: var(--radius-xl);
+}
+
+.help-search__icon {
+    position: absolute;
+    left: var(--spacing-4);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-primary);
+    font-size: 24px;
+}
+
+.help-search__input {
+    padding: var(--spacing-4);
+    padding-left: 48px;
+    font-size: var(--font-size-lg);
+    border: none;
+    border-radius: var(--radius-xl);
+    box-shadow: none;
+}
+
+.help-search__input:focus {
+    box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+/* Help Content */
+.help-content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-6) var(--spacing-12);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-12);
+    margin-top: calc(-1 * var(--spacing-4));
+}
+
+/* Help Categories */
+.help-categories {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-6);
+}
+
+@media (max-width: 768px) {
+    .help-categories {
+        grid-template-columns: 1fr;
+    }
+}
+
+.help-category-card {
+    padding: var(--spacing-8);
+    text-align: center;
+    border-radius: var(--radius-2xl);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.help-category-card:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-4px);
+}
+
+.help-category-card__icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto var(--spacing-4);
+    border-radius: var(--radius-2xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color var(--transition-fast);
+}
+
+.help-category-card__icon .material-symbols-outlined {
+    font-size: 32px;
+}
+
+.help-category-card__icon--blue {
+    background-color: #dbeafe;
+    color: #2563eb;
+}
+
+.help-category-card:hover .help-category-card__icon--blue {
+    background-color: #bfdbfe;
+}
+
+.help-category-card__icon--purple {
+    background-color: #ede9fe;
+    color: #7c3aed;
+}
+
+.help-category-card:hover .help-category-card__icon--purple {
+    background-color: #ddd6fe;
+}
+
+.help-category-card__icon--green {
+    background-color: #dcfce7;
+    color: var(--color-primary);
+}
+
+.help-category-card:hover .help-category-card__icon--green {
+    background-color: #bbf7d0;
+}
+
+.help-category-card__title {
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    margin-bottom: var(--spacing-2);
+}
+
+.help-category-card__description {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+}
+
+/* FAQ Section */
+.faq-section {
+    max-width: 768px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.faq-section__title {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
+    text-align: center;
+    margin-bottom: var(--spacing-8);
+}
+
+.faq-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-4);
+}
+
+/* FAQ Item */
+.faq-item {
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.faq-item__summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-5);
+    cursor: pointer;
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+    user-select: none;
+    transition: background-color var(--transition-fast);
+    list-style: none;
+}
+
+.faq-item__summary::-webkit-details-marker {
+    display: none;
+}
+
+.faq-item__summary:hover {
+    background-color: #f8fafc;
+}
+
+.faq-item__icon {
+    color: var(--color-text-muted);
+    transition: transform var(--transition-slow);
+}
+
+.faq-item[open] .faq-item__icon {
+    transform: rotate(180deg);
+}
+
+.faq-item__content {
+    padding: 0 var(--spacing-5) var(--spacing-5);
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    border-top: 1px solid var(--color-border-light);
+}
+
+.faq-item[open] .faq-item__content {
+    border-top-color: transparent;
+}
+
+/* Help Footer */
+.help-footer {
+    text-align: center;
+    padding-top: var(--spacing-8);
+    border-top: 1px solid var(--color-border-light);
+}
+
+.help-footer__text {
+    color: var(--color-text-secondary);
+}
+
+.help-footer__link {
+    display: inline-block;
+    margin-top: var(--spacing-2);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-primary);
+}
+
+.help-footer__link:hover {
+    color: var(--color-primary-dark);
+    text-decoration: underline;
+}
+
+/* Chat Button */
+.chat-button {
+    position: fixed;
+    bottom: var(--spacing-8);
+    right: var(--spacing-8);
+    width: 56px;
+    height: 56px;
+    background-color: var(--color-primary);
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-lg), 0 0 20px rgba(47, 127, 52, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-light);
+    transition: all var(--transition-slow);
+    z-index: 1000;
+}
+
+.chat-button:hover {
+    transform: scale(1.1);
+    background-color: var(--color-primary-dark);
+}
+
+.chat-button:focus {
+    outline: none;
+    box-shadow: var(--shadow-lg), 0 0 0 4px rgba(47, 127, 52, 0.3);
+}
+
+.chat-button .material-symbols-outlined {
+    font-size: 28px;
+}
+
+.chat-button:hover .material-symbols-outlined {
+    animation: pulse 1s infinite;
+}

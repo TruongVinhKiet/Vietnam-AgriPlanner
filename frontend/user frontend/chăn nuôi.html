@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Livestock Facility Simulation</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#2f7f34",
+                        "sidebar-bg": "#1B5E20",
+                        "background-light": "#F5F7FA",
+                        "background-dark": "#141e15",
+                        "pen-dirty": "#8D6E63",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.5rem", "lg": "0.75rem", "xl": "1rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-800 dark:text-slate-100 overflow-hidden h-screen flex">
+<aside class="w-[260px] h-full bg-sidebar-bg flex flex-col shrink-0 transition-all duration-300 z-20 shadow-xl">
+<div class="h-16 flex items-center px-6 gap-3 border-b border-white/10">
+<div class="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined !text-[20px]">eco</span>
+</div>
+<h1 class="text-white text-lg font-bold tracking-wide">AgriPlanner</h1>
+</div>
+<nav class="flex-1 overflow-y-auto py-6 px-3 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">potted_plant</span>
+<span class="text-sm font-medium">Cultivation</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-white/20 text-white group transition-colors" href="#">
+<span class="material-symbols-outlined !text-[24px]">pest_control_rodent</span>
+<span class="text-sm font-medium">Livestock</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">bar_chart</span>
+<span class="text-sm font-medium">Analytics</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group" href="#">
+<span class="material-symbols-outlined !text-[24px]">settings</span>
+<span class="text-sm font-medium">Settings</span>
+</a>
+<div class="flex-1"></div>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-white/70 hover:bg-white/10 hover:text-white transition-colors group mb-2" href="#">
+<span class="material-symbols-outlined !text-[24px]">help</span>
+<span class="text-sm font-medium">Help</span>
+</a>
+</nav>
+<div class="p-4 border-t border-white/10">
+<div class="flex items-center gap-3 px-2 py-2 rounded-lg bg-white/5 border border-white/10">
+<div class="w-8 h-8 rounded-full bg-cover bg-center" data-alt="User avatar image" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDCMN1BzSnHgFxeyKEvWsG_QZ7RRtaDeDC8da2PFWOdIOql1NQCIo7EyyLhovyGTv1IssyE0ElFcEa4Vw-V8109xsNhBf99T3NkTDvtYBU47tW1lefo65wDbOMoAbD7PjTIEurzbP6iG_cbmo4nHkWq5Ui67icWuS_TELGtKpV-77MezNda4FST6uqiwz7I-b6lE7ansa-imri7RnOY44Du1B8I1k4Rv_dGiOsudGGjdZD0rsUyhKsP7Eo6RCFsaG5tXK4lTjqA9wxs');"></div>
+<div class="flex flex-col overflow-hidden">
+<p class="text-xs font-bold text-white truncate">John Farmer</p>
+<p class="text-[10px] text-white/60 truncate">john@agriplanner.com</p>
+</div>
+</div>
+</div>
+</aside>
+<div class="flex-1 flex flex-col h-full relative overflow-hidden">
+<header class="h-16 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between px-8 shrink-0 z-10">
+<div class="w-full max-w-md">
+<div class="relative group">
+<div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+<span class="material-symbols-outlined text-slate-400 !text-[20px]">search</span>
+</div>
+<input class="block w-full pl-10 pr-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg leading-5 bg-slate-50 dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary sm:text-sm transition duration-150 ease-in-out" placeholder="Search farm data, crops, or livestock..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<button class="relative p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-slate-700">
+<span class="material-symbols-outlined !text-[24px]">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-800"></span>
+</button>
+<div class="flex items-center gap-3 pl-6 border-l border-slate-200 dark:border-slate-700">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-bold text-slate-800 dark:text-white">John Farmer</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Farm Manager</p>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-white shadow-sm bg-cover bg-center cursor-pointer hover:ring-2 hover:ring-primary transition-all" data-alt="User profile picture" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCHFCTqN0OM4sPkXOIJq6yxGJaRp5CFHphT4D3h5kTOVuH5XYva-_dBSZW4xFkV4oYoFHd-mgQi2uwLpx8Y2d0nY-kTjVoTY-fsw_cVVCZMuHwe1uAiUGLxaflzoYqbhM8v8nkGBQyp3yT7yk_pAadyFgKQ0ZfaPxHWGc8-v3chAxzKzK48oNsygXDarEGdKrgTsJ54TT58oJ-WPS65S_kwcNajqy3wIMFodmRWYftN04hShgSUMQ8hrtuIVt2uMPn6xk_ckF1LZRfp');"></div>
+</div>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto p-8 bg-background-light dark:bg-background-dark">
+<div class="max-w-[1600px] mx-auto flex flex-col gap-6 h-full">
+<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+<div>
+<div class="flex items-center gap-2 mb-1">
+<span class="text-xs font-semibold uppercase tracking-wider text-primary">Facility Management</span>
+<span class="w-1 h-1 rounded-full bg-slate-300"></span>
+<span class="text-xs text-slate-500">Barn A</span>
+</div>
+<h2 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Livestock Facility Simulation</h2>
+</div>
+<div class="flex items-center gap-3">
+<div class="flex items-center bg-white dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+<button class="px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded shadow-sm">Grid View</button>
+<button class="px-3 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 transition-colors">List View</button>
+</div>
+<button class="flex items-center gap-2 bg-primary hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-sm transition-colors text-sm font-medium">
+<span class="material-symbols-outlined !text-[18px]">add</span>
+                            Add Pen
+                        </button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full min-h-[600px]">
+<div class="lg:col-span-8 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden">
+<div class="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+<h3 class="font-bold text-slate-800 dark:text-white flex items-center gap-2">
+<span class="material-symbols-outlined text-slate-400">grid_view</span>
+                                Barn Blueprint Layout
+                            </h3>
+<div class="flex items-center gap-4 text-xs">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 border border-slate-300 bg-white rounded-sm"></div>
+<span class="text-slate-500 dark:text-slate-400">Clean</span>
+</div>
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 border border-yellow-900/20 bg-[#8D6E63] rounded-sm"></div>
+<span class="text-slate-500 dark:text-slate-400">Needs Cleaning</span>
+</div>
+</div>
+</div>
+<div class="flex-1 p-8 bg-slate-100 dark:bg-slate-900 relative overflow-auto">
+<div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px); background-size: 20px 20px;"></div>
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 relative z-10 max-w-4xl mx-auto">
+<div class="aspect-square bg-white dark:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 rounded-lg relative hover:border-primary dark:hover:border-primary cursor-pointer transition-all shadow-sm group">
+<span class="absolute top-2 left-2 text-[10px] font-bold text-slate-400">A1</span>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 group-hover:text-primary transition-colors">
+<svg fill="none" height="40" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="40">
+<path d="M19 14c.552 0 1.05-.157 1.488-.423C20.796 13.385 21 13.07 21 12.72c0-.39-.25-.733-.61-.913.376-.51.61-1.127.61-1.807 0-1.657-1.343-3-3-3h-1c-.552 0-1 .448-1 1v1h-2v-1c0-.552-.448-1-1-1H5c-1.657 0-3 1.343-3 3 0 .68.234 1.297.61 1.807-.36.18-.61.523-.61.913 0 .35.204.665.512.857C2.95 13.843 3.448 14 4 14v5c0 .552.448 1 1 1h2c.552 0 1-.448 1-1v-2h8v2c0 .552.448 1 1 1h2c.552 0 1-.448 1-1v-5z"></path>
+<path d="M8 11a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"></path>
+</svg>
+<span class="text-[10px] mt-1 font-medium">5 Swine</span>
+</div>
+</div>
+<div class="aspect-square bg-[#8D6E63] border-2 border-[#5D4037] rounded-lg relative hover:brightness-110 cursor-pointer transition-all shadow-sm">
+<span class="absolute top-2 left-2 text-[10px] font-bold text-white/50">A2</span>
+<div class="absolute top-2 right-2">
+<span class="material-symbols-outlined text-white !text-[16px]">warning</span>
+</div>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-white">
+<svg fill="none" height="36" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="36">
+<path d="M6 21v-2a4 4 0 0 1 4 -4h2a4 4 0 0 1 4 4v2"></path>
+<path d="M14 10a4 4 0 0 1 -4 -4"></path>
+<path d="M8 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path>
+<path d="M11 5l1 -3l1 3"></path>
+<path d="M8 8l-2 -2"></path>
+<path d="M16 8l2 -2"></path>
+</svg>
+<span class="text-[10px] mt-1 font-medium">30 Hens</span>
+</div>
+</div>
+<div class="aspect-square bg-white dark:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 rounded-lg relative hover:border-primary dark:hover:border-primary cursor-pointer transition-all shadow-sm group">
+<span class="absolute top-2 left-2 text-[10px] font-bold text-slate-400">A3</span>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 group-hover:text-primary transition-colors">
+<svg fill="none" height="40" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="40">
+<path d="M19 14c.552 0 1.05-.157 1.488-.423C20.796 13.385 21 13.07 21 12.72c0-.39-.25-.733-.61-.913.376-.51.61-1.127.61-1.807 0-1.657-1.343-3-3-3h-1c-.552 0-1 .448-1 1v1h-2v-1c0-.552-.448-1-1-1H5c-1.657 0-3 1.343-3 3 0 .68.234 1.297.61 1.807-.36.18-.61.523-.61.913 0 .35.204.665.512.857C2.95 13.843 3.448 14 4 14v5c0 .552.448 1 1 1h2c.552 0 1-.448 1-1v-2h8v2c0 .552.448 1 1 1h2c.552 0 1-.448 1-1v-5z"></path>
+<path d="M8 11a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"></path>
+</svg>
+<span class="text-[10px] mt-1 font-medium">6 Swine</span>
+</div>
+</div>
+<div class="aspect-square bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-700 border-dashed rounded-lg relative hover:border-slate-400 cursor-pointer transition-all flex items-center justify-center">
+<span class="absolute top-2 left-2 text-[10px] font-bold text-slate-300">A4</span>
+<span class="text-xs text-slate-300 font-medium">Empty</span>
+</div>
+<div class="aspect-square bg-white dark:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 rounded-lg relative hover:border-primary dark:hover:border-primary cursor-pointer transition-all shadow-sm group">
+<span class="absolute top-2 left-2 text-[10px] font-bold text-slate-400">B1</span>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 group-hover:text-primary transition-colors">
+<svg fill="none" height="36" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="36">
+<path d="M6 21v-2a4 4 0 0 1 4 -4h2a4 4 0 0 1 4 4v2"></path>
+<path d="M14 10a4 4 0 0 1 -4 -4"></path>
+<path d="M8 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path>
+<path d="M11 5l1 -3l1 3"></path>
+<path d="M8 8l-2 -2"></path>
+<path d="M16 8l2 -2"></path>
+</svg>
+<span class="text-[10px] mt-1 font-medium">25 Hens</span>
+</div>
+</div>
+<div class="aspect-square bg-[#8D6E63] border-2 border-[#5D4037] rounded-lg relative hover:brightness-110 cursor-pointer transition-all shadow-sm ring-2 ring-red-500 ring-offset-2">
+<span class="absolute top-2 left-2 text-[10px] font-bold text-white/50">B2</span>
+<div class="absolute top-2 right-2 animate-pulse">
+<span class="material-symbols-outlined text-red-200 !text-[16px]">health_and_safety</span>
+</div>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-white">
+<svg fill="none" height="40" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="40">
+<path d="M19 14c.552 0 1.05-.157 1.488-.423C20.796 13.385 21 13.07 21 12.72c0-.39-.25-.733-.61-.913.376-.51.61-1.127.61-1.807 0-1.657-1.343-3-3-3h-1c-.552 0-1 .448-1 1v1h-2v-1c0-.552-.448-1-1-1H5c-1.657 0-3 1.343-3 3 0 .68.234 1.297.61 1.807-.36.18-.61.523-.61.913 0 .35.204.665.512.857C2.95 13.843 3.448 14 4 14v5c0 .552.448 1 1 1h2c.552 0 1-.448 1-1v-2h8v2c0 .552.448 1 1 1h2c.552 0 1-.448 1-1v-5z"></path>
+<path d="M8 11a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"></path>
+</svg>
+<span class="text-[10px] mt-1 font-medium">4 Swine (Sick)</span>
+</div>
+</div>
+<div class="aspect-square bg-white dark:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 rounded-lg relative hover:border-primary dark:hover:border-primary cursor-pointer transition-all shadow-sm group">
+<span class="absolute top-2 left-2 text-[10px] font-bold text-slate-400">B3</span>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 group-hover:text-primary transition-colors">
+<svg fill="none" height="40" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="40">
+<path d="M19 14c.552 0 1.05-.157 1.488-.423C20.796 13.385 21 13.07 21 12.72c0-.39-.25-.733-.61-.913.376-.51.61-1.127.61-1.807 0-1.657-1.343-3-3-3h-1c-.552 0-1 .448-1 1v1h-2v-1c0-.552-.448-1-1-1H5c-1.657 0-3 1.343-3 3 0 .68.234 1.297.61 1.807-.36.18-.61.523-.61.913 0 .35.204.665.512.857C2.95 13.843 3.448 14 4 14v5c0 .552.448 1 1 1h2c.552 0 1-.448 1-1v-2h8v2c0 .552.448 1 1 1h2c.552 0 1-.448 1-1v-5z"></path>
+<path d="M8 11a1 1 0 1 0 0-2 1 1 0 0 0 0 2z"></path>
+</svg>
+<span class="text-[10px] mt-1 font-medium">5 Swine</span>
+</div>
+</div>
+<div class="aspect-square bg-white dark:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 rounded-lg relative hover:border-primary dark:hover:border-primary cursor-pointer transition-all shadow-sm group">
+<span class="absolute top-2 left-2 text-[10px] font-bold text-slate-400">B4</span>
+<div class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 group-hover:text-primary transition-colors">
+<svg fill="none" height="36" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" viewBox="0 0 24 24" width="36">
+<path d="M6 21v-2a4 4 0 0 1 4 -4h2a4 4 0 0 1 4 4v2"></path>
+<path d="M14 10a4 4 0 0 1 -4 -4"></path>
+<path d="M8 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"></path>
+<path d="M11 5l1 -3l1 3"></path>
+<path d="M8 8l-2 -2"></path>
+<path d="M16 8l2 -2"></path>
+</svg>
+<span class="text-[10px] mt-1 font-medium">28 Hens</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="lg:col-span-4 flex flex-col gap-6">
+<div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col h-full">
+<div class="p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+<div class="flex items-start justify-between">
+<div>
+<p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Selected Unit</p>
+<h3 class="text-lg font-bold text-slate-900 dark:text-white mt-1">Pen B2 - Swine</h3>
+</div>
+<span class="px-2 py-1 rounded bg-red-100 text-red-700 text-xs font-bold border border-red-200">Attention Required</span>
+</div>
+<div class="mt-4 flex gap-4 text-sm">
+<div>
+<span class="block text-slate-400 text-xs">Animals</span>
+<span class="font-semibold text-slate-700 dark:text-slate-200">4 Swine</span>
+</div>
+<div>
+<span class="block text-slate-400 text-xs">Avg Weight</span>
+<span class="font-semibold text-slate-700 dark:text-slate-200">45.2 kg</span>
+</div>
+<div>
+<span class="block text-slate-400 text-xs">Last Check</span>
+<span class="font-semibold text-slate-700 dark:text-slate-200">2h ago</span>
+</div>
+</div>
+</div>
+<div class="p-6 flex-1 flex flex-col gap-8 overflow-y-auto">
+<div>
+<h4 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-3">
+<span class="material-symbols-outlined !text-[18px] text-primary">vaccines</span>
+                                        Vaccine Schedule
+                                    </h4>
+<div class="space-y-3">
+<div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-green-500"></div>
+<div>
+<p class="text-xs font-bold text-slate-800 dark:text-slate-200">Parvovirus</p>
+<p class="text-[10px] text-slate-500">Oct 01, 2023</p>
+</div>
+</div>
+<span class="text-[10px] font-medium text-green-600 bg-green-50 px-2 py-0.5 rounded">Completed</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-orange-500"></div>
+<div>
+<p class="text-xs font-bold text-slate-800 dark:text-slate-200">Erysipelas</p>
+<p class="text-[10px] text-slate-500">Oct 26, 2023</p>
+</div>
+</div>
+<span class="text-[10px] font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded">Upcoming</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-slate-300"></div>
+<div>
+<p class="text-xs font-bold text-slate-800 dark:text-slate-200">Leptospirosis</p>
+<p class="text-[10px] text-slate-500">Nov 15, 2023</p>
+</div>
+</div>
+<span class="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded">Scheduled</span>
+</div>
+</div>
+</div>
+<div>
+<div class="flex items-center justify-between mb-3">
+<h4 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+<span class="material-symbols-outlined !text-[18px] text-primary">show_chart</span>
+                                            Weight Trend
+                                        </h4>
+<span class="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded border border-green-100">+2.4% vs Avg</span>
+</div>
+<div class="relative h-40 w-full border-l border-b border-slate-200 dark:border-slate-700">
+<div class="absolute inset-0 flex flex-col justify-between">
+<div class="w-full h-px bg-slate-100 dark:bg-slate-700/50"></div>
+<div class="w-full h-px bg-slate-100 dark:bg-slate-700/50"></div>
+<div class="w-full h-px bg-slate-100 dark:bg-slate-700/50"></div>
+<div class="w-full h-px bg-slate-100 dark:bg-slate-700/50"></div>
+</div>
+<svg class="absolute inset-0 w-full h-full p-1" preserveAspectRatio="none" viewBox="0 0 100 50">
+<path d="M0,45 L20,40 L40,35 L60,25 L80,15 L100,10" fill="none" stroke="#2f7f34" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+<path d="M0,45 L20,40 L40,35 L60,25 L80,15 L100,10 L100,50 L0,50 Z" fill="url(#gradient)" opacity="0.1"></path>
+<defs>
+<linearGradient id="gradient" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" style="stop-color:#2f7f34;stop-opacity:1"></stop>
+<stop offset="100%" style="stop-color:#2f7f34;stop-opacity:0"></stop>
+</linearGradient>
+</defs>
+<circle cx="0" cy="45" fill="white" r="2" stroke="#2f7f34" stroke-width="1" vector-effect="non-scaling-stroke"></circle>
+<circle cx="20" cy="40" fill="white" r="2" stroke="#2f7f34" stroke-width="1" vector-effect="non-scaling-stroke"></circle>
+<circle cx="40" cy="35" fill="white" r="2" stroke="#2f7f34" stroke-width="1" vector-effect="non-scaling-stroke"></circle>
+<circle cx="60" cy="25" fill="white" r="2" stroke="#2f7f34" stroke-width="1" vector-effect="non-scaling-stroke"></circle>
+<circle cx="80" cy="15" fill="white" r="2" stroke="#2f7f34" stroke-width="1" vector-effect="non-scaling-stroke"></circle>
+<circle cx="100" cy="10" fill="white" r="2" stroke="#2f7f34" stroke-width="1" vector-effect="non-scaling-stroke"></circle>
+</svg>
+</div>
+<div class="flex justify-between mt-1 text-[10px] text-slate-400">
+<span>W1</span>
+<span>W2</span>
+<span>W3</span>
+<span>W4</span>
+<span>W5</span>
+<span>Now</span>
+</div>
+</div>
+</div>
+<div class="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+<button class="w-full py-2 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors shadow-sm">
+                                    View Full History
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+
+</body></html>

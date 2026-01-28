@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriPlanner - Cộng đồng</title>
+    <meta name="description" content="Cộng đồng nông dân - Chia sẻ kinh nghiệm và kết nối">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+
+    <link rel="stylesheet" href="../css/variables.css">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/layout.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/pages/community.css">
+    <link rel="stylesheet" href="../css/chatbot.css">
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+</head>
+
+<body data-page="community">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar__header">
+                <div class="sidebar__logo-icon"><span class="material-symbols-outlined">eco</span></div>
+                <h1 class="sidebar__logo-text">AgriPlanner</h1>
+            </div>
+            <nav class="sidebar__nav">
+                <a href="../index.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">home</span><span>Trang chủ</span></a>
+                <a href="cultivation.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">potted_plant</span><span>Trồng trọt</span></a>
+                <a href="livestock.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">egg</span><span>Chăn nuôi</span></a>
+                <a href="labor.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">engineering</span><span>Nhân công</span></a>
+                <a href="shop.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">store</span><span>Cửa hàng</span></a>
+                <a href="cooperative.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">groups</span><span>Hợp tác xã</span></a>
+                <a href="community.html" class="sidebar__nav-link active"><span
+                        class="material-symbols-outlined">forum</span><span>Cộng đồng</span></a>
+                <a href="analytics.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">account_balance_wallet</span><span>Tài sản</span></a>
+                <a href="settings.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">settings</span><span>Cài đặt</span></a>
+                <div class="sidebar__spacer"></div>
+                <a href="help.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">help</span><span>Trợ giúp</span></a>
+            </nav>
+            <div class="sidebar__footer">
+                <div class="sidebar__user">
+                    <div class="sidebar__user-avatar" id="sidebar-avatar"></div>
+                    <div class="sidebar__user-info">
+                        <p class="sidebar__user-name" id="sidebar-name">Đang tải...</p>
+                        <p class="sidebar__user-email" id="sidebar-email">...</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <div class="main-wrapper">
+            <header class="header">
+                <div class="header__search">
+                    <span class="material-symbols-outlined header__search-icon">search</span>
+                    <input type="text" class="header__search-input" id="community-search"
+                        placeholder="Tìm kiếm bài viết, hướng dẫn...">
+                </div>
+                <div class="header__actions">
+                    <button class="header__notification" id="friend-requests-btn">
+                        <span class="material-symbols-outlined">person_add</span>
+                        <span class="header__notification-badge" id="friend-request-count">0</span>
+                    </button>
+                    <button class="header__notification" id="chat-toggle-btn">
+                        <span class="material-symbols-outlined">chat</span>
+                        <span class="header__notification-badge" id="unread-chat-count">0</span>
+                    </button>
+                    <button class="header__notification">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <span class="header__notification-badge" id="notification-count">0</span>
+                    </button>
+                </div>
+            </header>
+
+            <main class="main-content">
+                <div class="community-container">
+                    <!-- Left Column - Main Feed -->
+                    <div class="community-main">
+                        <!-- Tabs -->
+                        <div class="community-tabs">
+                            <button class="community-tab active" data-tab="feed">
+                                <span class="material-symbols-outlined">dynamic_feed</span>
+                                Bài viết
+                            </button>
+                            <button class="community-tab" data-tab="guides">
+                                <span class="material-symbols-outlined">menu_book</span>
+                                Hướng dẫn
+                            </button>
+                            <button class="community-tab" data-tab="friends">
+                                <span class="material-symbols-outlined">group</span>
+                                Bạn bè
+                            </button>
+                        </div>
+
+                        <!-- Feed Tab Content -->
+                        <div class="tab-content active" id="feed-tab">
+                            <!-- Create Post -->
+                            <div class="create-post card">
+                                <div class="create-post__header">
+                                    <div class="create-post__avatar" id="create-post-avatar"></div>
+                                    <button class="create-post__input" id="open-post-modal">
+                                        Bạn đang nghĩ gì?
+                                    </button>
+                                </div>
+                                <div class="create-post__actions">
+                                    <button class="create-post__action" id="post-with-image">
+                                        <span class="material-symbols-outlined">image</span>
+                                        Ảnh
+                                    </button>
+                                    <button class="create-post__action" id="post-with-video">
+                                        <span class="material-symbols-outlined">videocam</span>
+                                        Video
+                                    </button>
+                                    <button class="create-post__action">
+                                        <span class="material-symbols-outlined">location_on</span>
+                                        Vị trí
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Posts Feed -->
+                            <div class="posts-feed" id="posts-feed">
+                                <!-- Posts will be loaded here -->
+                                <div class="loading-spinner">
+                                    <div class="spinner"></div>
+                                    <p>Đang tải bài viết...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Guides Tab Content -->
+                        <div class="tab-content" id="guides-tab">
+                            <!-- Guide Categories -->
+                            <div class="guide-categories" id="guide-categories">
+                                <!-- Categories will be loaded here -->
+                            </div>
+
+                            <!-- Featured Guides -->
+                            <div class="guides-section">
+                                <h3>Bài viết nổi bật</h3>
+                                <div class="guides-grid" id="featured-guides">
+                                    <!-- Featured guides will be loaded here -->
+                                </div>
+                            </div>
+
+                            <!-- All Guides -->
+                            <div class="guides-section">
+                                <h3>Tất cả hướng dẫn</h3>
+                                <div class="guides-list" id="all-guides">
+                                    <!-- Guides will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Friends Tab Content -->
+                        <div class="tab-content" id="friends-tab">
+                            <!-- Friend Requests -->
+                            <div class="friends-section" id="friend-requests-section">
+                                <h3>Lời mời kết bạn</h3>
+                                <div class="friend-requests-list" id="friend-requests-list">
+                                    <!-- Requests will be loaded here -->
+                                </div>
+                            </div>
+
+                            <!-- Friends List -->
+                            <div class="friends-section">
+                                <h3>Danh sách bạn bè</h3>
+                                <div class="friends-list" id="friends-list">
+                                    <!-- Friends will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column - Sidebar -->
+                    <div class="community-sidebar">
+                        <!-- Guide Categories Quick Links -->
+                        <div class="sidebar-card card">
+                            <h4>Danh mục hướng dẫn</h4>
+                            <div class="sidebar-categories" id="sidebar-categories">
+                                <a href="#" class="sidebar-category" data-category="trong-trot">
+                                    <span class="material-symbols-outlined">potted_plant</span>
+                                    Trồng trọt
+                                </a>
+                                <a href="#" class="sidebar-category" data-category="chan-nuoi">
+                                    <span class="material-symbols-outlined">pets</span>
+                                    Chăn nuôi
+                                </a>
+                                <a href="#" class="sidebar-category" data-category="ky-thuat">
+                                    <span class="material-symbols-outlined">science</span>
+                                    Kỹ thuật
+                                </a>
+                                <a href="#" class="sidebar-category" data-category="thi-truong">
+                                    <span class="material-symbols-outlined">trending_up</span>
+                                    Thị trường
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- Friend Suggestions -->
+                        <div class="sidebar-card card">
+                            <h4>Gợi ý kết bạn</h4>
+                            <div class="friend-suggestions" id="friend-suggestions">
+                                <!-- Suggestions will be loaded here -->
+                            </div>
+                        </div>
+
+                        <!-- Online Friends -->
+                        <div class="sidebar-card card">
+                            <h4>Bạn bè</h4>
+                            <div class="online-friends" id="online-friends">
+                                <!-- Online friends will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Create Post Modal -->
+    <div class="modal" id="create-post-modal">
+        <div class="modal__overlay" onclick="closeCreatePostModal()"></div>
+        <div class="modal__content">
+            <div class="modal__header">
+                <h3 class="modal__title">Tạo bài viết</h3>
+                <button class="modal__close" onclick="closeCreatePostModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="post-form">
+                    <div class="post-form__header">
+                        <div class="post-form__avatar" id="modal-post-avatar"></div>
+                        <div class="post-form__info">
+                            <span class="post-form__name" id="modal-post-name">Tên người dùng</span>
+                            <span class="post-form__visibility">
+                                <span class="material-symbols-outlined">public</span>
+                                Công khai
+                            </span>
+                        </div>
+                    </div>
+                    <textarea class="post-form__textarea" id="post-content" placeholder="Bạn đang nghĩ gì?"></textarea>
+                    <div class="post-form__images" id="post-images-preview"></div>
+                    <div class="post-form__videos" id="post-videos-preview"
+                        style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 8px;"></div>
+                    <input type="file" id="post-images-input" multiple accept="image/*" hidden>
+                    <input type="file" id="post-videos-input" multiple accept="video/*" hidden>
+                </div>
+            </div>
+            <div class="modal__footer">
+                <div class="post-form__add">
+                    <span>Thêm vào bài viết</span>
+                    <button class="post-form__add-btn" onclick="document.getElementById('post-images-input').click()"
+                        title="Thêm ảnh">
+                        <span class="material-symbols-outlined">image</span>
+                    </button>
+                    <button class="post-form__add-btn" onclick="document.getElementById('post-videos-input').click()"
+                        title="Thêm video">
+                        <span class="material-symbols-outlined">videocam</span>
+                    </button>
+                </div>
+                <button class="btn btn--primary btn--lg" id="submit-post-btn" onclick="submitPost()">
+                    Đăng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Panel -->
+    <div class="chat-panel" id="chat-panel">
+        <div class="chat-panel__header">
+            <h4>Tin nhắn</h4>
+            <div class="chat-panel__actions">
+                <button class="chat-panel__btn" id="new-chat-btn">
+                    <span class="material-symbols-outlined">edit_square</span>
+                </button>
+                <button class="chat-panel__btn" onclick="toggleChatPanel()">
+                    <span class="material-symbols-outlined">expand_more</span>
+                </button>
+            </div>
+        </div>
+        <div class="chat-panel__search">
+            <span class="material-symbols-outlined">search</span>
+            <input type="text" placeholder="Tìm kiếm cuộc trò chuyện...">
+        </div>
+        <div class="chat-panel__rooms" id="chat-rooms-list">
+            <!-- Chat rooms will be loaded here -->
+        </div>
+    </div>
+
+    <!-- Chat Window (will be cloned for each active chat) -->
+    <div class="chat-window" id="chat-window-template" style="display: none;">
+        <div class="chat-window__header">
+            <div class="chat-window__user">
+                <div class="chat-window__avatar"></div>
+                <div class="chat-window__info">
+                    <span class="chat-window__name">Tên</span>
+                    <span class="chat-window__status">Đang hoạt động</span>
+                </div>
+            </div>
+            <div class="chat-window__actions">
+                <button class="chat-window__btn chat-window__minimize">
+                    <span class="material-symbols-outlined">remove</span>
+                </button>
+                <button class="chat-window__btn chat-window__close">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+        </div>
+        <div class="chat-window__messages">
+            <!-- Messages will be loaded here -->
+        </div>
+        <div class="chat-window__input">
+            <button class="chat-window__attach">
+                <span class="material-symbols-outlined">attach_file</span>
+            </button>
+            <input type="text" placeholder="Aa" class="chat-window__text">
+            <button class="chat-window__send">
+                <span class="material-symbols-outlined">send</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Reaction Picker -->
+    <div class="reaction-picker" id="reaction-picker" style="display: none;">
+        <button class="reaction-btn" data-reaction="LIKE">👍</button>
+        <button class="reaction-btn" data-reaction="LOVE">❤️</button>
+        <button class="reaction-btn" data-reaction="HAHA">😆</button>
+        <button class="reaction-btn" data-reaction="WOW">😮</button>
+        <button class="reaction-btn" data-reaction="SAD">😢</button>
+        <button class="reaction-btn" data-reaction="ANGRY">😠</button>
+    </div>
+
+    <!-- Create Group Modal -->
+    <div class="modal" id="create-group-modal">
+        <div class="modal__overlay" onclick="closeCreateGroupModal()"></div>
+        <div class="modal__content" style="max-width: 420px;">
+            <div class="modal__header">
+                <h3 class="modal__title">Tạo nhóm chat</h3>
+                <button class="modal__close" onclick="closeCreateGroupModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body" style="padding: 16px;">
+                <div class="form-group">
+                    <label style="font-weight: 500; margin-bottom: 8px; display: block;">Tên nhóm</label>
+                    <input type="text" id="group-name-input" placeholder="Nhập tên nhóm..." class="form-input"
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
+                </div>
+                <div style="margin-top: 16px;">
+                    <label style="font-weight: 500; margin-bottom: 8px; display: block;">
+                        Chọn bạn bè <span style="color: #666; font-weight: normal;">(tối thiểu 2 người)</span>
+                    </label>
+                    <div id="group-friends-list" class="group-friends-list"
+                        style="max-height: 280px; overflow-y: auto; border: 1px solid #eee; border-radius: 8px;">
+                        <!-- Friends will be loaded here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal__footer"
+                style="display: flex; justify-content: space-between; align-items: center; padding: 16px; border-top: 1px solid #eee;">
+                <span id="selected-count" style="color: #666; font-size: 14px;">Đã chọn: 0</span>
+                <button class="btn btn--primary" onclick="createGroupChat()" id="create-group-btn" disabled
+                    style="opacity: 0.5; cursor: not-allowed;">
+                    <span class="material-symbols-outlined" style="font-size: 18px; margin-right: 4px;">group_add</span>
+                    Tạo nhóm
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/sidebar.js"></script>
+    <script src="../js/community.js"></script>
+</body>
+
+</html>

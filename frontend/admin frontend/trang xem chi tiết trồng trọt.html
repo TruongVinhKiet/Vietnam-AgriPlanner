@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Admin Crop Detailed Analytics View</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10b981", // Emerald 500
+                        "primary-dark": "#059669", // Emerald 600 for hover states
+                        "background-light": "#f3f4f6", // Gray 100
+                        "background-dark": "#111827", // Gray 900
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1f2937", // Gray 800
+                        "text-main-light": "#111827", // Gray 900
+                        "text-main-dark": "#f9fafb", // Gray 50
+                        "text-sub-light": "#6b7280", // Gray 500
+                        "text-sub-dark": "#9ca3af", // Gray 400
+                        "border-light": "#e5e7eb", // Gray 200
+                        "border-dark": "#374151", // Gray 700
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                    },
+                },
+            },
+        };
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-body antialiased transition-colors duration-200">
+<div class="flex h-screen overflow-hidden">
+<aside class="w-64 bg-primary text-white flex flex-col flex-shrink-0 transition-all duration-300">
+<div class="h-20 flex items-center px-6 border-b border-emerald-400/30">
+<div class="flex items-center gap-3">
+<div class="bg-white/20 p-2 rounded-lg">
+<span class="material-icons text-white">spa</span>
+</div>
+<div>
+<h1 class="font-bold text-lg leading-tight">AgriPlanner</h1>
+<p class="text-[10px] uppercase tracking-wider text-emerald-100 opacity-80">System Admin</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+<a class="flex items-center gap-3 px-4 py-3 text-white/80 hover:bg-white/10 rounded-lg transition-colors group" href="#">
+<span class="material-icons text-xl group-hover:text-white">dashboard</span>
+<span class="font-medium group-hover:text-white">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-white/80 hover:bg-white/10 rounded-lg transition-colors group" href="#">
+<span class="material-icons text-xl group-hover:text-white">people</span>
+<span class="font-medium group-hover:text-white">Users</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-white/20 text-white rounded-lg shadow-sm transition-colors" href="#">
+<span class="material-icons text-xl">eco</span>
+<span class="font-medium">Crops</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-white/80 hover:bg-white/10 rounded-lg transition-colors group" href="#">
+<span class="material-icons text-xl group-hover:text-white">storefront</span>
+<span class="font-medium group-hover:text-white">Shop Items</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-white/80 hover:bg-white/10 rounded-lg transition-colors group" href="#">
+<span class="material-icons text-xl group-hover:text-white">pets</span>
+<span class="font-medium group-hover:text-white">Animals</span>
+</a>
+</nav>
+<div class="p-4 border-t border-emerald-400/30">
+<a class="flex items-center gap-3 px-4 py-3 text-white/80 hover:text-white transition-colors" href="#">
+<span class="material-icons text-xl transform rotate-180">logout</span>
+<span class="font-medium">Logout</span>
+</a>
+</div>
+</aside>
+<main class="flex-1 flex flex-col overflow-hidden h-full relative">
+<header class="h-20 bg-surface-light dark:bg-surface-dark border-b border-border-light dark:border-border-dark flex items-center justify-between px-8 flex-shrink-0 z-10">
+<div>
+<div class="flex items-center gap-2 text-sm text-text-sub-light dark:text-text-sub-dark mb-1">
+<a class="hover:text-primary transition-colors" href="#">Crops</a>
+<span class="material-icons text-base">chevron_right</span>
+<span class="text-text-main-light dark:text-text-main-dark font-medium">Organic Corn</span>
+</div>
+<h2 class="text-2xl font-bold text-text-main-light dark:text-text-main-dark">Crop Details</h2>
+</div>
+<div class="flex items-center gap-6">
+<button class="relative p-2 text-text-sub-light dark:text-text-sub-dark hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
+<span class="material-icons">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-surface-light dark:border-surface-dark"></span>
+</button>
+<div class="flex items-center gap-3 pl-6 border-l border-border-light dark:border-border-dark">
+<img alt="User Avatar" class="w-10 h-10 rounded-full object-cover border-2 border-white dark:border-gray-600 shadow-sm" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3Uzf1KdQalq0sSgOC2SU43pvhp02Tl9TM4ZhLo8STrT6hL6dHOD0waeTSLPzobqbXKUT-rCcOSKAOIalp5OxHfSOVoJIgTk3eMebqDU4gEQXiedM1P_egRheF4qmSTjTa72ntl9SLCz3Rh9pVs7GRaWCwYZmAb6ZgGXobMsiayQgrdkPuoSZ6ozGylH48rSmb07-rptp6DQOsz8B0zJEPft9WRVvCbBGu0DuMXsFd3x0s7ds1h_hNCOmUSQ_OJesUE69kSRY_cUdk"/>
+<div class="hidden md:block">
+<p class="text-sm font-semibold text-text-main-light dark:text-text-main-dark">Sarah Jenkins</p>
+<p class="text-xs text-text-sub-light dark:text-text-sub-dark">Global Administrator</p>
+</div>
+</div>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto p-8 bg-background-light dark:bg-background-dark">
+<div class="max-w-7xl mx-auto space-y-6">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+<div class="flex items-center gap-5">
+<div class="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center text-yellow-600 dark:text-yellow-400">
+<span class="material-icons text-3xl">agriculture</span>
+</div>
+<div>
+<div class="flex items-center gap-3">
+<h3 class="text-xl font-bold text-text-main-light dark:text-text-main-dark">Organic Corn</h3>
+<span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 border border-green-200 dark:border-green-800">
+                                        Active
+                                    </span>
+</div>
+<p class="text-text-sub-light dark:text-text-sub-dark italic mt-1">Zea mays var.</p>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 border border-border-light dark:border-border-dark text-text-main-light dark:text-text-main-dark font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800">
+                                Archive
+                            </button>
+<button class="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2">
+<span class="material-icons text-sm">edit</span>
+                                Edit Crop
+                            </button>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="lg:col-span-2 space-y-6">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-6">
+<div class="flex items-center justify-between mb-6">
+<h4 class="text-lg font-bold text-text-main-light dark:text-text-main-dark">Growth Analytics</h4>
+<select class="bg-background-light dark:bg-gray-700 border-none text-sm rounded-lg px-3 py-1.5 text-text-main-light dark:text-text-main-dark focus:ring-2 focus:ring-primary">
+<option>Last 6 Months</option>
+<option>Last Year</option>
+</select>
+</div>
+<div class="h-64 w-full">
+<canvas id="growthChart"></canvas>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
+<div class="px-6 py-4 border-b border-border-light dark:border-border-dark bg-gray-50/50 dark:bg-gray-800/50">
+<h4 class="text-base font-semibold text-text-main-light dark:text-text-main-dark">Technical Specifications</h4>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x border-border-light dark:border-border-dark dark:divide-gray-700">
+<div class="p-6 space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-sm text-text-sub-light dark:text-text-sub-dark">Category</span>
+<span class="text-sm font-medium text-text-main-light dark:text-text-main-dark">Cereal Grain</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-sm text-text-sub-light dark:text-text-sub-dark">Growth Duration</span>
+<span class="text-sm font-medium text-text-main-light dark:text-text-main-dark flex items-center gap-1">
+<span class="material-icons text-base text-gray-400">schedule</span>
+                                                60 - 100 days
+                                            </span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-sm text-text-sub-light dark:text-text-sub-dark">Preferred Season</span>
+<span class="text-sm font-medium text-text-main-light dark:text-text-main-dark">Summer / Fall</span>
+</div>
+</div>
+<div class="p-6 space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-sm text-text-sub-light dark:text-text-sub-dark">Ideal Temp</span>
+<span class="text-sm font-medium text-text-main-light dark:text-text-main-dark">60°F - 95°F</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-sm text-text-sub-light dark:text-text-sub-dark">Soil pH</span>
+<span class="text-sm font-medium text-text-main-light dark:text-text-main-dark">5.8 - 7.0</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-sm text-text-sub-light dark:text-text-sub-dark">Water Req</span>
+<div class="flex gap-1">
+<span class="material-icons text-base text-blue-500">water_drop</span>
+<span class="material-icons text-base text-blue-500">water_drop</span>
+<span class="material-icons text-base text-gray-300 dark:text-gray-600">water_drop</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="lg:col-span-1 space-y-6">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-6">
+<h4 class="text-base font-bold text-text-main-light dark:text-text-main-dark mb-4">Resource Allocation</h4>
+<div class="relative h-48 flex justify-center items-center">
+<canvas id="resourceChart"></canvas>
+</div>
+<div class="mt-4 space-y-2">
+<div class="flex items-center justify-between text-sm">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+<span class="text-text-sub-light dark:text-text-sub-dark">Fertilizer</span>
+</div>
+<span class="font-medium text-text-main-light dark:text-text-main-dark">45%</span>
+</div>
+<div class="flex items-center justify-between text-sm">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-blue-500"></span>
+<span class="text-text-sub-light dark:text-text-sub-dark">Water</span>
+</div>
+<span class="font-medium text-text-main-light dark:text-text-main-dark">35%</span>
+</div>
+<div class="flex items-center justify-between text-sm">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+<span class="text-text-sub-light dark:text-text-sub-dark">Labor</span>
+</div>
+<span class="font-medium text-text-main-light dark:text-text-main-dark">20%</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark p-6">
+<h4 class="text-base font-bold text-text-main-light dark:text-text-main-dark mb-4">Recent Activities</h4>
+<div class="space-y-6 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent dark:before:via-gray-700">
+<div class="relative flex items-start group">
+<div class="absolute left-0 h-5 w-5 rounded-full border-2 border-white dark:border-gray-800 bg-emerald-500 shadow-sm z-10"></div>
+<div class="pl-8 w-full">
+<p class="text-xs text-text-sub-light dark:text-text-sub-dark mb-0.5">Today, 09:41 AM</p>
+<p class="text-sm font-medium text-text-main-light dark:text-text-main-dark">Harvest Logged</p>
+<p class="text-xs text-text-sub-light dark:text-text-sub-dark mt-1">Field B2 yielded 4.5 tons.</p>
+</div>
+</div>
+<div class="relative flex items-start group">
+<div class="absolute left-0 h-5 w-5 rounded-full border-2 border-white dark:border-gray-800 bg-blue-500 shadow-sm z-10"></div>
+<div class="pl-8 w-full">
+<p class="text-xs text-text-sub-light dark:text-text-sub-dark mb-0.5">Yesterday, 2:30 PM</p>
+<p class="text-sm font-medium text-text-main-light dark:text-text-main-dark">Irrigation Cycle</p>
+<p class="text-xs text-text-sub-light dark:text-text-sub-dark mt-1">Completed automated watering.</p>
+</div>
+</div>
+<div class="relative flex items-start group">
+<div class="absolute left-0 h-5 w-5 rounded-full border-2 border-white dark:border-gray-800 bg-yellow-500 shadow-sm z-10"></div>
+<div class="pl-8 w-full">
+<p class="text-xs text-text-sub-light dark:text-text-sub-dark mb-0.5">Oct 24, 2023</p>
+<p class="text-sm font-medium text-text-main-light dark:text-text-main-dark">Soil Analysis</p>
+<p class="text-xs text-text-sub-light dark:text-text-sub-dark mt-1">pH levels optimal at 6.8.</p>
+</div>
+</div>
+</div>
+<button class="w-full mt-6 py-2 text-sm text-primary hover:text-primary-dark font-medium border border-dashed border-primary/30 rounded-lg hover:bg-primary/5 transition-colors">
+                                    View All History
+                                </button>
+</div>
+</div>
+</div> 
+</div>
+</div>
+</main>
+</div>
+<script>
+        // Line Chart Configuration (Growth Analytics)
+        const ctxGrowth = document.getElementById('growthChart').getContext('2d');
+        // Gradient for the line chart fill
+        const gradientGrowth = ctxGrowth.createLinearGradient(0, 0, 0, 400);
+        gradientGrowth.addColorStop(0, 'rgba(16, 185, 129, 0.2)'); // Emerald
+        gradientGrowth.addColorStop(1, 'rgba(16, 185, 129, 0)');
+        const growthChart = new Chart(ctxGrowth, {
+            type: 'line',
+            data: {
+                labels: ['May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'],
+                datasets: [{
+                    label: 'Yield (Tons)',
+                    data: [12, 19, 15, 25, 22, 30],
+                    borderColor: '#10b981', // Emerald 500
+                    backgroundColor: gradientGrowth,
+                    borderWidth: 2,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: '#10b981',
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1f2937',
+                        titleColor: '#f9fafb',
+                        bodyColor: '#f9fafb',
+                        padding: 10,
+                        cornerRadius: 8,
+                        displayColors: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(107, 114, 128, 0.1)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#9ca3af',
+                            font: {
+                                family: 'Inter'
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            color: '#9ca3af',
+                            font: {
+                                family: 'Inter'
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        // Donut Chart Configuration (Resource Allocation)
+        const ctxResource = document.getElementById('resourceChart').getContext('2d');
+        const resourceChart = new Chart(ctxResource, {
+            type: 'doughnut',
+            data: {
+                labels: ['Fertilizer', 'Water', 'Labor'],
+                datasets: [{
+                    data: [45, 35, 20],
+                    backgroundColor: [
+                        '#10b981', // Emerald 500
+                        '#3b82f6', // Blue 500
+                        '#eab308'  // Yellow 500
+                    ],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '75%',
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    </script>
+
+</body></html>

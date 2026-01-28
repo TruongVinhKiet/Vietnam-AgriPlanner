@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AgriPlanner - Shop Item Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10B981", // Emerald-500 equivalent, matching the sidebar
+                        "primary-dark": "#059669", // Darker shade for hovers
+                        "background-light": "#F3F4F6", // Gray-100
+                        "background-dark": "#111827", // Gray-900
+                        "surface-light": "#FFFFFF",
+                        "surface-dark": "#1F2937", // Gray-800
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        body: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem", // Rounded-lg
+                    },
+                },
+            },
+        };
+    </script>
+</head>
+<body class="font-body bg-background-light dark:bg-background-dark text-gray-800 dark:text-gray-100 h-screen flex overflow-hidden transition-colors duration-200">
+<aside class="w-64 bg-primary text-white flex-shrink-0 flex flex-col h-full shadow-lg z-20">
+<div class="p-6 flex items-center space-x-3">
+<div class="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+<span class="material-icons text-white">local_florist</span>
+</div>
+<div>
+<h1 class="font-bold text-lg leading-tight">AgriPlanner</h1>
+<p class="text-xs text-white text-opacity-70 font-medium">SYSTEM ADMIN</p>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-2 mt-4">
+<a class="flex items-center px-4 py-3 text-white text-opacity-80 hover:bg-white hover:bg-opacity-10 rounded-lg transition-colors group" href="#">
+<span class="material-icons text-xl w-8">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+<a class="flex items-center px-4 py-3 text-white text-opacity-80 hover:bg-white hover:bg-opacity-10 rounded-lg transition-colors group" href="#">
+<span class="material-icons text-xl w-8">people</span>
+<span class="font-medium">Users</span>
+</a>
+<a class="flex items-center px-4 py-3 text-white text-opacity-80 hover:bg-white hover:bg-opacity-10 rounded-lg transition-colors group" href="#">
+<span class="material-icons text-xl w-8">eco</span>
+<span class="font-medium">Crops</span>
+</a>
+<a class="flex items-center px-4 py-3 bg-white bg-opacity-20 text-white rounded-lg shadow-sm transition-colors group" href="#">
+<span class="material-icons text-xl w-8">storefront</span>
+<span class="font-medium">Shop Items</span>
+</a>
+<a class="flex items-center px-4 py-3 text-white text-opacity-80 hover:bg-white hover:bg-opacity-10 rounded-lg transition-colors group" href="#">
+<span class="material-icons text-xl w-8">pets</span>
+<span class="font-medium">Animals</span>
+</a>
+</nav>
+<div class="p-4 mt-auto border-t border-white border-opacity-10">
+<a class="flex items-center px-4 py-3 text-white text-opacity-80 hover:bg-white hover:bg-opacity-10 rounded-lg transition-colors group" href="#">
+<span class="material-icons text-xl w-8">logout</span>
+<span class="font-medium">Logout</span>
+</a>
+</div>
+</aside>
+<main class="flex-1 overflow-y-auto relative">
+<header class="bg-surface-light dark:bg-surface-dark shadow-sm sticky top-0 z-10">
+<div class="flex items-center justify-between px-8 py-5">
+<div class="flex items-center gap-4">
+<button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+<span class="material-icons">arrow_back</span>
+</button>
+<h2 class="text-2xl font-bold text-gray-900 dark:text-white">Product Detail</h2>
+</div>
+<div class="flex items-center space-x-6">
+<button class="relative text-gray-500 dark:text-gray-400 hover:text-primary transition-colors">
+<span class="material-icons">notifications</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-surface-light dark:border-surface-dark"></span>
+</button>
+<div class="flex items-center space-x-3 border-l pl-6 border-gray-200 dark:border-gray-700">
+<img alt="Sarah Jenkins" class="w-10 h-10 rounded-full object-cover ring-2 ring-primary ring-offset-2 dark:ring-offset-surface-dark" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0IaVJQdHchOeQkNyC9Fj-RGNngJXX6-xYoBojy79CgDHwu_hWVwmMTA5bIKlE8dT1T1hI9WX84s9hUcotCu8-jTWXhcGd4F2SYskoEd17ybzER5vmGsrbIXdNha7Y01UWG2TddLaEHGWPf5IVCwM4SlJEAjBlnWq6Y1k4F5OhrKVAbU7p9762e046QGyp5ChQ_KTMOMYyCrrXu5JNL4jkAZRwiiYPBDaZ26w-dqUwYP1R3nUVnPUS92wjPnbCk2lCdIojzVyxiHVa"/>
+<div class="hidden md:block">
+<p class="text-sm font-semibold text-gray-900 dark:text-white">Sarah Jenkins</p>
+<p class="text-xs text-gray-500 dark:text-gray-400">Global Administrator</p>
+</div>
+</div>
+</div>
+</div>
+</header>
+<div class="p-8 max-w-7xl mx-auto space-y-6">
+<nav class="flex text-sm text-gray-500 dark:text-gray-400 mb-2">
+<a class="hover:text-primary" href="#">Shop Items</a>
+<span class="mx-2">/</span>
+<a class="hover:text-primary" href="#">Fertilizers</a>
+<span class="mx-2">/</span>
+<span class="text-gray-900 dark:text-white font-medium">Organic Nitrogen Plus</span>
+</nav>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm p-6 col-span-1 lg:col-span-1 border border-gray-100 dark:border-gray-700">
+<div class="aspect-w-4 aspect-h-3 bg-gray-50 dark:bg-gray-800 rounded-lg overflow-hidden mb-6 flex items-center justify-center relative group">
+<img alt="Bag of Organic Nitrogen Plus Fertilizer sitting on wooden surface" class="object-cover w-full h-full transform transition hover:scale-105 duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAjZIdbraQjqscL2PJfcydzQVYvqcaNVEZSEsrEjGx9UIFS9ucRqpsRzkitIZ_sTZ7FhDa0rDgq4d3XnoFvmIgzQWlmTVSWu6wcECp8unGX8-mItrGrcM3SQ00rPnpZLV3gozfprxMPpwHJsbWMa_dOuyDYDhdw2ZcdpcO_pDUffxy5Tcji7HfifqyIJwu3VeLcLbYMU6eR3xSANZLwGqxa5aJ12n6yN-rmf_puKiXRVJDiEMnktvq1T2qb7Foc-25X4IDmXBjabUWl"/>
+<span class="absolute top-3 left-3 bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded dark:bg-yellow-900 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800">Low Stock</span>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-sm text-gray-500 dark:text-gray-400 font-medium">Current Stock</span>
+<span class="text-sm font-bold text-yellow-600 dark:text-yellow-400">12 units left</span>
+</div>
+<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+<div class="bg-yellow-400 h-2.5 rounded-full" style="width: 15%"></div>
+</div>
+<p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Reorder point: 20 units</p>
+</div>
+<div class="mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
+<div class="grid grid-cols-2 gap-4">
+<button class="w-full bg-surface-light dark:bg-surface-dark border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2 px-4 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center justify-center gap-2">
+<span class="material-icons text-sm">edit</span> Edit
+                            </button>
+<button class="w-full bg-primary hover:bg-primary-dark text-white font-medium py-2 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2">
+<span class="material-icons text-sm">add_shopping_cart</span> Restock
+                            </button>
+</div>
+</div>
+</div>
+<div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-2xl font-bold text-gray-900 dark:text-white">Organic Nitrogen Plus</h3>
+<p class="text-sm text-gray-500 dark:text-gray-400">SKU: FRT-ORG-50</p>
+</div>
+<span class="text-3xl font-bold text-primary">$55.00</span>
+</div>
+<div class="space-y-3 mt-6">
+<div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-2">
+<span class="text-gray-500 dark:text-gray-400 text-sm">Category</span>
+<span class="font-medium text-gray-900 dark:text-white text-sm">Fertilizers</span>
+</div>
+<div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-2">
+<span class="text-gray-500 dark:text-gray-400 text-sm">Supplier</span>
+<span class="font-medium text-gray-900 dark:text-white text-sm">GreenEarth Agros</span>
+</div>
+<div class="flex justify-between border-b border-gray-100 dark:border-gray-700 pb-2">
+<span class="text-gray-500 dark:text-gray-400 text-sm">Unit Weight</span>
+<span class="font-medium text-gray-900 dark:text-white text-sm">50 lbs</span>
+</div>
+<div class="flex justify-between pt-1">
+<span class="text-gray-500 dark:text-gray-400 text-sm">Location</span>
+<span class="font-medium text-gray-900 dark:text-white text-sm">Warehouse A, Row 4</span>
+</div>
+</div>
+</div>
+<div class="mt-6 flex gap-2">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                Organic Certified
+                             </span>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300">
+                                Best Seller
+                             </span>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700">
+<div class="flex justify-between items-center mb-4">
+<h4 class="font-semibold text-gray-900 dark:text-white">Sales Volume</h4>
+<select class="bg-gray-50 dark:bg-gray-800 border-none text-xs rounded text-gray-500 dark:text-gray-400 focus:ring-0 cursor-pointer">
+<option>Last 30 Days</option>
+<option>Last 6 Months</option>
+<option>This Year</option>
+</select>
+</div>
+<div class="h-40 flex items-end justify-between space-x-2">
+<div class="w-full bg-green-100 dark:bg-green-900 rounded-t hover:bg-green-200 dark:hover:bg-green-800 transition-all relative group" style="height: 40%;">
+<div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">120</div>
+</div>
+<div class="w-full bg-green-100 dark:bg-green-900 rounded-t hover:bg-green-200 dark:hover:bg-green-800 transition-all relative group" style="height: 65%;"></div>
+<div class="w-full bg-green-100 dark:bg-green-900 rounded-t hover:bg-green-200 dark:hover:bg-green-800 transition-all relative group" style="height: 50%;"></div>
+<div class="w-full bg-green-200 dark:bg-green-800 rounded-t hover:bg-green-300 dark:hover:bg-green-700 transition-all relative group" style="height: 85%;"></div>
+<div class="w-full bg-green-300 dark:bg-green-700 rounded-t hover:bg-green-400 dark:hover:bg-green-600 transition-all relative group" style="height: 60%;"></div>
+<div class="w-full bg-primary rounded-t hover:bg-primary-dark transition-all relative group" style="height: 95%;">
+<div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">285</div>
+</div>
+<div class="w-full bg-green-300 dark:bg-green-700 rounded-t hover:bg-green-400 dark:hover:bg-green-600 transition-all relative group" style="height: 75%;"></div>
+</div>
+<div class="flex justify-between mt-2 text-xs text-gray-400 dark:text-gray-500 font-mono">
+<span>Week 1</span>
+<span>Week 2</span>
+<span>Week 3</span>
+<span>Week 4</span>
+</div>
+<div class="mt-4 flex items-center justify-between">
+<div>
+<p class="text-xs text-gray-500 dark:text-gray-400">Total Sold</p>
+<p class="font-bold text-lg text-gray-900 dark:text-white">842 Units</p>
+</div>
+<div class="text-right">
+<p class="text-xs text-gray-500 dark:text-gray-400">Revenue</p>
+<p class="font-bold text-lg text-primary">$46,310</p>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm p-6 border border-gray-100 dark:border-gray-700 md:col-span-2">
+<h4 class="font-semibold text-gray-900 dark:text-white mb-2">Description</h4>
+<p class="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                            A premium blend of organic nitrogen sources designed to promote rapid vegetative growth. Suitable for all crop types, especially leafy greens and corn. Slow-release formula ensures nutrient availability for up to 8 weeks. Certified organic by OMRI. Keep in a cool, dry place.
+                        </p>
+</div>
+</div>
+</div>
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+<div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+<h3 class="font-bold text-lg text-gray-900 dark:text-white">Stock History</h3>
+<button class="text-sm text-primary font-medium hover:text-primary-dark transition">View All Report</button>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+<th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+<th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+<th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Reference ID</th>
+<th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Quantity</th>
+<th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Performed By</th>
+<th class="px-6 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Balance</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Oct 26, 2023 <span class="text-gray-400 text-xs ml-1">10:42 AM</span></td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
+                                        Sale
+                                    </span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">ORD-9921</td>
+<td class="px-6 py-4 text-sm text-red-600 dark:text-red-400 font-medium">-4</td>
+<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">System</td>
+<td class="px-6 py-4 text-sm text-gray-900 dark:text-white font-semibold">12</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Oct 25, 2023 <span class="text-gray-400 text-xs ml-1">02:15 PM</span></td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">
+                                        Sale
+                                    </span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">ORD-9905</td>
+<td class="px-6 py-4 text-sm text-red-600 dark:text-red-400 font-medium">-10</td>
+<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">System</td>
+<td class="px-6 py-4 text-sm text-gray-900 dark:text-white font-semibold">16</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Oct 20, 2023 <span class="text-gray-400 text-xs ml-1">09:00 AM</span></td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                        Restock
+                                    </span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">PO-8823</td>
+<td class="px-6 py-4 text-sm text-green-600 dark:text-green-400 font-medium">+50</td>
+<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">Sarah Jenkins</td>
+<td class="px-6 py-4 text-sm text-gray-900 dark:text-white font-semibold">26</td>
+</tr>
+<tr class="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">Oct 18, 2023 <span class="text-gray-400 text-xs ml-1">11:30 AM</span></td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+                                        Adjustment
+                                    </span>
+</td>
+<td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono">ADJ-004</td>
+<td class="px-6 py-4 text-sm text-red-600 dark:text-red-400 font-medium">-2</td>
+<td class="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">Sarah Jenkins</td>
+<td class="px-6 py-4 text-sm text-gray-900 dark:text-white font-semibold">-24</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</main>
+
+</body></html>
