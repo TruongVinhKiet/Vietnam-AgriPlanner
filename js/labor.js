@@ -10,6 +10,8 @@ let workerDetailDailyChart = null;
 let workerDetailMonthlyChart = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    const page = document && document.body && document.body.dataset ? document.body.dataset.page : null;
+    if (page !== 'labor') return;
     loadTasks();
     loadRecruitmentInfo();
     initializeFarmId();
@@ -66,6 +68,19 @@ function showToast(title, message, type = 'info') {
             setTimeout(() => toast.remove(), 300);
         }
     }, 4000);
+}
+
+function openWorkerDetailPage(workerId) {
+    if (workerId == null) {
+        window.location.href = 'worker_detail.html';
+        return;
+    }
+    const wid = Number(workerId);
+    if (!Number.isFinite(wid)) {
+        window.location.href = 'worker_detail.html';
+        return;
+    }
+    window.location.href = `worker_detail.html?workerId=${encodeURIComponent(String(wid))}`;
 }
 
 // ==================== Confirm Modal Utility ====================
@@ -835,9 +850,22 @@ function getPayrollSummaryBlock(setting) {
     }
 
     const salaryAmount = setting.salaryAmount != null ? Number(setting.salaryAmount) : 0;
+    const payFrequency = setting.payFrequency ? String(setting.payFrequency).toUpperCase() : 'MONTHLY';
     const payDay = setting.payDayOfMonth != null ? Number(setting.payDayOfMonth) : null;
+    const payDayOfWeek = setting.payDayOfWeek != null ? Number(setting.payDayOfWeek) : null;
     const isActive = setting.isActive !== false;
     const lastPaidAt = setting.lastPaidAt ? new Date(setting.lastPaidAt).toLocaleDateString('vi-VN') : null;
+
+    const dowLabels = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+    const dowLabel = payDayOfWeek != null && payDayOfWeek >= 1 && payDayOfWeek <= 7
+        ? dowLabels[payDayOfWeek]
+        : 'Thứ 2';
+
+    const scheduleLabel = payFrequency === 'DAILY'
+        ? 'Hàng ngày'
+        : payFrequency === 'WEEKLY'
+            ? `Hàng tuần - ${dowLabel}`
+            : `Hàng tháng - ${payDay != null ? `Ngày ${payDay}` : 'N/A'}`;
 
     const statusBg = isActive ? '#dcfce7' : '#f1f5f9';
     const statusBorder = isActive ? '#bbf7d0' : '#e2e8f0';
@@ -849,7 +877,7 @@ function getPayrollSummaryBlock(setting) {
             <span style="font-size: 12px; color: #1e40af;">Lương: <strong>${formatCurrency(salaryAmount)}</strong></span>
         </div>
         <div style="background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px 12px; border-radius: 8px;">
-            <span style="font-size: 12px; color: #065f46;">Ngày trả: <strong>${payDay != null ? `Ngày ${payDay}` : 'N/A'}</strong></span>
+            <span style="font-size: 12px; color: #065f46;">Lịch trả: <strong>${scheduleLabel}</strong></span>
         </div>
         <div style="background: ${statusBg}; border: 1px solid ${statusBorder}; padding: 8px 12px; border-radius: 8px;">
             <span style="font-size: 12px; color: ${statusText};">Trạng thái: <strong>${statusLabel}</strong></span>
@@ -917,7 +945,9 @@ async function loadPayrollModalData(workerId) {
     if (!overlay) return;
 
     const amountInput = document.getElementById('payroll-salary-amount');
+    const payFrequencyInput = document.getElementById('payroll-pay-frequency');
     const payDayInput = document.getElementById('payroll-pay-day');
+    const payDayOfWeekInput = document.getElementById('payroll-pay-day-week');
     const activeInput = document.getElementById('payroll-active');
     const lastPaidEl = document.getElementById('payroll-last-paid');
     const settingStatusEl = document.getElementById('payroll-setting-status');
@@ -959,9 +989,19 @@ async function loadPayrollModalData(workerId) {
             return wid === Number(workerId) && (fid == null || fid === Number(farmId));
         });
 
+        const normalizedFrequency = setting && setting.payFrequency ? String(setting.payFrequency).toUpperCase() : 'MONTHLY';
+
         if (amountInput) amountInput.value = setting && setting.salaryAmount != null ? String(setting.salaryAmount) : '';
+        if (payFrequencyInput) {
+            payFrequencyInput.value = ['DAILY', 'WEEKLY', 'MONTHLY'].includes(normalizedFrequency)
+                ? normalizedFrequency
+                : 'MONTHLY';
+        }
         if (payDayInput) payDayInput.value = setting && setting.payDayOfMonth != null ? String(setting.payDayOfMonth) : '1';
+        if (payDayOfWeekInput) payDayOfWeekInput.value = setting && setting.payDayOfWeek != null ? String(setting.payDayOfWeek) : '1';
         if (activeInput) activeInput.checked = setting ? (setting.isActive !== false) : true;
+
+        updatePayrollFrequencyUI();
 
         const lastPaidAt = setting && setting.lastPaidAt ? new Date(setting.lastPaidAt).toLocaleString('vi-VN') : null;
         if (lastPaidEl) lastPaidEl.textContent = lastPaidAt ? lastPaidAt : 'Chưa có';
@@ -991,6 +1031,19 @@ async function loadPayrollModalData(workerId) {
         if (paymentsCountEl) paymentsCountEl.textContent = '0';
         showToast('Lỗi', e.message || 'Không thể tải dữ liệu lương', 'error');
     }
+}
+
+function updatePayrollFrequencyUI() {
+    const frequencyEl = document.getElementById('payroll-pay-frequency');
+    if (!frequencyEl) return;
+
+    const monthWrap = document.getElementById('payroll-pay-day-month-wrap');
+    const weekWrap = document.getElementById('payroll-pay-day-week-wrap');
+
+    const frequency = String(frequencyEl.value || 'MONTHLY').toUpperCase();
+
+    if (monthWrap) monthWrap.style.display = frequency === 'MONTHLY' ? 'block' : 'none';
+    if (weekWrap) weekWrap.style.display = frequency === 'WEEKLY' ? 'block' : 'none';
 }
 
 function ensurePayrollModal() {
@@ -1026,8 +1079,28 @@ function ensurePayrollModal() {
                             <input id="payroll-salary-amount" type="number" min="0" class="modal-input" placeholder="0">
                         </div>
                         <div>
+                            <label style="display: block; font-size: 13px; color: #374151; font-weight: 600;">Chu kỳ trả</label>
+                            <select id="payroll-pay-frequency" class="modal-input">
+                                <option value="MONTHLY">Hàng tháng</option>
+                                <option value="WEEKLY">Hàng tuần</option>
+                                <option value="DAILY">Hàng ngày</option>
+                            </select>
+                        </div>
+                        <div id="payroll-pay-day-month-wrap">
                             <label style="display: block; font-size: 13px; color: #374151; font-weight: 600;">Ngày trả (1-31)</label>
                             <input id="payroll-pay-day" type="number" min="1" max="31" class="modal-input" placeholder="1">
+                        </div>
+                        <div id="payroll-pay-day-week-wrap" style="display: none;">
+                            <label style="display: block; font-size: 13px; color: #374151; font-weight: 600;">Thứ trả</label>
+                            <select id="payroll-pay-day-week" class="modal-input">
+                                <option value="1">Thứ 2</option>
+                                <option value="2">Thứ 3</option>
+                                <option value="3">Thứ 4</option>
+                                <option value="4">Thứ 5</option>
+                                <option value="5">Thứ 6</option>
+                                <option value="6">Thứ 7</option>
+                                <option value="7">Chủ nhật</option>
+                            </select>
                         </div>
                     </div>
 
@@ -1077,6 +1150,12 @@ function ensurePayrollModal() {
     overlay.addEventListener('click', function (e) {
         if (e.target === overlay) closePayrollModal();
     });
+
+    const frequencyEl = document.getElementById('payroll-pay-frequency');
+    if (frequencyEl) {
+        frequencyEl.addEventListener('change', updatePayrollFrequencyUI);
+    }
+    updatePayrollFrequencyUI();
     return overlay;
 }
 
@@ -1120,13 +1199,38 @@ async function savePayrollSetting() {
 
     const saveBtn = document.getElementById('payroll-save-btn');
     const amountInput = document.getElementById('payroll-salary-amount');
+    const payFrequencyInput = document.getElementById('payroll-pay-frequency');
     const payDayInput = document.getElementById('payroll-pay-day');
+    const payDayOfWeekInput = document.getElementById('payroll-pay-day-week');
     const activeInput = document.getElementById('payroll-active');
 
     const salaryAmount = amountInput && amountInput.value != null ? Number(amountInput.value) : 0;
-    let payDay = payDayInput && payDayInput.value != null ? parseInt(payDayInput.value, 10) : 1;
-    if (!Number.isFinite(payDay) || payDay < 1) payDay = 1;
-    if (payDay > 31) payDay = 31;
+
+    const rawFrequency = payFrequencyInput && payFrequencyInput.value != null
+        ? String(payFrequencyInput.value)
+        : 'MONTHLY';
+    const payFrequency = ['DAILY', 'WEEKLY', 'MONTHLY'].includes(rawFrequency.toUpperCase())
+        ? rawFrequency.toUpperCase()
+        : 'MONTHLY';
+
+    let payDayOfMonth = payDayInput && payDayInput.value != null ? parseInt(payDayInput.value, 10) : 1;
+    if (!Number.isFinite(payDayOfMonth) || payDayOfMonth < 1) payDayOfMonth = 1;
+    if (payDayOfMonth > 31) payDayOfMonth = 31;
+
+    let payDayOfWeek = payDayOfWeekInput && payDayOfWeekInput.value != null
+        ? parseInt(payDayOfWeekInput.value, 10)
+        : 1;
+    if (!Number.isFinite(payDayOfWeek) || payDayOfWeek < 1) payDayOfWeek = 1;
+    if (payDayOfWeek > 7) payDayOfWeek = 7;
+
+    if (payFrequency === 'MONTHLY') {
+        payDayOfWeek = null;
+    } else if (payFrequency === 'WEEKLY') {
+        payDayOfMonth = 1;
+    } else {
+        payDayOfMonth = 1;
+        payDayOfWeek = null;
+    }
     const isActive = activeInput ? !!activeInput.checked : true;
 
     if (salaryAmount < 0) {
@@ -1152,7 +1256,9 @@ async function savePayrollSetting() {
             ownerId: ownerId,
             workerId: payrollModalWorkerId,
             salaryAmount: salaryAmount,
-            payDayOfMonth: payDay,
+            payFrequency: payFrequency,
+            payDayOfMonth: payDayOfMonth,
+            payDayOfWeek: payDayOfWeek,
             isActive: isActive
         });
 
@@ -1481,6 +1587,7 @@ window.loadRecruitmentInfo = loadRecruitmentInfo;
 window.showCVDetailModal = showCVDetailModal;
 window.showConfirmModal = showConfirmModal;
 window.loadApprovedWorkers = loadApprovedWorkers;
+window.openWorkerDetailPage = openWorkerDetailPage;
 window.openPayrollModal = openPayrollModal;
 window.closePayrollModal = closePayrollModal;
 window.refreshPayrollModal = refreshPayrollModal;
@@ -1592,7 +1699,7 @@ async function loadApprovedWorkers() {
                     const payrollSummary = getPayrollSummaryBlock(payrollSetting);
                     
                     return `
-                        <div class="worker-card" style="display: flex; gap: 20px; padding: 20px; background: white; border: 1px solid #e5e7eb; border-radius: 12px; transition: all 0.2s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
+                        <div class="worker-card" style="display: flex; gap: 20px; padding: 20px; background: white; border: 1px solid #e5e7eb; border-radius: 12px; transition: all 0.2s; cursor: pointer;" onclick="openWorkerDetailPage(${worker.id})" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
                             <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                                 <span class="material-symbols-outlined" style="color: #10b981; font-size: 32px;">person</span>
                             </div>
@@ -1636,11 +1743,11 @@ async function loadApprovedWorkers() {
                                 </div>
                             </div>
                             <div style="display: flex; flex-direction: column; gap: 8px;">
-                                <button onclick="assignTaskToWorker(${worker.id}, '${worker.fullName}')" class="btn btn--primary" style="padding: 8px 16px; font-size: 13px;">
+                                <button onclick="event.stopPropagation(); assignTaskToWorker(${worker.id}, '${worker.fullName}')" class="btn btn--primary" style="padding: 8px 16px; font-size: 13px;">
                                     <span class="material-symbols-outlined" style="font-size: 16px;">add_task</span>
                                     Giao việc
                                 </button>
-                                <button onclick="openPayrollModal(${worker.id})" class="btn btn--secondary" style="padding: 8px 16px; font-size: 13px;">
+                                <button onclick="event.stopPropagation(); openPayrollModal(${worker.id})" class="btn btn--secondary" style="padding: 8px 16px; font-size: 13px;">
                                     <span class="material-symbols-outlined" style="font-size: 16px;">payments</span>
                                     Lương
                                 </button>

@@ -238,11 +238,6 @@
                                 style="vertical-align: middle; margin-right: 4px;">groups</span>
                             Nhân công
                         </button>
-                        <button class="tab-btn" onclick="switchTab('worker-detail')">
-                            <span class="material-symbols-outlined"
-                                style="vertical-align: middle; margin-right: 4px;">badge</span>
-                            Chi tiết
-                        </button>
                         <button class="tab-btn" onclick="switchTab('tasks')">
                             <span class="material-symbols-outlined"
                                 style="vertical-align: middle; margin-right: 4px;">assignment</span>
@@ -301,35 +296,6 @@
                                     <div class="loading-spinner" style="text-align: center; padding: 3rem;">
                                         <span class="material-symbols-outlined" style="font-size: 48px; color: #d1d5db; animation: pulse 2s infinite;">groups</span>
                                         <p style="color: #6b7280; margin-top: 12px;">Đang tải danh sách nhân công...</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="worker-detail-tab" class="tab-content">
-                        <div class="card">
-                            <div class="card__header" style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
-                                <div>
-                                    <h3 class="card__title">Chi tiết nhân công</h3>
-                                    <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Thông tin, lịch sử công việc, chấm công và lương</p>
-                                </div>
-                                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
-                                    <select id="worker-detail-select" class="modal-input" style="min-width: 240px;" onchange="onWorkerDetailSelectChange(this.value)">
-                                        <option value="">-- Chọn nhân công --</option>
-                                    </select>
-                                    <button class="btn btn--secondary" onclick="switchTab('workers')">
-                                        <span class="material-symbols-outlined">arrow_back</span> Danh sách
-                                    </button>
-                                    <button class="btn btn--secondary" onclick="refreshWorkerDetailTab()">
-                                        <span class="material-symbols-outlined">refresh</span> Tải lại
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="card__body">
-                                <div id="worker-detail-content" style="min-height: 240px;">
-                                    <div style="text-align: center; padding: 3rem; color: #6b7280;">
-                                        Chọn nhân công để xem chi tiết.
                                     </div>
                                 </div>
                             </div>
@@ -524,9 +490,6 @@
             // Load data for specific tabs
             if (tabName === 'workers' && typeof loadApprovedWorkers === 'function') {
                 loadApprovedWorkers();
-            }
-            if (tabName === 'worker-detail' && typeof loadWorkerDetailTab === 'function') {
-                loadWorkerDetailTab();
             }
             if (tabName === 'feedback' && typeof loadOwnerHelpRequests === 'function') {
                 loadOwnerHelpRequests();

@@ -1,4 +1,3 @@
-
 const API_BASE = CONFIG.API_BASE_URL || 'http://localhost:8080/api';
 let workerId = null;
 let currentTab = 'home';
@@ -8,6 +7,7 @@ let workerFarmId = null;
 let workerOwnerId = null;
 
 let activeWorkLogsByTaskId = {};
+let workerTasksById = {};
 
 let taskCountdownIntervalId = null;
 
@@ -28,6 +28,11 @@ let pendingTopUpPreviewUrl = null;
 
 let selectedAvatarBase64 = null;
 let currentNewEmail = null;
+let inspectionModalContext = null;
+let inspectionSelectedImageBase64 = null;
+let inspectionSelectedFileName = null;
+let inspectionAiSuggestedValue = null;
+let inspectionAiSuggestionText = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. Auth Check
@@ -312,6 +317,7 @@ async function loadHomeData() {
     try {
         // Fetch tasks
         const tasks = await fetchAPI(`${API_BASE}/tasks/worker/${workerId}`);
+        cacheWorkerTasks(tasks);
         const today = new Date().toISOString().split('T')[0];
 
         // Filter Today's Tasks (simplified check)
@@ -362,6 +368,7 @@ async function loadTasksList() {
 
     try {
         const tasks = await fetchAPI(`${API_BASE}/tasks/worker/${workerId}`);
+        cacheWorkerTasks(tasks);
 
         await refreshActiveWorkLogs();
 
@@ -458,17 +465,28 @@ async function loadTasksList() {
     }
 }
 
+function cacheWorkerTasks(tasks) {
+    workerTasksById = {};
+    (Array.isArray(tasks) ? tasks : []).forEach(task => {
+        if (task && task.id != null) {
+            workerTasksById[task.id] = task;
+        }
+    });
+}
+
 async function completeTask(taskId) {
+    const task = workerTasksById && workerTasksById[taskId] ? workerTasksById[taskId] : null;
+    const inspectionInfo = getInspectionTaskInfo(task);
+    if (inspectionInfo) {
+        openInspectionCompletionModal(task, inspectionInfo);
+        return;
+    }
+
     if (!confirm('Xác nhận hoàn thành công việc?')) return;
 
     // Optimistic UI update could happen here, but reloading for safety
     try {
-        if (activeWorkLogsByTaskId[taskId] && !activeWorkLogsByTaskId[taskId].endedAt) {
-            try {
-                await fetchAPI(`${API_BASE}/worklogs/stop`, 'POST', { taskId, workerId });
-            } catch (e) { }
-            delete activeWorkLogsByTaskId[taskId];
-        }
+        await stopActiveWorkLogIfNeeded(taskId);
 
         // We use existing Execute Endpoint or a simple status update
         // Current API has /api/tasks/{id}/execute for Shopping, but maybe we need generic complete
@@ -481,6 +499,330 @@ async function completeTask(taskId) {
         loadUserProfile(); // Update balance if salary paid? (Not yet implemented auto-pay on task complete, usually periodic)
     } catch (e) {
         alert('Lỗi: ' + e.message);
+    }
+}
+
+function getInspectionTaskInfo(task) {
+    if (!task) return null;
+    const taskType = task.taskType != null ? String(task.taskType).toUpperCase() : '';
+    if (taskType !== 'OTHER') return null;
+
+    const name = task.name != null ? String(task.name).toLowerCase() : '';
+    const isFieldName = name.startsWith('kiểm tra ruộng');
+    const isPenName = name.startsWith('kiểm tra chuồng');
+
+    const hasField = task.field != null;
+    const hasPen = task.pen != null;
+
+    if (hasField && (isFieldName || !hasPen)) return { kind: 'FIELD' };
+    if (hasPen && (isPenName || !hasField)) return { kind: 'PEN' };
+    return null;
+}
+
+function getInspectionValueLabel(kind, value) {
+    const v = value != null ? String(value).toUpperCase() : '';
+    if (kind === 'FIELD') {
+        const map = { GOOD: 'Tốt', FAIR: 'Trung bình', POOR: 'Kém' };
+        return map[v] || v;
+    }
+    if (kind === 'PEN') {
+        const map = { CLEAN: 'Sạch', DIRTY: 'Bẩn', SICK: 'Có dấu hiệu bệnh' };
+        return map[v] || v;
+    }
+    return v;
+}
+
+function getInspectionDefaultValue(task, info) {
+    const kind = info && info.kind ? info.kind : null;
+    if (kind === 'FIELD') {
+        const current = task && task.field && task.field.condition != null ? String(task.field.condition).toUpperCase() : null;
+        return current === 'GOOD' || current === 'FAIR' || current === 'POOR' ? current : 'GOOD';
+    }
+    if (kind === 'PEN') {
+        const current = task && task.pen && task.pen.status != null ? String(task.pen.status).toUpperCase() : null;
+        return current === 'CLEAN' || current === 'DIRTY' || current === 'SICK' ? current : 'CLEAN';
+    }
+    return '';
+}
+
+function openInspectionCompletionModal(task, info) {
+    if (!task || !info) return;
+
+    inspectionModalContext = { taskId: task.id, kind: info.kind };
+    inspectionSelectedImageBase64 = null;
+    inspectionSelectedFileName = null;
+    inspectionAiSuggestedValue = null;
+    inspectionAiSuggestionText = null;
+
+    const kind = info.kind;
+    const label = kind === 'FIELD' ? 'Tình trạng ruộng' : 'Tình trạng chuồng';
+    const defaultValue = getInspectionDefaultValue(task, info);
+
+    const options = kind === 'FIELD'
+        ? [
+            { value: 'GOOD', label: 'Tốt' },
+            { value: 'FAIR', label: 'Trung bình' },
+            { value: 'POOR', label: 'Kém' }
+        ]
+        : [
+            { value: 'CLEAN', label: 'Sạch' },
+            { value: 'DIRTY', label: 'Bẩn' },
+            { value: 'SICK', label: 'Có dấu hiệu bệnh' }
+        ];
+
+    const optionsHtml = options.map(opt => {
+        const selected = opt.value === defaultValue ? 'selected' : '';
+        return `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
+    }).join('');
+
+    openModal('inspection-complete-modal', `
+        <div class="bg-white rounded-2xl p-6 w-[640px] max-w-full">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-800">Hoàn thành kiểm tra</h3>
+                    <p class="text-sm text-gray-500 mt-1">${escapeHtml(task.name || '')}</p>
+                </div>
+                <button type="button" class="w-9 h-9 rounded-lg hover:bg-gray-100 flex items-center justify-center" onclick="closeModal('inspection-complete-modal')">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+
+            <div class="mt-5 space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">${label}</label>
+                    <select id="inspection-condition-select" class="w-full rounded-lg border-gray-300 focus:border-primary focus:ring-primary">
+                        ${optionsHtml}
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Ảnh (tuỳ chọn)</label>
+                    <input type="file" id="inspection-image-input" accept="image/*" class="w-full" onchange="onInspectionImageSelected(event)" />
+                    <div id="inspection-image-preview" class="hidden mt-3 rounded-xl border border-gray-200 overflow-hidden">
+                        <img id="inspection-image-preview-img" src="" class="w-full max-h-72 object-contain bg-gray-50" alt="preview" />
+                        <div class="px-3 py-2 text-xs text-gray-500" id="inspection-image-file-name"></div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button id="inspection-ai-btn" type="button" class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed" onclick="runInspectionAiSuggestion()" disabled>
+                        <span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 6px;">auto_awesome</span>
+                        Gợi ý AI
+                    </button>
+                    <button id="inspection-ai-apply-btn" type="button" class="px-4 py-2 rounded-lg bg-green-50 text-primary font-medium hover:bg-green-100 disabled:opacity-60 disabled:cursor-not-allowed" onclick="applyInspectionAiSuggestion()" disabled>
+                        Áp dụng gợi ý
+                    </button>
+                </div>
+
+                <div id="inspection-ai-result" class="hidden p-4 rounded-xl border border-gray-200 bg-gray-50">
+                    <div class="text-sm font-semibold text-gray-800">Gợi ý AI</div>
+                    <div class="text-sm text-gray-600 mt-1" id="inspection-ai-result-text"></div>
+                    <div class="text-xs text-gray-500 mt-2" id="inspection-ai-result-value"></div>
+                </div>
+
+                <div id="inspection-complete-error" class="hidden p-3 rounded-lg bg-red-50 text-red-600 text-sm"></div>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50" onclick="closeModal('inspection-complete-modal')">Hủy</button>
+                <button id="inspection-complete-btn" type="button" class="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark" onclick="submitInspectionCompletion(${task.id})">Hoàn thành</button>
+            </div>
+        </div>
+    `);
+}
+
+function onInspectionImageSelected(event) {
+    const file = event && event.target && event.target.files ? event.target.files[0] : null;
+    const previewWrap = document.getElementById('inspection-image-preview');
+    const previewImg = document.getElementById('inspection-image-preview-img');
+    const fileNameEl = document.getElementById('inspection-image-file-name');
+    const aiBtn = document.getElementById('inspection-ai-btn');
+    const applyBtn = document.getElementById('inspection-ai-apply-btn');
+    const aiBox = document.getElementById('inspection-ai-result');
+    const errorEl = document.getElementById('inspection-complete-error');
+
+    if (errorEl) errorEl.classList.add('hidden');
+
+    inspectionSelectedImageBase64 = null;
+    inspectionSelectedFileName = null;
+    inspectionAiSuggestedValue = null;
+    inspectionAiSuggestionText = null;
+
+    if (aiBox) aiBox.classList.add('hidden');
+    if (applyBtn) applyBtn.disabled = true;
+
+    if (!file) {
+        if (previewWrap) previewWrap.classList.add('hidden');
+        if (aiBtn) aiBtn.disabled = true;
+        if (fileNameEl) fileNameEl.textContent = '';
+        if (previewImg) previewImg.src = '';
+        return;
+    }
+
+    inspectionSelectedFileName = file.name || '';
+    if (fileNameEl) fileNameEl.textContent = inspectionSelectedFileName;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        inspectionSelectedImageBase64 = e.target?.result;
+        if (previewImg) previewImg.src = inspectionSelectedImageBase64 || '';
+        if (previewWrap) previewWrap.classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+
+    if (aiBtn) aiBtn.disabled = false;
+}
+
+function runInspectionAiSuggestion() {
+    const errorEl = document.getElementById('inspection-complete-error');
+    const btn = document.getElementById('inspection-ai-btn');
+    const applyBtn = document.getElementById('inspection-ai-apply-btn');
+
+    if (errorEl) errorEl.classList.add('hidden');
+
+    if (!inspectionSelectedFileName) {
+        if (errorEl) {
+            errorEl.textContent = 'Vui lòng chọn ảnh trước.';
+            errorEl.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const oldHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 6px;">sync</span> Đang phân tích...';
+    }
+    if (applyBtn) applyBtn.disabled = true;
+
+    setTimeout(() => {
+        const kind = inspectionModalContext && inspectionModalContext.kind ? inspectionModalContext.kind : null;
+        const name = String(inspectionSelectedFileName || '').toLowerCase();
+
+        let suggestedValue = null;
+        let text = 'Không thể xác định rõ từ ảnh. Vui lòng chọn thủ công.';
+
+        if (kind === 'FIELD') {
+            if (name.includes('cay_khoe') || name.includes('healthy') || name.includes('khoe')) {
+                suggestedValue = 'GOOD';
+                text = 'AI nhận định ruộng/cây trồng đang ở trạng thái tốt.';
+            } else if (
+                name.includes('ray') ||
+                name.includes('sau') ||
+                name.includes('pest') ||
+                name.includes('benh') ||
+                name.includes('dao_on') ||
+                name.includes('nhen') ||
+                name.includes('rep') ||
+                name.includes('virus') ||
+                name.includes('kham') ||
+                name.includes('oc_')
+            ) {
+                suggestedValue = 'POOR';
+                text = 'AI phát hiện dấu hiệu sâu bệnh/bất thường. Nên kiểm tra kỹ và xử lý kịp thời.';
+            }
+        } else if (kind === 'PEN') {
+            if (name.includes('chuong_sach') || name.includes('clean') || name.includes('sach')) {
+                suggestedValue = 'CLEAN';
+                text = 'AI nhận định chuồng trại sạch sẽ.';
+            } else if (name.includes('chuong_do') || name.includes('dirty') || name.includes('ban')) {
+                suggestedValue = 'DIRTY';
+                text = 'AI nhận định chuồng trại bẩn, cần vệ sinh.';
+            } else if (name.includes('sick') || name.includes('benh') || name.includes('om')) {
+                suggestedValue = 'SICK';
+                text = 'AI phát hiện dấu hiệu bất thường về sức khỏe vật nuôi.';
+            }
+        }
+
+        inspectionAiSuggestedValue = suggestedValue;
+        inspectionAiSuggestionText = text;
+
+        const aiBox = document.getElementById('inspection-ai-result');
+        const aiTextEl = document.getElementById('inspection-ai-result-text');
+        const aiValueEl = document.getElementById('inspection-ai-result-value');
+
+        if (aiTextEl) aiTextEl.textContent = text || '';
+        if (aiValueEl) {
+            aiValueEl.textContent = suggestedValue
+                ? `Đề xuất: ${getInspectionValueLabel(kind, suggestedValue)} (${suggestedValue})`
+                : 'Không đưa ra đề xuất tự động.';
+        }
+        if (aiBox) aiBox.classList.remove('hidden');
+        if (applyBtn) applyBtn.disabled = !suggestedValue;
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+        }
+    }, 900);
+}
+
+function applyInspectionAiSuggestion() {
+    const select = document.getElementById('inspection-condition-select');
+    if (!select || !inspectionAiSuggestedValue) return;
+    select.value = inspectionAiSuggestedValue;
+}
+
+async function submitInspectionCompletion(taskId) {
+    const select = document.getElementById('inspection-condition-select');
+    const conditionRaw = select ? String(select.value || '').trim() : '';
+    const condition = conditionRaw.toUpperCase();
+    const btn = document.getElementById('inspection-complete-btn');
+    const oldHtml = btn ? btn.innerHTML : '';
+    const errorEl = document.getElementById('inspection-complete-error');
+
+    if (errorEl) errorEl.classList.add('hidden');
+
+    if (!condition) {
+        if (errorEl) {
+            errorEl.textContent = 'Vui lòng chọn tình trạng.';
+            errorEl.classList.remove('hidden');
+        }
+        return;
+    }
+
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 18px; vertical-align: middle; margin-right: 6px;">sync</span> Đang lưu...';
+    }
+
+    try {
+        await stopActiveWorkLogIfNeeded(taskId);
+
+        const payload = { condition };
+        if (inspectionAiSuggestionText) {
+            payload.aiSuggestion = inspectionAiSuggestedValue
+                ? `${inspectionAiSuggestedValue}: ${inspectionAiSuggestionText}`
+                : inspectionAiSuggestionText;
+        }
+
+        await fetchAPI(`${API_BASE}/tasks/${taskId}/complete`, 'POST', payload);
+
+        closeModal('inspection-complete-modal');
+        showNotification('success', 'Thành công', 'Đã hoàn thành kiểm tra');
+
+        loadHomeData();
+        loadTasksList();
+        loadUserProfile();
+    } catch (e) {
+        if (errorEl) {
+            errorEl.textContent = 'Không thể hoàn thành công việc.';
+            errorEl.classList.remove('hidden');
+        }
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = oldHtml;
+        }
+    }
+}
+
+async function stopActiveWorkLogIfNeeded(taskId) {
+    if (activeWorkLogsByTaskId[taskId] && !activeWorkLogsByTaskId[taskId].endedAt) {
+        try {
+            await fetchAPI(`${API_BASE}/worklogs/stop`, 'POST', { taskId, workerId });
+        } catch (e) { }
+        delete activeWorkLogsByTaskId[taskId];
     }
 }
 
@@ -540,12 +882,25 @@ async function loadPayrollData(notifyOnError = false) {
             } else {
                 const activeSetting = settings.find(s => s && s.isActive !== false) || settings[0];
                 const salaryAmount = activeSetting && activeSetting.salaryAmount != null ? Number(activeSetting.salaryAmount) : 0;
+                const payFrequency = activeSetting && activeSetting.payFrequency ? String(activeSetting.payFrequency).toUpperCase() : 'MONTHLY';
                 const payDay = activeSetting && activeSetting.payDayOfMonth != null ? activeSetting.payDayOfMonth : null;
+                const payDayOfWeek = activeSetting && activeSetting.payDayOfWeek != null ? activeSetting.payDayOfWeek : null;
                 const isActive = activeSetting && activeSetting.isActive !== false;
                 const ownerName = activeSetting && activeSetting.owner && activeSetting.owner.fullName
                     ? activeSetting.owner.fullName
                     : (activeSetting && activeSetting.owner && activeSetting.owner.id ? `Owner#${activeSetting.owner.id}` : 'Chủ trang trại');
                 const lastPaidAt = activeSetting && activeSetting.lastPaidAt ? new Date(activeSetting.lastPaidAt).toLocaleString('vi-VN') : null;
+
+                const dowLabels = ['', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+                const dowLabel = payDayOfWeek != null && payDayOfWeek >= 1 && payDayOfWeek <= 7
+                    ? dowLabels[payDayOfWeek]
+                    : 'Thứ 2';
+
+                const scheduleLabel = payFrequency === 'DAILY'
+                    ? 'Hàng ngày'
+                    : payFrequency === 'WEEKLY'
+                        ? `Hàng tuần - ${dowLabel}`
+                        : (payDay != null ? `Ngày ${payDay} hàng tháng` : 'N/A');
 
                 summaryEl.innerHTML = `
                     <div class="space-y-2">
@@ -558,8 +913,8 @@ async function loadPayrollData(notifyOnError = false) {
                             <span class="font-semibold text-gray-800">${formatCurrency(salaryAmount)}</span>
                         </div>
                         <div class="flex items-center justify-between gap-3">
-                            <span class="text-gray-500">Ngày trả</span>
-                            <span class="font-semibold text-gray-800">${payDay != null ? `Ngày ${payDay} hàng tháng` : 'N/A'}</span>
+                            <span class="text-gray-500">Lịch trả</span>
+                            <span class="font-semibold text-gray-800">${scheduleLabel}</span>
                         </div>
                         <div class="flex items-center justify-between gap-3">
                             <span class="text-gray-500">Trạng thái</span>

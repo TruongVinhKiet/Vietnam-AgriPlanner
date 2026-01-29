@@ -26,6 +26,12 @@ public class TaskService {
     @Autowired
     private WalletService walletService;
 
+    @Autowired
+    private FieldService fieldService;
+
+    @Autowired
+    private PenRepository penRepository;
+
     @Transactional
     public Task assignTask(Task task) {
         // Smart Logic: Check Inventory if task requires items and is NOT a buy task
@@ -90,17 +96,32 @@ public class TaskService {
 
     @Transactional
     public void completeTask(Long taskId) {
+        completeTask(taskId, null, null);
+    }
+
+    @Transactional
+    public void completeTask(Long taskId, String condition, String aiSuggestion) {
         Task task = taskRepository.findById(Objects.requireNonNull(taskId))
                 .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        applyInspectionUpdateIfNeeded(task, condition, aiSuggestion);
 
         if (task.getTaskType() == TaskType.BUY_SUPPLIES) {
             // Execute Buy
             ShopItem item = task.getRelatedItem();
+            if (item == null) {
+                throw new RuntimeException("Shop Item missing");
+            }
+            if (task.getQuantityRequired() == null) {
+                throw new RuntimeException("Quantity required missing");
+            }
+
             BigDecimal cost = item.getPrice().multiply(task.getQuantityRequired());
 
             // Deduct from Owner
-            if (task.getOwner() == null || task.getOwner().getId() == null)
+            if (task.getOwner() == null || task.getOwner().getId() == null) {
                 throw new RuntimeException("Owner ID missing");
+            }
             walletService.deductFunds(task.getOwner().getId(), cost, "Chi phí mua vật tư (Worker: "
                     + (task.getWorker() != null ? task.getWorker().getFullName() : "Unknown") + ")");
 
@@ -110,34 +131,20 @@ public class TaskService {
 
             ui.addQuantity(task.getQuantityRequired());
             userInventoryRepository.save(ui);
-
-            task.setStatus("COMPLETED");
-            task.setCompletedAt(java.time.LocalDateTime.now());
-            taskRepository.save(task);
         } else {
             // Normal task Logic (Deduct inventory if needed)
             if (task.getRelatedItem() != null && task.getQuantityRequired() != null) {
                 ShopItem item = task.getRelatedItem();
 
-                if (task.getOwner() == null || task.getOwner().getId() == null)
+                if (task.getOwner() == null || task.getOwner().getId() == null) {
                     throw new RuntimeException("Owner ID missing");
+                }
 
-                // Find inventory to deduct (FIFO or any batch)
+                // Find inventory to deduct
                 Optional<UserInventory> uiOpt = userInventoryRepository
                         .findByUserIdAndShopItemId(task.getOwner().getId(), item.getId());
 
                 if (uiOpt.isEmpty() || uiOpt.get().getQuantity().compareTo(task.getQuantityRequired()) < 0) {
-                    // Check total stock again just in case (optional, but robust)
-                    // For simplicity, failing if single main entry is insufficient or implement
-                    // batch logic
-                    // Here relying on findByUserIdAndShopItemId returning the aggregate or singular
-                    // entry
-                    // If UserInventory has batches, we need to iterate.
-                    // Provided repository has findByUserIdAndShopItemId returning
-                    // Optional<UserInventory>, implying uniqueness or primary entry.
-                    // But previously I saw findByUserIdAndCategory returning List.
-                    // Let's stick to the method that exists: findByUserIdAndShopItemId
-
                     UserInventory ui = uiOpt
                             .orElseThrow(() -> new RuntimeException("Không tìm thấy vật tư trong kho!"));
                     if (!ui.subtractQuantity(task.getQuantityRequired())) {
@@ -150,9 +157,52 @@ public class TaskService {
                     userInventoryRepository.save(ui);
                 }
             }
-            task.setStatus("COMPLETED");
-            task.setCompletedAt(java.time.LocalDateTime.now());
-            taskRepository.save(task);
+        }
+
+        task.setStatus("COMPLETED");
+        task.setCompletedAt(java.time.LocalDateTime.now());
+        taskRepository.save(task);
+    }
+
+    private void applyInspectionUpdateIfNeeded(Task task, String condition, String aiSuggestion) {
+        if (task == null) {
+            return;
+        }
+        if (aiSuggestion != null && !aiSuggestion.isBlank()) {
+            String existing = task.getDescription() != null ? task.getDescription() : "";
+            String suffix = "AI: " + aiSuggestion.trim();
+            if (existing.isBlank()) {
+                task.setDescription(suffix);
+            } else {
+                task.setDescription(existing + "\n" + suffix);
+            }
+        }
+
+        if (condition == null || condition.isBlank()) {
+            return;
+        }
+
+        if (task.getTaskType() != TaskType.OTHER) {
+            return;
+        }
+
+        String normalized = condition.trim().toUpperCase();
+
+        if (task.getField() != null && task.getField().getId() != null) {
+            fieldService.updateFieldCondition(task.getField().getId(), normalized);
+            return;
+        }
+
+        if (task.getPen() != null && task.getPen().getId() != null) {
+            if (!"CLEAN".equals(normalized) && !"DIRTY".equals(normalized) && !"SICK".equals(normalized)
+                    && !"EMPTY".equals(normalized)) {
+                throw new IllegalArgumentException("Invalid pen status: " + condition);
+            }
+
+            Pen pen = penRepository.findById(task.getPen().getId())
+                    .orElseThrow(() -> new RuntimeException("Pen not found"));
+            pen.setStatus(normalized);
+            penRepository.save(pen);
         }
     }
 

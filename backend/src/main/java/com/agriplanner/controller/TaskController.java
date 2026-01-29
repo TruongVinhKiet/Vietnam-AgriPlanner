@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @RestController
@@ -95,12 +96,14 @@ public class TaskController {
     }
 
     @PostMapping("/{id}/complete")
-    public ResponseEntity<?> completeTask(@PathVariable Long id) {
+    public ResponseEntity<?> completeTask(@PathVariable Long id, @RequestBody(required = false) Map<String, String> request) {
         try {
-            taskService.completeTask(id);
-            return ResponseEntity.ok().body("Task completed successfully");
+            String condition = request != null ? request.get("condition") : null;
+            String aiSuggestion = request != null ? request.get("aiSuggestion") : null;
+            taskService.completeTask(id, condition, aiSuggestion);
+            return ResponseEntity.ok().body(Map.of("message", "Task completed successfully"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 

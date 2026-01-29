@@ -46,6 +46,12 @@ public class SalarySetting {
     @Column(name = "pay_day_of_month", nullable = false)
     private Integer payDayOfMonth;
 
+    @Column(name = "pay_frequency", nullable = false, length = 20)
+    private String payFrequency;
+
+    @Column(name = "pay_day_of_week")
+    private Integer payDayOfWeek;
+
     @Column(name = "is_active")
     private Boolean isActive;
 
@@ -68,6 +74,9 @@ public class SalarySetting {
         }
         if (payDayOfMonth == null) {
             payDayOfMonth = 1;
+        }
+        if (payFrequency == null) {
+            payFrequency = "MONTHLY";
         }
         if (isActive == null) {
             isActive = true;

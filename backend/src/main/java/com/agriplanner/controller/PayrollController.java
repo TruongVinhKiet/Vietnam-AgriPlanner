@@ -35,8 +35,16 @@ public class PayrollController {
                     ? new BigDecimal(request.get("salaryAmount").toString())
                     : null;
 
+            String payFrequency = request.get("payFrequency") != null
+                    ? request.get("payFrequency").toString()
+                    : null;
+
             Integer payDayOfMonth = request.get("payDayOfMonth") != null
                     ? Integer.valueOf(request.get("payDayOfMonth").toString())
+                    : null;
+
+            Integer payDayOfWeek = request.get("payDayOfWeek") != null
+                    ? Integer.valueOf(request.get("payDayOfWeek").toString())
                     : null;
 
             Boolean isActive = request.get("isActive") != null
@@ -44,7 +52,7 @@ public class PayrollController {
                     : null;
 
             SalarySetting setting = payrollService.upsertSalarySetting(farmId, ownerId, workerId, salaryAmount,
-                    payDayOfMonth, isActive);
+                    payFrequency, payDayOfMonth, payDayOfWeek, isActive);
             return ResponseEntity.ok(setting);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
