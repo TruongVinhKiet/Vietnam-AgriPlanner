@@ -597,7 +597,13 @@ function openInspectionCompletionModal(task, info) {
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Ảnh (tuỳ chọn)</label>
-                    <input type="file" id="inspection-image-input" accept="image/*" class="w-full" onchange="onInspectionImageSelected(event)" />
+                    <div class="bg-green-50 border-2 border-dashed border-primary rounded-xl p-8 text-center cursor-pointer" onclick="document.getElementById('inspection-image-input').click()">
+                        <span class="material-symbols-outlined" style="font-size: 48px; color: #10b981;">cloud_upload</span>
+                        <p class="mt-2 text-sm font-medium text-green-800">Click để chọn hình ảnh</p>
+                        <p class="mt-1 text-xs text-green-700 opacity-80">JPG, PNG...</p>
+                    </div>
+
+                    <input type="file" id="inspection-image-input" accept="image/*" class="hidden" onchange="onInspectionImageSelected(event)" />
                     <div id="inspection-image-preview" class="hidden mt-3 rounded-xl border border-gray-200 overflow-hidden">
                         <img id="inspection-image-preview-img" src="" class="w-full max-h-72 object-contain bg-gray-50" alt="preview" />
                         <div class="px-3 py-2 text-xs text-gray-500" id="inspection-image-file-name"></div>

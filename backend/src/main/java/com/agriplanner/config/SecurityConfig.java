@@ -92,6 +92,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/friends/**").permitAll()
                         // Money transfer
                         .requestMatchers("/api/money/**").permitAll()
+                        // Planning zones (Quy hoạch đất đai)
+                        .requestMatchers("/api/planning-zones/**").permitAll()
+                        // KMZ overlay images (public for map display)
+                        .requestMatchers("/api/kmz/images/**").permitAll()
                         // Static uploads (images, videos)
                         .requestMatchers("/uploads/**").permitAll()
                         // Debug
@@ -117,6 +121,9 @@ public class SecurityConfig {
 
                         // Work logs
                         .requestMatchers("/api/worklogs/**").hasAnyRole("WORKER", "OWNER", "SYSTEM_ADMIN")
+
+                        // KMZ uploads - allow for all authenticated users
+                        .requestMatchers("/api/admin/kmz/**").authenticated()
 
                         // Admin only endpoints
                         .requestMatchers("/api/admin/**").hasRole("SYSTEM_ADMIN")

@@ -10,7 +10,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
 
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
 
     <link rel="stylesheet" href="../css/variables.css">
     <link rel="stylesheet" href="../css/base.css">
@@ -22,6 +23,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" type="image/x-icon" href="../images/logo.png">
 
     <style>
         .modal-overlay {
@@ -85,8 +87,9 @@
     <div class="app-container">
         <aside class="sidebar">
             <div class="sidebar__header">
-                <div class="sidebar__logo-icon">
-                    <span class="material-symbols-outlined">eco</span>
+                <div class="sidebar__logo-icon" style="background: none; padding: 0;">
+                    <img src="../images/logo.png" alt="AgriPlanner Logo"
+                        style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
                 </div>
                 <h1 class="sidebar__logo-text">AgriPlanner</h1>
             </div>
@@ -173,7 +176,8 @@
 
             <main class="main-content">
                 <div class="main-content__container">
-                    <div class="page-header" style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start;">
+                    <div class="page-header"
+                        style="display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start;">
                         <div>
                             <h2 class="page-header__title" id="worker-detail-title">Chi tiết nhân công</h2>
                             <p class="page-header__subtitle">Thông tin, lịch sử công việc, chấm công và lương</p>

@@ -69,6 +69,13 @@ function logActivity(action, entity, details) {
 function initNavigation() {
     document.querySelectorAll('.sidebar-item').forEach(item => {
         item.addEventListener('click', (e) => {
+            // Allow navigation for real links (not just # or tabs)
+            const href = item.getAttribute('href');
+            if (href && href !== '#' && !href.startsWith('#')) {
+                // Don't prevent default - let the browser navigate
+                return;
+            }
+            
             e.preventDefault();
             const tab = item.dataset.tab;
 

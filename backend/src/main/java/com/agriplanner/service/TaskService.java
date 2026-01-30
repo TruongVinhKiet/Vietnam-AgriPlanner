@@ -199,7 +199,8 @@ public class TaskService {
                 throw new IllegalArgumentException("Invalid pen status: " + condition);
             }
 
-            Pen pen = penRepository.findById(task.getPen().getId())
+            Long penId = Objects.requireNonNull(task.getPen().getId());
+            Pen pen = penRepository.findById(penId)
                     .orElseThrow(() -> new RuntimeException("Pen not found"));
             pen.setStatus(normalized);
             penRepository.save(pen);
@@ -207,10 +208,16 @@ public class TaskService {
     }
 
     public List<Task> getWorkerTasks(Long workerId) {
+        if (workerId == null) {
+            throw new IllegalArgumentException("Worker ID is required");
+        }
         return taskRepository.findByWorker_Id(workerId);
     }
 
     public List<Task> getOwnerTasks(Long ownerId) {
+        if (ownerId == null) {
+            throw new IllegalArgumentException("Owner ID is required");
+        }
         return taskRepository.findByOwner_Id(ownerId);
     }
 

@@ -299,7 +299,7 @@ public class DailyAutoTaskScheduler {
         String description;
         String priority;
 
-        if (hasActivePests) {
+        if (hasActivePests && firstDetection != null) {
             dueCandidate = LocalDateTime.of(today, LocalTime.of(8, 30));
             priority = "HIGH";
 
@@ -327,7 +327,7 @@ public class DailyAutoTaskScheduler {
         ShopItem relatedItem = null;
         BigDecimal quantityRequired = null;
 
-        if (hasActivePests) {
+        if (hasActivePests && firstDetection != null) {
             String keyword = firstDetection.getPestName();
             if (keyword != null && !keyword.isBlank()) {
                 List<ShopItem> byKeyword = shopItemRepository.searchByKeyword(keyword);

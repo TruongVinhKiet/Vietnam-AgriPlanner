@@ -529,6 +529,218 @@
             border-color: var(--color-primary);
         }
 
+        .map-layer-btn--planning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            border-color: #d97706;
+        }
+
+        .map-layer-btn--planning:hover {
+            background: linear-gradient(135deg, #d97706, #b45309);
+        }
+
+        .map-layer-btn--planning.active {
+            background: linear-gradient(135deg, #059669, #047857);
+            border-color: #047857;
+            box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.3);
+        }
+
+        /* Planning Source Card Featured */
+        .planning-source-card--featured {
+            border: 2px solid #059669 !important;
+            background: linear-gradient(to right, #ecfdf5, #f0fdf4) !important;
+            box-shadow: 0 4px 15px rgba(5, 150, 105, 0.2) !important;
+        }
+
+        .planning-source-card--featured:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(5, 150, 105, 0.3) !important;
+        }
+
+        .planning-source-card--featured .planning-source-info h5 {
+            color: #047857 !important;
+            font-size: 15px !important;
+        }
+
+        /* Planning Sync Bar */
+        .planning-sync-bar {
+            position: absolute;
+            top: var(--spacing-4);
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            background: linear-gradient(135deg, #059669, #047857);
+            padding: 10px 16px;
+            border-radius: var(--radius-xl);
+            box-shadow: 0 4px 20px rgba(5, 150, 105, 0.4);
+            color: white;
+            min-width: 500px;
+            max-width: 700px;
+        }
+
+        .planning-sync-bar__info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .planning-sync-bar__info .material-symbols-outlined {
+            font-size: 18px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .planning-sync-bar__actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .planning-sync-btn {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: var(--radius-md);
+            color: white;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .planning-sync-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .planning-sync-btn .material-symbols-outlined {
+            font-size: 16px;
+        }
+
+        .planning-sync-btn--secondary {
+            background: transparent;
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .planning-sync-btn--primary {
+            background: rgba(255, 255, 255, 0.95);
+            color: #059669;
+            border-color: white;
+            font-weight: 600;
+        }
+
+        .planning-sync-btn--primary:hover {
+            background: white;
+            transform: scale(1.02);
+        }
+
+        .planning-sync-btn--close {
+            background: rgba(239, 68, 68, 0.3);
+            border-color: rgba(239, 68, 68, 0.5);
+            padding: 6px 8px;
+        }
+
+        .planning-sync-btn--close:hover {
+            background: rgba(239, 68, 68, 0.5);
+        }
+
+        /* Planning Legend */
+        .planning-legend {
+            position: absolute;
+            bottom: var(--spacing-6);
+            right: var(--spacing-4);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow-lg);
+            border: 2px solid #f59e0b;
+            padding: var(--spacing-3);
+            min-width: 200px;
+            z-index: 1000;
+        }
+
+        .planning-legend__header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            color: #d97706;
+            margin-bottom: var(--spacing-2);
+            padding-bottom: var(--spacing-2);
+            border-bottom: 1px solid #fcd34d;
+        }
+
+        .planning-legend__header .material-symbols-outlined {
+            font-size: 18px;
+        }
+
+        .planning-legend__items {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: var(--spacing-3);
+        }
+
+        .planning-legend__item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #4b5563;
+        }
+
+        .planning-legend__dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .planning-legend__actions {
+            display: flex;
+            gap: 8px;
+            padding-top: var(--spacing-2);
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .planning-legend__actions .btn {
+            flex: 1;
+            font-size: 11px;
+            padding: 6px 8px;
+        }
+
+        /* Planning Zone Tooltip */
+        .planning-zone-tooltip {
+            background: rgba(245, 158, 11, 0.95) !important;
+            border: none !important;
+            color: white !important;
+            font-weight: 500;
+            padding: 4px 10px !important;
+            border-radius: 6px !important;
+        }
+
+        .planning-zone-tooltip::before {
+            border-top-color: rgba(245, 158, 11, 0.95) !important;
+        }
+
         @keyframes spin {
             from {
                 transform: rotate(0deg);
@@ -1430,14 +1642,21 @@
             }
         }
     </style>
+    <link rel="icon" type="image/x-icon" href="../images/logo.png">
 </head>
 
 <body data-page="cultivation">
+    <!-- Map Container -->
+    <div id="map"></div>
+
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar__header">
-                <div class="sidebar__logo-icon"><span class="material-symbols-outlined">eco</span></div>
+                <div class="sidebar__logo-icon" style="background: none; padding: 0;">
+                    <img src="../images/logo.png" alt="AgriPlanner Logo"
+                        style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                </div>
                 <h1 class="sidebar__logo-text">AgriPlanner</h1>
             </div>
             <nav class="sidebar__nav">
@@ -1551,6 +1770,36 @@
                         <button class="map-layer-btn" data-layer="streets">Đường phố</button>
                         <button class="map-layer-btn active" data-layer="satellite">Vệ tinh</button>
                         <button class="map-layer-btn" data-layer="terrain">Địa hình</button>
+                        <button class="map-layer-btn map-layer-btn--planning" data-layer="planning"
+                            title="Mở bản đồ quy hoạch">
+                            <span class="material-symbols-outlined"
+                                style="font-size: 14px; vertical-align: middle;">map</span> Quy hoạch
+                        </button>
+                    </div>
+
+                    <!-- Planning Sync Bar -->
+                    <div class="planning-sync-bar" id="planning-sync-bar" style="display: none;">
+                        <div class="planning-sync-bar__info">
+                            <span class="material-symbols-outlined">sync_alt</span>
+                            <span>Đang xem quy hoạch tại Guland.vn</span>
+                        </div>
+                        <div class="planning-sync-bar__actions">
+                            <button class="planning-sync-btn planning-sync-btn--primary"
+                                onclick="closePlanningMode(); startDrawingField();">
+                                <span class="material-symbols-outlined">draw</span> Vẽ ruộng mới
+                            </button>
+                            <button class="planning-sync-btn" onclick="syncPlanningMapPosition()">
+                                <span class="material-symbols-outlined">sync</span> Đồng bộ vị trí
+                            </button>
+                            <button class="planning-sync-btn planning-sync-btn--secondary"
+                                onclick="openPlanningMapModal()">
+                                <span class="material-symbols-outlined">language</span> Nguồn khác
+                            </button>
+                            <button class="planning-sync-btn planning-sync-btn--close" onclick="closePlanningMode()"
+                                title="Đóng chế độ quy hoạch">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Compact Weather Widget -->
@@ -1575,6 +1824,68 @@
                             <div class="ndvi-legend__item"><span
                                     class="ndvi-legend__dot ndvi-legend__dot--unplanted"></span><span
                                     class="ndvi-legend__text">Chưa gieo trồng</span></div>
+                        </div>
+                    </div>
+
+                    <!-- Planning Layer Legend -->
+                    <div class="planning-legend" id="planning-legend" style="display: none;">
+                        <div class="planning-legend__header">
+                            <span class="material-symbols-outlined">map</span>
+                            <span>Bản đồ Quy hoạch</span>
+                            <button class="planning-legend__close" onclick="togglePlanningLayer()" title="Đóng">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <!-- Phase 3: Filter by District -->
+                        <div class="planning-filter">
+                            <select id="planning-district-filter" onchange="filterPlanningByDistrict(this.value)">
+                                <option value="">🏛️ Tất cả Quận/Huyện</option>
+                            </select>
+                        </div>
+
+                        <!-- Phase 3: Search by Coordinate -->
+                        <div class="planning-search">
+                            <input type="text" id="planning-coord-search" placeholder="Tọa độ: 10.0306, 105.7701">
+                            <button onclick="searchPlanningByCoordinate()" title="Tìm vùng tại tọa độ">
+                                <span class="material-symbols-outlined">search</span>
+                            </button>
+                        </div>
+
+                        <div class="planning-legend__items">
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #22c55e;"></span>
+                                <span>Đất nông nghiệp</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #fbbf24;"></span>
+                                <span>Đất ở</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #a855f7;"></span>
+                                <span>Đất công nghiệp</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #06b6d4;"></span>
+                                <span>Đất thủy sản</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #94a3b8;"></span>
+                                <span>Đất giao thông</span>
+                            </div>
+                        </div>
+                        <div class="planning-legend__actions">
+                            <button class="btn btn--sm btn--secondary" onclick="exportPlanningGeoJson()"
+                                title="Xuất GeoJSON">
+                                <span class="material-symbols-outlined">download</span> Export
+                            </button>
+                            <button class="btn btn--sm btn--secondary" onclick="openPlanningMapSynced()">
+                                <span class="material-symbols-outlined">sync_alt</span> Guland
+                            </button>
+                            <button class="btn btn--sm btn--primary" onclick="startDrawingPlanningZone()"
+                                style="background: #f59e0b;">
+                                <span class="material-symbols-outlined">add_location</span> Thêm
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -1684,7 +1995,8 @@
                         <div class="field-actions">
                             <h4 class="field-actions__title">Hoạt động</h4>
                             <div class="field-actions__grid">
-                                <button class="field-action-btn" id="add-field-btn" onclick="startDrawingField()"><span
+                                <button class="field-action-btn" id="add-field-btn"
+                                    onclick="showAddFieldOptions()"><span
                                         class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--green">add_location_alt</span><span
                                         class="field-action-btn__label">Thêm ruộng</span></button>
                                 <button class="field-action-btn" id="open-forecast" onclick="openForecastModal()"><span
@@ -1776,7 +2088,8 @@
                                             class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--emerald">storefront</span>
                                         <span class="field-action-btn__label">Thị trường</span>
                                     </button>
-                                    <button class="field-action-btn field-action-btn--disabled" id="btn-pest-analysis" disabled onclick="openPestAnalysisModal()">
+                                    <button class="field-action-btn field-action-btn--disabled" id="btn-pest-analysis"
+                                        disabled onclick="openPestAnalysisModal()">
                                         <span
                                             class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--teal">document_scanner</span>
                                         <span class="field-action-btn__label">Phân tích</span>
@@ -2374,6 +2687,746 @@
             satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri', maxZoom: 19 }),
             terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: '© OpenTopoMap', maxZoom: 17 })
         };
+
+        // ==================== PLANNING MAP INTEGRATION ====================
+        let planningMapWindow = null;
+        let isPlanningMode = false;
+
+        // Build URL with coordinates for different planning sources
+        function buildPlanningURL(source, lat, lng, zoom) {
+            // Guland.vn uses hash format: #zoom/lat/lng
+            const gulandZoom = Math.min(Math.max(zoom, 10), 18);
+
+            // Check if location is in Can Tho bounds (use official GIS)
+            const isInCanTho = lat >= 9.8 && lat <= 10.3 && lng >= 105.4 && lng <= 105.9;
+
+            switch (source) {
+                case 'giscantho':
+                case 'cantho':
+                    // GIS Cần Thơ chính thức - Quy hoạch 2021-2030
+                    return 'https://gisportal.cantho.gov.vn/maps/web/kg/e574cba1-8f4b-4b4a-b654-5593045ba85b/0/home';
+                case 'giscantho-nn':
+                    // GIS Cần Thơ - Sở Nông nghiệp
+                    return 'https://gisportal.cantho.gov.vn/maps/web/kg/75b3f8ba-e8d2-4a3b-aa5b-9a4bc8d84dd2/0/csdl';
+                case 'guland':
+                    // Guland supports URL with location in path or hash
+                    return `https://guland.vn/soi-quy-hoach#${gulandZoom}/${lat.toFixed(6)}/${lng.toFixed(6)}`;
+                case 'thuvien':
+                    return `https://thuvienquyhoach.vn/?lat=${lat}&lng=${lng}&z=${zoom}`;
+                case 'monre':
+                    return `https://gis.monre.gov.vn/`;
+                default:
+                    // Default: If in Can Tho, use official GIS; otherwise use Guland
+                    if (isInCanTho) {
+                        return 'https://gisportal.cantho.gov.vn/maps/web/kg/e574cba1-8f4b-4b4a-b654-5593045ba85b/0/home';
+                    }
+                    return `https://guland.vn/soi-quy-hoach#${gulandZoom}/${lat.toFixed(6)}/${lng.toFixed(6)}`;
+            }
+        }
+
+        // Open planning map in synced popup window
+        function openPlanningMapSynced() {
+            const center = map.getCenter();
+            const zoom = map.getZoom();
+
+            // Check if in Can Tho - use official GIS
+            const isInCanTho = center.lat >= 9.8 && center.lat <= 10.3 && center.lng >= 105.4 && center.lng <= 105.9;
+            const source = isInCanTho ? 'giscantho' : 'guland';
+            const url = buildPlanningURL(source, center.lat, center.lng, zoom);
+
+            // Calculate window position (right side of screen)
+            const screenWidth = window.screen.availWidth;
+            const screenHeight = window.screen.availHeight;
+            const popupWidth = Math.floor(screenWidth * 0.5);
+            const popupHeight = screenHeight;
+            const popupLeft = screenWidth - popupWidth;
+
+            // Close existing window if open
+            if (planningMapWindow && !planningMapWindow.closed) {
+                planningMapWindow.location.href = url;
+                planningMapWindow.focus();
+            } else {
+                planningMapWindow = window.open(
+                    url,
+                    'PlanningMap',
+                    `width=${popupWidth},height=${popupHeight},left=${popupLeft},top=0,menubar=no,toolbar=no,location=yes,status=no,scrollbars=yes,resizable=yes`
+                );
+            }
+
+            isPlanningMode = true;
+            updatePlanningModeUI(true);
+
+            // Show sync notification
+            const sourceName = isInCanTho ? 'GIS Cần Thơ chính thức' : 'Guland.vn';
+            showToast('Bản đồ Quy hoạch', `Đã mở ${sourceName} tại vị trí hiện tại.`, 'success');
+        }
+
+        // Sync current position to planning map
+        function syncPlanningMapPosition() {
+            if (planningMapWindow && !planningMapWindow.closed) {
+                const center = map.getCenter();
+                const zoom = map.getZoom();
+                const url = buildPlanningURL('guland', center.lat, center.lng, zoom);
+                planningMapWindow.location.href = url;
+                planningMapWindow.focus();
+                showToast('Đã đồng bộ', `Vị trí: ${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`, 'success');
+            } else {
+                // Window was closed, reopen
+                openPlanningMapSynced();
+            }
+        }
+
+        // Close planning mode
+        function closePlanningMode() {
+            if (planningMapWindow && !planningMapWindow.closed) {
+                planningMapWindow.close();
+            }
+            planningMapWindow = null;
+            isPlanningMode = false;
+            updatePlanningModeUI(false);
+        }
+
+        // Update UI for planning mode
+        function updatePlanningModeUI(isActive) {
+            const planningBtn = document.querySelector('.map-layer-btn[data-layer="planning"]');
+            const syncBar = document.getElementById('planning-sync-bar');
+
+            if (isActive) {
+                planningBtn?.classList.add('active');
+                if (syncBar) syncBar.style.display = 'flex';
+            } else {
+                planningBtn?.classList.remove('active');
+                if (syncBar) syncBar.style.display = 'none';
+            }
+        }
+
+        // Check if planning window is still open
+        function checkPlanningWindow() {
+            if (isPlanningMode && planningMapWindow && planningMapWindow.closed) {
+                isPlanningMode = false;
+                updatePlanningModeUI(false);
+            }
+        }
+
+        // Periodically check planning window status
+        setInterval(checkPlanningWindow, 2000);
+
+        // ==================== PLANNING LAYER (OVERLAY) ====================
+        let planningLayerGroup = null;
+        let planningZonesData = [];
+        let isPlanningLayerVisible = false;
+
+        // Load planning zones from database and display on map
+        async function loadPlanningZones() {
+            try {
+                const bounds = map.getBounds();
+                const response = await fetch(`${API_BASE}/planning-zones/bounds?minLat=${bounds.getSouth()}&maxLat=${bounds.getNorth()}&minLng=${bounds.getWest()}&maxLng=${bounds.getEast()}`);
+
+                if (response.ok) {
+                    planningZonesData = await response.json();
+                    if (isPlanningLayerVisible) {
+                        renderPlanningZones();
+                    }
+                }
+            } catch (error) {
+                console.log('Planning zones not available:', error);
+                // Fallback: load all zones
+                try {
+                    const response = await fetch(`${API_BASE}/planning-zones`);
+                    if (response.ok) {
+                        planningZonesData = await response.json();
+                        if (isPlanningLayerVisible) {
+                            renderPlanningZones();
+                        }
+                    }
+                } catch (e) {
+                    console.log('Could not load planning zones');
+                }
+            }
+        }
+
+        // Render planning zones on map
+        function renderPlanningZones() {
+            if (!planningLayerGroup) {
+                planningLayerGroup = L.layerGroup().addTo(map);
+            }
+
+            // Clear existing
+            planningLayerGroup.clearLayers();
+
+            planningZonesData.forEach(zone => {
+                try {
+                    let layer;
+
+                    // Try GeoJSON first (from KMZ uploads)
+                    if (zone.geojson) {
+                        try {
+                            const geojson = typeof zone.geojson === 'string' ? JSON.parse(zone.geojson) : zone.geojson;
+                            layer = L.geoJSON(geojson, {
+                                style: {
+                                    color: zone.strokeColor || '#333333',
+                                    weight: 2,
+                                    opacity: 0.8,
+                                    fillColor: zone.fillColor || '#f59e0b',
+                                    fillOpacity: parseFloat(zone.fillOpacity) || 0.4
+                                }
+                            });
+                        } catch (geoErr) {
+                            console.warn('GeoJSON parse error, falling back to coordinates', geoErr);
+                        }
+                    }
+
+                    // Fallback to boundaryCoordinates 
+                    if (!layer && zone.boundaryCoordinates) {
+                        const coords = typeof zone.boundaryCoordinates === 'string'
+                            ? JSON.parse(zone.boundaryCoordinates)
+                            : zone.boundaryCoordinates;
+                        layer = L.polygon(coords, {
+                            color: zone.strokeColor || '#c92a2a',
+                            weight: 2,
+                            opacity: 0.8,
+                            fillColor: zone.fillColor || '#ff6b6b',
+                            fillOpacity: parseFloat(zone.fillOpacity) || 0.4,
+                            className: 'planning-zone-polygon'
+                        });
+                    }
+
+                    if (!layer) return;
+
+                    // Create popup content
+                    const popupContent = `
+                        <div class="planning-zone-popup">
+                            <h4 style="margin: 0 0 8px 0; color: ${zone.fillColor || '#f59e0b'};">
+                                <span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle;">map</span>
+                                ${zone.name || 'Vùng quy hoạch'}
+                            </h4>
+                            <div style="font-size: 12px; color: #4b5563; line-height: 1.6;">
+                                <p><strong>Loại đất:</strong> ${zone.zoneType || 'Chưa phân loại'}</p>
+                                ${zone.zoneCode ? `<p><strong>Mã:</strong> ${zone.zoneCode}</p>` : ''}
+                                ${zone.landUsePurpose ? `<p><strong>Mục đích:</strong> ${zone.landUsePurpose}</p>` : ''}
+                                ${zone.planningPeriod ? `<p><strong>Kỳ QH:</strong> ${zone.planningPeriod}</p>` : ''}
+                                ${zone.district || zone.commune ? `<p><strong>Địa điểm:</strong> ${zone.commune || ''} ${zone.district || ''} ${zone.province || ''}</p>` : ''}
+                                ${zone.source ? `<p style="font-size: 11px; color: #9ca3af;"><em>Nguồn: ${zone.source}</em></p>` : ''}
+                                ${zone.notes ? `<p style="font-size: 11px; color: #64748b; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #e5e7eb;">${zone.notes}</p>` : ''}
+                                ${zone.verified ? '<span style="color: #10b981; font-size: 11px;">✓ Đã xác minh</span>' : '<span style="color: #f59e0b; font-size: 11px;">⚠ Chưa xác minh</span>'}
+                            </div>
+                        </div>
+                    `;
+
+                    layer.bindPopup(popupContent);
+                    layer.bindTooltip(zone.name || 'Vùng quy hoạch', {
+                        permanent: false,
+                        direction: 'center',
+                        className: 'planning-zone-tooltip'
+                    });
+
+                    planningLayerGroup.addLayer(layer);
+                } catch (e) {
+                    console.error('Error rendering zone:', zone.name, e);
+                }
+            });
+        }
+
+        // Toggle planning layer visibility
+        function togglePlanningLayer() {
+            isPlanningLayerVisible = !isPlanningLayerVisible;
+
+            const planningBtn = document.querySelector('.map-layer-btn[data-layer="planning"]');
+            const planningLegend = document.getElementById('planning-legend');
+
+            if (isPlanningLayerVisible) {
+                planningBtn?.classList.add('active');
+                if (planningLegend) planningLegend.style.display = 'block';
+
+                // Load and render zones
+                loadPlanningZones();
+
+                // Load legend dynamically
+                loadPlanningLegend();
+
+                // Show admin bar if user can add zones
+                document.getElementById('planning-admin-bar')?.style.setProperty('display', 'flex');
+
+                showToast('Bản đồ Quy hoạch', 'Đang hiển thị các vùng quy hoạch đã lưu', 'success');
+            } else {
+                planningBtn?.classList.remove('active');
+                if (planningLegend) planningLegend.style.display = 'none';
+                document.getElementById('planning-admin-bar')?.style.setProperty('display', 'none');
+
+                // Clear layer
+                if (planningLayerGroup) {
+                    planningLayerGroup.clearLayers();
+                }
+            }
+        }
+
+        // Load planning legend dynamically from API
+        async function loadPlanningLegend() {
+            try {
+                const response = await fetch(`${API_BASE}/planning-zones/types`);
+                if (!response.ok) return;
+
+                const zoneTypes = await response.json();
+                const legendItems = document.querySelector('.planning-legend__items');
+                if (!legendItems || !zoneTypes.length) return;
+
+                // Group by category
+                const categories = {};
+                zoneTypes.forEach(t => {
+                    const cat = t.category || 'Khác';
+                    if (!categories[cat]) categories[cat] = [];
+                    categories[cat].push(t);
+                });
+
+                // Generate legend HTML
+                let html = '';
+                for (const [category, types] of Object.entries(categories)) {
+                    html += `<div class="planning-legend__category" style="padding: 8px 12px; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; background: #f9fafb;">${category}</div>`;
+                    types.forEach(t => {
+                        html += `
+                            <div class="planning-legend__item" style="display: flex; align-items: center; gap: 10px; padding: 6px 12px;">
+                                <span class="planning-legend__dot" style="width: 16px; height: 16px; border-radius: 4px; background: ${t.defaultColor};"></span>
+                                <span style="flex: 1; font-size: 12px; color: #374151;">${t.name}</span>
+                                <span style="font-size: 10px; color: #9ca3af;">${t.code}</span>
+                            </div>
+                        `;
+                    });
+                }
+
+                legendItems.innerHTML = html;
+            } catch (e) {
+                console.log('Could not load planning legend:', e);
+            }
+        }
+
+        // ==================== PHASE 3: FILTER, SEARCH & EXPORT ====================
+
+        let currentDistrictFilter = '';
+
+        // Load district options for filter dropdown
+        async function loadDistrictFilter() {
+            try {
+                const response = await fetch(`${API_BASE}/planning-zones/districts`);
+                if (!response.ok) return;
+
+                const data = await response.json();
+                const select = document.getElementById('planning-district-filter');
+                if (!select) return;
+
+                // Clear existing options except first
+                select.innerHTML = '<option value="">🏛️ Tất cả Quận/Huyện</option>';
+
+                // Add options with counts
+                data.withCounts?.forEach(d => {
+                    const option = document.createElement('option');
+                    option.value = d.name;
+                    option.textContent = `${d.name} (${d.count})`;
+                    select.appendChild(option);
+                });
+            } catch (e) {
+                console.log('Could not load districts:', e);
+            }
+        }
+
+        // Filter planning zones by district
+        async function filterPlanningByDistrict(district) {
+            currentDistrictFilter = district;
+
+            try {
+                let url = `${API_BASE}/planning-zones`;
+                if (district) {
+                    url = `${API_BASE}/planning-zones/by-district?district=${encodeURIComponent(district)}`;
+                }
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to fetch');
+
+                planningZonesData = await response.json();
+                renderPlanningZones();
+
+                showToast(
+                    'Lọc Quy hoạch',
+                    district ? `Đang hiển thị ${planningZonesData.length} vùng tại ${district}` : `Đang hiển thị tất cả ${planningZonesData.length} vùng`,
+                    'success'
+                );
+            } catch (e) {
+                console.error('Filter error:', e);
+                showToast('Lỗi', 'Không thể lọc dữ liệu quy hoạch', 'error');
+            }
+        }
+
+        // Search planning zone by coordinate
+        async function searchPlanningByCoordinate() {
+            const input = document.getElementById('planning-coord-search')?.value?.trim();
+            if (!input) {
+                showToast('Tìm kiếm', 'Vui lòng nhập tọa độ (VD: 10.0306, 105.7701)', 'warning');
+                return;
+            }
+
+            // Parse coordinates
+            const parts = input.split(',').map(s => parseFloat(s.trim()));
+            if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1])) {
+                showToast('Lỗi', 'Tọa độ không hợp lệ. Định dạng: lat, lng', 'error');
+                return;
+            }
+
+            const [lat, lng] = parts;
+
+            try {
+                // Fly to location
+                map.flyTo([lat, lng], 16);
+
+                // Search for zones at this point
+                const response = await fetch(`${API_BASE}/planning-zones/at-point?lat=${lat}&lng=${lng}`);
+                const zones = await response.json();
+
+                if (zones.length > 0) {
+                    // Add marker at search point
+                    const marker = L.marker([lat, lng], {
+                        icon: L.divIcon({
+                            className: 'search-marker',
+                            html: '<span class="material-symbols-outlined" style="color:#ef4444;font-size:32px;text-shadow:0 2px 4px rgba(0,0,0,0.3);">location_on</span>',
+                            iconSize: [32, 32],
+                            iconAnchor: [16, 32]
+                        })
+                    }).addTo(map);
+
+                    // Open first zone popup
+                    const zone = zones[0];
+                    const popup = L.popup()
+                        .setLatLng([lat, lng])
+                        .setContent(`
+                            <div class="planning-zone-popup">
+                                <h4 style="margin: 0 0 8px 0; color: ${zone.fillColor || '#f59e0b'};">
+                                    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">map</span>
+                                    ${zone.name || 'Vùng quy hoạch'}
+                                </h4>
+                                <div style="font-size: 12px; color: #4b5563;">
+                                    <p><strong>Loại:</strong> ${zone.zoneType || 'Chưa phân loại'}</p>
+                                    <p><strong>Mã:</strong> ${zone.zoneCode || '-'}</p>
+                                    <p><strong>Địa điểm:</strong> ${zone.district || '-'}</p>
+                                </div>
+                            </div>
+                        `)
+                        .openOn(map);
+
+                    // Remove marker after 5 seconds
+                    setTimeout(() => map.removeLayer(marker), 5000);
+
+                    showToast('Kết quả', `Tìm thấy ${zones.length} vùng quy hoạch tại tọa độ này`, 'success');
+                } else {
+                    showToast('Không tìm thấy', 'Không có vùng quy hoạch tại tọa độ này', 'info');
+                }
+            } catch (e) {
+                console.error('Search error:', e);
+                showToast('Lỗi', 'Không thể tìm kiếm vùng quy hoạch', 'error');
+            }
+        }
+
+        // Export planning zones as GeoJSON
+        async function exportPlanningGeoJson() {
+            try {
+                let url = `${API_BASE}/planning-zones/export/geojson`;
+                if (currentDistrictFilter) {
+                    url += `?district=${encodeURIComponent(currentDistrictFilter)}`;
+                }
+
+                const response = await fetch(url);
+                const geojson = await response.json();
+
+                // Create downloadable file
+                const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/json' });
+                const downloadUrl = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `planning_zones_${currentDistrictFilter || 'all'}_${new Date().toISOString().split('T')[0]}.geojson`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl);
+
+                showToast('Export', `Đã xuất ${geojson.features?.length || 0} vùng quy hoạch`, 'success');
+            } catch (e) {
+                console.error('Export error:', e);
+                showToast('Lỗi', 'Không thể xuất dữ liệu GeoJSON', 'error');
+            }
+        }
+
+        // Update togglePlanningLayer to load district filter
+        const originalTogglePlanningLayer = togglePlanningLayer;
+        togglePlanningLayer = function () {
+            originalTogglePlanningLayer();
+            if (isPlanningLayerVisible) {
+                loadDistrictFilter();
+            }
+        };
+
+
+        // Start drawing a new planning zone
+        let drawingPlanningZone = false;
+        let planningDrawControl = null;
+
+        function startDrawingPlanningZone() {
+            if (drawingPlanningZone) return;
+            drawingPlanningZone = true;
+
+            document.getElementById('drawing-indicator').classList.add('active');
+            document.getElementById('drawing-indicator').querySelector('span:last-child').textContent =
+                'Click để vẽ vùng quy hoạch. Nhấn Enter để hoàn thành.';
+
+            planningDrawControl = new L.Draw.Polygon(map, {
+                shapeOptions: {
+                    color: '#f59e0b',
+                    weight: 3,
+                    fillOpacity: 0.3,
+                    dashArray: '5, 10'
+                }
+            });
+            planningDrawControl.enable();
+
+            map.once(L.Draw.Event.CREATED, onPlanningZoneDrawComplete);
+        }
+
+        function onPlanningZoneDrawComplete(e) {
+            drawingPlanningZone = false;
+            document.getElementById('drawing-indicator').classList.remove('active');
+
+            const layer = e.layer;
+            const latlngs = layer.getLatLngs()[0];
+            const area = L.GeometryUtil.geodesicArea(latlngs);
+
+            // Calculate center
+            const bounds = layer.getBounds();
+            const center = bounds.getCenter();
+
+            // Show modal to save planning zone
+            showPlanningZoneModal(latlngs, area, center);
+
+            if (planningDrawControl) planningDrawControl.disable();
+        }
+
+        // Show modal to create planning zone
+        async function showPlanningZoneModal(coordinates, areaSqm, center) {
+            // Load zone types
+            let zoneTypes = [];
+            try {
+                const response = await fetch(`${API_BASE}/planning-zones/types`);
+                if (response.ok) {
+                    zoneTypes = await response.json();
+                }
+            } catch (e) {
+                console.log('Could not load zone types');
+            }
+
+            // Group by category
+            const categories = {};
+            zoneTypes.forEach(t => {
+                if (!categories[t.category]) categories[t.category] = [];
+                categories[t.category].push(t);
+            });
+
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay';
+            modal.id = 'planning-zone-modal';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 550px; max-height: 90vh; overflow-y: auto;">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white;">
+                        <div>
+                            <h3 style="margin: 0;">
+                                <span class="material-symbols-outlined" style="vertical-align: middle;">add_location</span>
+                                Thêm vùng Quy hoạch mới
+                            </h3>
+                            <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.9;">Diện tích: ${(areaSqm / 10000).toFixed(2)} ha</p>
+                        </div>
+                        <span class="close-modal" onclick="closeModalById('planning-zone-modal')" style="color: white; cursor: pointer;">&times;</span>
+                    </div>
+                    <div class="modal-body" style="padding: 20px;">
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 600;">Tên vùng quy hoạch *</label>
+                            <input type="text" id="pz-name" placeholder="VD: Khu đất trồng lúa xã Nhơn Ái" 
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px;">
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Loại đất *</label>
+                                <select id="pz-zone-code" style="width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px;" onchange="updateZoneTypeFromCode()">
+                                    <option value="">-- Chọn loại đất --</option>
+                                    ${Object.entries(categories).map(([cat, types]) => `
+                                        <optgroup label="${cat}">
+                                            ${types.map(t => `<option value="${t.code}" data-color="${t.defaultColor}" data-name="${t.name}">${t.code} - ${t.name}</option>`).join('')}
+                                        </optgroup>
+                                    `).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Kỳ quy hoạch</label>
+                                <select id="pz-period" style="width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px;">
+                                    <option value="2021-2030">2021 - 2030</option>
+                                    <option value="2026-2030">KH 2026 - 2030</option>
+                                    <option value="2030-2040">2030 - 2040</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 600;">Mục đích sử dụng</label>
+                            <input type="text" id="pz-purpose" placeholder="VD: Đất chuyên trồng lúa nước 2 vụ" 
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px;">
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px;">Tỉnh/TP</label>
+                                <input type="text" id="pz-province" placeholder="VD: Cần Thơ" 
+                                    style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;">
+                            </div>
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px;">Quận/Huyện</label>
+                                <input type="text" id="pz-district" placeholder="VD: Phong Điền" 
+                                    style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;">
+                            </div>
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600; font-size: 13px;">Xã/Phường</label>
+                                <input type="text" id="pz-commune" placeholder="VD: Nhơn Ái" 
+                                    style="width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px;">
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Nguồn thông tin</label>
+                                <select id="pz-source" style="width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px;">
+                                    <option value="Guland.vn">Guland.vn</option>
+                                    <option value="Thư viện Quy hoạch">Thư viện Quy hoạch</option>
+                                    <option value="Sở TN&MT">Sở TN&MT địa phương</option>
+                                    <option value="UBND">UBND xã/phường</option>
+                                    <option value="Khác">Nguồn khác</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label style="display: block; margin-bottom: 6px; font-weight: 600;">Màu hiển thị</label>
+                                <input type="color" id="pz-color" value="#22c55e" 
+                                    style="width: 100%; height: 42px; border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer;">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label style="display: block; margin-bottom: 6px; font-weight: 600;">Ghi chú</label>
+                            <textarea id="pz-notes" rows="2" placeholder="Thông tin bổ sung..." 
+                                style="width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; resize: vertical;"></textarea>
+                        </div>
+                        
+                        <div style="padding: 12px; background: #fef3c7; border-radius: 8px; border-left: 3px solid #f59e0b;">
+                            <p style="margin: 0; font-size: 12px; color: #92400e;">
+                                <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">info</span>
+                                <strong>Lưu ý:</strong> Thông tin quy hoạch này được lưu để tham khảo. Vui lòng xác minh với cơ quan có thẩm quyền trước khi sử dụng đất.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button onclick="closeModalById('planning-zone-modal')" class="btn btn--secondary">Hủy</button>
+                        <button onclick="savePlanningZone()" class="btn btn--primary" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                            <span class="material-symbols-outlined">save</span> Lưu vùng quy hoạch
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Store coordinates for saving
+            window.pendingPlanningZone = {
+                coordinates: coordinates.map(ll => [ll.lat, ll.lng]),
+                areaSqm: areaSqm,
+                centerLat: center.lat,
+                centerLng: center.lng
+            };
+        }
+
+        // Update color when zone type changes
+        function updateZoneTypeFromCode() {
+            const select = document.getElementById('pz-zone-code');
+            const option = select.options[select.selectedIndex];
+            if (option && option.dataset.color) {
+                document.getElementById('pz-color').value = option.dataset.color;
+            }
+        }
+
+        // Save planning zone to database
+        async function savePlanningZone() {
+            const name = document.getElementById('pz-name').value.trim();
+            const zoneCode = document.getElementById('pz-zone-code').value;
+
+            if (!name) {
+                alert('Vui lòng nhập tên vùng quy hoạch');
+                return;
+            }
+            if (!zoneCode) {
+                alert('Vui lòng chọn loại đất');
+                return;
+            }
+
+            const select = document.getElementById('pz-zone-code');
+            const option = select.options[select.selectedIndex];
+            const zoneType = option.parentElement.label; // Get category as zoneType
+
+            const data = {
+                name: name,
+                boundaryCoordinates: JSON.stringify(window.pendingPlanningZone.coordinates),
+                areaSqm: window.pendingPlanningZone.areaSqm,
+                centerLat: window.pendingPlanningZone.centerLat,
+                centerLng: window.pendingPlanningZone.centerLng,
+                zoneType: zoneType,
+                zoneCode: zoneCode,
+                landUsePurpose: document.getElementById('pz-purpose').value,
+                planningPeriod: document.getElementById('pz-period').value,
+                province: document.getElementById('pz-province').value,
+                district: document.getElementById('pz-district').value,
+                commune: document.getElementById('pz-commune').value,
+                source: document.getElementById('pz-source').value,
+                fillColor: document.getElementById('pz-color').value,
+                strokeColor: adjustColor(document.getElementById('pz-color').value, -30),
+                fillOpacity: 0.4,
+                notes: document.getElementById('pz-notes').value
+            };
+
+            try {
+                const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+                const response = await fetch(`${API_BASE}/planning-zones`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    closeModalById('planning-zone-modal');
+                    showToast('Thành công', 'Đã lưu vùng quy hoạch', 'success');
+
+                    // Reload planning zones
+                    await loadPlanningZones();
+                    renderPlanningZones();
+                } else {
+                    const err = await response.json();
+                    showToast('Lỗi', err.error || 'Không thể lưu', 'error');
+                }
+            } catch (e) {
+                console.error(e);
+                showToast('Lỗi', 'Lỗi kết nối', 'error');
+            }
+        }
+
+        // Darken/lighten color helper
+        function adjustColor(hex, amount) {
+            const num = parseInt(hex.replace('#', ''), 16);
+            const r = Math.max(0, Math.min(255, (num >> 16) + amount));
+            const g = Math.max(0, Math.min(255, ((num >> 8) & 0x00FF) + amount));
+            const b = Math.max(0, Math.min(255, (num & 0x0000FF) + amount));
+            return '#' + (0x1000000 + r * 0x10000 + g * 0x100 + b).toString(16).slice(1);
+        }
 
         // ==================== MAP INITIALIZATION ====================
         let fieldsLayerGroup;
@@ -3428,7 +4481,7 @@
 
             // Delete button is always enabled when field is selected
             enableButton('btn-delete-field');
-            
+
             // Enable Analysis button when field is selected
             enableButton('btn-pest-analysis');
 
@@ -4792,10 +5845,20 @@
 
             document.querySelectorAll('.map-layer-btn[data-layer]').forEach(btn => {
                 btn.onclick = () => {
-                    document.querySelectorAll('.map-layer-btn[data-layer]').forEach(b => b.classList.remove('active'));
+                    const layerType = btn.dataset.layer;
+
+                    // Xử lý riêng cho nút Quy hoạch - toggle layer quy hoạch
+                    if (layerType === 'planning') {
+                        togglePlanningLayer();
+                        return;
+                    }
+
+                    document.querySelectorAll('.map-layer-btn[data-layer]').forEach(b => {
+                        if (b.dataset.layer !== 'planning') b.classList.remove('active');
+                    });
                     btn.classList.add('active');
                     Object.values(tileLayers).forEach(l => map.removeLayer(l));
-                    tileLayers[btn.dataset.layer].addTo(map);
+                    tileLayers[layerType].addTo(map);
                 };
             });
 
@@ -6133,6 +7196,459 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
 
 <!-- Weather Logs Logic -->
 <script src="../js/weather-logs.js"></script>
+
+<!-- Planning Map Modal -->
+<div class="modal" id="planning-map-modal">
+    <div class="modal-content" style="max-width: 900px; height: 85vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white;">
+            <div>
+                <h3 style="margin: 0;">
+                    <span class="material-symbols-outlined" style="vertical-align: middle;">map</span>
+                    Bản đồ Quy hoạch Đất đai Việt Nam
+                </h3>
+                <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.9;">Tra cứu thông tin quy hoạch từ nguồn chính
+                    thức</p>
+            </div>
+            <span class="close-modal" onclick="closePlanningMapModal()" style="color: white;">&times;</span>
+        </div>
+        <div class="modal-body" style="flex: 1; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+            <!-- Hướng dẫn -->
+            <div style="padding: 16px; background: #fffbeb; border-bottom: 1px solid #fcd34d;">
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                    <span class="material-symbols-outlined" style="color: #d97706; font-size: 24px;">info</span>
+                    <div style="flex: 1;">
+                        <h4 style="margin: 0 0 8px 0; color: #92400e;">Hướng dẫn tra cứu quy hoạch</h4>
+                        <ol style="margin: 0; padding-left: 20px; font-size: 13px; color: #78350f;">
+                            <li>Chọn nguồn bản đồ quy hoạch bên dưới</li>
+                            <li>Tìm kiếm vị trí đất của bạn trên bản đồ quy hoạch</li>
+                            <li>Xác minh loại đất (đất nông nghiệp, đất ở, v.v.) và mục đích sử dụng</li>
+                            <li>Chụp màn hình kết quả quy hoạch nếu cần</li>
+                            <li>Quay lại AgriPlanner để vẽ ruộng với thông tin đã tra cứu</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danh sách nguồn quy hoạch -->
+            <div style="padding: 16px; overflow-y: auto; flex: 1;">
+                <h4 style="margin: 0 0 12px 0; color: #374151;">
+                    <span class="material-symbols-outlined"
+                        style="vertical-align: middle; font-size: 18px;">language</span>
+                    Nguồn bản đồ quy hoạch chính thức
+                </h4>
+
+                <div class="planning-sources-grid">
+                    <!-- GIS Cần Thơ Chính thức - Nguồn số 1 -->
+                    <div class="planning-source-card planning-source-card--featured"
+                        onclick="openPlanningSource('https://gisportal.cantho.gov.vn/maps/web/kg/e574cba1-8f4b-4b4a-b654-5593045ba85b/0/home', 'GIS Cần Thơ - Quy hoạch 2021-2030')">
+                        <div class="planning-source-icon"
+                            style="background: linear-gradient(135deg, #059669, #047857);">
+                            <span class="material-symbols-outlined">verified</span>
+                        </div>
+                        <div class="planning-source-info">
+                            <h5>🏛️ GIS Cần Thơ - Quy hoạch 2021-2030</h5>
+                            <p>Nguồn chính thức từ UBND TP. Cần Thơ - Quy hoạch sử dụng đất, phân vùng chức năng</p>
+                            <span class="planning-source-tag planning-source-tag--green">✓ CHÍNH THỨC - ƯU TIÊN</span>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: #059669;">open_in_new</span>
+                    </div>
+
+                    <!-- GIS Cần Thơ - Sở Nông nghiệp -->
+                    <div class="planning-source-card"
+                        onclick="openPlanningSource('https://gisportal.cantho.gov.vn/maps/web/kg/75b3f8ba-e8d2-4a3b-aa5b-9a4bc8d84dd2/0/csdl', 'GIS Cần Thơ - Sở Nông nghiệp')">
+                        <div class="planning-source-icon" style="background: #16a34a;">
+                            <span class="material-symbols-outlined">agriculture</span>
+                        </div>
+                        <div class="planning-source-info">
+                            <h5>Sở Nông nghiệp & Môi trường Cần Thơ</h5>
+                            <p>Dữ liệu nông nghiệp, môi trường từ Sở NN&MT</p>
+                            <span class="planning-source-tag planning-source-tag--green">Chính thức</span>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: #9ca3af;">open_in_new</span>
+                    </div>
+
+                    <!-- Guland.vn -->
+                    <div class="planning-source-card"
+                        onclick="openPlanningSource('https://guland.vn/soi-quy-hoach', 'Guland.vn')">
+                        <div class="planning-source-icon" style="background: #ec4899;">
+                            <span class="material-symbols-outlined">public</span>
+                        </div>
+                        <div class="planning-source-info">
+                            <h5>Guland.vn</h5>
+                            <p>Tra cứu quy hoạch toàn quốc - QH 2030, KH 2026</p>
+                            <span class="planning-source-tag">Tham khảo</span>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: #9ca3af;">open_in_new</span>
+                    </div>
+
+                    <!-- Thư viện Quy hoạch -->
+                    <div class="planning-source-card"
+                        onclick="openPlanningSource('https://thuvienquyhoach.vn/', 'Thư viện Quy hoạch')">
+                        <div class="planning-source-icon" style="background: #3b82f6;">
+                            <span class="material-symbols-outlined">library_books</span>
+                        </div>
+                        <div class="planning-source-info">
+                            <h5>Thư viện Quy hoạch</h5>
+                            <p>Kho dữ liệu quy hoạch 63 tỉnh thành</p>
+                            <span class="planning-source-tag planning-source-tag--blue">Tham khảo</span>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: #9ca3af;">open_in_new</span>
+                    </div>
+
+                    <!-- Cổng TTĐT BTNMT -->
+                    <div class="planning-source-card"
+                        onclick="openPlanningSource('https://gis.monre.gov.vn/', 'Bộ TN&MT')">
+                        <div class="planning-source-icon" style="background: #10b981;">
+                            <span class="material-symbols-outlined">account_balance</span>
+                        </div>
+                        <div class="planning-source-info">
+                            <h5>GIS Bộ Tài nguyên & Môi trường</h5>
+                            <p>Hệ thống GIS chính thức của Bộ TN&MT</p>
+                            <span class="planning-source-tag planning-source-tag--green">Chính thức</span>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: #9ca3af;">open_in_new</span>
+                    </div>
+
+                    <!-- Quy hoạch Hà Nội -->
+                    <div class="planning-source-card"
+                        onclick="openPlanningSource('https://quyhoach.hanoi.vn/', 'Quy hoạch Hà Nội')">
+                        <div class="planning-source-icon" style="background: #8b5cf6;">
+                            <span class="material-symbols-outlined">location_city</span>
+                        </div>
+                        <div class="planning-source-info">
+                            <h5>Quy hoạch Hà Nội</h5>
+                            <p>Tra cứu quy hoạch thủ đô Hà Nội</p>
+                            <span class="planning-source-tag planning-source-tag--purple">Hà Nội</span>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: #9ca3af;">open_in_new</span>
+                    </div>
+
+                    <!-- Quy hoạch TP.HCM -->
+                    <div class="planning-source-card"
+                        onclick="openPlanningSource('https://thongtinquyhoach.hochiminhcity.gov.vn/', 'Quy hoạch TP.HCM')">
+                        <div class="planning-source-icon" style="background: #f97316;">
+                            <span class="material-symbols-outlined">apartment</span>
+                        </div>
+                        <div class="planning-source-info">
+                            <h5>Quy hoạch TP.HCM</h5>
+                            <p>Cổng thông tin quy hoạch TP. Hồ Chí Minh</p>
+                            <span class="planning-source-tag planning-source-tag--orange">TP.HCM</span>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: #9ca3af;">open_in_new</span>
+                    </div>
+
+                    <!-- Sở TN&MT Cần Thơ -->
+                    <div class="planning-source-card"
+                        onclick="openPlanningSource('https://sonnmt.cantho.gov.vn/', 'Sở TN&MT Cần Thơ')">
+                        <div class="planning-source-icon" style="background: #06b6d4;">
+                            <span class="material-symbols-outlined">water</span>
+                        </div>
+                        <div class="planning-source-info">
+                            <h5>Sở TN&MT Cần Thơ</h5>
+                            <p>Sở Tài nguyên & Môi trường TP. Cần Thơ</p>
+                            <span class="planning-source-tag planning-source-tag--cyan">Cần Thơ</span>
+                        </div>
+                        <span class="material-symbols-outlined" style="color: #9ca3af;">open_in_new</span>
+                    </div>
+                </div>
+
+                <!-- Lưu ý pháp lý -->
+                <div
+                    style="margin-top: 20px; padding: 16px; background: #f1f5f9; border-radius: 12px; border-left: 4px solid #64748b;">
+                    <div style="display: flex; gap: 10px;">
+                        <span class="material-symbols-outlined" style="color: #64748b;">gavel</span>
+                        <div>
+                            <h5 style="margin: 0 0 6px 0; color: #334155;">Lưu ý pháp lý</h5>
+                            <p style="margin: 0; font-size: 12px; color: #64748b; line-height: 1.6;">
+                                Thông tin quy hoạch trên các trang web chỉ mang tính chất tham khảo.
+                                Để xác minh chính xác, vui lòng liên hệ UBND xã/phường hoặc Phòng Tài nguyên & Môi
+                                trường địa phương.
+                                Đất nông nghiệp phải có Giấy chứng nhận quyền sử dụng đất hợp lệ để canh tác.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer" style="border-top: 1px solid #e5e7eb;">
+            <button class="btn btn--secondary" onclick="closePlanningMapModal()">Đóng</button>
+            <button class="btn btn--primary" onclick="closePlanningMapModal(); startDrawingField();">
+                <span class="material-symbols-outlined">draw</span> Vẽ ruộng mới
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .planning-sources-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 12px;
+    }
+
+    .planning-source-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px;
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .planning-source-card:hover {
+        border-color: #f59e0b;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .planning-source-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .planning-source-icon .material-symbols-outlined {
+        color: white;
+        font-size: 22px;
+    }
+
+    .planning-source-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .planning-source-info h5 {
+        margin: 0 0 4px 0;
+        font-size: 14px;
+        color: #1f2937;
+        font-weight: 600;
+    }
+
+    .planning-source-info p {
+        margin: 0;
+        font-size: 12px;
+        color: #6b7280;
+        line-height: 1.4;
+    }
+
+    .planning-source-tag {
+        display: inline-block;
+        margin-top: 6px;
+        padding: 2px 8px;
+        background: #fef3c7;
+        color: #92400e;
+        font-size: 10px;
+        font-weight: 600;
+        border-radius: 4px;
+        text-transform: uppercase;
+    }
+
+    .planning-source-tag--blue {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    .planning-source-tag--green {
+        background: #d1fae5;
+        color: #065f46;
+    }
+
+    .planning-source-tag--purple {
+        background: #ede9fe;
+        color: #5b21b6;
+    }
+
+    .planning-source-tag--orange {
+        background: #ffedd5;
+        color: #c2410c;
+    }
+
+    .planning-source-tag--cyan {
+        background: #cffafe;
+        color: #0e7490;
+    }
+</style>
+
+<script>
+    // Planning Map Modal Functions
+    function openPlanningMapModal() {
+        document.getElementById('planning-map-modal').classList.add('open');
+    }
+
+    function closePlanningMapModal() {
+        document.getElementById('planning-map-modal').classList.remove('open');
+    }
+
+    function openPlanningSource(url, name) {
+        // Log for analytics
+        console.log(`Mở bản đồ quy hoạch: ${name}`);
+
+        // Show notification
+        showToast('Đang mở', `Chuyển đến ${name}...`, 'success');
+
+        // Open in new tab
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
+    // Show Add Field Options Modal
+    function showAddFieldOptions() {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'add-field-options-modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 520px;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #10b981, #059669); color: white;">
+                    <div>
+                        <h3 style="margin: 0;">
+                            <span class="material-symbols-outlined" style="vertical-align: middle;">add_location_alt</span>
+                            Thêm mảnh ruộng mới
+                        </h3>
+                        <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.9;">Chọn phương thức thêm ruộng</p>
+                    </div>
+                    <span class="close-modal" onclick="closeModalById('add-field-options-modal')" style="color: white; cursor: pointer;">&times;</span>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <div class="add-field-options">
+                        <!-- Option 1: View Planning Layer (NEW - RECOMMENDED) -->
+                        <div class="add-field-option add-field-option--recommended" onclick="closeModalById('add-field-options-modal'); if(!isPlanningLayerVisible) togglePlanningLayer();">
+                            <div class="add-field-option__icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                                <span class="material-symbols-outlined">layers</span>
+                            </div>
+                            <div class="add-field-option__content">
+                                <div class="add-field-option__badge" style="background: #f59e0b;">Khuyến nghị</div>
+                                <h4>Xem lớp Quy hoạch trên bản đồ</h4>
+                                <p>Bật hiển thị các vùng quy hoạch đã lưu trực tiếp trên bản đồ</p>
+                            </div>
+                            <span class="material-symbols-outlined" style="color: #d97706;">arrow_forward</span>
+                        </div>
+                        
+                        <!-- Option 2: Compare with Guland -->
+                        <div class="add-field-option" onclick="closeModalById('add-field-options-modal'); openPlanningMapSynced();">
+                            <div class="add-field-option__icon" style="background: linear-gradient(135deg, #059669, #047857);">
+                                <span class="material-symbols-outlined">sync_alt</span>
+                            </div>
+                            <div class="add-field-option__content">
+                                <h4>So sánh với Guland.vn</h4>
+                                <p>Mở Guland.vn song song để tra cứu và so sánh quy hoạch</p>
+                            </div>
+                            <span class="material-symbols-outlined" style="color: #059669;">arrow_forward</span>
+                        </div>
+                        
+                        <!-- Option 3: Draw Directly -->
+                        <div class="add-field-option" onclick="closeModalById('add-field-options-modal'); startDrawingField();">
+                            <div class="add-field-option__icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                                <span class="material-symbols-outlined">draw</span>
+                            </div>
+                            <div class="add-field-option__content">
+                                <h4>Vẽ ruộng trực tiếp</h4>
+                                <p>Bỏ qua tra cứu quy hoạch, vẽ ranh giới ruộng ngay trên bản đồ</p>
+                            </div>
+                            <span class="material-symbols-outlined" style="color: #3b82f6;">arrow_forward</span>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 16px; padding: 12px; background: #fef3c7; border-radius: 8px; border-left: 3px solid #f59e0b;">
+                        <p style="margin: 0; font-size: 12px; color: #92400e; line-height: 1.5;">
+                            <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">lightbulb</span>
+                            <strong>Mẹo:</strong> Bật "Lớp Quy hoạch" để xem các vùng đất đã được ghi nhận. 
+                            Bạn cũng có thể vẽ thêm vùng quy hoạch mới từ thông tin tra cứu trên Guland.vn.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+</script>
+
+<style>
+    .add-field-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .add-field-option {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px;
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .add-field-option:hover {
+        border-color: #10b981;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .add-field-option--recommended {
+        border-color: #f59e0b;
+        background: linear-gradient(135deg, #fffbeb, #fef3c7);
+    }
+
+    .add-field-option--recommended:hover {
+        border-color: #d97706;
+        box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+    }
+
+    .add-field-option__icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .add-field-option__icon .material-symbols-outlined {
+        color: white;
+        font-size: 24px;
+    }
+
+    .add-field-option__content {
+        flex: 1;
+    }
+
+    .add-field-option__badge {
+        display: inline-block;
+        padding: 2px 8px;
+        background: #f59e0b;
+        color: white;
+        font-size: 10px;
+        font-weight: 600;
+        border-radius: 4px;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+    }
+
+    .add-field-option__content h4 {
+        margin: 0 0 4px 0;
+        font-size: 15px;
+        color: #1f2937;
+        font-weight: 600;
+    }
+
+    .add-field-option__content p {
+        margin: 0;
+        font-size: 12px;
+        color: #6b7280;
+        line-height: 1.4;
+    }
+</style>
+
 </body>
 
 </html>

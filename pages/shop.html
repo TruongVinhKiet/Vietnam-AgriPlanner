@@ -24,6 +24,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="icon" type="image/x-icon" href="../images/logo.png">
 </head>
 
 <body data-page="shop">
@@ -31,7 +32,10 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar__header">
-                <div class="sidebar__logo-icon"><span class="material-symbols-outlined">eco</span></div>
+                <div class="sidebar__logo-icon" style="background: none; padding: 0;">
+                    <img src="../images/logo.png" alt="AgriPlanner Logo"
+                        style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                </div>
                 <h1 class="sidebar__logo-text">AgriPlanner</h1>
             </div>
             <nav class="sidebar__nav">

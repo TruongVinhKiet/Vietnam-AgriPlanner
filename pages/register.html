@@ -25,6 +25,7 @@
 
     <!-- GSAP -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link rel="icon" type="image/x-icon" href="../images/logo.png">
 </head>
 
 <body data-page="register">
@@ -38,8 +39,9 @@
             </div>
 
             <div class="auth-hero__logo">
-                <div class="auth-hero__logo-icon">
-                    <span class="material-symbols-outlined">eco</span>
+                <div class="auth-hero__logo-icon" style="background: none; padding: 0;">
+                    <img src="../images/logo.png" alt="AgriPlanner"
+                        style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
                 </div>
                 <span class="auth-hero__logo-text">AgriPlanner</span>
             </div>
@@ -75,8 +77,9 @@
         <div class="auth-form-panel">
             <!-- Mobile Logo -->
             <div class="auth-mobile-logo">
-                <div class="auth-mobile-logo__icon">
-                    <span class="material-symbols-outlined">eco</span>
+                <div class="auth-mobile-logo__icon" style="background: none; padding: 0;">
+                    <img src="../images/logo.png" alt="AgriPlanner"
+                        style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
                 </div>
                 <span class="auth-mobile-logo__text">AgriPlanner</span>
             </div>
@@ -285,9 +288,9 @@
                         </div>
                         <h2 style="color: #1f2937; margin-bottom: 12px; font-size: 24px;">${isWorker ? '📋 Hồ sơ đã gửi!' : '🎉 Chúc mừng!'}</h2>
                         <p style="color: #6b7280; margin-bottom: 24px; font-size: 16px; line-height: 1.6;">
-                            ${message || (isWorker ? 
-                                'Hồ sơ ứng tuyển của bạn đã được gửi thành công!<br>Chủ trang trại sẽ xem xét và phê duyệt.<br>Bạn sẽ nhận thông báo khi được duyệt.' : 
-                                'Đăng ký tài khoản thành công!<br>Bạn sẽ được chuyển đến trang đăng nhập.')}
+                            ${message || (isWorker ?
+                    'Hồ sơ ứng tuyển của bạn đã được gửi thành công!<br>Chủ trang trại sẽ xem xét và phê duyệt.<br>Bạn sẽ nhận thông báo khi được duyệt.' :
+                    'Đăng ký tài khoản thành công!<br>Bạn sẽ được chuyển đến trang đăng nhập.')}
                         </p>
                         ${isWorker ? `
                             <div style="background: #eff6ff; padding: 16px; border-radius: 8px; margin-bottom: 24px; text-align: left;">
@@ -403,12 +406,12 @@
                 const cvBio = document.getElementById('cv-bio');
                 const cvSkill = document.getElementById('cv-skill');
                 const cvExperience = document.getElementById('cv-experience');
-                
+
                 let cvProfile = '';
                 if (cvBio && cvBio.value) cvProfile += cvBio.value;
                 if (cvSkill && cvSkill.value) cvProfile += `\nKỹ năng chính: ${cvSkill.options[cvSkill.selectedIndex].text}`;
                 if (cvExperience && cvExperience.value) cvProfile += `\nKinh nghiệm: ${cvExperience.options[cvExperience.selectedIndex].text}`;
-                
+
                 requestBody.cvProfile = cvProfile;
             } else if (role === 'SYSTEM_ADMIN') {
                 requestBody.invitationCode = invitationCode;

@@ -30,6 +30,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <link rel="icon" type="image/x-icon" href="../images/logo.png">
     <style>
         .tab-navigation {
             display: flex;
@@ -130,8 +131,9 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar__header">
-                <div class="sidebar__logo-icon">
-                    <span class="material-symbols-outlined">eco</span>
+                <div class="sidebar__logo-icon" style="background: none; padding: 0;">
+                    <img src="../images/logo.png" alt="AgriPlanner Logo"
+                        style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
                 </div>
                 <h1 class="sidebar__logo-text">AgriPlanner</h1>
             </div>
@@ -282,19 +284,23 @@
                     <!-- Tab Content: Workers (Danh sách nhân công) -->
                     <div id="workers-tab" class="tab-content">
                         <div class="card">
-                            <div class="card__header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="card__header"
+                                style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <h3 class="card__title">Danh sách nhân công</h3>
-                                    <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Nhân công đã được duyệt và đang làm việc tại trang trại</p>
+                                    <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Nhân công đã được duyệt
+                                        và đang làm việc tại trang trại</p>
                                 </div>
-                                <div id="workers-count" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 8px 16px; border-radius: 8px; font-weight: 600;">
+                                <div id="workers-count"
+                                    style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 8px 16px; border-radius: 8px; font-weight: 600;">
                                     0 nhân công
                                 </div>
                             </div>
                             <div class="card__body">
                                 <div id="workers-list" style="min-height: 200px;">
                                     <div class="loading-spinner" style="text-align: center; padding: 3rem;">
-                                        <span class="material-symbols-outlined" style="font-size: 48px; color: #d1d5db; animation: pulse 2s infinite;">groups</span>
+                                        <span class="material-symbols-outlined"
+                                            style="font-size: 48px; color: #d1d5db; animation: pulse 2s infinite;">groups</span>
                                         <p style="color: #6b7280; margin-top: 12px;">Đang tải danh sách nhân công...</p>
                                     </div>
                                 </div>
@@ -321,10 +327,12 @@
 
                     <div id="feedback-tab" class="tab-content">
                         <div class="card">
-                            <div class="card__header" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div class="card__header"
+                                style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
                                     <h3 class="card__title">Phản hồi từ nhân công</h3>
-                                    <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Xem và trả lời các yêu cầu hỗ trợ</p>
+                                    <p style="color: #6b7280; font-size: 14px; margin-top: 4px;">Xem và trả lời các yêu
+                                        cầu hỗ trợ</p>
                                 </div>
                                 <button class="btn btn--secondary" onclick="loadOwnerHelpRequests()">
                                     <span class="material-symbols-outlined">refresh</span> Tải lại
@@ -333,7 +341,8 @@
                             <div class="card__body">
                                 <div id="owner-help-requests" style="min-height: 200px;">
                                     <div class="loading-spinner" style="text-align: center; padding: 3rem;">
-                                        <span class="material-symbols-outlined" style="font-size: 48px; color: #d1d5db; animation: pulse 2s infinite;">chat</span>
+                                        <span class="material-symbols-outlined"
+                                            style="font-size: 48px; color: #d1d5db; animation: pulse 2s infinite;">chat</span>
                                         <p style="color: #6b7280; margin-top: 12px;">Đang tải phản hồi...</p>
                                     </div>
                                 </div>

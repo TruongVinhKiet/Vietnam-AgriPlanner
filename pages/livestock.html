@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="../css/smart-advisor.css">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <link rel="icon" type="image/x-icon" href="../images/logo.png">
 </head>
 
 <body data-page="livestock">
@@ -29,7 +30,10 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar__header">
-                <div class="sidebar__logo-icon"><span class="material-symbols-outlined">eco</span></div>
+                <div class="sidebar__logo-icon" style="background: none; padding: 0;">
+                    <img src="../images/logo.png" alt="AgriPlanner Logo"
+                        style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                </div>
                 <h1 class="sidebar__logo-text">AgriPlanner</h1>
             </div>
             <nav class="sidebar__nav">
@@ -153,9 +157,14 @@
                                         </div>
                                         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
                                             <span class="badge" style="display: none;">--</span>
-                                            <div id="pen-status-control" style="display:none;align-items:center;gap:8px;">
-                                                <span style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Tình trạng</span>
-                                                <select id="pen-status-select" onchange="handlePenStatusChange(this.value)" style="padding:6px 10px;border-radius:10px;border:1px solid #e2e8f0;background:white;font-size:12px;">
+                                            <div id="pen-status-control"
+                                                style="display:none;align-items:center;gap:8px;">
+                                                <span
+                                                    style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Tình
+                                                    trạng</span>
+                                                <select id="pen-status-select"
+                                                    onchange="handlePenStatusChange(this.value)"
+                                                    style="padding:6px 10px;border-radius:10px;border:1px solid #e2e8f0;background:white;font-size:12px;">
                                                     <option value="CLEAN">Sạch</option>
                                                     <option value="DIRTY">Cần dọn</option>
                                                     <option value="SICK">Ốm</option>
