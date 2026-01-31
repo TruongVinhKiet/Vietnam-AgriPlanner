@@ -21,4 +21,11 @@ public interface KmzUploadRepository extends JpaRepository<KmzUpload, Long> {
     List<KmzUpload> findAllByOrderByUploadedAtDesc();
 
     List<KmzUpload> findByUploadedByOrderByUploadedAtDesc(Long userId);
+
+    // Map type filters
+    List<KmzUpload> findByMapTypeOrderByUploadedAtDesc(String mapType);
+
+    List<KmzUpload> findByMapTypeAndStatusOrderByUploadedAtDesc(String mapType, String status);
+
+    List<KmzUpload> findByMapTypeAndProvinceOrderByUploadedAtDesc(String mapType, String province);
 }

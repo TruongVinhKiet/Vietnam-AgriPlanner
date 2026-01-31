@@ -46,10 +46,18 @@ public class KmzParserService {
     }
 
     /**
-     * Process uploaded KMZ file
+     * Process uploaded KMZ file (original method - defaults to planning type)
      */
     @SuppressWarnings("null")
     public KmzUpload processKmzFile(MultipartFile file, String province, String district, Long userId) {
+        return processKmzFile(file, province, district, userId, "planning");
+    }
+
+    /**
+     * Process uploaded KMZ file with map type
+     */
+    @SuppressWarnings("null")
+    public KmzUpload processKmzFile(MultipartFile file, String province, String district, Long userId, String mapType) {
         // Create upload record
         KmzUpload upload = new KmzUpload();
         upload.setOriginalName(file.getOriginalFilename());
@@ -58,6 +66,7 @@ public class KmzParserService {
         upload.setDistrict(district);
         upload.setFileSizeBytes(file.getSize());
         upload.setUploadedBy(userId);
+        upload.setMapType(mapType);
         upload.setStatus(KmzUpload.STATUS_PROCESSING);
         upload = kmzUploadRepository.save(upload);
 
@@ -76,10 +85,11 @@ public class KmzParserService {
             // Extract and parse KMZ
             List<PlanningZone> zones = parseKmzFile(filePath, upload.getId(), province, district);
 
-            // Save zones
+            // Save zones with map type
             for (PlanningZone zone : zones) {
                 zone.setKmzUploadId(upload.getId());
                 zone.setCreatedBy(userId);
+                zone.setMapType(mapType);
                 planningZoneRepository.save(zone);
             }
 

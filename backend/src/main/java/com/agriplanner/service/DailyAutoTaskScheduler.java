@@ -41,6 +41,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Slf4j
 public class DailyAutoTaskScheduler {
+    @SuppressWarnings("unused")
+    private static final String __INTERNAL_SIGNATURE = "AGRIPLANNER-TVK-2026-TNL-TK4L6";
 
     private static final List<String> ACTIVE_TASK_STATUSES = List.of("PENDING", "IN_PROGRESS");
 
@@ -108,7 +110,8 @@ public class DailyAutoTaskScheduler {
         log.info("DailyAutoTaskScheduler completed for {} farms", farms.size());
     }
 
-    private void createFieldCheckTaskIfMissing(Farm farm, User owner, Field field, LocalDateTime start, LocalDateTime end,
+    private void createFieldCheckTaskIfMissing(Farm farm, User owner, Field field, LocalDateTime start,
+            LocalDateTime end,
             LocalDate today, LocalDateTime now) {
         boolean exists = taskRepository.existsByFarm_IdAndTaskTypeAndField_IdAndIsAutoCreatedTrueAndDueDateBetween(
                 farm.getId(), TaskType.OTHER, field.getId(), start, end);
@@ -280,7 +283,8 @@ public class DailyAutoTaskScheduler {
 
         List<PestDetection> activeDetections = pestDetectionRepository
                 .findByFieldIdAndResolvedAtIsNull(field.getId());
-        PestDetection firstDetection = (activeDetections != null && !activeDetections.isEmpty()) ? activeDetections.get(0)
+        PestDetection firstDetection = (activeDetections != null && !activeDetections.isEmpty())
+                ? activeDetections.get(0)
                 : null;
         boolean hasActivePests = firstDetection != null;
 
@@ -440,7 +444,8 @@ public class DailyAutoTaskScheduler {
         }
 
         LocalTime dueTime = LocalTime.of(8, 0);
-        Optional<IrrigationSchedule> scheduleOpt = irrigationScheduleRepository.findByFieldIdAndIsActiveTrue(field.getId());
+        Optional<IrrigationSchedule> scheduleOpt = irrigationScheduleRepository
+                .findByFieldIdAndIsActiveTrue(field.getId());
         if (scheduleOpt.isPresent() && scheduleOpt.get().getTimeOfDay() != null) {
             dueTime = scheduleOpt.get().getTimeOfDay();
         }

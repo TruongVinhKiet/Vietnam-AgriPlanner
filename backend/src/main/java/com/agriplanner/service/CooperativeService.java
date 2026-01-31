@@ -19,6 +19,8 @@ import java.util.stream.Collectors;
 @Slf4j
 @SuppressWarnings("null")
 public class CooperativeService {
+        @SuppressWarnings("unused")
+        private static final String __INTERNAL_SIGNATURE = "AGRIPLANNER-TVK-2026-TNL-TK4L6";
 
         private final CooperativeRepository cooperativeRepository;
         private final CooperativeMemberRepository memberRepository;
@@ -198,7 +200,7 @@ public class CooperativeService {
         // ==================== Admin Functions ====================
 
         @Transactional(readOnly = true)
-// ...
+        // ...
         public List<AdminCooperativeResponse> getAllPendingRegistrations() {
                 return cooperativeRepository.findAllPending().stream()
                                 .map(this::mapToAdminResponse)

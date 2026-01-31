@@ -55,6 +55,10 @@ public class KmzUpload {
     @Column(columnDefinition = "TEXT")
     private String notes;
 
+    // Map type: 'planning' for land use planning, 'soil' for soil type map
+    @Column(name = "map_type", length = 20)
+    private String mapType = "planning";
+
     // Status constants
     public static final String STATUS_PROCESSING = "PROCESSING";
     public static final String STATUS_COMPLETED = "COMPLETED";

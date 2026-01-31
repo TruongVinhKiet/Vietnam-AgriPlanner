@@ -2,10 +2,12 @@ package com.agriplanner.controller;
 
 import com.agriplanner.model.PlanningZone;
 import com.agriplanner.model.PlanningZoneType;
+import com.agriplanner.model.SoilType;
 import com.agriplanner.model.ZoneSnapshot;
 import com.agriplanner.model.ZoneSnapshotItem;
 import com.agriplanner.repository.PlanningZoneRepository;
 import com.agriplanner.repository.PlanningZoneTypeRepository;
+import com.agriplanner.repository.SoilTypeRepository;
 import com.agriplanner.repository.ZoneSnapshotRepository;
 import com.agriplanner.repository.ZoneSnapshotItemRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,39 +33,57 @@ public class PlanningZoneController {
 
     private final PlanningZoneRepository planningZoneRepository;
     private final PlanningZoneTypeRepository planningZoneTypeRepository;
+    private final SoilTypeRepository soilTypeRepository;
     private final ZoneSnapshotRepository zoneSnapshotRepository;
     private final ZoneSnapshotItemRepository zoneSnapshotItemRepository;
 
     /**
-     * Get all planning zones
+     * Get all planning zones (optionally filtered by map type)
      */
     @GetMapping
-    public ResponseEntity<List<PlanningZone>> getAllZones() {
+    public ResponseEntity<List<PlanningZone>> getAllZones(
+            @RequestParam(required = false) String mapType) {
+        if (mapType != null && !mapType.isEmpty()) {
+            return ResponseEntity.ok(planningZoneRepository.findByMapType(mapType));
+        }
         return ResponseEntity.ok(planningZoneRepository.findAll());
     }
 
     /**
-     * Get planning zones within map bounds
+     * Get planning zones within map bounds (optionally filtered by map type)
      */
     @GetMapping("/bounds")
     public ResponseEntity<List<PlanningZone>> getZonesByBounds(
             @RequestParam BigDecimal minLat,
             @RequestParam BigDecimal maxLat,
             @RequestParam BigDecimal minLng,
-            @RequestParam BigDecimal maxLng) {
-        List<PlanningZone> zones = planningZoneRepository.findByBoundingBox(minLat, maxLat, minLng, maxLng);
+            @RequestParam BigDecimal maxLng,
+            @RequestParam(required = false) String mapType) {
+        List<PlanningZone> zones;
+        if (mapType != null && !mapType.isEmpty()) {
+            zones = planningZoneRepository.findByMapTypeAndBoundingBox(mapType, minLat, maxLat, minLng, maxLng);
+        } else {
+            zones = planningZoneRepository.findByBoundingBox(minLat, maxLat, minLng, maxLng);
+        }
         return ResponseEntity.ok(zones);
     }
 
     /**
-     * Get planning zones near a point
+     * Get planning zones near a point (optionally filtered by map type)
      */
     @GetMapping("/near")
     public ResponseEntity<List<PlanningZone>> getZonesNearPoint(
             @RequestParam BigDecimal lat,
             @RequestParam BigDecimal lng,
-            @RequestParam(defaultValue = "0.05") BigDecimal radius) {
+            @RequestParam(defaultValue = "0.05") BigDecimal radius,
+            @RequestParam(required = false) String mapType) {
         List<PlanningZone> zones = planningZoneRepository.findNearPoint(lat, lng, radius);
+        // Filter by mapType if provided
+        if (mapType != null && !mapType.isEmpty()) {
+            zones = zones.stream()
+                    .filter(z -> mapType.equals(z.getMapType()))
+                    .toList();
+        }
         return ResponseEntity.ok(zones);
     }
 
@@ -144,6 +164,9 @@ public class PlanningZoneController {
 
             zone.setNotes((String) request.get("notes"));
 
+            // Map type: planning or soil
+            zone.setMapType((String) request.getOrDefault("mapType", "planning"));
+
             if (request.get("createdBy") != null) {
                 zone.setCreatedBy(Long.valueOf(request.get("createdBy").toString()));
             }
@@ -219,6 +242,22 @@ public class PlanningZoneController {
     @GetMapping("/types")
     public ResponseEntity<List<PlanningZoneType>> getAllZoneTypes() {
         return ResponseEntity.ok(planningZoneTypeRepository.findAllByOrderByCategoryAscNameAsc());
+    }
+
+    /**
+     * Get all soil types (danh mục loại đất thổ nhưỡng)
+     */
+    @GetMapping("/soil-types")
+    public ResponseEntity<List<SoilType>> getAllSoilTypes() {
+        return ResponseEntity.ok(soilTypeRepository.findAllByOrderByCategoryAscNameAsc());
+    }
+
+    /**
+     * Get soil types suitable for a specific crop
+     */
+    @GetMapping("/soil-types/for-crop")
+    public ResponseEntity<List<SoilType>> getSoilTypesForCrop(@RequestParam String cropName) {
+        return ResponseEntity.ok(soilTypeRepository.findBySuitableCropsContainingIgnoreCase(cropName));
     }
 
     /**

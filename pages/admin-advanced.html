@@ -287,6 +287,8 @@
                                             phố</label>
                                         <select id="upload-province" class="w-full px-3 py-2 border rounded-lg">
                                             <option value="Cần Thơ">Cần Thơ</option>
+                                            <option value="Cà Mau">Cà Mau</option>
+                                            <option value="Bạc Liêu">Bạc Liêu</option>
                                         </select>
                                     </div>
                                     <div>
@@ -306,10 +308,33 @@
                                     </div>
                                 </div>
 
+                                <!-- Map Type Selection -->
+                                <div class="mb-4">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Loại bản đồ</label>
+                                    <div class="flex gap-4">
+                                        <label class="flex items-center gap-2 cursor-pointer p-3 border rounded-lg flex-1 transition-colors hover:bg-green-50 has-[:checked]:bg-green-100 has-[:checked]:border-green-500">
+                                            <input type="radio" name="map-type" value="planning" checked class="w-4 h-4 text-green-600">
+                                            <span class="material-icons-round text-green-600">map</span>
+                                            <div>
+                                                <div class="font-medium">Quy hoạch</div>
+                                                <div class="text-xs text-gray-500">Bản đồ quy hoạch sử dụng đất</div>
+                                            </div>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer p-3 border rounded-lg flex-1 transition-colors hover:bg-amber-50 has-[:checked]:bg-amber-100 has-[:checked]:border-amber-500">
+                                            <input type="radio" name="map-type" value="soil" class="w-4 h-4 text-amber-600">
+                                            <span class="material-icons-round text-amber-700">landscape</span>
+                                            <div>
+                                                <div class="font-medium">Thổ nhưỡng</div>
+                                                <div class="text-xs text-gray-500">Bản đồ loại đất, chất đất</div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+
                                 <div class="mb-4">
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
                                     <textarea id="upload-notes" class="w-full px-3 py-2 border rounded-lg" rows="2"
-                                        placeholder="Ghi chú về file quy hoạch..."></textarea>
+                                        placeholder="Ghi chú về file..."></textarea>
                                 </div>
 
                                 <button id="submit-upload"

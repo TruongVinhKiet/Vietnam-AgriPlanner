@@ -50,7 +50,7 @@ function showToast(title, message, type = 'info') {
             <span class="material-symbols-outlined" style="color: ${c.text}; font-size: 20px;">close</span>
         </button>
     `;
-    
+
     // Add animation keyframes
     if (!document.getElementById('toast-animation-style')) {
         const style = document.createElement('style');
@@ -747,18 +747,18 @@ async function loadOwnerHelpRequests() {
         container.innerHTML = `
             <div style="display: grid; gap: 16px;">
                 ${list.map(h => {
-                    const badge = statusBadge(h.status);
-                    const workerName = h.worker && (h.worker.fullName || h.worker.email) ? (h.worker.fullName || h.worker.email) : 'Nhân công';
-                    const workerEmail = h.worker && h.worker.email ? h.worker.email : '';
-                    const createdAt = h.createdAt ? new Date(h.createdAt).toLocaleString('vi-VN') : '';
-                    const respondedAt = h.respondedAt ? new Date(h.respondedAt).toLocaleString('vi-VN') : '';
-                    const closedAt = h.closedAt ? new Date(h.closedAt).toLocaleString('vi-VN') : '';
-                    const title = h.title ? escapeHtml(h.title) : 'Yêu cầu hỗ trợ';
-                    const message = h.message ? escapeHtml(h.message) : '';
-                    const ownerResponse = h.ownerResponse ? escapeHtml(h.ownerResponse) : '';
-                    const isClosed = String(h.status || '').toUpperCase() === 'CLOSED';
+            const badge = statusBadge(h.status);
+            const workerName = h.worker && (h.worker.fullName || h.worker.email) ? (h.worker.fullName || h.worker.email) : 'Nhân công';
+            const workerEmail = h.worker && h.worker.email ? h.worker.email : '';
+            const createdAt = h.createdAt ? new Date(h.createdAt).toLocaleString('vi-VN') : '';
+            const respondedAt = h.respondedAt ? new Date(h.respondedAt).toLocaleString('vi-VN') : '';
+            const closedAt = h.closedAt ? new Date(h.closedAt).toLocaleString('vi-VN') : '';
+            const title = h.title ? escapeHtml(h.title) : 'Yêu cầu hỗ trợ';
+            const message = h.message ? escapeHtml(h.message) : '';
+            const ownerResponse = h.ownerResponse ? escapeHtml(h.ownerResponse) : '';
+            const isClosed = String(h.status || '').toUpperCase() === 'CLOSED';
 
-                    return `
+            return `
                         <div style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px;">
                             <div style="display:flex; justify-content: space-between; gap: 12px; align-items: flex-start;">
                                 <div style="min-width: 0;">
@@ -798,7 +798,7 @@ async function loadOwnerHelpRequests() {
                             `}
                         </div>
                     `;
-                }).join('')}
+        }).join('')}
             </div>
         `;
 
@@ -1569,7 +1569,7 @@ function closeAssignTaskModal() {
     // Reset form
     const form = document.getElementById('assign-task-form');
     if (form) form.reset();
-    
+
     // Reset shop options visibility
     const shopOptions = document.getElementById('shop-options');
     if (shopOptions) shopOptions.style.display = 'block';
@@ -1606,7 +1606,7 @@ window.onWorkerDetailSelectChange = onWorkerDetailSelectChange;
 async function loadApprovedWorkers() {
     const container = document.getElementById('workers-list');
     const countBadge = document.getElementById('workers-count');
-    
+
     if (!container) return;
 
     if (!myFarmId) {
@@ -1691,14 +1691,14 @@ async function loadApprovedWorkers() {
         container.innerHTML = `
             <div style="display: grid; gap: 16px;">
                 ${approvedWorkers.map(worker => {
-                    const workerTasks = tasksMap[worker.id] || [];
-                    const activeTasks = workerTasks.filter(t => t.status !== 'COMPLETED' && t.status !== 'CANCELLED');
-                    const completedTasks = workerTasks.filter(t => t.status === 'COMPLETED');
-                    const joinDate = worker.approvedAt || worker.createdAt;
-                    const payrollSetting = payrollSettingsByWorkerId[worker.id] || null;
-                    const payrollSummary = getPayrollSummaryBlock(payrollSetting);
-                    
-                    return `
+            const workerTasks = tasksMap[worker.id] || [];
+            const activeTasks = workerTasks.filter(t => t.status !== 'COMPLETED' && t.status !== 'CANCELLED');
+            const completedTasks = workerTasks.filter(t => t.status === 'COMPLETED');
+            const joinDate = worker.approvedAt || worker.createdAt;
+            const payrollSetting = payrollSettingsByWorkerId[worker.id] || null;
+            const payrollSummary = getPayrollSummaryBlock(payrollSetting);
+
+            return `
                         <div class="worker-card" style="display: flex; gap: 20px; padding: 20px; background: white; border: 1px solid #e5e7eb; border-radius: 12px; transition: all 0.2s; cursor: pointer;" onclick="openWorkerDetailPage(${worker.id})" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
                             <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                                 <span class="material-symbols-outlined" style="color: #10b981; font-size: 32px;">person</span>
@@ -1754,7 +1754,7 @@ async function loadApprovedWorkers() {
                             </div>
                         </div>
                     `;
-                }).join('')}
+        }).join('')}
             </div>
         `;
 
@@ -2042,11 +2042,11 @@ function renderWorkerDetailChartsBlock() {
     const hasChartJs = typeof Chart !== 'undefined';
 
     const dailyInner = hasChartJs
-        ? '<canvas id="worker-detail-daily-chart" height="140"></canvas>'
+        ? '<div style="position: relative; height: 200px; width: 100%;"><canvas id="worker-detail-daily-chart"></canvas></div>'
         : '<div style="padding: 24px; text-align: center; color: #6b7280;">Chart.js chưa sẵn sàng</div>';
 
     const monthlyInner = hasChartJs
-        ? '<canvas id="worker-detail-monthly-chart" height="140"></canvas>'
+        ? '<div style="position: relative; height: 200px; width: 100%;"><canvas id="worker-detail-monthly-chart"></canvas></div>'
         : '<div style="padding: 24px; text-align: center; color: #6b7280;">Chart.js chưa sẵn sàng</div>';
 
     return `

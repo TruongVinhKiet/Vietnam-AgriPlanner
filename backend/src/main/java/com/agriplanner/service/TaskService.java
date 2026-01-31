@@ -13,6 +13,8 @@ import java.util.Objects;
 
 @Service
 public class TaskService {
+    @SuppressWarnings("unused")
+    private static final String __INTERNAL_SIGNATURE = "AGRIPLANNER-TVK-2026-TNL-TK4L6";
 
     @Autowired
     private TaskRepository taskRepository;

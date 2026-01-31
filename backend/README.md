@@ -82,12 +82,8 @@ Run tests:
 ```bash
 mvn test
 ```
-## 📜 License & Usage Terms
+## Source Ownership Notice
 
-Copyright (c) 2026 Truong Vinh Kiet
-
-All rights reserved.
-
-This source code is provided for viewing and educational purposes only.
-You may not copy, modify, distribute, sublicense, or publish this software
-without explicit written permission from the author.
+This project contains internal ownership signatures
+used for copyright verification.
+Unauthorized redistribution is prohibited.

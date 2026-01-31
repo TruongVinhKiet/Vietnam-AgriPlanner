@@ -44,7 +44,8 @@ public class KmzUploadController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "province", defaultValue = "Cần Thơ") String province,
             @RequestParam(value = "district", required = false) String district,
-            @RequestParam(value = "notes", required = false) String notes) {
+            @RequestParam(value = "notes", required = false) String notes,
+            @RequestParam(value = "mapType", defaultValue = "planning") String mapType) {
 
         try {
             // Validate file
@@ -58,25 +59,32 @@ public class KmzUploadController {
                 return ResponseEntity.badRequest().body(Map.of("error", "Only KMZ/KML files are allowed"));
             }
 
+            // Validate mapType
+            if (!mapType.equals("planning") && !mapType.equals("soil")) {
+                mapType = "planning";
+            }
+
             // Get current user ID
             Long userId = getCurrentUserId();
 
-            logger.info("Processing KMZ upload: {} ({})", filename, formatFileSize(file.getSize()));
+            logger.info("Processing KMZ upload: {} ({}) - mapType: {}", filename, formatFileSize(file.getSize()), mapType);
 
-            // Process file
-            KmzUpload upload = kmzParserService.processKmzFile(file, province, district, userId);
+            // Process file with mapType
+            KmzUpload upload = kmzParserService.processKmzFile(file, province, district, userId, mapType);
 
             if (notes != null && !notes.isEmpty()) {
                 upload.setNotes(notes);
                 kmzUploadRepository.save(upload);
             }
 
+            String mapTypeLabel = mapType.equals("soil") ? "thổ nhưỡng" : "quy hoạch";
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("upload", upload);
             response.put("message", String.format(
-                    "Đã xử lý thành công %d vùng quy hoạch từ file %s",
+                    "Đã xử lý thành công %d vùng %s từ file %s",
                     upload.getZonesCount(),
+                    mapTypeLabel,
                     upload.getOriginalName()));
 
             return ResponseEntity.ok(response);
@@ -89,10 +97,14 @@ public class KmzUploadController {
     }
 
     /**
-     * Get all uploads
+     * Get all uploads (optionally filtered by map type)
      */
     @GetMapping("/uploads")
-    public ResponseEntity<List<KmzUpload>> getAllUploads() {
+    public ResponseEntity<List<KmzUpload>> getAllUploads(
+            @RequestParam(required = false) String mapType) {
+        if (mapType != null && !mapType.isEmpty()) {
+            return ResponseEntity.ok(kmzUploadRepository.findByMapTypeOrderByUploadedAtDesc(mapType));
+        }
         return ResponseEntity.ok(kmzUploadRepository.findAllByOrderByUploadedAtDesc());
     }
 

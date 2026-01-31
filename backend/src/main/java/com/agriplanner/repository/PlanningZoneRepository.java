@@ -117,4 +117,41 @@ public interface PlanningZoneRepository extends JpaRepository<PlanningZone, Long
          */
         @Query("SELECT DISTINCT pz.district FROM PlanningZone pz WHERE pz.district IS NOT NULL ORDER BY pz.district")
         List<String> findDistinctDistricts();
+
+        // ==================== MAP TYPE FILTERS ====================
+
+        /**
+         * Find zones by map type (planning or soil)
+         */
+        List<PlanningZone> findByMapType(String mapType);
+
+        /**
+         * Find zones by map type and province
+         */
+        List<PlanningZone> findByMapTypeAndProvince(String mapType, String province);
+
+        /**
+         * Find zones by map type and district
+         */
+        List<PlanningZone> findByMapTypeAndDistrict(String mapType, String district);
+
+        /**
+         * Find zones within bounding box filtered by map type
+         */
+        @Query("SELECT pz FROM PlanningZone pz WHERE " +
+                        "pz.mapType = :mapType AND " +
+                        "pz.centerLat BETWEEN :minLat AND :maxLat AND " +
+                        "pz.centerLng BETWEEN :minLng AND :maxLng")
+        List<PlanningZone> findByMapTypeAndBoundingBox(
+                        @Param("mapType") String mapType,
+                        @Param("minLat") BigDecimal minLat,
+                        @Param("maxLat") BigDecimal maxLat,
+                        @Param("minLng") BigDecimal minLng,
+                        @Param("maxLng") BigDecimal maxLng);
+
+        /**
+         * Count zones by map type
+         */
+        @Query("SELECT pz.mapType, COUNT(pz) FROM PlanningZone pz GROUP BY pz.mapType")
+        List<Object[]> countByMapType();
 }

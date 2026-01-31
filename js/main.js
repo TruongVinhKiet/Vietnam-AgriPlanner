@@ -1,12 +1,16 @@
+/*
+ * watermark: AGRIPLANNER-TVK-2026-TNL-TK4L6
+ * Copyright (c) 2026 Truong Vinh Kiet
+ */
 /**
  * AgriPlanner - Main Application Entry Point
  * This file handles common initialization across all pages
  */
 
 // Ensure DOM is ready before initializing
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     console.log('AgriPlanner initialized');
-    
+
     // Initialize common features
     initializeApp();
 });
@@ -26,10 +30,10 @@ function initializeApp() {
             el.style.transform = 'translateY(0)';
         }, index * 100);
     });
-    
+
     // Initialize tooltips if any
     initTooltips();
-    
+
     // Handle responsive sidebar
     handleResponsiveSidebar();
 }
@@ -48,7 +52,7 @@ function initTooltips() {
 function showTooltip(e) {
     const text = e.target.getAttribute('data-tooltip');
     if (!text) return;
-    
+
     const tooltip = document.createElement('div');
     tooltip.className = 'tooltip';
     tooltip.textContent = text;
@@ -62,13 +66,13 @@ function showTooltip(e) {
         z-index: 9999;
         white-space: nowrap;
     `;
-    
+
     document.body.appendChild(tooltip);
-    
+
     const rect = e.target.getBoundingClientRect();
     tooltip.style.top = (rect.bottom + 8) + 'px';
     tooltip.style.left = (rect.left + rect.width / 2 - tooltip.offsetWidth / 2) + 'px';
-    
+
     e.target._tooltip = tooltip;
 }
 
@@ -85,12 +89,12 @@ function hideTooltip(e) {
 function handleResponsiveSidebar() {
     const sidebar = document.querySelector('.sidebar');
     const mainWrapper = document.querySelector('.main-wrapper');
-    
+
     // Check if mobile
     if (window.innerWidth <= 768 && sidebar) {
         sidebar.classList.add('collapsed');
     }
-    
+
     // Listen for resize
     window.addEventListener('resize', () => {
         if (window.innerWidth <= 768 && sidebar) {
@@ -128,14 +132,14 @@ function showToast(message, type = 'info', duration = 3000) {
     if (existingToast) {
         existingToast.remove();
     }
-    
+
     const toast = document.createElement('div');
     toast.className = `toast-notification toast-${type}`;
     toast.innerHTML = `
         <span class="material-symbols-outlined">${getToastIcon(type)}</span>
         <span>${message}</span>
     `;
-    
+
     toast.style.cssText = `
         position: fixed;
         bottom: 24px;
@@ -153,9 +157,9 @@ function showToast(message, type = 'info', duration = 3000) {
         z-index: 99999;
         animation: slideInRight 0.3s ease;
     `;
-    
+
     document.body.appendChild(toast);
-    
+
     setTimeout(() => {
         toast.style.animation = 'slideOutRight 0.3s ease';
         setTimeout(() => toast.remove(), 300);

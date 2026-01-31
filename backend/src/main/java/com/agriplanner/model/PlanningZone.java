@@ -88,6 +88,10 @@ public class PlanningZone {
     @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
+    // Map type: 'planning' for land use planning, 'soil' for soil type map
+    @Column(name = "map_type", length = 20)
+    private String mapType = "planning";
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 

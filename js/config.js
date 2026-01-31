@@ -1,3 +1,7 @@
+/*
+ * watermark: AGRIPLANNER-TVK-2026-TNL-TK4L6
+ * Copyright (c) 2026 Truong Vinh Kiet
+ */
 // =================================================
 // AgriPlanner - Configuration File
 // Frontend API Keys and Settings
@@ -12,7 +16,7 @@ const CONFIG = {
 
     // OpenRouter API (for AI Chatbot with Gemini)
     OPENROUTER_API_KEY: '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',
-    
+
     // OpenRouter Backup API (for Gemma 3 27B free model)
     OPENROUTER_BACKUP_API_KEY: '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',
 
@@ -41,7 +45,7 @@ const CONFIG = {
         MODEL: 'google/gemini-2.0-flash-001',  // Using Gemini via OpenRouter
         BACKUP_MODEL: 'google/gemma-3-27b-it:free'  // Free backup model via OpenRouter
     },
-    
+
     // Smart Advisor AI settings
     SMART_ADVISOR: {
         GEMINI_API_URL: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent',

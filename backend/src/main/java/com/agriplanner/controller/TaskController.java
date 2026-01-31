@@ -38,6 +38,19 @@ public class TaskController {
     @Autowired
     private ShopItemRepository shopItemRepository;
 
+    @Autowired
+    private com.agriplanner.service.DailyAutoTaskScheduler dailyAutoTaskScheduler;
+
+    @PostMapping("/generate-daily-auto")
+    public ResponseEntity<?> generateDailyAutoTasks() {
+        try {
+            dailyAutoTaskScheduler.generateDailyAutoTasks();
+            return ResponseEntity.ok("Daily tasks generated successfully");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
     @PostMapping
     public ResponseEntity<?> assignTask(@RequestBody TaskRequest request) {
         try {
@@ -96,7 +109,8 @@ public class TaskController {
     }
 
     @PostMapping("/{id}/complete")
-    public ResponseEntity<?> completeTask(@PathVariable Long id, @RequestBody(required = false) Map<String, String> request) {
+    public ResponseEntity<?> completeTask(@PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> request) {
         try {
             String condition = request != null ? request.get("condition") : null;
             String aiSuggestion = request != null ? request.get("aiSuggestion") : null;

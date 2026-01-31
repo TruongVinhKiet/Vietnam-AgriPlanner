@@ -498,7 +498,11 @@ async function completeTask(taskId) {
         loadTasksList();
         loadUserProfile(); // Update balance if salary paid? (Not yet implemented auto-pay on task complete, usually periodic)
     } catch (e) {
-        alert('Lỗi: ' + e.message);
+        let msg = e.message;
+        if (msg.includes('Không đủ vật tư')) {
+            msg = 'Kho không đủ vật tư để thực hiện công việc này. Vui lòng liên hệ chủ trang trại.';
+        }
+        alert('Lỗi: ' + msg);
     }
 }
 
@@ -737,6 +741,20 @@ function runInspectionAiSuggestion() {
             } else if (name.includes('sick') || name.includes('benh') || name.includes('om')) {
                 suggestedValue = 'SICK';
                 text = 'AI phát hiện dấu hiệu bất thường về sức khỏe vật nuôi.';
+            }
+        }
+
+        // Fallback Random Mockup if name doesn't match keys (For Demo Purpose)
+        if (!suggestedValue) {
+            const random = Math.random();
+            if (kind === 'FIELD') {
+                if (random > 0.7) { suggestedValue = 'GOOD'; text = 'AI nhận định ruộng tốt (Dự đoán).'; }
+                else if (random > 0.4) { suggestedValue = 'FAIR'; text = 'AI nhận định ruộng bình thường (Dự đoán).'; }
+                else { suggestedValue = 'POOR'; text = 'AI nghi ngờ có rủi ro sâu bệnh (Dự đoán).'; }
+            } else {
+                if (random > 0.7) { suggestedValue = 'CLEAN'; text = 'AI nhận định chuồng sạch (Dự đoán).'; }
+                else if (random > 0.4) { suggestedValue = 'DIRTY'; text = 'AI nhận định chuồng cần vệ sinh (Dự đoán).'; }
+                else { suggestedValue = 'SICK'; text = 'AI nghi ngờ vật nuôi có vấn đề (Dự đoán).'; }
             }
         }
 

@@ -305,10 +305,12 @@ async function submitUpload() {
     const province = document.getElementById('upload-province').value;
     const district = document.getElementById('upload-district').value;
     const notes = document.getElementById('upload-notes').value;
+    const mapType = document.querySelector('input[name="map-type"]:checked')?.value || 'planning';
 
     const formData = new FormData();
     formData.append('file', selectedFile);
     formData.append('province', province);
+    formData.append('mapType', mapType);
     if (district) formData.append('district', district);
     if (notes) formData.append('notes', notes);
 
@@ -369,7 +371,12 @@ function renderUploadsList(uploads) {
         return;
     }
 
-    container.innerHTML = uploads.map(upload => `
+    container.innerHTML = uploads.map(upload => {
+        const mapTypeLabel = upload.mapType === 'soil' ? 'Thổ nhưỡng' : 'Quy hoạch';
+        const mapTypeIcon = upload.mapType === 'soil' ? 'landscape' : 'map';
+        const mapTypeColor = upload.mapType === 'soil' ? 'amber' : 'green';
+        
+        return `
         <div class="upload-item">
             <div class="upload-item-icon ${upload.status === 'COMPLETED' ? 'success' : upload.status === 'FAILED' ? 'failed' : 'processing'}">
                 <span class="material-icons-round">
@@ -379,6 +386,10 @@ function renderUploadsList(uploads) {
             <div class="upload-item-info">
                 <div class="upload-item-name">${upload.originalName || upload.filename}</div>
                 <div class="upload-item-meta">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-${mapTypeColor}-100 text-${mapTypeColor}-700">
+                        <span class="material-icons-round" style="font-size:12px">${mapTypeIcon}</span>
+                        ${mapTypeLabel}
+                    </span>
                     ${upload.province || ''} ${upload.district ? '- ' + upload.district : ''} 
                     | ${upload.zonesCount || 0} vùng 
                     | ${formatDate(upload.uploadedAt)}
@@ -396,7 +407,7 @@ function renderUploadsList(uploads) {
                 </button>
             </div>
         </div>
-    `).join('');
+    `}).join('');
 }
 
 async function viewUploadZones(uploadId) {

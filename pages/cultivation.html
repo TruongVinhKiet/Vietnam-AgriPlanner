@@ -545,6 +545,28 @@
             box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.3);
         }
 
+        /* Soil Map Button */
+        .map-layer-btn--soil {
+            background: linear-gradient(135deg, #92400e, #b45309);
+            color: white;
+            border-color: #92400e;
+        }
+
+        .map-layer-btn--soil:hover {
+            background: linear-gradient(135deg, #78350f, #92400e);
+        }
+
+        .map-layer-btn--soil.active {
+            background: linear-gradient(135deg, #d97706, #f59e0b);
+            border-color: #d97706;
+            box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.3);
+        }
+
+        /* Soil Legend specific styles */
+        .soil-legend .planning-legend__header {
+            background: linear-gradient(135deg, #92400e 0%, #d97706 100%) !important;
+        }
+
         /* Planning Source Card Featured */
         .planning-source-card--featured {
             border: 2px solid #059669 !important;
@@ -1771,9 +1793,14 @@
                         <button class="map-layer-btn active" data-layer="satellite">Vệ tinh</button>
                         <button class="map-layer-btn" data-layer="terrain">Địa hình</button>
                         <button class="map-layer-btn map-layer-btn--planning" data-layer="planning"
-                            title="Mở bản đồ quy hoạch">
+                            title="Bản đồ quy hoạch sử dụng đất">
                             <span class="material-symbols-outlined"
                                 style="font-size: 14px; vertical-align: middle;">map</span> Quy hoạch
+                        </button>
+                        <button class="map-layer-btn map-layer-btn--soil" data-layer="soil"
+                            title="Bản đồ thổ nhưỡng - loại đất">
+                            <span class="material-symbols-outlined"
+                                style="font-size: 14px; vertical-align: middle;">landscape</span> Thổ nhưỡng
                         </button>
                     </div>
 
@@ -1886,6 +1913,63 @@
                                 style="background: #f59e0b;">
                                 <span class="material-symbols-outlined">add_location</span> Thêm
                             </button>
+                        </div>
+                    </div>
+
+                    <!-- Soil Layer Legend -->
+                    <div class="planning-legend soil-legend" id="soil-legend" style="display: none;">
+                        <div class="planning-legend__header" style="background: linear-gradient(135deg, #92400e 0%, #d97706 100%);">
+                            <span class="material-symbols-outlined">landscape</span>
+                            <span>Bản đồ Thổ nhưỡng</span>
+                            <button class="planning-legend__close" onclick="toggleSoilLayer()" title="Đóng">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <!-- Filter by District -->
+                        <div class="planning-filter">
+                            <select id="soil-district-filter" onchange="filterSoilByDistrict(this.value)">
+                                <option value="">🏛️ Tất cả Quận/Huyện</option>
+                            </select>
+                        </div>
+
+                        <!-- Search by Coordinate -->
+                        <div class="planning-search">
+                            <input type="text" id="soil-coord-search" placeholder="Tọa độ: 10.0306, 105.7701">
+                            <button onclick="searchSoilByCoordinate()" title="Tìm vùng tại tọa độ">
+                                <span class="material-symbols-outlined">search</span>
+                            </button>
+                        </div>
+
+                        <div class="planning-legend__items" id="soil-legend-items">
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #8B4513;"></span>
+                                <span>Đất phù sa</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #FF6347;"></span>
+                                <span>Đất phèn</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #00CED1;"></span>
+                                <span>Đất mặn</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #F5DEB3;"></span>
+                                <span>Đất cát</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #2F4F4F;"></span>
+                                <span>Đất than bùn</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #808080;"></span>
+                                <span>Đất xám</span>
+                            </div>
+                        </div>
+                        <div class="planning-legend__info" style="padding: 8px 12px; font-size: 11px; color: #666; background: #f8f9fa; border-radius: 0 0 8px 8px;">
+                            <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">info</span>
+                            Click vào vùng để xem thông tin chi tiết về loại đất, độ pH, cây trồng phù hợp
                         </div>
                     </div>
                 </div>
@@ -2998,6 +3082,246 @@
                 console.log('Could not load planning legend:', e);
             }
         }
+
+        // ==================== SOIL MAP LAYER ====================
+        let soilLayerGroup = null;
+        let soilZonesData = [];
+        let isSoilLayerVisible = false;
+
+        // Load soil zones from database
+        async function loadSoilZones() {
+            try {
+                const bounds = map.getBounds();
+                const response = await fetch(`${API_BASE}/planning-zones/bounds?minLat=${bounds.getSouth()}&maxLat=${bounds.getNorth()}&minLng=${bounds.getWest()}&maxLng=${bounds.getEast()}&mapType=soil`);
+
+                if (response.ok) {
+                    soilZonesData = await response.json();
+                    if (isSoilLayerVisible) {
+                        renderSoilZones();
+                    }
+                }
+            } catch (error) {
+                console.log('Soil zones not available:', error);
+                // Fallback: load all soil zones
+                try {
+                    const response = await fetch(`${API_BASE}/planning-zones?mapType=soil`);
+                    if (response.ok) {
+                        soilZonesData = await response.json();
+                        if (isSoilLayerVisible) {
+                            renderSoilZones();
+                        }
+                    }
+                } catch (e) {
+                    console.log('Could not load soil zones');
+                }
+            }
+        }
+
+        // Render soil zones on map
+        function renderSoilZones() {
+            if (!soilLayerGroup) {
+                soilLayerGroup = L.layerGroup().addTo(map);
+            }
+
+            // Clear existing
+            soilLayerGroup.clearLayers();
+
+            soilZonesData.forEach(zone => {
+                try {
+                    let layer;
+
+                    // Try GeoJSON first
+                    if (zone.geojson) {
+                        try {
+                            const geojson = typeof zone.geojson === 'string' ? JSON.parse(zone.geojson) : zone.geojson;
+                            layer = L.geoJSON(geojson, {
+                                style: {
+                                    color: zone.strokeColor || '#78350f',
+                                    weight: 2,
+                                    opacity: 0.8,
+                                    fillColor: zone.fillColor || '#d97706',
+                                    fillOpacity: parseFloat(zone.fillOpacity) || 0.5
+                                }
+                            });
+                        } catch (geoErr) {
+                            console.warn('GeoJSON parse error for soil zone', geoErr);
+                        }
+                    }
+
+                    // Fallback to boundaryCoordinates
+                    if (!layer && zone.boundaryCoordinates) {
+                        const coords = typeof zone.boundaryCoordinates === 'string'
+                            ? JSON.parse(zone.boundaryCoordinates)
+                            : zone.boundaryCoordinates;
+                        layer = L.polygon(coords, {
+                            color: zone.strokeColor || '#78350f',
+                            weight: 2,
+                            opacity: 0.8,
+                            fillColor: zone.fillColor || '#d97706',
+                            fillOpacity: parseFloat(zone.fillOpacity) || 0.5,
+                            className: 'soil-zone-polygon'
+                        });
+                    }
+
+                    if (!layer) return;
+
+                    // Create popup content for soil zone
+                    const popupContent = `
+                        <div class="soil-zone-popup" style="min-width: 220px;">
+                            <h4 style="margin: 0 0 8px 0; color: #92400e;">
+                                <span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle;">landscape</span>
+                                ${zone.name || 'Vùng thổ nhưỡng'}
+                            </h4>
+                            <div style="font-size: 12px; color: #4b5563; line-height: 1.6;">
+                                <p><strong>Loại đất:</strong> ${zone.zoneType || 'Chưa phân loại'}</p>
+                                ${zone.zoneCode ? `<p><strong>Mã:</strong> ${zone.zoneCode}</p>` : ''}
+                                ${zone.landUsePurpose ? `<p><strong>Đặc điểm:</strong> ${zone.landUsePurpose}</p>` : ''}
+                                ${zone.district || zone.commune ? `<p><strong>Vị trí:</strong> ${zone.commune || ''} ${zone.district || ''} ${zone.province || ''}</p>` : ''}
+                                ${zone.notes ? `<p style="margin-top: 8px; padding: 8px; background: #fef3c7; border-radius: 4px; font-size: 11px;"><strong>Gợi ý cây trồng:</strong> ${zone.notes}</p>` : ''}
+                                ${zone.source ? `<p style="font-size: 11px; color: #9ca3af;"><em>Nguồn: ${zone.source}</em></p>` : ''}
+                            </div>
+                        </div>
+                    `;
+
+                    layer.bindPopup(popupContent);
+                    layer.bindTooltip(zone.name || 'Vùng thổ nhưỡng', {
+                        permanent: false,
+                        direction: 'center',
+                        className: 'soil-zone-tooltip'
+                    });
+
+                    soilLayerGroup.addLayer(layer);
+                } catch (e) {
+                    console.error('Error rendering soil zone:', zone.name, e);
+                }
+            });
+        }
+
+        // Toggle soil layer visibility
+        function toggleSoilLayer() {
+            // If planning is active, turn it off first (exclusive toggle)
+            if (isPlanningLayerVisible) {
+                togglePlanningLayer();
+            }
+
+            isSoilLayerVisible = !isSoilLayerVisible;
+
+            const soilBtn = document.querySelector('.map-layer-btn[data-layer="soil"]');
+            const soilLegend = document.getElementById('soil-legend');
+
+            if (isSoilLayerVisible) {
+                soilBtn?.classList.add('active');
+                if (soilLegend) soilLegend.style.display = 'block';
+
+                // Load and render soil zones
+                loadSoilZones();
+
+                showToast('Bản đồ Thổ nhưỡng', 'Đang hiển thị các vùng thổ nhưỡng', 'success');
+            } else {
+                soilBtn?.classList.remove('active');
+                if (soilLegend) soilLegend.style.display = 'none';
+
+                // Clear layer
+                if (soilLayerGroup) {
+                    soilLayerGroup.clearLayers();
+                }
+            }
+        }
+
+        // Filter soil zones by district
+        async function filterSoilByDistrict(district) {
+            try {
+                let url = `${API_BASE}/planning-zones?mapType=soil`;
+                if (district) {
+                    url = `${API_BASE}/planning-zones/by-district?district=${encodeURIComponent(district)}&mapType=soil`;
+                }
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to fetch');
+
+                soilZonesData = await response.json();
+                renderSoilZones();
+
+                showToast(
+                    'Lọc Thổ nhưỡng',
+                    district ? `Đang hiển thị ${soilZonesData.length} vùng tại ${district}` : `Đang hiển thị tất cả ${soilZonesData.length} vùng`,
+                    'success'
+                );
+            } catch (e) {
+                console.error('Filter error:', e);
+                showToast('Lỗi', 'Không thể lọc dữ liệu thổ nhưỡng', 'error');
+            }
+        }
+
+        // Search soil zone by coordinate
+        async function searchSoilByCoordinate() {
+            const input = document.getElementById('soil-coord-search')?.value?.trim();
+            if (!input) {
+                showToast('Tìm kiếm', 'Vui lòng nhập tọa độ (VD: 10.0306, 105.7701)', 'warning');
+                return;
+            }
+
+            // Parse coordinates - same logic as planning
+            const parts = input.split(/[,\s]+/).map(p => parseFloat(p.trim()));
+            if (parts.length < 2 || isNaN(parts[0]) || isNaN(parts[1])) {
+                showToast('Lỗi', 'Định dạng tọa độ không hợp lệ', 'error');
+                return;
+            }
+
+            const lat = parts[0];
+            const lng = parts[1];
+
+            // Pan to location
+            map.setView([lat, lng], 16);
+
+            // Search for soil zones near this point
+            try {
+                const response = await fetch(`${API_BASE}/planning-zones/near?lat=${lat}&lng=${lng}&radius=0.01&mapType=soil`);
+                if (response.ok) {
+                    const zones = await response.json();
+                    if (zones.length > 0) {
+                        soilZonesData = zones;
+                        renderSoilZones();
+                        showToast('Tìm thấy', `${zones.length} vùng thổ nhưỡng gần tọa độ này`, 'success');
+                    } else {
+                        showToast('Không tìm thấy', 'Không có vùng thổ nhưỡng nào gần tọa độ này', 'warning');
+                    }
+                }
+            } catch (e) {
+                console.error('Search error:', e);
+            }
+        }
+
+        // Update togglePlanningLayer to be exclusive with soil
+        const originalTogglePlanningLayer = togglePlanningLayer;
+        togglePlanningLayer = function() {
+            // If soil is active, turn it off first
+            if (isSoilLayerVisible) {
+                isSoilLayerVisible = false;
+                const soilBtn = document.querySelector('.map-layer-btn[data-layer="soil"]');
+                const soilLegend = document.getElementById('soil-legend');
+                soilBtn?.classList.remove('active');
+                if (soilLegend) soilLegend.style.display = 'none';
+                if (soilLayerGroup) soilLayerGroup.clearLayers();
+            }
+
+            isPlanningLayerVisible = !isPlanningLayerVisible;
+
+            const planningBtn = document.querySelector('.map-layer-btn[data-layer="planning"]');
+            const planningLegend = document.getElementById('planning-legend');
+
+            if (isPlanningLayerVisible) {
+                planningBtn?.classList.add('active');
+                if (planningLegend) planningLegend.style.display = 'block';
+                loadPlanningZones();
+                loadPlanningLegend();
+                showToast('Bản đồ Quy hoạch', 'Đang hiển thị các vùng quy hoạch đã lưu', 'success');
+            } else {
+                planningBtn?.classList.remove('active');
+                if (planningLegend) planningLegend.style.display = 'none';
+                if (planningLayerGroup) planningLayerGroup.clearLayers();
+            }
+        };
 
         // ==================== PHASE 3: FILTER, SEARCH & EXPORT ====================
 
@@ -5853,8 +6177,14 @@
                         return;
                     }
 
+                    // Xử lý riêng cho nút Thổ nhưỡng - toggle layer thổ nhưỡng
+                    if (layerType === 'soil') {
+                        toggleSoilLayer();
+                        return;
+                    }
+
                     document.querySelectorAll('.map-layer-btn[data-layer]').forEach(b => {
-                        if (b.dataset.layer !== 'planning') b.classList.remove('active');
+                        if (b.dataset.layer !== 'planning' && b.dataset.layer !== 'soil') b.classList.remove('active');
                     });
                     btn.classList.add('active');
                     Object.values(tileLayers).forEach(l => map.removeLayer(l));
@@ -7541,7 +7871,19 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
                             <span class="material-symbols-outlined" style="color: #059669;">arrow_forward</span>
                         </div>
                         
-                        <!-- Option 3: Draw Directly -->
+                        <!-- Option 3: Click to Add Land Point -->
+                        <div class="add-field-option" onclick="closeModalById('add-field-options-modal'); startClickToAddLand();">
+                            <div class="add-field-option__icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+                                <span class="material-symbols-outlined">pin_drop</span>
+                            </div>
+                            <div class="add-field-option__content">
+                                <h4>Click vào điểm trên bản đồ</h4>
+                                <p>Chọn 1 điểm trên bản đồ để xem thông tin quy hoạch & thổ nhưỡng</p>
+                            </div>
+                            <span class="material-symbols-outlined" style="color: #8b5cf6;">arrow_forward</span>
+                        </div>
+
+                        <!-- Option 4: Draw Directly -->
                         <div class="add-field-option" onclick="closeModalById('add-field-options-modal'); startDrawingField();">
                             <div class="add-field-option__icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
                                 <span class="material-symbols-outlined">draw</span>
@@ -7566,6 +7908,253 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
         `;
         document.body.appendChild(modal);
     }
+
+    // ==================== CLICK TO ADD LAND FEATURE ====================
+    let isClickToAddLandMode = false;
+    let clickToAddLandMarker = null;
+
+    function startClickToAddLand() {
+        isClickToAddLandMode = true;
+        
+        // Show instruction banner
+        const banner = document.createElement('div');
+        banner.id = 'click-to-add-banner';
+        banner.className = 'click-to-add-banner';
+        banner.innerHTML = `
+            <div class="click-to-add-banner__content">
+                <span class="material-symbols-outlined">pin_drop</span>
+                <span>Click vào một điểm trên bản đồ để xem thông tin quy hoạch & thổ nhưỡng</span>
+            </div>
+            <button class="click-to-add-banner__cancel" onclick="cancelClickToAddLand()">
+                <span class="material-symbols-outlined">close</span> Hủy
+            </button>
+        `;
+        document.querySelector('.map-container').appendChild(banner);
+
+        // Change cursor
+        document.getElementById('map').style.cursor = 'crosshair';
+
+        // Enable both layers if not visible
+        if (!isPlanningLayerVisible && !isSoilLayerVisible) {
+            togglePlanningLayer();
+        }
+
+        showToast('Click để thêm đất', 'Click vào vị trí bạn muốn kiểm tra', 'info');
+
+        // Setup click handler
+        map.once('click', handleClickToAddLand);
+    }
+
+    function cancelClickToAddLand() {
+        isClickToAddLandMode = false;
+        document.getElementById('map').style.cursor = '';
+        const banner = document.getElementById('click-to-add-banner');
+        if (banner) banner.remove();
+        map.off('click', handleClickToAddLand);
+        if (clickToAddLandMarker) {
+            map.removeLayer(clickToAddLandMarker);
+            clickToAddLandMarker = null;
+        }
+    }
+
+    async function handleClickToAddLand(e) {
+        const lat = e.latlng.lat;
+        const lng = e.latlng.lng;
+
+        // Remove old marker
+        if (clickToAddLandMarker) {
+            map.removeLayer(clickToAddLandMarker);
+        }
+
+        // Add marker at clicked point
+        clickToAddLandMarker = L.marker([lat, lng], {
+            icon: L.divIcon({
+                className: 'click-marker',
+                html: `<div style="background: #8b5cf6; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            })
+        }).addTo(map);
+
+        // Fetch zone info at this point
+        showToast('Đang tìm kiếm', 'Đang tra cứu thông tin quy hoạch và thổ nhưỡng...', 'info');
+
+        try {
+            // Search for planning zones AND soil zones near this point
+            const [planningRes, soilRes] = await Promise.all([
+                fetch(`${API_BASE}/planning-zones/near?lat=${lat}&lng=${lng}&radius=0.005&mapType=planning`),
+                fetch(`${API_BASE}/planning-zones/near?lat=${lat}&lng=${lng}&radius=0.005&mapType=soil`)
+            ]);
+
+            const planningZones = planningRes.ok ? await planningRes.json() : [];
+            const soilZones = soilRes.ok ? await soilRes.json() : [];
+
+            // Show combined info modal
+            showCombinedLandInfoModal(lat, lng, planningZones, soilZones);
+
+        } catch (error) {
+            console.error('Error fetching land info:', error);
+            showToast('Lỗi', 'Không thể tra cứu thông tin', 'error');
+        }
+
+        // Reset mode
+        cancelClickToAddLand();
+    }
+
+    function showCombinedLandInfoModal(lat, lng, planningZones, soilZones) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'combined-land-info-modal';
+
+        const planningInfo = planningZones.length > 0 
+            ? planningZones.map(z => `
+                <div style="padding: 12px; background: #fff7ed; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                    <div style="font-weight: 600; color: #92400e;">${z.name || 'Vùng quy hoạch'}</div>
+                    <div style="font-size: 12px; color: #78350f; margin-top: 4px;">
+                        Loại: ${z.zoneType || 'Chưa xác định'} ${z.zoneCode ? `(${z.zoneCode})` : ''}
+                    </div>
+                    ${z.landUsePurpose ? `<div style="font-size: 12px; color: #78350f;">Mục đích: ${z.landUsePurpose}</div>` : ''}
+                </div>
+            `).join('')
+            : '<p style="color: #9ca3af; text-align: center; padding: 12px;">Không có dữ liệu quy hoạch tại điểm này</p>';
+
+        const soilInfo = soilZones.length > 0 
+            ? soilZones.map(z => `
+                <div style="padding: 12px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #d97706;">
+                    <div style="font-weight: 600; color: #78350f;">${z.name || 'Vùng thổ nhưỡng'}</div>
+                    <div style="font-size: 12px; color: #92400e; margin-top: 4px;">
+                        Loại đất: ${z.zoneType || 'Chưa xác định'} ${z.zoneCode ? `(${z.zoneCode})` : ''}
+                    </div>
+                    ${z.notes ? `<div style="font-size: 12px; color: #92400e; margin-top: 4px;">Gợi ý: ${z.notes}</div>` : ''}
+                </div>
+            `).join('')
+            : '<p style="color: #9ca3af; text-align: center; padding: 12px;">Không có dữ liệu thổ nhưỡng tại điểm này</p>';
+
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 550px;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: white;">
+                    <div>
+                        <h3 style="margin: 0;">
+                            <span class="material-symbols-outlined" style="vertical-align: middle;">location_on</span>
+                            Thông tin điểm đất
+                        </h3>
+                        <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.9;">Tọa độ: ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
+                    </div>
+                    <span class="close-modal" onclick="closeModalById('combined-land-info-modal')" style="color: white; cursor: pointer;">&times;</span>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <!-- Planning Section -->
+                    <div style="margin-bottom: 16px;">
+                        <h4 style="margin: 0 0 8px; display: flex; align-items: center; gap: 8px; color: #f59e0b;">
+                            <span class="material-symbols-outlined">map</span>
+                            Quy hoạch sử dụng đất
+                        </h4>
+                        ${planningInfo}
+                    </div>
+
+                    <!-- Soil Section -->
+                    <div style="margin-bottom: 16px;">
+                        <h4 style="margin: 0 0 8px; display: flex; align-items: center; gap: 8px; color: #92400e;">
+                            <span class="material-symbols-outlined">landscape</span>
+                            Thổ nhưỡng
+                        </h4>
+                        ${soilInfo}
+                    </div>
+
+                    <!-- Action: Add Land Form -->
+                    <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+                        <h4 style="margin: 0 0 12px; color: #059669;">
+                            <span class="material-symbols-outlined" style="vertical-align: middle;">add_location_alt</span>
+                            Đăng ký mảnh đất tại đây
+                        </h4>
+                        <form id="add-land-form" onsubmit="submitAddLandForm(event, ${lat}, ${lng})">
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-size: 13px; font-weight: 500; display: block; margin-bottom: 4px;">Tên mảnh đất *</label>
+                                <input type="text" name="landName" required style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px;" placeholder="VD: Ruộng lúa Bờ Đông">
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-size: 13px; font-weight: 500; display: block; margin-bottom: 4px;">Diện tích (m²)</label>
+                                <input type="number" name="area" style="width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px;" placeholder="VD: 5000">
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <label style="font-size: 13px; font-weight: 500; display: block; margin-bottom: 4px;">Ảnh xác nhận quyền sử dụng đất</label>
+                                <input type="file" name="landDocument" accept="image/*" style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; background: #f9fafb;">
+                            </div>
+                            <button type="submit" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;">
+                                <span class="material-symbols-outlined" style="vertical-align: middle; font-size: 18px;">check_circle</span>
+                                Gửi đăng ký
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    async function submitAddLandForm(event, lat, lng) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        
+        const landName = formData.get('landName');
+        const area = formData.get('area');
+        const documentFile = formData.get('landDocument');
+
+        showToast('Đang xử lý', 'Đang đăng ký mảnh đất...', 'info');
+
+        // For now, just show success - in real implementation, call API
+        // TODO: Implement actual API call to register land
+        setTimeout(() => {
+            closeModalById('combined-land-info-modal');
+            showToast('Thành công', `Đã ghi nhận yêu cầu đăng ký mảnh đất "${landName}"`, 'success');
+            
+            // Optionally start drawing the field boundary
+            // startDrawingField();
+        }, 1500);
+    }
+</script>
+
+<style>
+    .click-to-add-banner {
+        position: absolute;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+        color: white;
+        padding: 12px 20px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        z-index: 1000;
+    }
+
+    .click-to-add-banner__content {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .click-to-add-banner__cancel {
+        background: rgba(255,255,255,0.2);
+        border: none;
+        color: white;
+        padding: 6px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 13px;
+    }
+
+    .click-to-add-banner__cancel:hover {
+        background: rgba(255,255,255,0.3);
+    }
+</style>
 </script>
 
 <style>

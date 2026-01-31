@@ -1,3 +1,7 @@
+/*
+ * watermark: AGRIPLANNER-TVK-2026-TNL-TK4L6
+ * Copyright (c) 2026 Truong Vinh Kiet
+ */
 package com.agriplanner.config;
 
 import org.springframework.context.annotation.Configuration;
