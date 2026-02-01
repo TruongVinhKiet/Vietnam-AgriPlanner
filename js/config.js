@@ -71,6 +71,9 @@ Object.freeze(CONFIG.CHATBOT);
 Object.freeze(CONFIG.FEATURES);
 Object.freeze(CONFIG.SMART_ADVISOR);
 
+// Export global constants for easy access
+const API_BASE_URL = CONFIG.API_BASE_URL;
+
 // Export for module usage
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = CONFIG;

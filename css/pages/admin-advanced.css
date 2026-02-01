@@ -2,6 +2,16 @@
    Admin Advanced - Planning Zones Management
    ===================================================== */
 
+/* Map Image Overlay - Remove white background effect */
+.map-image-overlay {
+    mix-blend-mode: multiply;
+}
+
+/* Alternative: Darken mode for softer effect */
+.map-image-overlay.darken-mode {
+    mix-blend-mode: darken;
+}
+
 /* Map Controls */
 .map-controls {
     position: absolute;
@@ -49,6 +59,53 @@
     padding: 4px;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Map Type Toggle (Quy hoạch / Thổ nhưỡng) */
+.map-type-toggle {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    display: flex;
+    gap: 4px;
+    z-index: 1000;
+    background: white;
+    padding: 4px;
+    border-radius: 10px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.map-type-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.map-type-btn:hover {
+    background: #f3f4f6;
+}
+
+.map-type-btn.active[data-map-type="planning"] {
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+    color: white;
+}
+
+.map-type-btn.active[data-map-type="soil"] {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+}
+
+.map-type-btn .material-icons-round {
+    font-size: 18px;
 }
 
 .layer-btn {

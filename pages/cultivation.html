@@ -3477,10 +3477,10 @@
             }
         }
 
-        // Update togglePlanningLayer to load district filter
-        const originalTogglePlanningLayer = togglePlanningLayer;
+        // Extend togglePlanningLayer to load district filter  
+        const extendedTogglePlanningLayer = togglePlanningLayer;
         togglePlanningLayer = function () {
-            originalTogglePlanningLayer();
+            extendedTogglePlanningLayer();
             if (isPlanningLayerVisible) {
                 loadDistrictFilter();
             }

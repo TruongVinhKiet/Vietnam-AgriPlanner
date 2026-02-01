@@ -804,4 +804,114 @@ public class KmzParserService {
             }
         }
     }
+    
+    /**
+     * Extract images from KMZ file for AI analysis
+     */
+    public List<Path> extractImagesFromKmz(Path kmzPath) {
+        List<Path> images = new ArrayList<>();
+        
+        try {
+            Path tempDir = Files.createTempDirectory("kmz_images_");
+            
+            try (ZipFile zipFile = new ZipFile(kmzPath.toFile())) {
+                zipFile.extractAll(tempDir.toString());
+            }
+            
+            // Find all image files
+            try (var stream = Files.walk(tempDir)) {
+                stream.filter(p -> {
+                    String name = p.toString().toLowerCase();
+                    return name.endsWith(".png") || name.endsWith(".jpg") || 
+                           name.endsWith(".jpeg") || name.endsWith(".gif");
+                })
+                .forEach(images::add);
+            }
+            
+            // If no images, try to find them in files/ or images/ subfolder
+            if (images.isEmpty()) {
+                Path filesDir = tempDir.resolve("files");
+                if (Files.exists(filesDir)) {
+                    try (var stream = Files.walk(filesDir)) {
+                        stream.filter(p -> {
+                            String name = p.toString().toLowerCase();
+                            return name.endsWith(".png") || name.endsWith(".jpg") || 
+                                   name.endsWith(".jpeg") || name.endsWith(".gif");
+                        })
+                        .forEach(images::add);
+                    }
+                }
+            }
+            
+            logger.info("Extracted {} images from KMZ", images.size());
+            
+        } catch (Exception e) {
+            logger.error("Error extracting images from KMZ: {}", e.getMessage(), e);
+        }
+        
+        return images;
+    }
+    
+    /**
+     * Extract coordinates and geographic data from KMZ without analyzing images
+     * Used when separate images are provided for analysis
+     */
+    public Map<String, Object> extractCoordinatesFromKmz(Path kmzPath) {
+        Map<String, Object> result = new HashMap<>();
+        
+        try {
+            Path tempDir = Files.createTempDirectory("kmz_coords_");
+            
+            try (ZipFile zipFile = new ZipFile(kmzPath.toFile())) {
+                zipFile.extractAll(tempDir.toString());
+            }
+            
+            Path kmlFile = findKmlFile(tempDir);
+            if (kmlFile == null) {
+                logger.warn("No KML file found in KMZ");
+                return result;
+            }
+            
+            String kmlContent = Files.readString(kmlFile);
+            
+            // Extract bounding box
+            Pattern coordPattern = Pattern.compile("<coordinates>\\s*([\\d,\\.\\s\\-]+)\\s*</coordinates>");
+            Matcher matcher = coordPattern.matcher(kmlContent);
+            
+            List<Map<String, Object>> polygons = new ArrayList<>();
+            while (matcher.find()) {
+                String coordsStr = matcher.group(1).trim();
+                String[] points = coordsStr.split("\\s+");
+                
+                List<double[]> coordinates = new ArrayList<>();
+                for (String point : points) {
+                    String[] parts = point.split(",");
+                    if (parts.length >= 2) {
+                        try {
+                            double lng = Double.parseDouble(parts[0]);
+                            double lat = Double.parseDouble(parts[1]);
+                            coordinates.add(new double[]{lng, lat});
+                        } catch (NumberFormatException e) {
+                            // Skip invalid coordinates
+                        }
+                    }
+                }
+                
+                if (!coordinates.isEmpty()) {
+                    Map<String, Object> polygon = new HashMap<>();
+                    polygon.put("coordinates", coordinates);
+                    polygons.add(polygon);
+                }
+            }
+            
+            result.put("polygons", polygons);
+            result.put("polygonCount", polygons.size());
+            logger.info("Extracted {} polygons from KMZ", polygons.size());
+            
+        } catch (Exception e) {
+            logger.error("Error extracting coordinates from KMZ: {}", e.getMessage(), e);
+        }
+        
+        return result;
+    }
 }

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Tư Vấn Nông Nghiệp - AgriPlanner</title>
+    <link rel="stylesheet" href="../css/main.css">
+    <link rel="stylesheet" href="../css/smart-advisor.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <img src="../images/logo.png" alt="AgriPlanner" class="logo">
+                <h2>AgriPlanner</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="admin.html"><i class="fas fa-home"></i> Trang chủ</a>
+                <a href="cultivation.html"><i class="fas fa-seedling"></i> Canh tác</a>
+                <a href="livestock.html"><i class="fas fa-paw"></i> Chăn nuôi</a>
+                <a href="ai-advisor.html" class="active"><i class="fas fa-robot"></i> AI Tư vấn</a>
+                <a href="analytics.html"><i class="fas fa-chart-line"></i> Phân tích</a>
+                <a href="settings.html"><i class="fas fa-cog"></i> Cài đặt</a>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="content-header">
+                <button class="sidebar-toggle" id="sidebarToggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1><i class="fas fa-robot"></i> AI Tư Vấn Nông Nghiệp</h1>
+            </header>
+
+            <div class="advisor-container">
+                <!-- Input Section -->
+                <div class="advisor-input-section">
+                    <h2><i class="fas fa-info-circle"></i> Thông Tin Đầu Vào</h2>
+                    
+                    <form id="advisorForm" class="advisor-form">
+                        <!-- Location & Soil -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="location"><i class="fas fa-map-marker-alt"></i> Vị trí</label>
+                                <input type="text" id="location" name="location" placeholder="VD: Đồng bằng sông Cửu Long" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="soilType"><i class="fas fa-mountain"></i> Loại đất</label>
+                                <select id="soilType" name="soilType" required>
+                                    <option value="">-- Chọn loại đất --</option>
+                                    <option value="dat_phu_sa">Đất phù sa</option>
+                                    <option value="dat_xam">Đất xám</option>
+                                    <option value="dat_do_vang">Đất đỏ vàng</option>
+                                    <option value="dat_phèn">Đất phèn</option>
+                                    <option value="dat_mặn">Đất mặn</option>
+                                    <option value="dat_cat">Đất cát</option>
+                                    <option value="dat_bazan">Đất bazan</option>
+                                    <option value="dat_mun">Đất mùn</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Area & Water Source -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="area"><i class="fas fa-expand"></i> Diện tích (ha)</label>
+                                <input type="number" id="area" name="area" min="0.1" step="0.1" placeholder="VD: 2.5" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="waterSource"><i class="fas fa-tint"></i> Nguồn nước</label>
+                                <select id="waterSource" name="waterSource" required>
+                                    <option value="">-- Chọn nguồn nước --</option>
+                                    <option value="song_suoi">Sông, suối</option>
+                                    <option value="ao_ho">Ao, hồ</option>
+                                    <option value="gieng_khoan">Giếng khoan</option>
+                                    <option value="nuoc_mua">Nước mưa</option>
+                                    <option value="kenh_muong">Kênh mương thủy lợi</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Season & Current Crops -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="season"><i class="fas fa-calendar-alt"></i> Mùa vụ dự kiến</label>
+                                <select id="season" name="season" required>
+                                    <option value="">-- Chọn mùa vụ --</option>
+                                    <option value="dong_xuan">Đông Xuân (11-3)</option>
+                                    <option value="he_thu">Hè Thu (4-8)</option>
+                                    <option value="thu_dong">Thu Đông (9-12)</option>
+                                    <option value="quanh_nam">Quanh năm</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="currentCrops"><i class="fas fa-leaf"></i> Cây trồng hiện tại</label>
+                                <input type="text" id="currentCrops" name="currentCrops" placeholder="VD: Lúa, rau màu">
+                            </div>
+                        </div>
+
+                        <!-- Budget & Experience -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="budget"><i class="fas fa-money-bill-wave"></i> Ngân sách (triệu VNĐ)</label>
+                                <input type="number" id="budget" name="budget" min="1" placeholder="VD: 50">
+                            </div>
+                            <div class="form-group">
+                                <label for="experience"><i class="fas fa-user-graduate"></i> Kinh nghiệm</label>
+                                <select id="experience" name="experience">
+                                    <option value="beginner">Mới bắt đầu</option>
+                                    <option value="intermediate">Có kinh nghiệm</option>
+                                    <option value="expert">Chuyên gia</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Additional Notes -->
+                        <div class="form-group full-width">
+                            <label for="notes"><i class="fas fa-sticky-note"></i> Ghi chú thêm</label>
+                            <textarea id="notes" name="notes" rows="3" placeholder="Các yêu cầu đặc biệt, vấn đề đang gặp phải..."></textarea>
+                        </div>
+
+                        <!-- AI Provider Selection -->
+                        <div class="form-group full-width">
+                            <label><i class="fas fa-brain"></i> Chọn mô hình AI</label>
+                            <div class="ai-provider-options">
+                                <label class="provider-option">
+                                    <input type="radio" name="aiProvider" value="github" checked>
+                                    <span class="provider-card">
+                                        <i class="fab fa-github"></i>
+                                        <span>GitHub Models</span>
+                                        <small>GPT-4o Mini</small>
+                                    </span>
+                                </label>
+                                <label class="provider-option">
+                                    <input type="radio" name="aiProvider" value="groq">
+                                    <span class="provider-card">
+                                        <i class="fas fa-bolt"></i>
+                                        <span>Groq Cloud</span>
+                                        <small>Llama 3.1 70B</small>
+                                    </span>
+                                </label>
+                                <label class="provider-option">
+                                    <input type="radio" name="aiProvider" value="cohere">
+                                    <span class="provider-card">
+                                        <i class="fas fa-comments"></i>
+                                        <span>Cohere</span>
+                                        <small>Command R+</small>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn-submit">
+                            <i class="fas fa-magic"></i> Nhận Tư Vấn AI
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Results Section -->
+                <div class="advisor-results-section" id="resultsSection" style="display: none;">
+                    <h2><i class="fas fa-lightbulb"></i> Kết Quả Tư Vấn</h2>
+                    
+                    <div class="ai-response-header">
+                        <span class="ai-provider-badge" id="providerBadge">
+                            <i class="fab fa-github"></i> GitHub Models
+                        </span>
+                        <span class="response-time" id="responseTime">Thời gian: 0s</span>
+                    </div>
+
+                    <div class="ai-response-content" id="aiResponse">
+                        <!-- AI response will be rendered here -->
+                    </div>
+
+                    <div class="response-actions">
+                        <button class="btn-action" onclick="copyResponse()">
+                            <i class="fas fa-copy"></i> Sao chép
+                        </button>
+                        <button class="btn-action" onclick="saveResponse()">
+                            <i class="fas fa-save"></i> Lưu
+                        </button>
+                        <button class="btn-action" onclick="printResponse()">
+                            <i class="fas fa-print"></i> In
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading Overlay -->
+                <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+                    <div class="loading-spinner">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>AI đang phân tích dữ liệu...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/sidebar.js"></script>
+    <script src="../js/ai-advisor.js"></script>
+</body>
+</html>

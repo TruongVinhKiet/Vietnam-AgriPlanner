@@ -1,6 +1,5 @@
 // Cooperative Page JavaScript
-var API_BASE_URL = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL :
-    (typeof CONFIG !== 'undefined' ? CONFIG.API_BASE_URL : 'http://localhost:8080/api');
+// API_BASE_URL is already defined in config.js
 
 // State
 let currentCooperative = null;

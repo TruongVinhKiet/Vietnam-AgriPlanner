@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -126,6 +127,7 @@ public class PlanningZoneController {
      * Create a new planning zone
      */
     @PostMapping
+    @PreAuthorize("hasRole('SYSTEM_ADMIN') or hasRole('OWNER')")
     public ResponseEntity<?> createZone(@RequestBody Map<String, Object> request) {
         try {
             PlanningZone zone = new PlanningZone();
@@ -183,6 +185,7 @@ public class PlanningZoneController {
      * Update a planning zone
      */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN') or hasRole('OWNER')")
     @SuppressWarnings("null")
     public ResponseEntity<?> updateZone(@PathVariable Long id, @RequestBody Map<String, Object> request) {
         if (id == null) {
@@ -225,6 +228,7 @@ public class PlanningZoneController {
      * Delete a planning zone
      */
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN') or hasRole('OWNER')")
     public ResponseEntity<?> deleteZone(@PathVariable Long id) {
         if (id == null) {
             return ResponseEntity.badRequest().body(Map.of("error", "ID is required"));
@@ -514,6 +518,7 @@ public class PlanningZoneController {
      * Create a snapshot of current zones
      */
     @PostMapping("/snapshots")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN') or hasRole('OWNER')")
     public ResponseEntity<?> createSnapshot(@RequestBody Map<String, String> request) {
         try {
             String name = request.getOrDefault("name", "Snapshot " + LocalDateTime.now());
@@ -640,6 +645,7 @@ public class PlanningZoneController {
      * Update zone geometry (polygon shape)
      */
     @PutMapping("/{id}/geometry")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN') or hasRole('OWNER')")
     @SuppressWarnings("null")
     public ResponseEntity<?> updateZoneGeometry(
             @PathVariable Long id,

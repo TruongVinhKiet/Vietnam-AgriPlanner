@@ -2,9 +2,7 @@
 // AgriPlanner - Shop Page JavaScript
 // =====================================================
 
-// Use API_BASE_URL from config.js or fallback
-var API_BASE_URL = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL :
-                   (typeof CONFIG !== 'undefined' ? CONFIG.API_BASE_URL : 'http://localhost:8080/api');
+// API_BASE_URL is already defined in config.js
 
 // State
 let allProducts = [];

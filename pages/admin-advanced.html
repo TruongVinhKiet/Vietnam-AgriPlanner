@@ -116,6 +116,12 @@
                 </a>
                 <a href="#"
                     class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="image-analysis">
+                    <span class="material-icons-round">auto_awesome</span>
+                    <span class="font-medium">Phân tích Ảnh AI</span>
+                </a>
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
                     data-tab="zones">
                     <span class="material-icons-round">layers</span>
                     <span class="font-medium">Vùng Quy hoạch</span>
@@ -206,6 +212,18 @@
                         <button class="layer-btn" data-layer="terrain">Địa hình</button>
                     </div>
 
+                    <!-- Map Type Toggle -->
+                    <div class="map-type-toggle">
+                        <button class="map-type-btn active" data-map-type="planning" title="Bản đồ Quy hoạch">
+                            <span class="material-icons-round">map</span>
+                            <span>Quy hoạch</span>
+                        </button>
+                        <button class="map-type-btn" data-map-type="soil" title="Bản đồ Thổ nhưỡng">
+                            <span class="material-icons-round">landscape</span>
+                            <span>Thổ nhưỡng</span>
+                        </button>
+                    </div>
+
                     <!-- Legend Panel -->
                     <div id="legend-panel" class="legend-panel">
                         <div class="legend-header">
@@ -285,7 +303,8 @@
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Tỉnh/Thành
                                             phố</label>
-                                        <select id="upload-province" class="w-full px-3 py-2 border rounded-lg">
+                                        <select id="upload-province" class="w-full px-3 py-2 border rounded-lg"
+                                            onchange="updateDistrictOptions()">
                                             <option value="Cần Thơ">Cần Thơ</option>
                                             <option value="Cà Mau">Cà Mau</option>
                                             <option value="Bạc Liêu">Bạc Liêu</option>
@@ -295,15 +314,6 @@
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Quận/Huyện</label>
                                         <select id="upload-district" class="w-full px-3 py-2 border rounded-lg">
                                             <option value="">-- Chọn quận/huyện --</option>
-                                            <option value="Ninh Kiều">Quận Ninh Kiều</option>
-                                            <option value="Bình Thủy">Quận Bình Thủy</option>
-                                            <option value="Cái Răng">Quận Cái Răng</option>
-                                            <option value="Ô Môn">Quận Ô Môn</option>
-                                            <option value="Thốt Nốt">Quận Thốt Nốt</option>
-                                            <option value="Phong Điền">Huyện Phong Điền</option>
-                                            <option value="Cờ Đỏ">Huyện Cờ Đỏ</option>
-                                            <option value="Vĩnh Thạnh">Huyện Vĩnh Thạnh</option>
-                                            <option value="Thới Lai">Huyện Thới Lai</option>
                                         </select>
                                     </div>
                                 </div>
@@ -312,16 +322,20 @@
                                 <div class="mb-4">
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Loại bản đồ</label>
                                     <div class="flex gap-4">
-                                        <label class="flex items-center gap-2 cursor-pointer p-3 border rounded-lg flex-1 transition-colors hover:bg-green-50 has-[:checked]:bg-green-100 has-[:checked]:border-green-500">
-                                            <input type="radio" name="map-type" value="planning" checked class="w-4 h-4 text-green-600">
+                                        <label
+                                            class="flex items-center gap-2 cursor-pointer p-3 border rounded-lg flex-1 transition-colors hover:bg-green-50 has-[:checked]:bg-green-100 has-[:checked]:border-green-500">
+                                            <input type="radio" name="map-type" value="planning" checked
+                                                class="w-4 h-4 text-green-600">
                                             <span class="material-icons-round text-green-600">map</span>
                                             <div>
                                                 <div class="font-medium">Quy hoạch</div>
                                                 <div class="text-xs text-gray-500">Bản đồ quy hoạch sử dụng đất</div>
                                             </div>
                                         </label>
-                                        <label class="flex items-center gap-2 cursor-pointer p-3 border rounded-lg flex-1 transition-colors hover:bg-amber-50 has-[:checked]:bg-amber-100 has-[:checked]:border-amber-500">
-                                            <input type="radio" name="map-type" value="soil" class="w-4 h-4 text-amber-600">
+                                        <label
+                                            class="flex items-center gap-2 cursor-pointer p-3 border rounded-lg flex-1 transition-colors hover:bg-amber-50 has-[:checked]:bg-amber-100 has-[:checked]:border-amber-500">
+                                            <input type="radio" name="map-type" value="soil"
+                                                class="w-4 h-4 text-amber-600">
                                             <span class="material-icons-round text-amber-700">landscape</span>
                                             <div>
                                                 <div class="font-medium">Thổ nhưỡng</div>
@@ -335,6 +349,22 @@
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
                                     <textarea id="upload-notes" class="w-full px-3 py-2 border rounded-lg" rows="2"
                                         placeholder="Ghi chú về file..."></textarea>
+                                </div>
+
+                                <!-- Info about AI Analysis -->
+                                <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                    <div class="flex items-start gap-2">
+                                        <span class="material-icons-round text-blue-600"
+                                            style="font-size:18px">info</span>
+                                        <div class="text-sm text-blue-700">
+                                            <p class="font-medium">Upload KMZ đơn giản</p>
+                                            <p class="mt-1">Tab này chỉ upload và xử lý file KMZ/KML theo định dạng
+                                                chuẩn.</p>
+                                            <p class="mt-1">Để phân tích ảnh bản đồ bằng AI (tự động nhận diện loại đất,
+                                                tọa độ),
+                                                hãy sử dụng tab <strong>"Phân tích Ảnh AI"</strong> ở menu bên trái.</p>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <button id="submit-upload"
@@ -368,6 +398,251 @@
                             <h3 class="text-lg font-semibold mb-4">Lịch sử Upload</h3>
                             <div id="uploads-list" class="space-y-3">
                                 <!-- Upload items will be inserted here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Image Analysis Tab - Multi-AI Processing -->
+                <div id="image-analysis-container" class="tab-content hidden p-6 overflow-y-auto h-full">
+                    <div class="max-w-5xl mx-auto">
+                        <h2 class="text-2xl font-bold mb-2">Phân tích Ảnh Bản đồ bằng AI</h2>
+                        <p class="text-gray-600 mb-6">Upload ảnh bản đồ (JPG/PNG) để AI tự động phân tích tọa độ, loại
+                            đất và tạo vùng quy hoạch</p>
+
+                        <!-- AI Pipeline Info - SIMPLIFIED -->
+                        <div
+                            class="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-4 mb-6 border border-green-200">
+                            <h3 class="font-semibold text-green-900 flex items-center gap-2 mb-3">
+                                <span class="material-icons-round text-green-600">psychology</span>
+                                Quy trình xử lý AI (GitHub Models)
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <div class="flex items-start gap-2 bg-white/50 rounded-lg p-3">
+                                    <div
+                                        class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold">
+                                        1</div>
+                                    <div>
+                                        <div class="font-medium text-green-700">OpenCV (Python)</div>
+                                        <div class="text-gray-600">Trích xuất vùng màu và polygon tự động</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-2 bg-white/50 rounded-lg p-3">
+                                    <div
+                                        class="w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">
+                                        2</div>
+                                    <div>
+                                        <div class="font-medium text-purple-700">GPT-4o Vision</div>
+                                        <div class="text-gray-600">Đọc chú giải, gán nhãn loại đất</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3 text-xs text-gray-500 flex items-center gap-1">
+                                <span class="material-icons-round" style="font-size:14px">info</span>
+                                Miễn phí 150 requests/ngày với GitHub Models
+                            </div>
+                        </div>
+
+                        <!-- Image Upload Area -->
+                        <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
+                            <h3 class="font-semibold mb-4 flex items-center gap-2">
+                                <span class="material-icons-round text-primary">add_photo_alternate</span>
+                                Upload Ảnh Bản đồ
+                            </h3>
+
+                            <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer"
+                                id="map-image-dropzone" onclick="document.getElementById('map-image-input').click()">
+                                <div class="text-center">
+                                    <span class="material-icons-round text-gray-400"
+                                        style="font-size:48px">cloud_upload</span>
+                                    <p class="mt-2 text-gray-600">Kéo thả hoặc click để chọn ảnh bản đồ</p>
+                                    <p class="text-sm text-gray-400 mt-1">JPG, PNG (tối đa 50MB)</p>
+                                </div>
+                                <input type="file" id="map-image-input" accept=".jpg,.jpeg,.png" class="hidden">
+                            </div>
+
+                            <!-- Image Preview -->
+                            <div id="map-image-preview" class="hidden mt-4">
+                                <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                                    <img id="preview-image-thumb" class="w-24 h-24 object-cover rounded-lg border">
+                                    <div class="flex-1">
+                                        <p class="font-medium" id="preview-image-name">image.jpg</p>
+                                        <p class="text-sm text-gray-500" id="preview-image-size">0 MB</p>
+                                    </div>
+                                    <button onclick="clearMapImage()" class="text-gray-400 hover:text-red-500">
+                                        <span class="material-icons-round">close</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Province/District Selection -->
+                            <div class="grid grid-cols-2 gap-4 mt-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Tỉnh/Thành phố</label>
+                                    <select id="analysis-province" class="w-full px-3 py-2 border rounded-lg">
+                                        <option value="Cần Thơ">Cần Thơ</option>
+                                        <option value="Cà Mau">Cà Mau</option>
+                                        <option value="Bạc Liêu">Bạc Liêu</option>
+                                        <option value="Kiên Giang">Kiên Giang</option>
+                                        <option value="Sóc Trăng">Sóc Trăng</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Quận/Huyện</label>
+                                    <input type="text" id="analysis-district" class="w-full px-3 py-2 border rounded-lg"
+                                        placeholder="VD: Thới Bình">
+                                </div>
+                            </div>
+
+                            <!-- Start Analysis Button -->
+                            <button id="start-analysis-btn" disabled
+                                class="w-full mt-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                                <span class="material-icons-round">auto_awesome</span>
+                                Phân tích bằng AI (GitHub Models)
+                            </button>
+                        </div>
+
+                        <!-- Analysis Progress -->
+                        <div id="analysis-progress-container" class="hidden bg-white rounded-xl shadow-lg p-6 mb-6">
+                            <h3 class="font-semibold mb-4 flex items-center gap-2">
+                                <span class="material-icons-round text-blue-600 animate-spin">sync</span>
+                                Đang xử lý...
+                            </h3>
+
+                            <!-- AI Steps Progress - SIMPLIFIED -->
+                            <div class="space-y-4" id="ai-steps-progress">
+                                <div class="ai-step" data-step="opencv">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center"
+                                            id="step-opencv-icon">
+                                            <span class="material-icons-round text-gray-400"
+                                                style="font-size:20px">hourglass_empty</span>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-medium text-lg">OpenCV - Trích xuất polygon</div>
+                                            <div class="text-sm text-gray-500" id="step-opencv-status">Đang chờ...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="ai-step" data-step="gpt4o">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center"
+                                            id="step-gpt4o-icon">
+                                            <span class="material-icons-round text-gray-400"
+                                                style="font-size:20px">hourglass_empty</span>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-medium text-lg">GPT-4o Vision - Phân loại loại đất</div>
+                                            <div class="text-sm text-gray-500" id="step-gpt4o-status">Đang chờ...</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Log Output -->
+                            <div class="mt-4">
+                                <button onclick="toggleAnalysisLog()"
+                                    class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                                    <span class="material-icons-round" style="font-size:16px">terminal</span>
+                                    Xem log chi tiết
+                                </button>
+                                <div id="analysis-log"
+                                    class="hidden mt-2 bg-gray-900 text-green-400 rounded-lg p-4 font-mono text-xs max-h-48 overflow-y-auto">
+                                    <!-- Log entries will be added here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Analysis Results -->
+                        <div id="analysis-results-container" class="hidden bg-white rounded-xl shadow-lg p-6">
+                            <h3 class="font-semibold mb-4 flex items-center gap-2">
+                                <span class="material-icons-round text-green-600">check_circle</span>
+                                Kết quả Phân tích
+                            </h3>
+
+                            <!-- Coordinates Info - Removed Gemini reference -->
+                            <div class="bg-green-50 rounded-lg p-4 mb-4">
+                                <h4 class="font-medium text-green-900 mb-2 flex items-center gap-2">
+                                    <span class="material-icons-round" style="font-size:18px">location_on</span>
+                                    Thông tin vị trí
+                                </h4>
+                                <div class="grid grid-cols-2 gap-4 text-sm" id="coordinates-info">
+                                    <!-- Coordinates will be shown here based on province selection -->
+                                </div>
+                            </div>
+
+                            <!-- Map Preview -->
+                            <div class="mb-4">
+                                <h4 class="font-medium mb-2">Vị trí trên bản đồ</h4>
+                                <div id="result-map-preview" class="h-64 rounded-lg border"></div>
+                            </div>
+
+                            <!-- Zones Summary -->
+                            <div class="mb-4">
+                                <h4 class="font-medium mb-2">Tổng quan các vùng phát hiện</h4>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="zones-summary">
+                                    <!-- Zone stats will be shown here -->
+                                </div>
+                            </div>
+
+                            <!-- Zones List -->
+                            <div class="mb-6">
+                                <h4 class="font-medium mb-2">Chi tiết các vùng (<span id="total-zones-count">0</span>
+                                    vùng)</h4>
+                                <div class="max-h-64 overflow-y-auto space-y-2" id="detected-zones-list">
+                                    <!-- Zones will be listed here -->
+                                </div>
+                            </div>
+
+                            <!-- Map Type Selection -->
+                            <div class="border-t pt-4">
+                                <h4 class="font-medium mb-3">Xác nhận loại bản đồ</h4>
+                                <div class="flex gap-4 mb-4">
+                                    <label class="flex-1 cursor-pointer">
+                                        <input type="radio" name="result-map-type" value="planning" class="peer hidden">
+                                        <div
+                                            class="p-4 border-2 rounded-lg peer-checked:border-green-500 peer-checked:bg-green-50 hover:bg-gray-50 transition-all">
+                                            <div class="flex items-center gap-2">
+                                                <span class="material-icons-round text-green-600">map</span>
+                                                <span class="font-medium">Bản đồ Quy hoạch</span>
+                                            </div>
+                                            <p class="text-xs text-gray-500 mt-1">Quy hoạch sử dụng đất</p>
+                                        </div>
+                                    </label>
+                                    <label class="flex-1 cursor-pointer">
+                                        <input type="radio" name="result-map-type" value="soil" class="peer hidden"
+                                            checked>
+                                        <div
+                                            class="p-4 border-2 rounded-lg peer-checked:border-amber-500 peer-checked:bg-amber-50 hover:bg-gray-50 transition-all">
+                                            <div class="flex items-center gap-2">
+                                                <span class="material-icons-round text-amber-700">landscape</span>
+                                                <span class="font-medium">Bản đồ Thổ nhưỡng</span>
+                                            </div>
+                                            <p class="text-xs text-gray-500 mt-1">Phân loại đất, chất đất</p>
+                                        </div>
+                                    </label>
+                                </div>
+
+                                <!-- Action Buttons -->
+                                <div class="flex gap-3">
+                                    <button onclick="discardAnalysis()"
+                                        class="flex-1 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors">
+                                        Hủy bỏ
+                                    </button>
+                                    <button onclick="confirmAndSaveAnalysis()"
+                                        class="flex-1 py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition-colors flex items-center justify-center gap-2">
+                                        <span class="material-icons-round">save</span>
+                                        Lưu vào Hệ thống
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Analysis History -->
+                        <div class="mt-8">
+                            <h3 class="text-lg font-semibold mb-4">Lịch sử Phân tích</h3>
+                            <div id="analysis-history-list" class="space-y-3">
+                                <!-- History items will be shown here -->
                             </div>
                         </div>
                     </div>
@@ -549,6 +824,96 @@
 
     <!-- Toast Container -->
     <div id="toast-container" class="fixed bottom-4 right-4 z-50"></div>
+
+    <!-- AI Analysis Confirmation Modal -->
+    <div id="ai-analysis-modal" class="modal-overlay hidden">
+        <div class="modal-content max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div class="modal-header bg-gradient-to-r from-purple-600 to-blue-600 text-white">
+                <h3 class="flex items-center gap-2">
+                    <span class="material-icons-round">auto_awesome</span>
+                    Kết quả Phân tích AI
+                </h3>
+                <button class="modal-close text-white/80 hover:text-white" onclick="closeAIAnalysisModal()">
+                    <span class="material-icons-round">close</span>
+                </button>
+            </div>
+            <div class="modal-body overflow-y-auto flex-1 p-0">
+                <!-- Analysis Progress -->
+                <div id="ai-analysis-progress" class="p-6">
+                    <div class="flex flex-col items-center justify-center py-8">
+                        <div
+                            class="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4">
+                        </div>
+                        <p class="text-lg font-medium text-gray-700">Đang phân tích bản đồ...</p>
+                        <p class="text-sm text-gray-500 mt-2" id="ai-progress-status">Trích xuất ảnh từ KMZ...</p>
+                    </div>
+                </div>
+
+                <!-- Analysis Results -->
+                <div id="ai-analysis-results" class="hidden">
+                    <!-- Summary -->
+                    <div class="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h4 class="font-semibold text-gray-800">Tóm tắt phân tích</h4>
+                                <p class="text-sm text-gray-600" id="ai-analysis-summary">Đã phát hiện 15 vùng từ 8 loại
+                                    đất khác nhau</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium"
+                                    id="ai-zones-count">15 vùng</span>
+                                <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium"
+                                    id="ai-types-count">8 loại đất</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Color Legend Mapping -->
+                    <div class="p-4 border-b">
+                        <h4 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <span class="material-icons-round text-purple-600">palette</span>
+                            Bảng ánh xạ màu sắc
+                        </h4>
+                        <div id="ai-color-mapping"
+                            class="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+                            <!-- Color mapping items will be inserted here -->
+                        </div>
+                    </div>
+
+                    <!-- Detected Zones Preview -->
+                    <div class="p-4">
+                        <h4 class="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+                            <span class="material-icons-round text-blue-600">layers</span>
+                            Các vùng phát hiện được
+                            <span class="text-xs text-gray-500 font-normal ml-2">(nhấp vào để xem vị trí trên bản
+                                đồ)</span>
+                        </h4>
+                        <p class="text-sm text-gray-500 mb-3 bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                            <span class="material-icons-round text-yellow-600 text-sm align-middle">info</span>
+                            Các vùng đang được hiển thị trên bản đồ với đường viền nét đứt. Xác nhận để lưu vào hệ
+                            thống.
+                        </p>
+                        <div id="ai-zones-preview"
+                            class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-64 overflow-y-auto">
+                            <!-- Zone preview cards will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-t p-4 bg-gray-50 flex gap-3">
+                <button onclick="closeAIAnalysisModal()"
+                    class="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors">
+                    Hủy bỏ
+                </button>
+                <button onclick="confirmAIAnalysis()" id="confirm-ai-btn"
+                    class="flex-1 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled>
+                    <span class="material-icons-round">check_circle</span>
+                    Xác nhận và Lưu vào DB
+                </button>
+            </div>
+        </div>
+    </div>
 
     <!-- Scripts -->
     <script src="../js/config.js"></script>

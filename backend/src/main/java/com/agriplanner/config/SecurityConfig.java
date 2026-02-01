@@ -125,6 +125,9 @@ public class SecurityConfig {
                         // KMZ uploads - allow for all authenticated users
                         .requestMatchers("/api/admin/kmz/**").authenticated()
 
+                        // Map image analysis - allow for admin/owner
+                        .requestMatchers("/api/admin/map-image/**").hasAnyRole("SYSTEM_ADMIN", "OWNER")
+
                         // Admin only endpoints
                         .requestMatchers("/api/admin/**").hasRole("SYSTEM_ADMIN")
                         // All other endpoints require authentication
