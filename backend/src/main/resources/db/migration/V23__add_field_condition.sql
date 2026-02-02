@@ -1,5 +1,0 @@
-ALTER TABLE fields ADD COLUMN IF NOT EXISTS condition VARCHAR(20);
-
-UPDATE fields SET condition = 'GOOD' WHERE condition IS NULL;
-
-ALTER TABLE fields ALTER COLUMN condition SET DEFAULT 'GOOD';

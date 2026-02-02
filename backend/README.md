@@ -35,6 +35,21 @@ backend/
 └── pom.xml
 ```
 
+## Database Migrations (Flyway)
+
+**Critical Note:** The project uses Flyway for database migrations. However, some newer migrations (including V30+ for planning zones and soil types) are located in `database/migrations` instead of the standard `backend/src/main/resources/db/migration` path.
+
+To ensure all tables are created correctly, you must configure Flyway to look at both locations. Add this to your `application.properties`:
+
+```properties
+# P3 FIX: Flyway Configuration for dual migration paths
+spring.flyway.locations=classpath:db/migration,filesystem:../../database/migrations
+spring.flyway.check-location=false
+```
+
+Alternatively, copy the SQL files from `database/migrations` to `backend/src/main/resources/db/migration`.
+
+
 ## Getting Started
 
 ### Prerequisites

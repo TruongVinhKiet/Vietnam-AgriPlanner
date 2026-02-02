@@ -410,6 +410,37 @@
                         <p class="text-gray-600 mb-6">Upload ảnh bản đồ (JPG/PNG) để AI tự động phân tích tọa độ, loại
                             đất và tạo vùng quy hoạch</p>
 
+                        <!-- MAP TYPE TABS - NEW -->
+                        <div class="mb-6">
+                            <div class="flex border-b border-gray-200">
+                                <button type="button" id="tab-planning" onclick="switchMapType('planning')"
+                                    class="map-type-tab flex-1 py-3 px-4 text-center font-medium border-b-2 transition-colors border-blue-500 text-blue-600 bg-blue-50">
+                                    <span class="material-icons-round align-middle mr-1"
+                                        style="font-size:20px">map</span>
+                                    Bản đồ Quy hoạch
+                                </button>
+                                <button type="button" id="tab-soil" onclick="switchMapType('soil')"
+                                    class="map-type-tab flex-1 py-3 px-4 text-center font-medium border-b-2 transition-colors border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50">
+                                    <span class="material-icons-round align-middle mr-1"
+                                        style="font-size:20px">terrain</span>
+                                    Bản đồ Thổ nhưỡng
+                                </button>
+                            </div>
+
+                            <!-- Map Type Description -->
+                            <div id="map-type-desc"
+                                class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                                <div class="flex items-start gap-2">
+                                    <span class="material-icons-round text-blue-600" style="font-size:18px">info</span>
+                                    <div id="map-type-desc-content">
+                                        <strong class="text-blue-800">Bản đồ Quy hoạch:</strong>
+                                        <span class="text-blue-700">Phân loại đất theo mục đích sử dụng (LUC - Đất trồng
+                                            lúa, ONT - Đất ở nông thôn, RSX - Rừng sản xuất, ...)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- AI Pipeline Info - SIMPLIFIED -->
                         <div
                             class="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-4 mb-6 border border-green-200">
@@ -433,7 +464,8 @@
                                         2</div>
                                     <div>
                                         <div class="font-medium text-purple-700">GPT-4o Vision</div>
-                                        <div class="text-gray-600">Đọc chú giải, gán nhãn loại đất</div>
+                                        <div class="text-gray-600">Đọc chú giải, gán nhãn <span id="ai-target-type">loại
+                                                quy hoạch</span></div>
                                     </div>
                                 </div>
                             </div>
@@ -447,8 +479,12 @@
                         <div class="bg-white rounded-xl shadow-lg p-6 mb-6">
                             <h3 class="font-semibold mb-4 flex items-center gap-2">
                                 <span class="material-icons-round text-primary">add_photo_alternate</span>
-                                Upload Ảnh Bản đồ
+                                Upload Ảnh Bản đồ <span id="upload-map-type-label" class="text-blue-600">(Quy
+                                    hoạch)</span>
                             </h3>
+
+                            <!-- Hidden input to store mapType -->
+                            <input type="hidden" id="selected-map-type" value="planning">
 
                             <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer"
                                 id="map-image-dropzone" onclick="document.getElementById('map-image-input').click()">
@@ -498,56 +534,124 @@
                             <button id="start-analysis-btn" disabled
                                 class="w-full mt-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                                 <span class="material-icons-round">auto_awesome</span>
-                                Phân tích bằng AI (GitHub Models)
+                                Phân tích bằng AI (Hybrid Mode)
                             </button>
                         </div>
 
-                        <!-- Analysis Progress -->
+                        <!-- Analysis Progress - HYBRID UI with 3 Steps -->
                         <div id="analysis-progress-container" class="hidden bg-white rounded-xl shadow-lg p-6 mb-6">
                             <h3 class="font-semibold mb-4 flex items-center gap-2">
-                                <span class="material-icons-round text-blue-600 animate-spin">sync</span>
-                                Đang xử lý...
+                                <span class="material-icons-round text-blue-600 animate-spin"
+                                    id="analysis-spinner">sync</span>
+                                <span id="analysis-title">Đang phân tích Hybrid AI...</span>
                             </h3>
 
-                            <!-- AI Steps Progress - SIMPLIFIED -->
+                            <!-- AI Steps Progress - 3 STEPS HYBRID -->
                             <div class="space-y-4" id="ai-steps-progress">
-                                <div class="ai-step" data-step="opencv">
-                                    <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center"
-                                            id="step-opencv-icon">
-                                            <span class="material-icons-round text-gray-400"
-                                                style="font-size:20px">hourglass_empty</span>
+
+                                <!-- BƯỚC 1: Tọa độ (Gemini → GPT-4o Fallback) -->
+                                <div class="ai-step border rounded-xl p-4 transition-all" data-step="step1"
+                                    id="step1-container">
+                                    <div class="flex items-center gap-3 mb-3">
+                                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center shadow-lg"
+                                            id="step-step1_coords-icon">
+                                            <span class="text-white font-bold text-lg">1</span>
                                         </div>
                                         <div class="flex-1">
-                                            <div class="font-medium text-lg">OpenCV - Trích xuất polygon</div>
-                                            <div class="text-sm text-gray-500" id="step-opencv-status">Đang chờ...</div>
+                                            <div class="font-semibold text-lg flex items-center gap-2">
+                                                <span class="material-icons-round text-purple-600"
+                                                    style="font-size:20px">explore</span>
+                                                Trích xuất Tọa độ
+                                            </div>
+                                            <div class="text-sm text-gray-500" id="step-step1_coords-status">Đang chờ...
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Sub-steps for Step 1 -->
+                                    <div class="ml-16 space-y-2" id="step1-substeps">
+                                        <div class="flex items-center gap-2 text-sm" id="gemini-substep">
+                                            <div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center"
+                                                id="step-gemini-icon">
+                                                <span class="material-icons-round text-gray-400"
+                                                    style="font-size:14px">hourglass_empty</span>
+                                            </div>
+                                            <span class="font-medium">Gemini 1.5 Pro</span>
+                                            <span class="text-gray-400" id="step-gemini-status">—</span>
+                                        </div>
+                                        <div class="flex items-center gap-2 text-sm hidden" id="gpt4o-coords-substep">
+                                            <div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center"
+                                                id="step-gpt4o_coords-icon">
+                                                <span class="material-icons-round text-gray-400"
+                                                    style="font-size:14px">hourglass_empty</span>
+                                            </div>
+                                            <span class="font-medium">GPT-4o (Fallback)</span>
+                                            <span class="text-gray-400" id="step-gpt4o_coords-status">—</span>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="ai-step" data-step="gpt4o">
+
+                                <!-- BƯỚC 2: OpenCV -->
+                                <div class="ai-step border rounded-xl p-4 transition-all opacity-50" data-step="step2"
+                                    id="step2-container">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center"
-                                            id="step-gpt4o-icon">
-                                            <span class="material-icons-round text-gray-400"
-                                                style="font-size:20px">hourglass_empty</span>
+                                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-teal-600 flex items-center justify-center shadow-lg"
+                                            id="step-step2_opencv-icon">
+                                            <span class="text-white font-bold text-lg">2</span>
                                         </div>
                                         <div class="flex-1">
-                                            <div class="font-medium text-lg">GPT-4o Vision - Phân loại loại đất</div>
-                                            <div class="text-sm text-gray-500" id="step-gpt4o-status">Đang chờ...</div>
+                                            <div class="font-semibold text-lg flex items-center gap-2">
+                                                <span class="material-icons-round text-green-600"
+                                                    style="font-size:20px">polyline</span>
+                                                OpenCV - Trích xuất Polygon
+                                            </div>
+                                            <div class="text-sm text-gray-500" id="step-step2_opencv-status">Đang chờ...
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- BƯỚC 3: Gán nhãn (GPT-4o) -->
+                                <div class="ai-step border rounded-xl p-4 transition-all opacity-50" data-step="step3"
+                                    id="step3-container">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 flex items-center justify-center shadow-lg"
+                                            id="step-step3_labels-icon">
+                                            <span class="text-white font-bold text-lg">3</span>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-semibold text-lg flex items-center gap-2">
+                                                <span class="material-icons-round text-amber-600"
+                                                    style="font-size:20px">label</span>
+                                                GPT-4o - Gán nhãn Loại đất
+                                            </div>
+                                            <div class="text-sm text-gray-500" id="step-step3_labels-status">Đang chờ...
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Log Output -->
+                            <!-- AI Usage Summary -->
+                            <div class="mt-4 p-3 bg-blue-50 rounded-lg hidden" id="ai-usage-summary">
+                                <div class="text-sm font-medium text-blue-800 flex items-center gap-2">
+                                    <span class="material-icons-round" style="font-size:16px">insights</span>
+                                    AI đã sử dụng:
+                                </div>
+                                <div class="text-xs text-blue-600 mt-1" id="ai-usage-details"></div>
+                            </div>
+
+                            <!-- Log Output - Enhanced -->
                             <div class="mt-4">
                                 <button onclick="toggleAnalysisLog()"
-                                    class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                                    class="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                                    id="toggle-log-btn">
                                     <span class="material-icons-round" style="font-size:16px">terminal</span>
                                     Xem log chi tiết
+                                    <span class="material-icons-round transition-transform" style="font-size:16px"
+                                        id="log-chevron">expand_more</span>
                                 </button>
                                 <div id="analysis-log"
-                                    class="hidden mt-2 bg-gray-900 text-green-400 rounded-lg p-4 font-mono text-xs max-h-48 overflow-y-auto">
+                                    class="hidden mt-2 bg-gray-900 text-green-400 rounded-lg p-4 font-mono text-xs max-h-64 overflow-y-auto">
                                     <!-- Log entries will be added here -->
                                 </div>
                             </div>
@@ -599,7 +703,9 @@
                                 <h4 class="font-medium mb-3">Xác nhận loại bản đồ</h4>
                                 <div class="flex gap-4 mb-4">
                                     <label class="flex-1 cursor-pointer">
-                                        <input type="radio" name="result-map-type" value="planning" class="peer hidden">
+                                        <!-- P0 FIX: Default to planning to match tab default -->
+                                        <input type="radio" name="result-map-type" value="planning" class="peer hidden"
+                                            checked>
                                         <div
                                             class="p-4 border-2 rounded-lg peer-checked:border-green-500 peer-checked:bg-green-50 hover:bg-gray-50 transition-all">
                                             <div class="flex items-center gap-2">
@@ -610,8 +716,7 @@
                                         </div>
                                     </label>
                                     <label class="flex-1 cursor-pointer">
-                                        <input type="radio" name="result-map-type" value="soil" class="peer hidden"
-                                            checked>
+                                        <input type="radio" name="result-map-type" value="soil" class="peer hidden">
                                         <div
                                             class="p-4 border-2 rounded-lg peer-checked:border-amber-500 peer-checked:bg-amber-50 hover:bg-gray-50 transition-all">
                                             <div class="flex items-center gap-2">

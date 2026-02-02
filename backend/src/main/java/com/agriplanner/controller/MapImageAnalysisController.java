@@ -53,16 +53,18 @@ public class MapImageAnalysisController {
 
     /**
      * Start analysis with Server-Sent Events for real-time progress
+     * Hỗ trợ 2 loại bản đồ: "soil" (Thổ nhưỡng) và "planning" (Quy hoạch)
      */
     @PostMapping("/analyze")
     public ResponseEntity<?> startAnalysis(
             @RequestParam("image") MultipartFile imageFile,
             @RequestParam(value = "province", defaultValue = "Cà Mau") String province,
-            @RequestParam(value = "district", required = false) String district) {
+            @RequestParam(value = "district", required = false) String district,
+            @RequestParam(value = "mapType", defaultValue = "soil") String mapType) {
 
         logger.info("=== MAP IMAGE ANALYSIS REQUEST ===");
         logger.info("File: {}, Size: {} bytes", imageFile.getOriginalFilename(), imageFile.getSize());
-        logger.info("Province: {}, District: {}", province, district);
+        logger.info("Province: {}, District: {}, MapType: {}", province, district, mapType);
 
         try {
             // Validate file
@@ -112,7 +114,7 @@ public class MapImageAnalysisController {
             response.put("imagePath", filePath.toString());
 
             // Start async analysis
-            executorService.submit(() -> runAnalysisAsync(analysisId, filePath.toFile(), province, district));
+            executorService.submit(() -> runAnalysisAsync(analysisId, filePath.toFile(), province, district, mapType));
 
             return ResponseEntity.ok(response);
 
@@ -207,7 +209,10 @@ public class MapImageAnalysisController {
 
         try {
             // Get parameters
-            String mapType = (String) confirmData.getOrDefault("mapType", "soil");
+            // P0 FIX: Prioritize analysisResult mapType (from analysis), fallback to body
+            // then default "planning"
+            String mapType = (String) analysisResult.getOrDefault("mapType",
+                    confirmData.getOrDefault("mapType", "planning"));
             String province = (String) analysisResult.getOrDefault("province", "Cà Mau");
             String district = (String) analysisResult.get("district");
 
@@ -280,10 +285,50 @@ public class MapImageAnalysisController {
                 "total", 0));
     }
 
+    /**
+     * P3 FIX: Cleanup old analysis results (called by scheduler)
+     */
+    public void cleanupOldAnalysisResults() {
+        long now = System.currentTimeMillis();
+        long expirationTime = 3600000; // 1 hour
+        int removedCount = 0;
+
+        Iterator<Map.Entry<String, Map<String, Object>>> it = analysisResults.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, Map<String, Object>> entry = it.next();
+            Map<String, Object> result = entry.getValue();
+
+            // Check if analysis has timestamp
+            if (result.containsKey("timestamp") && result.get("timestamp") instanceof Long) {
+                long timestamp = (Long) result.get("timestamp");
+                if (now - timestamp > expirationTime) {
+                    it.remove();
+                    removedCount++;
+                }
+            } else {
+                // If no timestamp, effectively give it a TTL from now (or just leave it until
+                // size limit)
+                // For safety, we'll just add a timestamp now if missing so it gets cleaned up
+                // next time
+                result.putIfAbsent("timestamp", now);
+            }
+        }
+
+        if (removedCount > 0) {
+            logger.info("Cleaned up {} expired analysis results", removedCount);
+        }
+
+        // Secondary check: size limit
+        if (analysisResults.size() > 100) {
+            analysisResults.clear();
+            logger.info("Force cleaned up all cached analysis results (size limit exceeded)");
+        }
+    }
+
     // ============ PRIVATE METHODS ============
 
-    private void runAnalysisAsync(String analysisId, File imageFile, String province, String district) {
-        logger.info("Starting async analysis: {}", analysisId);
+    private void runAnalysisAsync(String analysisId, File imageFile, String province, String district, String mapType) {
+        logger.info("Starting async analysis: {} (mapType: {})", analysisId, mapType);
 
         try {
             // Create progress callback
@@ -291,9 +336,9 @@ public class MapImageAnalysisController {
                 sendProgressUpdate(analysisId, step, status, message);
             };
 
-            // Run multi-AI orchestration
+            // Run multi-AI orchestration with mapType
             Map<String, Object> result = multiAIOrchestrator.analyzeMapImage(
-                    imageFile, province, district, callback);
+                    imageFile, province, district, mapType, callback);
 
             // Store result
             result.put("analysisId", analysisId);
@@ -478,8 +523,9 @@ public class MapImageAnalysisController {
      * OpenCV has issues with non-ASCII paths on Windows
      */
     private String sanitizeFilename(String filename) {
-        if (filename == null) return "image.jpg";
-        
+        if (filename == null)
+            return "image.jpg";
+
         // Get extension
         String ext = "";
         int dotIdx = filename.lastIndexOf('.');
@@ -487,25 +533,25 @@ public class MapImageAnalysisController {
             ext = filename.substring(dotIdx).toLowerCase();
             filename = filename.substring(0, dotIdx);
         }
-        
+
         // Replace Vietnamese characters with ASCII equivalents
         String normalized = java.text.Normalizer.normalize(filename, java.text.Normalizer.Form.NFD);
         String ascii = normalized.replaceAll("[\\p{InCombiningDiacriticalMarks}]", "");
-        
+
         // Replace spaces and special chars with underscore
         ascii = ascii.replaceAll("[^a-zA-Z0-9_-]", "_");
-        
+
         // Remove consecutive underscores
         ascii = ascii.replaceAll("_+", "_");
-        
+
         // Trim underscores from start/end
         ascii = ascii.replaceAll("^_|_$", "");
-        
+
         // Ensure not empty
         if (ascii.isEmpty()) {
             ascii = "image";
         }
-        
+
         return ascii + ext;
     }
 }

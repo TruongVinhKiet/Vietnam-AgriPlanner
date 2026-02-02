@@ -264,14 +264,14 @@ function initUpload() {
 
     // Submit upload
     document.getElementById('submit-upload').addEventListener('click', submitUpload);
-    
+
     // AI Analysis checkbox toggle
     const enableAI = document.getElementById('enable-ai-analysis');
     enableAI?.addEventListener('change', (e) => {
         const section = document.getElementById('additional-images-section');
         section?.classList.toggle('hidden', !e.target.checked);
     });
-    
+
     // Use separate images checkbox
     const useSeparateImages = document.getElementById('use-separate-images');
     useSeparateImages?.addEventListener('change', (e) => {
@@ -282,7 +282,7 @@ function initUpload() {
             updateImagePreview();
         }
     });
-    
+
     // Additional images input
     const additionalImagesInput = document.getElementById('additional-images-input');
     additionalImagesInput?.addEventListener('change', handleAdditionalImagesSelect);
@@ -290,13 +290,13 @@ function initUpload() {
 
 function handleAdditionalImagesSelect(e) {
     const files = Array.from(e.target.files);
-    
+
     // Validate max 5 images
     if (files.length > 5) {
         showToast('Cảnh báo', 'Tối đa 5 ảnh. Chỉ lấy 5 ảnh đầu tiên.', 'warning');
         files.splice(5);
     }
-    
+
     // Validate each file
     const validFiles = [];
     for (const file of files) {
@@ -306,16 +306,16 @@ function handleAdditionalImagesSelect(e) {
             showToast('Cảnh báo', `File ${file.name} không đúng định dạng (JPG/PNG/PDF)`, 'warning');
             continue;
         }
-        
+
         // Check file size (10MB max)
         if (file.size > 10 * 1024 * 1024) {
             showToast('Cảnh báo', `File ${file.name} quá lớn (tối đa 10MB)`, 'warning');
             continue;
         }
-        
+
         validFiles.push(file);
     }
-    
+
     selectedAdditionalImages = validFiles;
     updateImagePreview();
 }
@@ -323,12 +323,12 @@ function handleAdditionalImagesSelect(e) {
 function updateImagePreview() {
     const previewContainer = document.getElementById('selected-images-preview');
     if (!previewContainer) return;
-    
+
     if (selectedAdditionalImages.length === 0) {
         previewContainer.innerHTML = '';
         return;
     }
-    
+
     previewContainer.innerHTML = selectedAdditionalImages.map((file, idx) => `
         <div class="relative bg-white border border-purple-200 rounded-lg p-2">
             <div class="flex items-center gap-2">
@@ -350,7 +350,7 @@ function updateImagePreview() {
 function removeAdditionalImage(index) {
     selectedAdditionalImages.splice(index, 1);
     updateImagePreview();
-    
+
     // Reset file input
     const input = document.getElementById('additional-images-input');
     if (input) input.value = '';
@@ -469,7 +469,7 @@ function renderUploadsList(uploads) {
         const mapTypeLabel = upload.mapType === 'soil' ? 'Thổ nhưỡng' : 'Quy hoạch';
         const mapTypeIcon = upload.mapType === 'soil' ? 'landscape' : 'map';
         const mapTypeColor = upload.mapType === 'soil' ? 'amber' : 'green';
-        
+
         return `
         <div class="upload-item">
             <div class="upload-item-icon ${upload.status === 'COMPLETED' ? 'success' : upload.status === 'FAILED' ? 'failed' : 'processing'}">
@@ -567,7 +567,7 @@ async function loadPlanningZones(mapType = null) {
 
         // Render zones on map
         renderZonesOnMap(allZones);
-        
+
         // Update legend
         if (type === 'soil') {
             loadSoilTypesLegend();
@@ -583,12 +583,12 @@ async function loadSoilTypesLegend() {
     try {
         const soilTypes = await fetchAPI('/planning-zones/soil-types');
         const legendContent = document.getElementById('legend-content');
-        
+
         if (!soilTypes || soilTypes.length === 0) {
             legendContent.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Không có dữ liệu</p>';
             return;
         }
-        
+
         legendContent.innerHTML = soilTypes.map(type => `
             <div class="legend-item">
                 <div class="legend-color" style="background-color: ${type.defaultColor || '#ccc'}"></div>
@@ -607,12 +607,12 @@ async function loadZoneTypesLegend() {
     try {
         const types = await fetchAPI('/planning-zones/types');
         const legendContent = document.getElementById('legend-content');
-        
+
         if (!types || types.length === 0) {
             legendContent.innerHTML = '<p class="text-sm text-gray-500 text-center py-4">Không có dữ liệu</p>';
             return;
         }
-        
+
         legendContent.innerHTML = types.map(type => `
             <div class="legend-item">
                 <div class="legend-color" style="background-color: ${type.defaultColor || '#ccc'}"></div>
@@ -665,7 +665,7 @@ function addZoneToMap(zone) {
 
                 imageOverlay.on('click', () => showZoneInfo(zone));
                 imageOverlay.addTo(planningZonesLayer);
-                
+
                 // Apply blend mode to remove white background effect
                 setTimeout(() => {
                     const overlayElements = document.querySelectorAll('.map-image-overlay');
@@ -1424,7 +1424,7 @@ function updateDistrictOptions() {
     const province = document.getElementById('upload-province').value;
     const districtSelect = document.getElementById('upload-district');
     const districts = DISTRICTS_BY_PROVINCE[province] || [];
-    
+
     districtSelect.innerHTML = '<option value="">-- Chọn quận/huyện --</option>';
     districts.forEach(d => {
         const option = document.createElement('option');
@@ -1445,19 +1445,19 @@ let currentMapType = 'planning';
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
         document.querySelectorAll('.map-type-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', function () {
                 const mapType = this.dataset.mapType;
                 if (mapType === currentMapType) return;
-                
+
                 currentMapType = mapType;
-                
+
                 // Update button states
                 document.querySelectorAll('.map-type-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
-                
+
                 // Reload zones for this map type
                 loadPlanningZones(mapType);
-                
+
                 // Update legend header
                 const legendHeader = document.querySelector('.legend-header');
                 if (legendHeader) {
@@ -1469,7 +1469,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         legendHeader.querySelector('span:nth-child(2)').textContent = 'Chú giải Màu sắc';
                     }
                 }
-                
+
                 showToast(
                     mapType === 'soil' ? 'Bản đồ Thổ nhưỡng' : 'Bản đồ Quy hoạch',
                     `Đang hiển thị lớp ${mapType === 'soil' ? 'thổ nhưỡng' : 'quy hoạch'}`,
@@ -1490,7 +1490,7 @@ async function submitUploadWithAI() {
     }
 
     const enableAI = document.getElementById('enable-ai-analysis')?.checked;
-    
+
     if (!enableAI) {
         // Normal upload
         return submitUpload();
@@ -1513,7 +1513,7 @@ async function submitUploadWithAI() {
     formData.append('province', province);
     formData.append('mapType', mapType);
     if (district) formData.append('district', district);
-    
+
     // Add separate images if provided
     if (useSeparateImages && selectedAdditionalImages.length > 0) {
         formData.append('useSeparateImages', 'true');
@@ -1527,7 +1527,7 @@ async function submitUploadWithAI() {
 
     try {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-        
+
         // Step 1: Upload and trigger AI analysis
         const response = await fetch(`${API_BASE_URL}/admin/kmz/analyze`, {
             method: 'POST',
@@ -1542,7 +1542,7 @@ async function submitUploadWithAI() {
         }
 
         updateAIProgress('Đang phân tích màu sắc ảnh...');
-        
+
         // Step 2: Poll for results or use returned data
         if (data.analysisId) {
             // Need to poll for results
@@ -1566,69 +1566,102 @@ function updateAIProgress(status) {
 
 async function pollAnalysisResults(analysisId, maxAttempts = 30) {
     const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-    
+
     for (let i = 0; i < maxAttempts; i++) {
         await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
-        
+
         try {
             const response = await fetch(`${API_BASE_URL}/admin/kmz/analyze/${analysisId}/status`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
-            
+
             if (data.status === 'completed') {
                 displayAIResults(data.results);
                 return;
             } else if (data.status === 'failed') {
                 throw new Error(data.error || 'Phân tích thất bại');
             }
-            
-            updateAIProgress(data.message || `Đang xử lý... (${Math.round((i/maxAttempts)*100)}%)`);
+
+            updateAIProgress(data.message || `Đang xử lý... (${Math.round((i / maxAttempts) * 100)}%)`);
         } catch (e) {
             console.error('Poll error:', e);
         }
     }
-    
+
     throw new Error('Phân tích quá thời gian');
 }
 
 function displayAIResults(results) {
     aiAnalysisData = results;
-    
+
     document.getElementById('ai-analysis-progress').classList.add('hidden');
     document.getElementById('ai-analysis-results').classList.remove('hidden');
     document.getElementById('confirm-ai-btn').disabled = false;
-    
+
     // Update summary
     const zones = results.zones || [];
     const types = [...new Set(zones.map(z => z.soilType || z.zoneType))];
-    
-    document.getElementById('ai-analysis-summary').textContent = 
+
+    document.getElementById('ai-analysis-summary').textContent =
         `Đã phát hiện ${zones.length} vùng từ ${types.length} loại đất khác nhau`;
     document.getElementById('ai-zones-count').textContent = `${zones.length} vùng`;
     document.getElementById('ai-types-count').textContent = `${types.length} loại đất`;
-    
+
     // Render color mapping
     const colorMapping = document.getElementById('ai-color-mapping');
-    const colorMap = results.colorMapping || {};
-    colorMapping.innerHTML = Object.entries(colorMap).map(([color, info]) => `
-        <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-            <div class="w-6 h-6 rounded border" style="background-color: ${color}"></div>
-            <div class="text-sm">
-                <div class="font-medium">${info.name || 'Chưa xác định'}</div>
-                <div class="text-xs text-gray-500">${info.count || 0} vùng • ${info.code || 'N/A'}</div>
+    // P2 FIX: Correctly access colorToSoil or colorToCode property
+    const colorMap = (results.colorMapping && results.colorMapping.colorToSoil)
+        ? results.colorMapping.colorToSoil
+        : (results.colorToCode || {});
+    const hasColorToSoil = !!(results.colorMapping && results.colorMapping.colorToSoil);
+    const colorToCode = results.colorToCode || {};
+
+    // P2 FIX: Handle if colorMap is string (JSON) or object
+    let mapEntries = [];
+    try {
+        if (typeof colorMap === 'string') {
+            mapEntries = Object.entries(JSON.parse(colorMap));
+        } else {
+            mapEntries = Object.entries(colorMap);
+        }
+    } catch (e) {
+        console.warn('Error parsing color map:', e);
+        mapEntries = [];
+    }
+
+    if (mapEntries.length === 0) {
+        colorMapping.innerHTML = '<div class="col-span-3 text-center text-gray-500 py-2">Không có dữ liệu ánh xạ màu</div>';
+    } else {
+        colorMapping.innerHTML = mapEntries.map(([color, info]) => {
+            // Handle if info is just a string code (old format) or object (new format)
+            const name = typeof info === 'object' ? (info.name || 'Chưa xác định') : (info || 'Chưa xác định');
+            const code = typeof info === 'object'
+                ? (info.code || 'N/A')
+                : (hasColorToSoil ? (colorToCode[color] || 'N/A') : (info || 'N/A'));
+            const count = typeof info === 'object' ? (info.count || 0) : '?';
+
+            return `
+            <div class="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-100">
+                <div class="w-6 h-6 rounded border shadow-sm" style="background-color: ${color}"></div>
+                <div class="text-sm truncate">
+                    <div class="font-medium truncate" title="${name}">${name}</div>
+                    <div class="text-xs text-gray-500">${code}</div>
+                </div>
             </div>
-        </div>
-    `).join('');
-    
+            `;
+        }).join('');
+    }
+
     // Render zones preview
     const zonesPreview = document.getElementById('ai-zones-preview');
     zonesPreview.innerHTML = zones.slice(0, 20).map((zone, idx) => `
         <div class="p-3 bg-gray-50 rounded-lg border hover:bg-gray-100 cursor-pointer" 
              onclick="previewZoneOnMap(${idx})">
             <div class="flex items-center gap-2">
-                <div class="w-4 h-4 rounded" style="background-color: ${zone.fillColor || '#ccc'}"></div>
-                <span class="font-medium text-sm">${zone.name || `Vùng ${idx + 1}`}</span>
+                <!-- P2 FIX: Use fillColor with zone.color fallback -->
+                <div class="w-4 h-4 rounded border shadow-sm" style="background-color: ${zone.fillColor || zone.color || '#ccc'}"></div>
+                <span class="font-medium text-sm truncate flex-1">${zone.name || `Vùng ${idx + 1}`}</span>
             </div>
             <div class="text-xs text-gray-500 mt-1">
                 <span>Loại: ${zone.soilType || zone.zoneType || 'N/A'}</span>
@@ -1636,11 +1669,11 @@ function displayAIResults(results) {
             </div>
         </div>
     `).join('');
-    
+
     if (zones.length > 20) {
         zonesPreview.innerHTML += `<div class="text-center text-sm text-gray-500 py-2">... và ${zones.length - 20} vùng khác</div>`;
     }
-    
+
     // Show preview on map
     showAIZonesOnMap(zones);
 }
@@ -1648,10 +1681,10 @@ function displayAIResults(results) {
 // Preview a single zone on map (center on it)
 function previewZoneOnMap(zoneIndex) {
     if (!aiAnalysisData || !aiAnalysisData.zones) return;
-    
+
     const zone = aiAnalysisData.zones[zoneIndex];
     if (!zone) return;
-    
+
     // Center map on zone
     if (zone.centerLat && zone.centerLng) {
         map.setView([zone.centerLat, zone.centerLng], 14);
@@ -1669,12 +1702,12 @@ function showAIZonesOnMap(zones) {
     if (aiPreviewLayer) {
         map.removeLayer(aiPreviewLayer);
     }
-    
+
     aiPreviewLayer = L.layerGroup();
-    
+
     zones.forEach((zone, idx) => {
         if (!zone.coordinates || zone.coordinates.length < 3) return;
-        
+
         try {
             // Coordinates từ AI analysis là [[lat, lng], ...]
             const latLngs = zone.coordinates.map(coord => {
@@ -1689,7 +1722,7 @@ function showAIZonesOnMap(zones) {
                 }
                 return coord;
             });
-            
+
             const polygon = L.polygon(latLngs, {
                 fillColor: zone.fillColor || '#10B981',
                 fillOpacity: 0.4,
@@ -1697,22 +1730,22 @@ function showAIZonesOnMap(zones) {
                 weight: 2,
                 dashArray: '5, 5' // Dashed border to indicate preview
             });
-            
+
             const tooltipContent = `
                 <strong>${zone.name || 'Vùng ' + (idx + 1)}</strong><br>
                 <small>${zone.soilType || zone.zoneType || 'Chưa xác định'}</small>
                 ${zone.areaSqm ? `<br><small>~${formatArea(zone.areaSqm)}</small>` : ''}
             `;
             polygon.bindTooltip(tooltipContent, { className: 'planning-popup' });
-            
+
             polygon.addTo(aiPreviewLayer);
         } catch (e) {
             console.warn(`Could not add zone ${idx} to preview:`, e);
         }
     });
-    
+
     aiPreviewLayer.addTo(map);
-    
+
     // Fit map to show all preview zones
     if (zones.length > 0) {
         try {
@@ -1754,7 +1787,7 @@ async function confirmAIAnalysis() {
     }
 
     const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-    
+
     try {
         document.getElementById('confirm-ai-btn').disabled = true;
         document.getElementById('confirm-ai-btn').innerHTML = `
@@ -1804,28 +1837,81 @@ let analysisEventSource = null;
 let resultMapPreview = null;
 let currentAnalysisResult = null;
 
+/**
+ * Switch map type between 'planning' (Quy hoạch) and 'soil' (Thổ nhưỡng)
+ */
+function switchMapType(mapType) {
+    console.log('Switching map type to:', mapType);
+
+    // Update hidden input
+    const hiddenInput = document.getElementById('selected-map-type');
+    if (hiddenInput) hiddenInput.value = mapType;
+
+    // Update tabs style
+    const planningTab = document.getElementById('tab-planning');
+    const soilTab = document.getElementById('tab-soil');
+
+    if (mapType === 'planning') {
+        planningTab.classList.add('border-blue-500', 'text-blue-600', 'bg-blue-50');
+        planningTab.classList.remove('border-transparent', 'text-gray-500');
+        soilTab.classList.remove('border-blue-500', 'text-blue-600', 'bg-blue-50');
+        soilTab.classList.add('border-transparent', 'text-gray-500');
+    } else {
+        soilTab.classList.add('border-blue-500', 'text-blue-600', 'bg-blue-50');
+        soilTab.classList.remove('border-transparent', 'text-gray-500');
+        planningTab.classList.remove('border-blue-500', 'text-blue-600', 'bg-blue-50');
+        planningTab.classList.add('border-transparent', 'text-gray-500');
+    }
+
+    // Update description
+    const descContent = document.getElementById('map-type-desc-content');
+    const descBox = document.getElementById('map-type-desc');
+    const uploadLabel = document.getElementById('upload-map-type-label');
+    const aiTargetType = document.getElementById('ai-target-type');
+
+    if (mapType === 'planning') {
+        descBox.classList.remove('bg-amber-50', 'border-amber-200');
+        descBox.classList.add('bg-blue-50', 'border-blue-200');
+        descContent.innerHTML = `
+            <strong class="text-blue-800">Bản đồ Quy hoạch:</strong>
+            <span class="text-blue-700">Phân loại đất theo mục đích sử dụng (LUC - Đất trồng lúa, ONT - Đất ở nông thôn, RSX - Rừng sản xuất, CLN - Cây lâu năm, ...)</span>
+        `;
+        if (uploadLabel) uploadLabel.textContent = '(Quy hoạch)';
+        if (aiTargetType) aiTargetType.textContent = 'loại quy hoạch';
+    } else {
+        descBox.classList.remove('bg-blue-50', 'border-blue-200');
+        descBox.classList.add('bg-amber-50', 'border-amber-200');
+        descContent.innerHTML = `
+            <strong class="text-amber-800">Bản đồ Thổ nhưỡng:</strong>
+            <span class="text-amber-700">Phân loại đất theo đặc tính thổ nhưỡng (Đất phèn, Đất mặn, Đất phù sa, Đất cát, ...)</span>
+        `;
+        if (uploadLabel) uploadLabel.textContent = '(Thổ nhưỡng)';
+        if (aiTargetType) aiTargetType.textContent = 'loại đất';
+    }
+}
+
 function initImageAnalysisTab() {
     console.log('Initializing Image Analysis Tab');
-    
+
     // Setup dropzone
     const dropzone = document.getElementById('map-image-dropzone');
     const fileInput = document.getElementById('map-image-input');
-    
+
     if (fileInput && !fileInput.dataset.initialized) {
         fileInput.addEventListener('change', handleMapImageSelect);
         fileInput.dataset.initialized = 'true';
     }
-    
+
     if (dropzone && !dropzone.dataset.initialized) {
         dropzone.addEventListener('dragover', (e) => {
             e.preventDefault();
             dropzone.classList.add('border-primary', 'bg-primary/10');
         });
-        
+
         dropzone.addEventListener('dragleave', () => {
             dropzone.classList.remove('border-primary', 'bg-primary/10');
         });
-        
+
         dropzone.addEventListener('drop', (e) => {
             e.preventDefault();
             dropzone.classList.remove('border-primary', 'bg-primary/10');
@@ -1834,17 +1920,17 @@ function initImageAnalysisTab() {
                 handleMapImageFile(files[0]);
             }
         });
-        
+
         dropzone.dataset.initialized = 'true';
     }
-    
+
     // Setup start button
     const startBtn = document.getElementById('start-analysis-btn');
     if (startBtn && !startBtn.dataset.initialized) {
         startBtn.addEventListener('click', startMultiAIAnalysis);
         startBtn.dataset.initialized = 'true';
     }
-    
+
     // Initialize result map
     if (!resultMapPreview) {
         const mapContainer = document.getElementById('result-map-preview');
@@ -1871,34 +1957,34 @@ function handleMapImageFile(file) {
         showToast('Lỗi', 'Chỉ hỗ trợ file JPG và PNG', 'error');
         return;
     }
-    
+
     if (file.size > 50 * 1024 * 1024) {
         showToast('Lỗi', 'File quá lớn (tối đa 50MB)', 'error');
         return;
     }
-    
+
     selectedMapImage = file;
-    
+
     // Show preview
     const preview = document.getElementById('map-image-preview');
     const thumb = document.getElementById('preview-image-thumb');
     const name = document.getElementById('preview-image-name');
     const size = document.getElementById('preview-image-size');
-    
+
     // Create thumbnail
     const reader = new FileReader();
     reader.onload = (e) => {
         thumb.src = e.target.result;
     };
     reader.readAsDataURL(file);
-    
+
     name.textContent = file.name;
     size.textContent = formatFileSize(file.size);
     preview.classList.remove('hidden');
-    
+
     // Enable start button
     document.getElementById('start-analysis-btn').disabled = false;
-    
+
     // Hide dropzone
     document.getElementById('map-image-dropzone').classList.add('hidden');
 }
@@ -1916,56 +2002,59 @@ async function startMultiAIAnalysis() {
         showToast('Lỗi', 'Vui lòng chọn ảnh bản đồ', 'error');
         return;
     }
-    
+
     const province = document.getElementById('analysis-province').value;
     const district = document.getElementById('analysis-district').value;
-    
-    console.log('Starting Multi-AI analysis for:', selectedMapImage.name);
-    
+    // P2 FIX: Default mapType to 'planning' to match UI default
+    const mapType = document.getElementById('selected-map-type')?.value || 'planning';
+
+    console.log('Starting Multi-AI analysis for:', selectedMapImage.name, 'mapType:', mapType);
+
     // Show progress container
     document.getElementById('analysis-progress-container').classList.remove('hidden');
     document.getElementById('analysis-results-container').classList.add('hidden');
-    
+
     // Reset progress steps
     resetAnalysisSteps();
-    
+
     // Clear log
     document.getElementById('analysis-log').innerHTML = '';
-    addAnalysisLog('System', 'Bắt đầu phân tích Multi-AI...');
-    
+    addAnalysisLog('System', `Bắt đầu phân tích Multi-AI (${mapType === 'planning' ? 'Quy hoạch' : 'Thổ nhưỡng'})...`);
+
     // Disable start button
     document.getElementById('start-analysis-btn').disabled = true;
     document.getElementById('start-analysis-btn').innerHTML = `
         <span class="material-icons-round animate-spin">sync</span>
         Đang phân tích...
     `;
-    
+
     try {
         // Upload and start analysis
         const formData = new FormData();
         formData.append('image', selectedMapImage);
         formData.append('province', province);
+        formData.append('mapType', mapType);
         if (district) formData.append('district', district);
-        
+
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
         const response = await fetch(`${API_BASE_URL}/admin/map-image/analyze`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` },
             body: formData
         });
-        
+
         const data = await response.json();
-        
+
         if (!response.ok || !data.success) {
             throw new Error(data.error || 'Không thể bắt đầu phân tích');
         }
-        
+
         currentAnalysisId = data.analysisId;
         addAnalysisLog('System', `Analysis ID: ${currentAnalysisId}`);
-        
+
         // Connect to SSE for progress updates
         connectToAnalysisProgress(currentAnalysisId);
-        
+
     } catch (error) {
         console.error('Analysis error:', error);
         showToast('Lỗi', error.message, 'error');
@@ -1975,46 +2064,46 @@ async function startMultiAIAnalysis() {
 
 function connectToAnalysisProgress(analysisId) {
     addAnalysisLog('System', 'Kết nối SSE để nhận cập nhật...');
-    
+
     // Close existing connection
     if (analysisEventSource) {
         analysisEventSource.close();
     }
-    
+
     const token = localStorage.getItem('token') || localStorage.getItem('authToken');
     // EventSource doesn't support custom headers, so we pass token as query parameter
     analysisEventSource = new EventSource(
         `${API_BASE_URL}/admin/map-image/analyze/${analysisId}/progress?token=${encodeURIComponent(token)}`
     );
-    
+
     analysisEventSource.onopen = () => {
         addAnalysisLog('System', 'SSE connected');
     };
-    
+
     analysisEventSource.addEventListener('connected', (e) => {
         addAnalysisLog('System', 'Đã kết nối, đang chờ kết quả...');
     });
-    
+
     analysisEventSource.addEventListener('progress', (e) => {
         const data = JSON.parse(e.data);
         updateAnalysisStep(data.step, data.status, data.message);
         addAnalysisLog(data.step.toUpperCase(), data.message);
     });
-    
+
     analysisEventSource.addEventListener('complete', (e) => {
         const data = JSON.parse(e.data);
         addAnalysisLog('System', 'Phân tích hoàn tất!');
         displayAnalysisResults(data);
         analysisEventSource.close();
     });
-    
+
     analysisEventSource.onerror = (e) => {
         console.error('SSE error:', e);
         // Try polling instead
         pollAnalysisStatus(analysisId);
         analysisEventSource.close();
     };
-    
+
     // Fallback: poll status after 10 seconds
     setTimeout(() => {
         if (!currentAnalysisResult) {
@@ -2025,9 +2114,9 @@ function connectToAnalysisProgress(analysisId) {
 
 async function pollAnalysisStatus(analysisId, maxAttempts = 60) {
     addAnalysisLog('System', 'Chuyển sang polling mode...');
-    
+
     const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-    
+
     for (let i = 0; i < maxAttempts; i++) {
         try {
             const response = await fetch(
@@ -2035,26 +2124,26 @@ async function pollAnalysisStatus(analysisId, maxAttempts = 60) {
                 { headers: { 'Authorization': `Bearer ${token}` } }
             );
             const data = await response.json();
-            
+
             if (data.status === 'completed') {
                 displayAnalysisResults(data.results);
                 return;
             } else if (data.status === 'failed') {
                 throw new Error(data.error || 'Phân tích thất bại');
             }
-            
+
             // Update progress message
             if (data.message) {
                 addAnalysisLog('System', data.message);
             }
-            
+
         } catch (error) {
             console.error('Poll error:', error);
         }
-        
+
         await new Promise(r => setTimeout(r, 3000)); // Wait 3s
     }
-    
+
     showToast('Lỗi', 'Phân tích quá thời gian', 'error');
     resetAnalysisUI();
 }
@@ -2062,11 +2151,11 @@ async function pollAnalysisStatus(analysisId, maxAttempts = 60) {
 function updateAnalysisStep(step, status, message) {
     const icon = document.getElementById(`step-${step}-icon`);
     const statusEl = document.getElementById(`step-${step}-status`);
-    
+
     if (!icon || !statusEl) return;
-    
+
     statusEl.textContent = message;
-    
+
     if (status === 'running') {
         icon.className = 'w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center';
         icon.innerHTML = '<span class="material-icons-round text-white animate-spin" style="font-size:18px">sync</span>';
@@ -2082,74 +2171,267 @@ function updateAnalysisStep(step, status, message) {
     }
 }
 
+/**
+ * Reset analysis steps UI for Hybrid mode (3 main steps)
+ */
 function resetAnalysisSteps() {
-    ['gemini', 'opencv', 'gpt4o', 'groq'].forEach(step => {
+    // Reset main step containers
+    ['step1', 'step2', 'step3'].forEach((step, idx) => {
+        const container = document.getElementById(`${step}-container`);
+        if (container) {
+            container.classList.remove('border-green-500', 'border-red-500', 'border-blue-500', 'bg-green-50', 'bg-red-50', 'bg-blue-50');
+            container.classList.add('opacity-50');
+        }
+    });
+
+    // Reset main step statuses
+    const mainSteps = ['step1_coords', 'step2_opencv', 'step3_labels'];
+    mainSteps.forEach(step => {
+        const status = document.getElementById(`step-${step}-status`);
+        if (status) status.textContent = 'Đang chờ...';
+    });
+
+    // Reset substeps
+    const subSteps = ['gemini', 'gpt4o_coords', 'fallback'];
+    subSteps.forEach(step => {
         const icon = document.getElementById(`step-${step}-icon`);
         const status = document.getElementById(`step-${step}-status`);
         if (icon) {
-            icon.className = 'w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center';
-            icon.innerHTML = '<span class="material-icons-round text-gray-400" style="font-size:18px">hourglass_empty</span>';
+            icon.className = 'w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center';
+            icon.innerHTML = '<span class="material-icons-round text-gray-400" style="font-size:14px">hourglass_empty</span>';
         }
-        if (status) status.textContent = 'Đang chờ...';
+        if (status) status.textContent = '—';
     });
+
+    // Hide GPT-4o fallback substep initially
+    const gpt4oSubstep = document.getElementById('gpt4o-coords-substep');
+    if (gpt4oSubstep) gpt4oSubstep.classList.add('hidden');
+
+    // Hide AI usage summary
+    document.getElementById('ai-usage-summary')?.classList.add('hidden');
+
+    // Make step 1 active
+    const step1 = document.getElementById('step1-container');
+    if (step1) {
+        step1.classList.remove('opacity-50');
+        step1.classList.add('border-blue-500', 'bg-blue-50');
+    }
+}
+
+/**
+ * Update analysis step with enhanced UI for Hybrid mode
+ */
+function updateAnalysisStep(step, status, message) {
+    console.log(`[UI] Step: ${step}, Status: ${status}, Message: ${message}`);
+
+    // Map step names to UI elements
+    const stepMappings = {
+        'step1_coords': { container: 'step1-container', mainStep: true },
+        'step2_opencv': { container: 'step2-container', mainStep: true },
+        'step3_labels': { container: 'step3-container', mainStep: true },
+        'gemini': { substep: true, parent: 'step1' },
+        'gpt4o_coords': { substep: true, parent: 'step1' },
+        'fallback': { substep: true, parent: 'step1' },
+        'legend': { substep: true, parent: 'step2' }
+    };
+
+    const mapping = stepMappings[step];
+
+    // Handle main steps
+    if (mapping?.mainStep) {
+        const container = document.getElementById(mapping.container);
+        const statusEl = document.getElementById(`step-${step}-status`);
+
+        if (container) {
+            container.classList.remove('opacity-50', 'border-gray-200', 'border-blue-500', 'border-green-500', 'border-yellow-500', 'border-red-500');
+            container.classList.remove('bg-blue-50', 'bg-green-50', 'bg-yellow-50', 'bg-red-50');
+
+            if (status === 'running') {
+                container.classList.add('border-blue-500', 'bg-blue-50');
+            } else if (status === 'completed') {
+                container.classList.add('border-green-500', 'bg-green-50');
+                // Activate next step
+                const nextStep = step === 'step1_coords' ? 'step2' : step === 'step2_opencv' ? 'step3' : null;
+                if (nextStep) {
+                    const nextContainer = document.getElementById(`${nextStep}-container`);
+                    if (nextContainer) {
+                        nextContainer.classList.remove('opacity-50');
+                        nextContainer.classList.add('border-blue-500', 'bg-blue-50');
+                    }
+                }
+            } else if (status === 'warning') {
+                container.classList.add('border-yellow-500', 'bg-yellow-50');
+            } else if (status === 'error' || status === 'failed') {
+                container.classList.add('border-red-500', 'bg-red-50');
+            }
+        }
+
+        if (statusEl) statusEl.textContent = message;
+    }
+
+    // Handle substeps (Gemini, GPT-4o fallback, etc.)
+    const icon = document.getElementById(`step-${step}-icon`);
+    const statusEl = document.getElementById(`step-${step}-status`);
+
+    if (icon) {
+        icon.classList.remove('bg-gray-200', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500');
+
+        if (status === 'running') {
+            icon.className = 'w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center';
+            icon.innerHTML = '<span class="material-icons-round text-white animate-spin" style="font-size:14px">sync</span>';
+        } else if (status === 'completed') {
+            icon.className = 'w-6 h-6 rounded-full bg-green-500 flex items-center justify-center';
+            icon.innerHTML = '<span class="material-icons-round text-white" style="font-size:14px">check</span>';
+        } else if (status === 'warning') {
+            icon.className = 'w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center';
+            icon.innerHTML = '<span class="material-icons-round text-white" style="font-size:14px">warning</span>';
+        } else if (status === 'error') {
+            icon.className = 'w-6 h-6 rounded-full bg-red-500 flex items-center justify-center';
+            icon.innerHTML = '<span class="material-icons-round text-white" style="font-size:14px">close</span>';
+        } else if (status === 'skipped') {
+            icon.className = 'w-6 h-6 rounded-full bg-gray-400 flex items-center justify-center';
+            icon.innerHTML = '<span class="material-icons-round text-white" style="font-size:14px">skip_next</span>';
+        }
+    }
+
+    if (statusEl) {
+        statusEl.textContent = message;
+        statusEl.className = status === 'error' ? 'text-red-500' :
+            status === 'completed' ? 'text-green-600' :
+                status === 'warning' ? 'text-yellow-600' : 'text-gray-400';
+    }
+
+    // Show GPT-4o fallback substep when needed
+    if (step === 'fallback' || step === 'gpt4o_coords') {
+        const gpt4oSubstep = document.getElementById('gpt4o-coords-substep');
+        if (gpt4oSubstep) gpt4oSubstep.classList.remove('hidden');
+    }
 }
 
 function addAnalysisLog(source, message) {
     const logContainer = document.getElementById('analysis-log');
     const time = new Date().toLocaleTimeString('vi-VN');
+
+    // Enhanced color mapping
     const colorClass = {
-        'GEMINI': 'text-blue-400',
+        'GEMINI': 'text-purple-400',
         'OPENCV': 'text-green-400',
-        'GPT4O': 'text-purple-400',
-        'GROQ': 'text-orange-400',
-        'SYSTEM': 'text-gray-400'
-    }[source] || 'text-green-400';
-    
-    logContainer.innerHTML += `<div><span class="text-gray-500">[${time}]</span> <span class="${colorClass}">[${source}]</span> ${message}</div>`;
+        'GPT4O': 'text-blue-400',
+        'GPT4O_COORDS': 'text-blue-300',
+        'STEP1_COORDS': 'text-purple-300',
+        'STEP2_OPENCV': 'text-green-300',
+        'STEP3_LABELS': 'text-amber-300',
+        'FALLBACK': 'text-yellow-400',
+        'LEGEND': 'text-cyan-400',
+        'SYSTEM': 'text-gray-400',
+        'ERROR': 'text-red-400'
+    }[source.toUpperCase()] || 'text-green-400';
+
+    // Icon mapping
+    const icons = {
+        'GEMINI': '🌟',
+        'OPENCV': '🔷',
+        'GPT4O': '🤖',
+        'SYSTEM': '⚙️',
+        'ERROR': '❌',
+        'FALLBACK': '🔄'
+    };
+    const icon = icons[source.toUpperCase()] || '📋';
+
+    logContainer.innerHTML += `<div class="py-0.5"><span class="text-gray-500">[${time}]</span> ${icon} <span class="${colorClass}">[${source}]</span> ${message}</div>`;
     logContainer.scrollTop = logContainer.scrollHeight;
 }
 
 function toggleAnalysisLog() {
-    document.getElementById('analysis-log').classList.toggle('hidden');
+    const log = document.getElementById('analysis-log');
+    const chevron = document.getElementById('log-chevron');
+    log.classList.toggle('hidden');
+    if (chevron) {
+        chevron.style.transform = log.classList.contains('hidden') ? '' : 'rotate(180deg)';
+    }
+}
+
+/**
+ * Display AI usage summary
+ */
+function displayAIUsageSummary(aiUsage) {
+    const container = document.getElementById('ai-usage-summary');
+    const details = document.getElementById('ai-usage-details');
+
+    if (!aiUsage || !container || !details) return;
+
+    const usageText = [];
+    if (aiUsage.coordinates) usageText.push(`Tọa độ: ${aiUsage.coordinates.toUpperCase()}`);
+    if (aiUsage.polygons) usageText.push(`Polygon: ${aiUsage.polygons.toUpperCase()}`);
+    if (aiUsage.labeling) usageText.push(`Gán nhãn: ${aiUsage.labeling.toUpperCase()}`);
+
+    details.textContent = usageText.join(' • ');
+    container.classList.remove('hidden');
 }
 
 function displayAnalysisResults(results) {
     console.log('Displaying results:', results);
     currentAnalysisResult = results;
-    
-    // Hide progress, show results
-    document.getElementById('analysis-progress-container').classList.add('hidden');
-    document.getElementById('analysis-results-container').classList.remove('hidden');
-    
-    // Reset start button
-    document.getElementById('start-analysis-btn').disabled = false;
-    document.getElementById('start-analysis-btn').innerHTML = `
-        <span class="material-icons-round">auto_awesome</span>
-        Bắt đầu Phân tích Multi-AI
-    `;
-    
+
+    // Show AI usage summary if available
+    if (results.aiUsage) {
+        displayAIUsageSummary(results.aiUsage);
+    }
+
+    // Update spinner to complete
+    const spinner = document.getElementById('analysis-spinner');
+    const title = document.getElementById('analysis-title');
+    if (spinner) {
+        spinner.classList.remove('animate-spin');
+        spinner.textContent = 'check_circle';
+        spinner.classList.remove('text-blue-600');
+        spinner.classList.add('text-green-600');
+    }
+    if (title) title.textContent = 'Phân tích hoàn tất!';
+
+    // Short delay to show completion state
+    setTimeout(() => {
+        // Hide progress, show results
+        document.getElementById('analysis-progress-container').classList.add('hidden');
+        document.getElementById('analysis-results-container').classList.remove('hidden');
+
+        // Reset start button
+        document.getElementById('start-analysis-btn').disabled = false;
+        document.getElementById('start-analysis-btn').innerHTML = `
+            <span class="material-icons-round">auto_awesome</span>
+            Phân tích bằng AI (Hybrid Mode)
+        `;
+    }, 1500);
+
     // Display coordinates
     const coordsInfo = document.getElementById('coordinates-info');
     const coords = results.coordinates || {};
+
+    // Support both sw/ne and topLeft/bottomRight formats
+    const sw = coords.sw || coords.topLeft || {};
+    const ne = coords.ne || coords.bottomRight || {};
+    const center = coords.center || {};
+
     coordsInfo.innerHTML = `
         <div>
-            <span class="text-gray-500">Góc trên trái:</span>
-            <span class="font-medium">${coords.topLeft?.lat?.toFixed(4) || 'N/A'}, ${coords.topLeft?.lng?.toFixed(4) || 'N/A'}</span>
+            <span class="text-gray-500">Tâm bản đồ:</span>
+            <span class="font-medium">${center.lat?.toFixed(4) || 'N/A'}, ${center.lng?.toFixed(4) || 'N/A'}</span>
         </div>
         <div>
-            <span class="text-gray-500">Góc trên phải:</span>
-            <span class="font-medium">${coords.topRight?.lat?.toFixed(4) || 'N/A'}, ${coords.topRight?.lng?.toFixed(4) || 'N/A'}</span>
+            <span class="text-gray-500">Tỉ lệ:</span>
+            <span class="font-medium">${coords.scale || 'N/A'}</span>
         </div>
         <div>
-            <span class="text-gray-500">Góc dưới trái:</span>
-            <span class="font-medium">${coords.bottomLeft?.lat?.toFixed(4) || 'N/A'}, ${coords.bottomLeft?.lng?.toFixed(4) || 'N/A'}</span>
+            <span class="text-gray-500">Góc Tây-Nam:</span>
+            <span class="font-medium">${sw.lat?.toFixed(4) || 'N/A'}, ${sw.lng?.toFixed(4) || 'N/A'}</span>
         </div>
         <div>
-            <span class="text-gray-500">Góc dưới phải:</span>
-            <span class="font-medium">${coords.bottomRight?.lat?.toFixed(4) || 'N/A'}, ${coords.bottomRight?.lng?.toFixed(4) || 'N/A'}</span>
+            <span class="text-gray-500">Góc Đông-Bắc:</span>
+            <span class="font-medium">${ne.lat?.toFixed(4) || 'N/A'}, ${ne.lng?.toFixed(4) || 'N/A'}</span>
         </div>
+        ${coords.confidence ? `<div class="col-span-2"><span class="text-gray-500">Độ tin cậy:</span> <span class="font-medium text-${coords.confidence === 'high' ? 'green' : coords.confidence === 'medium' ? 'yellow' : 'red'}-600">${coords.confidence.toUpperCase()}</span></div>` : ''}
     `;
-    
+
     // Clear existing layers on map
     if (resultMapPreview) {
         resultMapPreview.eachLayer(layer => {
@@ -2158,16 +2440,16 @@ function displayAnalysisResults(results) {
             }
         });
     }
-    
+
     // Update map preview
-    if (resultMapPreview && coords.center) {
-        resultMapPreview.setView([coords.center.lat, coords.center.lng], 10);
-        
+    if (resultMapPreview && center.lat && center.lng) {
+        resultMapPreview.setView([center.lat, center.lng], 10);
+
         // Add bounding box with dashed line
-        if (coords.topLeft && coords.bottomRight) {
+        if (sw.lat && ne.lat) {
             L.rectangle([
-                [coords.topLeft.lat, coords.topLeft.lng],
-                [coords.bottomRight.lat, coords.bottomRight.lng]
+                [sw.lat, sw.lng],
+                [ne.lat, ne.lng]
             ], {
                 color: '#333333',
                 weight: 2,
@@ -2176,7 +2458,7 @@ function displayAnalysisResults(results) {
                 fillColor: '#8B5CF6'
             }).addTo(resultMapPreview);
         }
-        
+
         // Display zones on map with black borders
         const zones = results.zones || [];
         zones.forEach((zone, idx) => {
@@ -2189,13 +2471,13 @@ function displayAnalysisResults(results) {
                     boundaries = null;
                 }
             }
-            
+
             if (boundaries && Array.isArray(boundaries) && boundaries.length >= 3) {
                 // Draw polygon from boundaries
                 L.polygon(boundaries, {
                     color: '#333333',           // Black border
                     weight: 2,                  // Border thickness
-                    fillColor: zone.color || '#808080',
+                    fillColor: zone.fillColor || zone.color || '#808080',
                     fillOpacity: 0.5,
                     className: `zone-${idx}`
                 }).bindPopup(`
@@ -2209,12 +2491,12 @@ function displayAnalysisResults(results) {
                 const offsetLat = (Math.random() - 0.5) * 0.1;
                 const offsetLng = (Math.random() - 0.5) * 0.1;
                 const radius = (zone.areaPercent || 5) * 500; // Rough radius estimate
-                
+
                 L.circle([coords.center.lat + offsetLat, coords.center.lng + offsetLng], {
                     radius: radius,
                     color: '#333333',           // Black border
                     weight: 2,
-                    fillColor: zone.color || '#808080',
+                    fillColor: zone.fillColor || zone.color || '#808080',
                     fillOpacity: 0.5
                 }).bindPopup(`
                     <b>${zone.name || 'Vùng ' + (idx + 1)}</b><br>
@@ -2225,7 +2507,7 @@ function displayAnalysisResults(results) {
             }
         });
     }
-    
+
     // Display zones summary by soil type
     const zones = results.zones || [];
     const typeCount = {};
@@ -2233,9 +2515,9 @@ function displayAnalysisResults(results) {
     zones.forEach(z => {
         const type = z.soilType || z.zoneType || 'Unknown';
         typeCount[type] = (typeCount[type] || 0) + 1;
-        if (!typeColors[type]) typeColors[type] = z.color || '#808080';
+        if (!typeColors[type]) typeColors[type] = z.fillColor || z.color || '#808080';
     });
-    
+
     const summaryContainer = document.getElementById('zones-summary');
     summaryContainer.innerHTML = Object.entries(typeCount).slice(0, 8).map(([type, count]) => `
         <div class="bg-gray-50 p-3 rounded-lg border-l-4" style="border-left-color: ${typeColors[type]}">
@@ -2243,7 +2525,7 @@ function displayAnalysisResults(results) {
             <div class="text-sm text-gray-600 truncate" title="${type}">${type}</div>
         </div>
     `).join('');
-    
+
     // Display zones list with color indicator and border
     document.getElementById('total-zones-count').textContent = zones.length;
     const zonesList = document.getElementById('detected-zones-list');
@@ -2251,7 +2533,7 @@ function displayAnalysisResults(results) {
         <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-gray-400 transition-colors cursor-pointer" 
              onclick="highlightZoneOnMap(${idx})"
              title="Click để highlight trên bản đồ">
-            <div class="w-8 h-8 rounded border-2 border-gray-800" style="background-color: ${zone.color || '#ccc'}"></div>
+            <div class="w-8 h-8 rounded border-2 border-gray-800" style="background-color: ${zone.fillColor || zone.color || '#ccc'}"></div>
             <div class="flex-1 min-w-0">
                 <div class="font-medium truncate">${zone.name || `Vùng ${idx + 1}`}</div>
                 <div class="text-sm text-gray-500">${zone.soilType || zone.zoneType || 'N/A'}</div>
@@ -2263,7 +2545,7 @@ function displayAnalysisResults(results) {
             </div>
         </div>
     `).join('');
-    
+
     // Show color mapping legend
     const colorMapping = results.colorMapping || {};
     if (Object.keys(colorMapping).length > 0) {
@@ -2274,24 +2556,24 @@ function displayAnalysisResults(results) {
                 <span class="text-gray-400">(${info.count || 0})</span>
             </div>
         `).join('');
-        
+
         // Add legend after zones summary
         const existingLegend = document.getElementById('color-legend');
         if (existingLegend) {
             existingLegend.innerHTML = legendHtml;
         }
     }
-    
+
     showToast('Thành công', `Đã phân tích ${zones.length} vùng`, 'success');
 }
 
 // Helper function to highlight zone on map
 function highlightZoneOnMap(zoneIndex) {
     if (!resultMapPreview || !currentAnalysisResult?.zones) return;
-    
+
     const zone = currentAnalysisResult.zones[zoneIndex];
     if (!zone) return;
-    
+
     // Flash effect on the zone
     resultMapPreview.eachLayer(layer => {
         if (layer.options?.className === `zone-${zoneIndex}`) {
@@ -2318,9 +2600,9 @@ async function confirmAndSaveAnalysis() {
         showToast('Lỗi', 'Không có kết quả để lưu', 'error');
         return;
     }
-    
-    const mapType = document.querySelector('input[name="result-map-type"]:checked')?.value || 'soil';
-    
+
+    const mapType = document.querySelector('input[name="result-map-type"]:checked')?.value || 'planning';
+
     try {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
         const response = await fetch(
@@ -2334,9 +2616,9 @@ async function confirmAndSaveAnalysis() {
                 body: JSON.stringify({ mapType })
             }
         );
-        
+
         const data = await response.json();
-        
+
         if (data.success) {
             showToast('Thành công', data.message, 'success');
             discardAnalysis();
@@ -2359,12 +2641,12 @@ function discardAnalysis() {
             headers: { 'Authorization': `Bearer ${token}` }
         }).catch(e => console.log('Discard cleanup:', e));
     }
-    
+
     currentAnalysisId = null;
     currentAnalysisResult = null;
     clearMapImage();
     document.getElementById('analysis-results-container').classList.add('hidden');
-    
+
     // Clear map layers
     if (resultMapPreview) {
         resultMapPreview.eachLayer(layer => {
