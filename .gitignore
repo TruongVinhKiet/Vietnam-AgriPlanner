@@ -30,3 +30,4 @@ logs/
 
 # Custom exclusions
 map/
+backend/python/extracted_images/

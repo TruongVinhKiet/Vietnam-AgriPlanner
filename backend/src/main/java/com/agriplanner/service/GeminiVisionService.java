@@ -35,7 +35,7 @@ public class GeminiVisionService {
     @Value("${ai.gemini.api-key:}")
     private String geminiApiKey;
 
-    @Value("${ai.gemini.model:gemini-1.5-pro}")
+    @Value("${ai.gemini.model:gemini-2.5-flash}")
     private String geminiModel;
 
     private final RestTemplate restTemplate = new RestTemplate();

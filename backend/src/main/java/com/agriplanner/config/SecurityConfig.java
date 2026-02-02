@@ -126,6 +126,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/kmz/**").authenticated()
 
                         // Map image analysis - allow for admin/owner
+                        // SSE progress endpoint needs to be permitted due to async dispatch context loss
+                        .requestMatchers("/api/admin/map-image/analyze/*/progress").permitAll()
                         .requestMatchers("/api/admin/map-image/**").hasAnyRole("SYSTEM_ADMIN", "OWNER")
 
                         // Admin only endpoints

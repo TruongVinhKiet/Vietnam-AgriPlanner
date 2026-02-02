@@ -14,6 +14,7 @@ import numpy as np
 import json
 import sys
 import os
+import base64
 from pathlib import Path
 from collections import Counter
 
@@ -30,25 +31,29 @@ def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
-def quantize_colors(image, n_colors=12):
+def quantize_colors(image, n_colors=16):
     """
     Giảm số lượng màu trong ảnh xuống n_colors màu chính.
     Giúp gom các vùng màu tương tự thành một.
+    Returns the quantized image (same size as input).
     """
-    # Resize for faster processing
     h, w = image.shape[:2]
-    max_dim = 500  # Process at smaller size for speed
-    if max(h, w) > max_dim:
-        scale = max_dim / max(h, w)
-        image = cv2.resize(image, (int(w * scale), int(h * scale)))
     
-    # Reshape for k-means
-    pixels = image.reshape(-1, 3).astype(np.float32)
+    # For k-means, use a smaller sample for speed
+    max_samples = 100000
+    pixels = image.reshape(-1, 3)
     
-    # K-means clustering with fewer iterations for speed
+    if len(pixels) > max_samples:
+        # Random sample for faster k-means
+        indices = np.random.choice(len(pixels), max_samples, replace=False)
+        sample_pixels = pixels[indices].astype(np.float32)
+    else:
+        sample_pixels = pixels.astype(np.float32)
+    
+    # K-means clustering
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 50, 0.5)
     try:
-        _, labels, centers = cv2.kmeans(pixels, n_colors, None, criteria, 5, cv2.KMEANS_RANDOM_CENTERS)
+        _, labels, centers = cv2.kmeans(sample_pixels, n_colors, None, criteria, 5, cv2.KMEANS_RANDOM_CENTERS)
     except Exception as e:
         log(f"K-means failed: {e}, using simple color extraction")
         return image, None
@@ -56,15 +61,30 @@ def quantize_colors(image, n_colors=12):
     # Convert centers to uint8
     centers = np.uint8(centers)
     
-    return image, centers
+    # Now assign every pixel to nearest center (apply quantization to full image)
+    # This ensures the quantized image has exactly n_colors colors
+    pixels_float = pixels.astype(np.float32)
+    
+    # Calculate distance from each pixel to each center
+    # Use broadcasting: pixels (N,3), centers (K,3) -> distances (N,K)
+    diff = pixels_float[:, np.newaxis, :] - centers[np.newaxis, :, :]
+    distances = np.sum(diff ** 2, axis=2)
+    nearest = np.argmin(distances, axis=1)
+    
+    # Create quantized image
+    quantized = centers[nearest].reshape(h, w, 3)
+    
+    return quantized, centers
 
-def get_dominant_colors(image, n_colors=10, min_percentage=1.0):
+def get_dominant_colors(image, n_colors=20, min_percentage=0.15):
     """
     Lấy danh sách các màu chiếm diện tích đáng kể trong ảnh.
     Loại bỏ các màu quá gần trắng/đen (nền, viền).
+    Reduced min_percentage from 1.0 to 0.15 for soil maps with many small zones.
+    Increased n_colors to 20 for maps with many soil types.
     """
-    # Quantize first
-    quantized, centers = quantize_colors(image, n_colors * 2)
+    # Quantize with more colors to capture all soil types
+    quantized, centers = quantize_colors(image, min(n_colors * 3, 64))
     
     # Count pixels for each color
     pixels = quantized.reshape(-1, 3)
@@ -74,36 +94,51 @@ def get_dominant_colors(image, n_colors=10, min_percentage=1.0):
     pixel_tuples = [tuple(p) for p in pixels]
     color_counts = Counter(pixel_tuples)
     
+    log(f"  Color quantization found {len(color_counts)} unique colors (top 5: {list(color_counts.most_common(5))})")
+    
     dominant = []
+    skipped_white = 0
+    skipped_black = 0
+    skipped_gray = 0
+    skipped_small = 0
+    
     for color, count in color_counts.most_common():
         percentage = (count / total_pixels) * 100
         
         if percentage < min_percentage:
+            skipped_small += 1
             continue
             
-        # Skip colors too close to white (background)
-        r, g, b = color
-        if r > 240 and g > 240 and b > 240:
+        # Skip colors too close to white (background) - relaxed threshold
+        r, g, b = int(color[0]), int(color[1]), int(color[2])  # Convert numpy to int to avoid overflow
+        if r > 245 and g > 245 and b > 245:
+            skipped_white += 1
             continue
         # Skip colors too close to black (borders)
-        if r < 15 and g < 15 and b < 15:
+        if r < 10 and g < 10 and b < 10:
+            skipped_black += 1
             continue
-        # Skip grayscale (text, lines)
-        if abs(r - g) < 10 and abs(g - b) < 10 and abs(r - b) < 10:
+        # Skip grayscale (text, lines) - but allow slightly off-gray colors
+        if abs(r - g) < 8 and abs(g - b) < 8 and abs(r - b) < 8 and min(r,g,b) < 230:
+            skipped_gray += 1
             continue
             
         dominant.append({
-            'rgb': [int(r), int(g), int(b)],
+            'rgb': [r, g, b],
             'hex': rgb_to_hex((r, g, b)),
             'percentage': round(percentage, 2),
             'pixel_count': count
         })
     
+    log(f"  Skipped colors: white={skipped_white}, black={skipped_black}, gray={skipped_gray}, small={skipped_small}")
+    log(f"  Accepted {len(dominant)} dominant colors")
+    
     return dominant[:n_colors]
 
-def create_color_mask(image, target_rgb, tolerance=25):
+def create_color_mask(image, target_rgb, tolerance=35):
     """
     Tạo mask cho một màu cụ thể với độ chấp nhận sai số.
+    Increased tolerance to 35 for better matching with gradient maps.
     """
     lower = np.array([max(0, c - tolerance) for c in target_rgb])
     upper = np.array([min(255, c + tolerance) for c in target_rgb])
@@ -116,6 +151,187 @@ def create_color_mask(image, target_rgb, tolerance=25):
     mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     
     return mask
+
+def extract_colors_from_legend(legend_image, min_color_area=50):
+    """
+    Extract các màu chính xác từ legend (bảng chú thích).
+    Hỗ trợ 2 format:
+    1. Danh sách dọc (thổ nhưỡng) - scan row strips bên trái
+    2. Bảng grid (quy hoạch) - scan toàn bộ grid
+    
+    Args:
+        legend_image: Ảnh crop của legend
+        min_color_area: Diện tích tối thiểu (không dùng trong row strips)
+    
+    Returns:
+        List of color dicts: [{'rgb': [r,g,b], 'hex': '#...', 'position': (x,y)}]
+    """
+    if legend_image is None or legend_image.size == 0:
+        return []
+    
+    h, w = legend_image.shape[:2]
+    
+    # Try both methods and combine results
+    colors_method1 = _extract_colors_row_strips(legend_image, h, w)
+    colors_method2 = _extract_colors_grid_scan(legend_image, h, w)
+    
+    # Combine and deduplicate with higher tolerance to avoid similar colors
+    all_colors = colors_method1 + colors_method2
+    
+    seen_colors = set()
+    unique_colors = []
+    for c in all_colors:
+        r, g, b = c['rgb']
+        # Use larger tolerance (25) to merge similar colors
+        color_key = (r // 25, g // 25, b // 25)
+        if color_key not in seen_colors:
+            seen_colors.add(color_key)
+            unique_colors.append(c)
+    
+    log(f"  Extracted {len(unique_colors)} unique colors from legend (method1: {len(colors_method1)}, method2: {len(colors_method2)})")
+    
+    return unique_colors
+
+
+def _extract_colors_row_strips(legend_image, h, w):
+    """Method 1: Row strips - for vertical legend lists (thổ nhưỡng)"""
+    legend_colors = []
+    seen_colors = set()
+    
+    strip_height = max(15, h // 40)
+    sample_width = min(80, w // 3)
+    
+    for strip_y in range(0, h, strip_height):
+        strip = legend_image[strip_y:min(strip_y + strip_height, h), 0:sample_width]
+        if strip.size == 0:
+            continue
+        
+        color = _get_dominant_color_from_region(strip)
+        if color is None:
+            continue
+        
+        r, g, b = color
+        color_key = (r // 20, g // 20, b // 20)
+        if color_key in seen_colors:
+            continue
+        seen_colors.add(color_key)
+        
+        hex_color = "#{:02x}{:02x}{:02x}".format(r, g, b)
+        legend_colors.append({
+            'rgb': [r, g, b],
+            'hex': hex_color,
+            'position': (sample_width // 2, strip_y + strip_height // 2),
+            'area': strip_height * sample_width
+        })
+    
+    return legend_colors
+
+
+def _extract_colors_grid_scan(legend_image, h, w):
+    """Method 2: Grid scan - for table legends (quy hoạch) with multiple columns"""
+    legend_colors = []
+    seen_colors = set()
+    
+    # Scan with smaller cells for table format
+    cell_size = max(20, min(h, w) // 20)
+    
+    for y in range(0, h, cell_size):
+        for x in range(0, w, cell_size):
+            cell = legend_image[y:min(y + cell_size, h), x:min(x + cell_size, w)]
+            if cell.size == 0:
+                continue
+            
+            color = _get_dominant_color_from_region(cell)
+            if color is None:
+                continue
+            
+            r, g, b = color
+            color_key = (r // 20, g // 20, b // 20)
+            if color_key in seen_colors:
+                continue
+            seen_colors.add(color_key)
+            
+            hex_color = "#{:02x}{:02x}{:02x}".format(r, g, b)
+            legend_colors.append({
+                'rgb': [r, g, b],
+                'hex': hex_color,
+                'position': (x + cell_size // 2, y + cell_size // 2),
+                'area': cell_size * cell_size
+            })
+    
+    return legend_colors
+
+
+def _get_dominant_color_from_region(region):
+    """Extract dominant non-white/black/gray color from a region"""
+    pixels = region.reshape(-1, 3)
+    
+    valid_pixels = []
+    for p in pixels:
+        b, g, r = int(p[0]), int(p[1]), int(p[2])
+        
+        # Skip white
+        if r > 235 and g > 235 and b > 235:
+            continue
+        # Skip black
+        if r < 25 and g < 25 and b < 25:
+            continue
+        # Skip gray
+        max_diff = max(abs(r - g), abs(g - b), abs(r - b))
+        if max_diff < 20 and r > 80:
+            continue
+        
+        valid_pixels.append([r, g, b])
+    
+    if not valid_pixels:
+        return None
+    
+    # Get mean color
+    valid_pixels = np.array(valid_pixels)
+    mean_color = np.mean(valid_pixels, axis=0).astype(int)
+    r, g, b = int(mean_color[0]), int(mean_color[1]), int(mean_color[2])
+    
+    # Skip if too dark (likely text)
+    if r < 50 and g < 50 and b < 50:
+        return None
+    
+    # Skip gray
+    max_diff = max(abs(r - g), abs(g - b), abs(r - b))
+    if max_diff < 15 and r > 80:
+        return None
+    
+    return (r, g, b)
+
+def match_color_to_legend(target_rgb, legend_colors, tolerance=30):
+    """
+    Tìm màu trong legend gần nhất với target color.
+    
+    Args:
+        target_rgb: [r, g, b] màu cần match
+        legend_colors: List màu từ legend
+        tolerance: Độ chấp nhận sai số màu (Euclidean distance)
+    
+    Returns:
+        matched legend color dict or None
+    """
+    if not legend_colors:
+        return None
+    
+    best_match = None
+    min_distance = float('inf')
+    
+    r, g, b = target_rgb
+    
+    for lc in legend_colors:
+        lr, lg, lb = lc['rgb']
+        # Euclidean distance in RGB space
+        distance = np.sqrt((r-lr)**2 + (g-lg)**2 + (b-lb)**2)
+        
+        if distance < min_distance and distance <= tolerance:
+            min_distance = distance
+            best_match = lc
+    
+    return best_match
 
 def simplify_contour(contour, max_points=20):
     """
@@ -166,10 +382,11 @@ def contour_to_polygon(contour, image_shape, geo_bounds=None):
     
     return points
 
-def extract_polygons_for_color(image, color_info, min_area_percent=0.1, geo_bounds=None, max_points=20):
+def extract_polygons_for_color(image, color_info, min_area_percent=0.02, geo_bounds=None, max_points=20):
     """
     Trích xuất tất cả polygon cho một màu cụ thể.
     Output format: ready for planning_zones table.
+    Reduced min_area_percent from 0.1 to 0.02 (2% -> 0.2% of image) for small soil zones.
     """
     h, w = image.shape[:2]
     total_pixels = h * w
@@ -229,14 +446,18 @@ def extract_legend_region(image):
     """
     h, w = image.shape[:2]
     
-    # Thử các vị trí legend phổ biến
+    # Thử các vị trí legend phổ biến - mở rộng vùng tìm kiếm
     legend_candidates = [
-        # Góc trái dưới (phổ biến nhất)
-        ('left_bottom', image[int(h*0.6):h, 0:int(w*0.35)]),
+        # Góc trái dưới (phổ biến nhất cho bản đồ quy hoạch) - mở rộng
+        ('left_bottom', image[int(h*0.5):h, 0:int(w*0.45)]),
+        # Góc trái dưới nhỏ hơn (cho thổ nhưỡng)
+        ('left_bottom_small', image[int(h*0.6):h, 0:int(w*0.35)]),
         # Góc phải trên (mini map)
         ('right_top', image[0:int(h*0.3), int(w*0.7):w]),
-        # Góc trái trên
+        # Góc trái trên (chú dẫn thổ nhưỡng)
         ('left_top', image[0:int(h*0.35), 0:int(w*0.3)]),
+        # Góc phải dưới
+        ('right_bottom', image[int(h*0.6):h, int(w*0.6):w]),
     ]
     
     # Tìm vùng có nhiều chi tiết nhất (variance cao)
@@ -254,6 +475,61 @@ def extract_legend_region(image):
             best_legend = (name, crop)
     
     return best_legend
+
+def smart_resize_image(image, max_dimension=2000):
+    """
+    Smart resize ảnh để tối ưu xử lý:
+    - Giảm kích thước nếu > max_dimension
+    - Giữ nguyên tỷ lệ (aspect ratio)
+    - Giữ normalized coordinates (0-1) nên không ảnh hưởng độ chính xác
+    
+    Benefits:
+    - Giảm 60-80% token khi gửi GPT-4o
+    - Tăng tốc OpenCV 2-3x
+    - Vẫn đủ độ nét để nhận diện màu và polygon
+    
+    Args:
+        image: OpenCV image (BGR)
+        max_dimension: Kích thước tối đa (chiều dài nhất), default 2000px
+        
+    Returns:
+        resized_image, resize_info dict
+    """
+    h, w = image.shape[:2]
+    original_size = (w, h)
+    file_size_estimate = h * w * 3  # Approximate uncompressed size
+    
+    # Check if resize needed
+    if max(h, w) <= max_dimension:
+        log(f"  Image size {w}x{h} is within limit ({max_dimension}px), no resize needed")
+        return image, {
+            'resized': False,
+            'original_width': w,
+            'original_height': h,
+            'new_width': w,
+            'new_height': h,
+            'scale_factor': 1.0
+        }
+    
+    # Calculate scale factor
+    scale = max_dimension / max(h, w)
+    new_w = int(w * scale)
+    new_h = int(h * scale)
+    
+    # Use INTER_AREA for shrinking (best quality)
+    resized = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
+    
+    log(f"  Resized: {w}x{h} -> {new_w}x{new_h} (scale: {scale:.2f})")
+    log(f"  Estimated size reduction: {(1-scale**2)*100:.0f}%")
+    
+    return resized, {
+        'resized': True,
+        'original_width': w,
+        'original_height': h,
+        'new_width': new_w,
+        'new_height': new_h,
+        'scale_factor': round(scale, 4)
+    }
 
 def crop_to_map_content(image):
     """
@@ -300,12 +576,25 @@ def crop_to_map_content(image):
     
     return cropped, (x, y, w_crop, h_crop)
 
-def analyze_map_image(image_path, output_json_path, extract_legend=False, geo_bounds=None):
+def analyze_map_image(image_path, output_json_path, extract_legend=False, geo_bounds=None, max_dimension=2000):
     """
     Phân tích ảnh bản đồ và trích xuất polygons theo màu.
     Output format: ready for planning_zones database table.
+    
+    Args:
+        image_path: Đường dẫn ảnh đầu vào (PNG, JPG, JPEG)
+        output_json_path: Đường dẫn lưu kết quả JSON
+        extract_legend: Có trích xuất vùng legend không
+        geo_bounds: Tọa độ địa lý của bản đồ
+        max_dimension: Kích thước tối đa để resize (default 2000px)
     """
     log(f"Loading image: {image_path}")
+    
+    # Validate file extension
+    valid_extensions = ['.png', '.jpg', '.jpeg']
+    file_ext = os.path.splitext(image_path)[1].lower()
+    if file_ext not in valid_extensions:
+        log(f"WARNING: File extension '{file_ext}' may not be supported. Supported: {valid_extensions}")
     
     # Read file using numpy to handle Unicode paths (OpenCV cv2.imread has issues)
     try:
@@ -321,38 +610,102 @@ def analyze_map_image(image_path, output_json_path, extract_legend=False, geo_bo
         return None
     
     h_orig, w_orig = image.shape[:2]
+    file_size_mb = os.path.getsize(image_path) / (1024 * 1024)
+    log(f"Original image: {w_orig}x{h_orig} ({file_size_mb:.2f} MB)")
     
-    # Step 0: Auto-crop to remove borders/legends
-    log("Step 0: Auto-cropping map content...")
+    # Step 0a: Smart resize to optimize processing
+    log("Step 0a: Smart resize for optimal processing...")
+    image, resize_info = smart_resize_image(image, max_dimension=max_dimension)
+    
+    # Step 0b: Extract legend BEFORE cropping (legend is usually outside main map area)
+    legend_info = None
+    legend_colors = []
+    if extract_legend:
+        log("Step 0b: Extracting legend region and colors...")
+        legend_result = extract_legend_region(image)
+        if legend_result:
+            legend_name, legend_crop = legend_result
+            log(f"  Found legend at: {legend_name}")
+            
+            # Extract colors from legend
+            legend_colors = extract_colors_from_legend(legend_crop)
+            
+            if legend_colors:
+                log(f"  Legend contains {len(legend_colors)} unique colors")
+                for i, lc in enumerate(legend_colors[:5]):  # Show first 5
+                    log(f"    {i+1}. {lc['hex']} at position {lc['position']}")
+                if len(legend_colors) > 5:
+                    log(f"    ... and {len(legend_colors) - 5} more")
+            
+            # Save legend image for AI labeling
+            legend_output_path = output_json_path.replace('.json', '_legend.jpg')
+            cv2.imwrite(legend_output_path, legend_crop)
+            
+            # Convert to base64 for API
+            _, buffer = cv2.imencode('.jpg', legend_crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            legend_base64 = base64.b64encode(buffer).decode('utf-8')
+            
+            legend_info = {
+                'position': legend_name,
+                'base64': legend_base64,
+                'width': legend_crop.shape[1],
+                'height': legend_crop.shape[0],
+                'colors': legend_colors  # Colors extracted from legend
+            }
+            log(f"  Legend saved to: {legend_output_path}")
+    
+    # Step 0c: Auto-crop to remove borders/legends
+    log("Step 0c: Auto-cropping map content...")
     image, crop_rect = crop_to_map_content(image)
     h, w = image.shape[:2]
     
-    # Adjust geo_bounds if cropping happened? 
-    # Actually, geo_bounds usually applies to the INTERIOR map content, which we just cropped to.
-    # So if GPT-4o read coordinates from the corners of this inner map, we are good.
-    # If GPT-4o read from the outer paper corners, we might have a slight shift, 
-    # but usually the coordinates are printed ON the map frame line.
+    log(f"Final processing size: {w}x{h}")
     
-    log(f"Processing image size: {w}x{h}")
-    
-    # Step 1: Get dominant colors (limit to 15 - will be split across AIs)
-    log("Step 1: Detecting dominant colors...")
-    colors = get_dominant_colors(image, n_colors=15, min_percentage=0.5)
-    log(f"  Found {len(colors)} significant colors")
+    # Step 1: Determine which colors to extract
+    if legend_colors:
+        # LEGEND-BASED MODE: Only extract colors that match the legend
+        log("Step 1: Using LEGEND-BASED color extraction...")
+        log(f"  Will only extract polygons for {len(legend_colors)} colors from legend")
+        colors = legend_colors
+    else:
+        # FALLBACK: Auto-detect dominant colors
+        log("Step 1: Detecting dominant colors (no legend)...")
+        colors = get_dominant_colors(image, n_colors=20, min_percentage=0.15)
+        log(f"  Found {len(colors)} significant colors")
+        
+        if len(colors) == 0:
+            log("  WARNING: No dominant colors found! Trying with lower threshold...")
+            colors = get_dominant_colors(image, n_colors=20, min_percentage=0.1)
+            log(f"  Retry found {len(colors)} colors with 0.1% threshold")
     
     # Step 2: Extract polygons for each color (max 20 points per polygon)
     log("Step 2: Extracting polygons for each color (max 20 points)...")
     zones = []
     zone_id = 1
+    color_summary = []
     
     for color in colors:
-        log(f"  Processing color {color['hex']} ({color['percentage']}%)...")
+        color_hex = color['hex']
+        log(f"  Processing color {color_hex}...")
         polygons = extract_polygons_for_color(
             image, color, 
-            min_area_percent=0.05, 
+            min_area_percent=0.02,  # Reduced from 0.05 for small soil zones
             geo_bounds=geo_bounds,
             max_points=20
         )
+        
+        total_area_percent = sum(p['areaPercent'] for p in polygons)
+        log(f"    -> Found {len(polygons)} polygons ({total_area_percent:.2f}% total area)")
+        
+        # Track color summary for GPT-4o labeling
+        if polygons:
+            color_summary.append({
+                'color': color_hex,
+                'rgb': color['rgb'],
+                'percentage': round(total_area_percent, 2),
+                'polygonCount': len(polygons),
+                'fromLegend': 'position' in color  # Flag if color came from legend
+            })
         
         for polygon in polygons:
             # Output matches planning_zones table columns
@@ -360,7 +713,7 @@ def analyze_map_image(image_path, output_json_path, extract_legend=False, geo_bo
                 'id': zone_id,
                 'name': f"Zone {zone_id}",
                 # From OpenCV
-                'fillColor': color['hex'],  # fill_color in DB
+                'fillColor': color_hex,  # fill_color in DB
                 'colorRgb': color['rgb'],
                 'areaPercent': polygon['areaPercent'],
                 'centerLat': polygon['center']['lat'] if isinstance(polygon['center'], dict) else None,
@@ -371,47 +724,29 @@ def analyze_map_image(image_path, output_json_path, extract_legend=False, geo_bo
                 # Placeholder for AI to fill
                 'zoneType': None,      # zone_type - loại đất
                 'zoneCode': None,      # zone_code - mã LUC, NTS, etc
-                'landUsePurpose': None # land_use_purpose
+                'landUsePurpose': None, # land_use_purpose
+                'fromLegend': 'position' in color  # Mark if matched from legend
             })
             zone_id += 1
     
     log(f"  Total zones extracted: {len(zones)}")
+    log(f"  Colors from legend: {sum(1 for c in color_summary if c.get('fromLegend'))}")
+    log(f"  Colors auto-detected: {sum(1 for c in color_summary if not c.get('fromLegend'))}")
     
-    # Step 3: Extract legend if requested
-    legend_base64 = None
-    legend_info = None
-    
-    if extract_legend:
-        log("Step 3: Extracting legend region...")
-        legend_result = extract_legend_region(image)
-        
-        if legend_result:
-            legend_name, legend_crop = legend_result
-            legend_path = output_json_path.replace('.json', '_legend.jpg')
-            cv2.imwrite(legend_path, legend_crop, [cv2.IMWRITE_JPEG_QUALITY, 85])
-            log(f"  Legend saved to: {legend_path}")
-            
-            # Convert to base64 for API
-            import base64
-            _, buffer = cv2.imencode('.jpg', legend_crop)
-            legend_base64 = base64.b64encode(buffer).decode('utf-8')
-            legend_info = {
-                'position': legend_name,
-                'path': legend_path,
-                'base64': legend_base64
-            }
+    # Step 3: Legend info was already extracted in Step 0b
+    # No need to do it again
     
     # Build result
     result = {
         'success': True,
         'imageSize': {'width': w, 'height': h},
-        'colorSummary': [
-            {'color': c['hex'], 'percentage': c['percentage']} 
-            for c in colors
-        ],
+        'originalSize': {'width': w_orig, 'height': h_orig},
+        'resizeInfo': resize_info,  # Include resize details
+        'colorSummary': color_summary,  # Now includes fromLegend flag
         'totalZones': len(zones),
         'zones': zones,
-        'legend': legend_info
+        'legend': legend_info,
+        'legendBasedExtraction': len(legend_colors) > 0  # Flag indicating if legend was used
     }
     
     # Save JSON
@@ -420,9 +755,21 @@ def analyze_map_image(image_path, output_json_path, extract_legend=False, geo_bo
     
     log(f"Result saved to: {output_json_path}")
     
-    # Also print compact JSON for Java to parse
+    # Create MINIMAL stdout result - just status info
+    # Java MUST read full data from output file, NOT from stdout
+    # This is critical because zones + boundaries can be 900KB+ which breaks BufferedReader
+    stdout_status = {
+        "status": "SUCCESS",
+        "totalZones": result.get("totalZones", 0),
+        "originalSize": result.get("originalSize"),
+        "processedSize": result.get("imageSize"),
+        "resized": resize_info.get("resized", False),
+        "hasLegend": legend_info is not None,
+        "outputFile": output_json_path
+    }
+    
     print("===JSON_START===")
-    print(json.dumps(result, ensure_ascii=False))
+    print(json.dumps(stdout_status, ensure_ascii=False))
     print("===JSON_END===")
     
     return result
@@ -431,10 +778,12 @@ import argparse
 
 def main():
     parser = argparse.ArgumentParser(description="Map Polygon Extractor (OpenCV)")
-    parser.add_argument("input_path", help="Path to input image file")
+    parser.add_argument("input_path", help="Path to input image file (PNG, JPG, JPEG)")
     parser.add_argument("output_path", help="Path to save output JSON")
     parser.add_argument("--with-legend", action="store_true", help="Extract legend region")
     parser.add_argument("--geo-bounds", help="JSON string of geometric bounds (sw, ne, center)")
+    parser.add_argument("--max-dimension", type=int, default=2000, 
+                        help="Maximum image dimension for resize (default: 2000px)")
 
     args = parser.parse_args()
     
@@ -459,7 +808,11 @@ def main():
         log(f"ERROR: File not found: {input_path}")
         sys.exit(1)
     
-    result = analyze_map_image(input_path, output_path, extract_legend, geo_bounds)
+    # Use max_dimension from CLI args (default: 2000px)
+    max_dim = args.max_dimension
+    log(f"Using max dimension: {max_dim}px")
+    
+    result = analyze_map_image(input_path, output_path, extract_legend, geo_bounds, max_dimension=max_dim)
     
     if result:
         log(f"SUCCESS: Extracted {result['totalZones']} zones")

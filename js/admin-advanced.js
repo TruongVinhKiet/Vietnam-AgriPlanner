@@ -1970,11 +1970,39 @@ function handleMapImageFile(file) {
     const thumb = document.getElementById('preview-image-thumb');
     const name = document.getElementById('preview-image-name');
     const size = document.getElementById('preview-image-size');
+    const dimensions = document.getElementById('preview-image-dimensions');
+    const resizeInfo = document.getElementById('resize-info');
 
-    // Create thumbnail
+    // Create thumbnail and get image dimensions
     const reader = new FileReader();
     reader.onload = (e) => {
         thumb.src = e.target.result;
+        
+        // Get actual image dimensions
+        const img = new Image();
+        img.onload = () => {
+            const w = img.width;
+            const h = img.height;
+            dimensions.textContent = `Kích thước gốc: ${w} × ${h} px`;
+            
+            // Check if resize is needed (max 2000px)
+            const maxDim = 2000;
+            if (w > maxDim || h > maxDim) {
+                const scale = maxDim / Math.max(w, h);
+                const newW = Math.round(w * scale);
+                const newH = Math.round(h * scale);
+                resizeInfo.classList.remove('hidden');
+                resizeInfo.innerHTML = `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                        <span class="material-icons-round" style="font-size:12px">photo_size_select_large</span>
+                        Sẽ resize: ${w}×${h} → ${newW}×${newH} px
+                    </span>
+                `;
+            } else {
+                resizeInfo.classList.add('hidden');
+            }
+        };
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
 
@@ -2369,6 +2397,72 @@ function displayAIUsageSummary(aiUsage) {
     container.classList.remove('hidden');
 }
 
+/**
+ * Display image processing info (Smart Resize)
+ */
+function displayProcessingInfo(results) {
+    const container = document.getElementById('processing-info');
+    const details = document.getElementById('processing-details');
+    
+    if (!container || !details) return;
+
+    // Get resize and size info
+    const resizeInfo = results.resizeInfo || {};
+    const originalSize = results.originalSize || {};
+    const processedSize = results.processedSize || results.imageSize || {};
+    const wasResized = resizeInfo.resized || false;
+
+    // Build info HTML
+    let html = '';
+    
+    if (originalSize.width && originalSize.height) {
+        html += `
+            <div>
+                <span class="text-gray-500">Kích thước gốc:</span>
+                <span class="font-medium">${originalSize.width} × ${originalSize.height} px</span>
+            </div>
+        `;
+    }
+    
+    if (wasResized && processedSize.width && processedSize.height) {
+        html += `
+            <div>
+                <span class="text-gray-500">Sau resize:</span>
+                <span class="font-medium text-blue-600">${processedSize.width} × ${processedSize.height} px</span>
+            </div>
+            <div>
+                <span class="text-gray-500">Tỷ lệ:</span>
+                <span class="font-medium">${(resizeInfo.scale_factor || 1).toFixed(2)}</span>
+            </div>
+            <div>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                    <span class="material-icons-round" style="font-size:12px">bolt</span>
+                    Đã tối ưu
+                </span>
+            </div>
+        `;
+    } else if (processedSize.width && processedSize.height) {
+        html += `
+            <div>
+                <span class="text-gray-500">Kích thước xử lý:</span>
+                <span class="font-medium">${processedSize.width} × ${processedSize.height} px</span>
+            </div>
+            <div>
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
+                    Không cần resize
+                </span>
+            </div>
+        `;
+    }
+
+    if (html) {
+        details.innerHTML = html;
+        container.classList.remove('hidden');
+    } else {
+        container.classList.add('hidden');
+    }
+}
+
 function displayAnalysisResults(results) {
     console.log('Displaying results:', results);
     currentAnalysisResult = results;
@@ -2377,6 +2471,9 @@ function displayAnalysisResults(results) {
     if (results.aiUsage) {
         displayAIUsageSummary(results.aiUsage);
     }
+
+    // Display image processing info (Smart Resize)
+    displayProcessingInfo(results);
 
     // Update spinner to complete
     const spinner = document.getElementById('analysis-spinner');

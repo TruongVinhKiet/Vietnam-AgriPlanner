@@ -244,6 +244,34 @@ public class MultiAIOrchestrator {
 
                 result.put("zones", zones);
                 result.put("colorSummary", colorSummary);
+                
+                // Extract image processing info (Smart Resize)
+                @SuppressWarnings("unchecked")
+                Map<String, Object> originalSize = (Map<String, Object>) opencvResult.get("originalSize");
+                @SuppressWarnings("unchecked")
+                Map<String, Object> resizeInfo = (Map<String, Object>) opencvResult.get("resizeInfo");
+                @SuppressWarnings("unchecked")
+                Map<String, Object> processedSize = (Map<String, Object>) opencvResult.get("imageSize");
+                
+                if (originalSize != null) {
+                    result.put("originalSize", originalSize);
+                }
+                if (resizeInfo != null) {
+                    result.put("resizeInfo", resizeInfo);
+                    Boolean wasResized = (Boolean) resizeInfo.get("resized");
+                    if (wasResized != null && wasResized) {
+                        addLog(logs, "OpenCV", "INFO", 
+                            String.format("Đã resize ảnh: %sx%s → %sx%s", 
+                                originalSize != null ? originalSize.get("width") : "?",
+                                originalSize != null ? originalSize.get("height") : "?",
+                                processedSize != null ? processedSize.get("width") : "?",
+                                processedSize != null ? processedSize.get("height") : "?"));
+                    }
+                }
+                if (processedSize != null) {
+                    result.put("processedSize", processedSize);
+                }
+                
                 addLog(logs, "OpenCV", "SUCCESS",
                         "Đã trích xuất " + zones.size() + " vùng polygon (tối đa 20 điểm/zone)");
                 callback.onProgress("step2_opencv", "completed",
@@ -594,10 +622,22 @@ public class MultiAIOrchestrator {
 
             opencvLogger.info("[DEBUG] Python exit code: {}", exitCode);
             opencvLogger.info("[DEBUG] Full Python output:\n{}", fullOutput.toString());
-            opencvLogger.info("[DEBUG] Extracted JSON output: {}",
+            opencvLogger.info("[DEBUG] Extracted JSON output (from stdout): {}",
                     jsonOutput != null ? jsonOutput.substring(0, Math.min(500, jsonOutput.length())) : "null");
 
-            if (exitCode == 0 && jsonOutput != null && !jsonOutput.isEmpty()) {
+            // PRIORITY: Always read from file first (contains full data including legend_base64)
+            // stdout only contains minimal result without large base64 data
+            if (exitCode == 0 && outputJson.exists()) {
+                opencvLogger.info("[DEBUG] Reading full result from output file: {}", outputJson.getAbsolutePath());
+                Map<String, Object> result = objectMapper.readValue(outputJson, Map.class);
+                List<?> zones = (List<?>) result.get("zones");
+                opencvLogger.info("[HYBRID] Successfully extracted {} zones from file", zones != null ? zones.size() : 0);
+                if (zones != null && !zones.isEmpty()) {
+                    opencvLogger.info("[DEBUG] First zone sample: {}", zones.get(0));
+                }
+                return result;
+            } else if (exitCode == 0 && jsonOutput != null && !jsonOutput.isEmpty()) {
+                // Fallback: parse from stdout if file doesn't exist
                 Map<String, Object> result = objectMapper.readValue(jsonOutput, Map.class);
                 List<?> zones = (List<?>) result.get("zones");
                 opencvLogger.info("[HYBRID] Successfully extracted {} zones", zones != null ? zones.size() : 0);
