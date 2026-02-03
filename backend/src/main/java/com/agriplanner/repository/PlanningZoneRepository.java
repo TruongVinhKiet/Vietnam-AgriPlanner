@@ -154,4 +154,21 @@ public interface PlanningZoneRepository extends JpaRepository<PlanningZone, Long
          */
         @Query("SELECT pz.mapType, COUNT(pz) FROM PlanningZone pz GROUP BY pz.mapType")
         List<Object[]> countByMapType();
+
+        // ==================== AI ANALYSIS HISTORY ====================
+
+        /**
+         * Find zones by AI analysis ID
+         */
+        List<PlanningZone> findByAnalysisId(String analysisId);
+
+        /**
+         * Delete zones by AI analysis ID
+         */
+        void deleteByAnalysisId(String analysisId);
+
+        /**
+         * Count zones by AI analysis ID
+         */
+        long countByAnalysisId(String analysisId);
 }

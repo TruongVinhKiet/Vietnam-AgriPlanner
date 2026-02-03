@@ -12,6 +12,13 @@ let allZones = [];
 let selectedFile = null;
 let currentTab = 'map';
 
+// Add global error handler for unhandled promise rejections
+window.addEventListener('unhandledrejection', function (event) {
+    console.error('Unhandled promise rejection:', event.reason);
+    // Prevent default error handling to avoid console spam
+    event.preventDefault();
+});
+
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', async function () {
     // Check authentication
@@ -61,10 +68,16 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Load data
     await loadZoneTypes();
     await loadPlanningZones();
-    await loadUploads();
+
+    // Load uploads with retry for robustness
+    try {
+        await loadUploads();
+    } catch (error) {
+        console.warn('Failed to load uploads on first try, will retry on tab switch');
+    }
 
     // Setup logout
-    document.getElementById('logout-btn').addEventListener('click', logout);
+    document.getElementById('logout-btn')?.addEventListener('click', logout);
 
     // Setup create snapshot button
     const createSnapshotBtn = document.getElementById('create-snapshot-btn');
@@ -396,10 +409,15 @@ async function submitUpload() {
         return;
     }
 
-    const province = document.getElementById('upload-province').value;
-    const district = document.getElementById('upload-district').value;
-    const notes = document.getElementById('upload-notes').value;
+    const province = document.getElementById('upload-province')?.value;
+    const district = document.getElementById('upload-district')?.value;
+    const notes = document.getElementById('upload-notes')?.value;
     const mapType = document.querySelector('input[name="map-type"]:checked')?.value || 'planning';
+
+    if (!province) {
+        showToast('Lỗi', 'Vui lòng chọn tỉnh/thành phố', 'error');
+        return;
+    }
 
     const formData = new FormData();
     formData.append('file', selectedFile);
@@ -408,12 +426,27 @@ async function submitUpload() {
     if (district) formData.append('district', district);
     if (notes) formData.append('notes', notes);
 
+    const formContainer = document.getElementById('upload-form-container');
+    const progressContainer = document.getElementById('upload-progress');
+
+    if (!formContainer || !progressContainer) {
+        console.error('Upload UI elements not found');
+        showToast('Lỗi', 'Lỗi giao diện. Vui lòng tải lại trang.', 'error');
+        return;
+    }
+
     // Show progress
-    document.getElementById('upload-form-container').classList.add('hidden');
-    document.getElementById('upload-progress').classList.remove('hidden');
+    formContainer.classList.add('hidden');
+    progressContainer.classList.remove('hidden');
 
     try {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+
+        if (!token) {
+            throw new Error('Bạn chưa đăng nhập. Vui lòng đăng nhập lại.');
+        }
+
+        console.log('Uploading KMZ file:', selectedFile.name);
         const response = await fetch(`${API_BASE_URL}/admin/kmz/upload`, {
             method: 'POST',
             headers: {
@@ -422,33 +455,58 @@ async function submitUpload() {
             body: formData
         });
 
+        console.log('Upload response status:', response.status);
         const data = await response.json();
+        console.log('Upload response data:', data);
 
         if (response.ok && data.success) {
             showToast('Thành công', data.message || 'Đã upload và xử lý file', 'success');
             clearSelectedFile();
+
+            // Reset form
+            document.getElementById('upload-form-container').classList.remove('hidden');
+            document.getElementById('upload-progress').classList.add('hidden');
+
+            // Reload data
             await loadUploads();
             await loadPlanningZones();
 
             // Switch to map to see results
             setTimeout(() => switchTab('map'), 1500);
         } else {
-            throw new Error(data.error || 'Upload failed');
+            throw new Error(data.error || data.message || 'Upload failed');
         }
     } catch (error) {
         console.error('Upload error:', error);
-        showToast('Lỗi', error.message || 'Không thể upload file', 'error');
-    } finally {
+        showToast('Lỗi', error.message || 'Không thể upload file. Vui lòng kiểm tra kết nối.', 'error');
+
+        // Show form again
+        document.getElementById('upload-form-container').classList.remove('hidden');
         document.getElementById('upload-progress').classList.add('hidden');
     }
 }
 
 async function loadUploads() {
     try {
+        console.log('Loading KMZ uploads...');
         const uploads = await fetchAPI('/admin/kmz/uploads');
+        console.log('Uploads loaded:', uploads?.length || 0);
         renderUploadsList(uploads || []);
     } catch (error) {
         console.error('Error loading uploads:', error);
+        // Show user-friendly error
+        const container = document.getElementById('uploads-list');
+        if (container) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-red-500">
+                    <span class="material-icons-round text-4xl mb-2">error</span>
+                    <p>Không thể tải danh sách upload</p>
+                    <button onclick="loadUploads()" class="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        Thử lại
+                    </button>
+                </div>
+            `;
+        }
     }
 }
 
@@ -744,35 +802,99 @@ function showZoneInfo(zone) {
 
     title.textContent = zone.name || 'Thông tin Vùng';
 
+    // Format area for display
+    const formatArea = (areaSqm) => {
+        if (!areaSqm) return '-';
+        const areaNum = parseFloat(areaSqm);
+        if (areaNum >= 10000) {
+            return `${(areaNum / 10000).toFixed(2)} ha`;
+        }
+        return `${areaNum.toFixed(0)} m²`;
+    };
+
+    // Determine map type for section headers
+    const isSoilMap = zone.mapType === 'soil' || zone.soilCategory;
+    const typeLabel = isSoilMap ? 'Loại đất' : 'Loại quy hoạch';
+
     content.innerHTML = `
+        <!-- Zone Color & Code Header -->
+        <div class="zone-info-header" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #eee;">
+            <div style="width:40px;height:40px;border-radius:8px;background-color:${zone.fillColor || '#10B981'};border:2px solid #333;"></div>
+            <div>
+                <div style="font-size:14px;font-weight:600;color:#333;">${zone.zoneCode || 'Chưa có mã'}</div>
+                <div style="font-size:12px;color:#666;">${zone.zoneType || typeLabel}</div>
+            </div>
+        </div>
+
+        <!-- Basic Info -->
         <div class="zone-info-row">
             <span class="zone-info-label">Mã quy hoạch</span>
             <span class="zone-info-value">${zone.zoneCode || '-'}</span>
         </div>
         <div class="zone-info-row">
-            <span class="zone-info-label">Loại đất</span>
+            <span class="zone-info-label">${typeLabel}</span>
             <span class="zone-info-value">${zone.zoneType || '-'}</span>
         </div>
         <div class="zone-info-row">
             <span class="zone-info-label">Mục đích sử dụng</span>
             <span class="zone-info-value">${zone.landUsePurpose || '-'}</span>
         </div>
+
+        <!-- Area Information -->
+        <div class="zone-info-row" style="background:#f0fdf4;padding:8px;border-radius:6px;margin:8px 0;">
+            <span class="zone-info-label" style="color:#166534;">📐 Diện tích</span>
+            <span class="zone-info-value" style="font-weight:600;color:#166534;">${formatArea(zone.areaSqm)}</span>
+        </div>
+
+        ${isSoilMap && zone.soilCategory ? `
+        <!-- Soil Type Details -->
+        <div style="margin:10px 0;padding:10px;background:#fef3c7;border-radius:8px;">
+            <div style="font-size:11px;text-transform:uppercase;color:#92400e;font-weight:600;margin-bottom:6px;">🌱 Thông tin đất</div>
+            <div class="zone-info-row" style="margin:0;">
+                <span class="zone-info-label">Phân loại</span>
+                <span class="zone-info-value">${zone.soilCategory || '-'}</span>
+            </div>
+            ${zone.phRange ? `<div class="zone-info-row" style="margin:0;"><span class="zone-info-label">pH</span><span class="zone-info-value">${zone.phRange}</span></div>` : ''}
+            ${zone.fertility ? `<div class="zone-info-row" style="margin:0;"><span class="zone-info-label">Độ phì</span><span class="zone-info-value">${zone.fertility}</span></div>` : ''}
+            ${zone.suitableCrops ? `<div class="zone-info-row" style="flex-direction:column;gap:4px;margin:0;"><span class="zone-info-label">Cây trồng phù hợp</span><span class="zone-info-value" style="max-width:100%;text-align:left;font-size:11px;color:#666;">${zone.suitableCrops}</span></div>` : ''}
+        </div>
+        ` : ''}
+
+        ${!isSoilMap && zone.planningPeriod ? `
         <div class="zone-info-row">
             <span class="zone-info-label">Kỳ quy hoạch</span>
-            <span class="zone-info-value">${zone.planningPeriod || '-'}</span>
+            <span class="zone-info-value">${zone.planningPeriod}</span>
         </div>
-        <div class="zone-info-row">
-            <span class="zone-info-label">Tỉnh/TP</span>
-            <span class="zone-info-value">${zone.province || '-'}</span>
+        ` : ''}
+
+        <!-- Location -->
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid #eee;">
+            <div class="zone-info-row">
+                <span class="zone-info-label">Tỉnh/TP</span>
+                <span class="zone-info-value">${zone.province || '-'}</span>
+            </div>
+            <div class="zone-info-row">
+                <span class="zone-info-label">Quận/Huyện</span>
+                <span class="zone-info-value">${zone.district || '-'}</span>
+            </div>
+            ${zone.commune ? `
+            <div class="zone-info-row">
+                <span class="zone-info-label">Xã/Phường</span>
+                <span class="zone-info-value">${zone.commune}</span>
+            </div>
+            ` : ''}
         </div>
-        <div class="zone-info-row">
-            <span class="zone-info-label">Quận/Huyện</span>
-            <span class="zone-info-value">${zone.district || '-'}</span>
-        </div>
+
         ${zone.notes ? `
-        <div class="zone-info-row" style="flex-direction: column; gap: 4px;">
-            <span class="zone-info-label">Ghi chú</span>
-            <span class="zone-info-value" style="max-width: 100%; text-align: left;">${zone.notes}</span>
+        <div class="zone-info-row" style="flex-direction: column; gap: 4px; margin-top:10px;">
+            <span class="zone-info-label">📝 Ghi chú</span>
+            <span class="zone-info-value" style="max-width: 100%; text-align: left; font-size: 12px; color: #555;">${zone.notes}</span>
+        </div>
+        ` : ''}
+
+        ${zone.analysisId ? `
+        <div style="margin-top:10px;padding:6px 8px;background:#eff6ff;border-radius:6px;font-size:11px;color:#1e40af;">
+            🤖 Phân tích AI: ${zone.analysisId}
         </div>
         ` : ''}
     `;
@@ -1941,7 +2063,175 @@ function initImageAnalysisTab() {
             }).addTo(resultMapPreview);
         }
     }
+
+    // Load analysis history
+    loadAnalysisHistory();
 }
+
+/**
+ * Load analysis history from server
+ */
+async function loadAnalysisHistory() {
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/admin/map-image/analyze/history`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            // Handle both formats: direct array and {success, history} object
+            const historyList = data.history || data || [];
+            renderAnalysisHistory(historyList);
+        }
+    } catch (error) {
+        console.log('Could not load analysis history:', error);
+    }
+}
+
+/**
+ * Render analysis history list with comprehensive info
+ */
+function renderAnalysisHistory(history) {
+    const container = document.getElementById('analysis-history-list');
+    if (!container) return;
+
+    if (!history || history.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+                <span class="material-icons-round text-4xl mb-2">history</span>
+                <p>Chưa có lịch sử phân tích</p>
+                <p class="text-sm mt-2">Tải ảnh bản đồ lên để bắt đầu phân tích AI</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = history.map(item => {
+        const mapTypeLabel = item.mapType === 'soil' ? 'Thổ nhưỡng' : 'Quy hoạch';
+        const mapTypeIcon = item.mapType === 'soil' ? 'landscape' : 'map';
+        const mapTypeColor = item.mapType === 'soil' ? 'amber' : 'green';
+
+        // Determine status
+        const isPersisted = item.persisted !== false; // Default true for DB entries
+        const statusLabel = isPersisted ? (item.status || 'completed') : 'pending';
+        const statusIcon = statusLabel === 'completed' ? 'check_circle' :
+            statusLabel === 'pending' ? 'pending' : 'error';
+        const statusColor = statusLabel === 'completed' ? 'green' :
+            statusLabel === 'pending' ? 'yellow' : 'red';
+
+        // Format date
+        const formatDate = (dateStr) => {
+            if (!dateStr) return '-';
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('vi-VN', {
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+            });
+        };
+
+        return `
+            <div class="flex items-center justify-between p-4 bg-white rounded-lg border shadow-sm hover:shadow-md transition-shadow">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center bg-${mapTypeColor}-100">
+                        <span class="material-icons-round text-${mapTypeColor}-600">${mapTypeIcon}</span>
+                    </div>
+                    <div>
+                        <div class="font-medium flex items-center gap-2">
+                            Phân tích #${item.analysisId}
+                            <span class="material-icons-round text-${statusColor}-500 text-sm">${statusIcon}</span>
+                        </div>
+                        <div class="text-sm text-gray-500 flex flex-wrap items-center gap-2">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-${mapTypeColor}-100 text-${mapTypeColor}-700">
+                                ${mapTypeLabel}
+                            </span>
+                            <span>• ${item.zoneCount || 0} vùng</span>
+                            ${item.province ? `<span>• ${item.province}</span>` : ''}
+                            <span class="text-xs text-gray-400">${formatDate(item.timestamp)}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1">
+                    ${isPersisted && item.zoneCount > 0 ? `
+                    <button onclick="viewAnalysisZones('${item.analysisId}')" 
+                            class="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Xem trên bản đồ">
+                        <span class="material-icons-round">visibility</span>
+                    </button>
+                    ` : ''}
+                    <button onclick="deleteAnalysisHistory('${item.analysisId}')" 
+                            class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Xóa kết quả phân tích và ${item.zoneCount || 0} vùng liên quan">
+                        <span class="material-icons-round">delete</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * View zones from a specific analysis on map
+ */
+async function viewAnalysisZones(analysisId) {
+    try {
+        const zones = await fetchAPI(`/planning-zones?analysisId=${analysisId}`);
+        if (zones && zones.length > 0) {
+            // Clear existing and add zones
+            planningZonesLayer.clearLayers();
+            zones.forEach(zone => addZoneToMap(zone));
+
+            // Fit map to zones
+            if (planningZonesLayer.getLayers().length > 0) {
+                const bounds = planningZonesLayer.getBounds();
+                map.fitBounds(bounds, { padding: [50, 50] });
+            }
+
+            switchTab('map');
+            showToast('Thành công', `Đang hiển thị ${zones.length} vùng từ phân tích #${analysisId}`, 'success');
+        } else {
+            showToast('Thông báo', 'Không tìm thấy vùng nào từ phân tích này', 'error');
+        }
+    } catch (error) {
+        console.error('Error loading analysis zones:', error);
+        showToast('Lỗi', 'Không thể tải vùng từ phân tích này', 'error');
+    }
+}
+
+/**
+ * Delete analysis from history and associated zones
+ */
+async function deleteAnalysisHistory(analysisId) {
+    if (!confirm(`Xóa kết quả phân tích #${analysisId}?\n\nLưu ý: Tất cả các vùng đất được tạo từ phân tích này cũng sẽ bị xóa.`)) return;
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/admin/map-image/analyze/${analysisId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            const deletedZones = result.deletedZones || 0;
+            showToast('Thành công', `Đã xóa phân tích${deletedZones > 0 ? ` và ${deletedZones} vùng liên quan` : ''}`, 'success');
+            loadAnalysisHistory();
+            // Reload zones on map if any were deleted
+            if (deletedZones > 0) {
+                await loadPlanningZones();
+            }
+        } else {
+            throw new Error('Không thể xóa');
+        }
+    } catch (error) {
+        console.error('Delete error:', error);
+        showToast('Lỗi', 'Không thể xóa kết quả phân tích', 'error');
+    }
+}
+
+// Export functions
+window.deleteAnalysisHistory = deleteAnalysisHistory;
+window.viewAnalysisZones = viewAnalysisZones;
 
 function handleMapImageSelect(e) {
     const file = e.target.files[0];
@@ -1977,14 +2267,14 @@ function handleMapImageFile(file) {
     const reader = new FileReader();
     reader.onload = (e) => {
         thumb.src = e.target.result;
-        
+
         // Get actual image dimensions
         const img = new Image();
         img.onload = () => {
             const w = img.width;
             const h = img.height;
             dimensions.textContent = `Kích thước gốc: ${w} × ${h} px`;
-            
+
             // Check if resize is needed (max 2000px)
             const maxDim = 2000;
             if (w > maxDim || h > maxDim) {
@@ -2127,30 +2417,42 @@ function connectToAnalysisProgress(analysisId) {
 
     analysisEventSource.onerror = (e) => {
         console.error('SSE error:', e);
+        addAnalysisLog('System', 'SSE bị ngắt, chuyển sang polling...');
         // Try polling instead
         pollAnalysisStatus(analysisId);
         analysisEventSource.close();
     };
 
-    // Fallback: poll status after 10 seconds
+    // Fallback: poll status after 15 seconds if no results yet
     setTimeout(() => {
         if (!currentAnalysisResult) {
+            addAnalysisLog('System', 'SSE không phản hồi, chuyển sang polling...');
+            if (analysisEventSource) analysisEventSource.close();
             pollAnalysisStatus(analysisId);
         }
-    }, 10000);
+    }, 15000);
 }
 
-async function pollAnalysisStatus(analysisId, maxAttempts = 60) {
+async function pollAnalysisStatus(analysisId, maxAttempts = 120) {
     addAnalysisLog('System', 'Chuyển sang polling mode...');
 
     const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    let connectionErrors = 0;
+    const maxConnectionErrors = 5;
 
     for (let i = 0; i < maxAttempts; i++) {
         try {
             const response = await fetch(
                 `${API_BASE_URL}/admin/map-image/analyze/${analysisId}/status`,
-                { headers: { 'Authorization': `Bearer ${token}` } }
+                {
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    signal: AbortSignal.timeout(10000) // 10 second timeout per request
+                }
             );
+
+            // Reset connection error count on successful response
+            connectionErrors = 0;
+
             const data = await response.json();
 
             if (data.status === 'completed') {
@@ -2167,12 +2469,24 @@ async function pollAnalysisStatus(analysisId, maxAttempts = 60) {
 
         } catch (error) {
             console.error('Poll error:', error);
+
+            // Check if it's a connection error
+            if (error.name === 'TypeError' || error.message.includes('fetch') || error.message.includes('network')) {
+                connectionErrors++;
+                addAnalysisLog('System', `Lỗi kết nối (${connectionErrors}/${maxConnectionErrors}), đang thử lại...`);
+
+                if (connectionErrors >= maxConnectionErrors) {
+                    showToast('Lỗi', 'Mất kết nối đến server. Vui lòng kiểm tra backend.', 'error');
+                    resetAnalysisUI();
+                    return;
+                }
+            }
         }
 
         await new Promise(r => setTimeout(r, 3000)); // Wait 3s
     }
 
-    showToast('Lỗi', 'Phân tích quá thời gian', 'error');
+    showToast('Lỗi', 'Phân tích quá thời gian (6 phút). Vui lòng thử lại với ảnh nhỏ hơn.', 'error');
     resetAnalysisUI();
 }
 
@@ -2403,7 +2717,7 @@ function displayAIUsageSummary(aiUsage) {
 function displayProcessingInfo(results) {
     const container = document.getElementById('processing-info');
     const details = document.getElementById('processing-details');
-    
+
     if (!container || !details) return;
 
     // Get resize and size info
@@ -2414,7 +2728,7 @@ function displayProcessingInfo(results) {
 
     // Build info HTML
     let html = '';
-    
+
     if (originalSize.width && originalSize.height) {
         html += `
             <div>
@@ -2423,7 +2737,7 @@ function displayProcessingInfo(results) {
             </div>
         `;
     }
-    
+
     if (wasResized && processedSize.width && processedSize.height) {
         html += `
             <div>

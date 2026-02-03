@@ -82,6 +82,234 @@ public class MultiAIOrchestrator {
     // API Endpoints
     private static final String GITHUB_API_URL = "https://models.inference.ai.azure.com/chat/completions";
 
+    // Known map coordinates (mock data for better accuracy)
+    private static final Map<String, Map<String, Object>> KNOWN_MAP_COORDINATES = new HashMap<>();
+
+    // Known color mappings for specific maps (mock data from chú giải)
+    // Maps: filename_key -> Map of hex color -> soil type name
+    private static final Map<String, Map<String, String>> KNOWN_COLOR_MAPPINGS = new HashMap<>();
+
+    static {
+        // ==================== CÀ MAU THỔ NHƯỠNG ====================
+        // Coordinates based on actual map bounds (104°45' - 105°15', 8°35' - 9°35')
+        // Tọa độ chính xác 4 điểm:
+        // P1: x=105, y=9.25 | P2: x=105.25, y=9.25
+        // P3: x=105, y=9 | P4: x=105.25, y=9
+        Map<String, Object> caMauSoilCoords = new HashMap<>();
+        caMauSoilCoords.put("sw", Map.of("lat", 9.0, "lng", 105.0)); // P3 - Southwest corner
+        caMauSoilCoords.put("ne", Map.of("lat", 9.25, "lng", 105.25)); // P2 - Northeast corner
+        caMauSoilCoords.put("center", Map.of("lat", 9.125, "lng", 105.125));
+        caMauSoilCoords.put("scale", "1:100000");
+        caMauSoilCoords.put("province", "Cà Mau");
+        KNOWN_MAP_COORDINATES.put("ca_mau_tho_nhuong", caMauSoilCoords);
+        KNOWN_MAP_COORDINATES.put("cà_mau_thổ_nhưỡng", caMauSoilCoords);
+        KNOWN_MAP_COORDINATES.put("camau_soil", caMauSoilCoords);
+
+        // Color mappings for Cà Mau Thổ Nhưỡng (from chú dẫn image)
+        // Based on ACTUAL colors extracted from legend image using OpenCV
+        // (analyze_legend_colors.py)
+        // Date: Extracted from "Chú thích_thổ nhưỡng.jpeg"
+        Map<String, String> caMauSoilColors = new LinkedHashMap<>();
+
+        // === ĐẤT CÁT GIỒNG - Bright Yellow (missing in scan, added manually) ===
+        caMauSoilColors.put("#ffff00", "Đất cát giồng");
+        caMauSoilColors.put("#fdfb06", "Đất cát giồng"); // K-means detected
+        caMauSoilColors.put("#fcfa18", "Đất cát giồng"); // K-means detected
+        caMauSoilColors.put("#fff000", "Đất cát giồng");
+
+        // === ĐẤT MẶN NHIỀU - Bright Yellow #fefd03 ===
+        caMauSoilColors.put("#fefd03", "Đất mặn nhiều"); // OpenCV exact: RGB(254,253,3)
+        caMauSoilColors.put("#ffff33", "Đất mặn nhiều");
+        caMauSoilColors.put("#fffc00", "Đất mặn nhiều");
+
+        // === ĐẤT MẶN TRUNG BÌNH - Light Purple #ca93fb ===
+        caMauSoilColors.put("#ca93fb", "Đất mặn trung bình"); // OpenCV exact: RGB(202,147,251)
+        caMauSoilColors.put("#cea2f7", "Đất mặn trung bình"); // K-means detected
+        caMauSoilColors.put("#c090f8", "Đất mặn trung bình");
+        caMauSoilColors.put("#d0a0fc", "Đất mặn trung bình");
+
+        // === ĐẤT MẶN ÍT - Light Purple #cfa0fc ===
+        caMauSoilColors.put("#cfa0fc", "Đất mặn ít"); // OpenCV exact: RGB(207,160,252)
+        caMauSoilColors.put("#d0a8fc", "Đất mặn ít");
+        caMauSoilColors.put("#c898f8", "Đất mặn ít");
+        // Additional colors for Đất mặn ít (very light/white with slight pink)
+        caMauSoilColors.put("#ffffff", "Đất mặn ít");
+        caMauSoilColors.put("#fcfcfc", "Đất mặn ít"); // 6.9% - dominant
+        caMauSoilColors.put("#fcf8fc", "Đất mặn ít"); // 5.0%
+        caMauSoilColors.put("#f8f8f8", "Đất mặn ít"); // 2.5%
+        caMauSoilColors.put("#f8fcfc", "Đất mặn ít"); // 1.5%
+        caMauSoilColors.put("#f8f8fc", "Đất mặn ít"); // 1.5%
+        caMauSoilColors.put("#f4f4f4", "Đất mặn ít");
+        caMauSoilColors.put("#f4fcfc", "Đất mặn ít");
+        caMauSoilColors.put("#fcf8f8", "Đất mặn ít");
+        caMauSoilColors.put("#fcfcf8", "Đất mặn ít");
+
+        // === ĐẤT PHÈN TIỀM TÀNG NÔNG dưới rừng ngập mặn - Very Light Purple #d8b2fd
+        // ===
+        // This is the DOMINANT soil type in Cà Mau (19.7%)
+        caMauSoilColors.put("#d8b0fc", "Đất phèn tiềm tàng nông dưới rừng ngập mặn"); // 4.6% - dominant
+        caMauSoilColors.put("#cca0fc", "Đất phèn tiềm tàng nông dưới rừng ngập mặn"); // 4.3%
+        caMauSoilColors.put("#d8b2fd", "Đất phèn tiềm tàng nông dưới rừng ngập mặn"); // OpenCV exact
+        caMauSoilColors.put("#d5b0fa", "Đất phèn tiềm tàng nông dưới rừng ngập mặn");
+        caMauSoilColors.put("#dcb8fc", "Đất phèn tiềm tàng nông dưới rừng ngập mặn");
+        caMauSoilColors.put("#dcb0fc", "Đất phèn tiềm tàng nông dưới rừng ngập mặn");
+        caMauSoilColors.put("#d8acfc", "Đất phèn tiềm tàng nông dưới rừng ngập mặn");
+        caMauSoilColors.put("#d4b0fc", "Đất phèn tiềm tàng nông dưới rừng ngập mặn");
+        caMauSoilColors.put("#d0a0fc", "Đất phèn tiềm tàng nông dưới rừng ngập mặn");
+        caMauSoilColors.put("#cca0f8", "Đất phèn tiềm tàng nông dưới rừng ngập mặn");
+        caMauSoilColors.put("#cc9cf8", "Đất phèn tiềm tàng nông dưới rừng ngập mặn");
+        caMauSoilColors.put("#c890fc", "Đất phèn tiềm tàng nông dưới rừng ngập mặn");
+        caMauSoilColors.put("#c490fc", "Đất phèn tiềm tàng nông dưới rừng ngập mặn");
+        caMauSoilColors.put("#d4acfc", "Đất phèn tiềm tàng nông dưới rừng ngập mặn");
+        caMauSoilColors.put("#dcb4fc", "Đất phèn tiềm tàng nông dưới rừng ngập mặn");
+
+        // === ĐẤT PHÈN TIỀM TÀNG NÔNG, MẶN NHIỀU - Light Blue-Purple #c3d6fe ===
+        caMauSoilColors.put("#c3d6fe", "Đất phèn tiềm tàng nông, mặn nhiều"); // OpenCV exact
+        caMauSoilColors.put("#c1cbfa", "Đất phèn tiềm tàng nông, mặn nhiều");
+        caMauSoilColors.put("#c0d4fc", "Đất phèn tiềm tàng nông, mặn nhiều"); // 1.5% actual
+        caMauSoilColors.put("#c0d0fc", "Đất phèn tiềm tàng nông, mặn nhiều");
+        caMauSoilColors.put("#bcd0fc", "Đất phèn tiềm tàng nông, mặn nhiều");
+        caMauSoilColors.put("#bcd4fc", "Đất phèn tiềm tàng nông, mặn nhiều");
+        caMauSoilColors.put("#b8d0fc", "Đất phèn tiềm tàng nông, mặn nhiều");
+        caMauSoilColors.put("#b8d4fc", "Đất phèn tiềm tàng nông, mặn nhiều");
+        caMauSoilColors.put("#c4d0fc", "Đất phèn tiềm tàng nông, mặn nhiều");
+        caMauSoilColors.put("#c4d4fc", "Đất phèn tiềm tàng nông, mặn nhiều");
+        caMauSoilColors.put("#c0d8fc", "Đất phèn tiềm tàng nông, mặn nhiều");
+
+        // === ĐẤT PHÈN TIỀM TÀNG NÔNG, MẶN TRUNG BÌNH - Bright Pink-Purple #fe84fd ===
+        caMauSoilColors.put("#fc80fc", "Đất phèn tiềm tàng nông, mặn trung bình"); // 2.6% actual
+        caMauSoilColors.put("#fe84fd", "Đất phèn tiềm tàng nông, mặn trung bình"); // OpenCV exact
+        caMauSoilColors.put("#f97ef6", "Đất phèn tiềm tàng nông, mặn trung bình");
+        caMauSoilColors.put("#fc84f8", "Đất phèn tiềm tàng nông, mặn trung bình");
+        caMauSoilColors.put("#fc84fc", "Đất phèn tiềm tàng nông, mặn trung bình");
+        caMauSoilColors.put("#fc80f8", "Đất phèn tiềm tàng nông, mặn trung bình");
+        caMauSoilColors.put("#fc7cf8", "Đất phèn tiềm tàng nông, mặn trung bình");
+        caMauSoilColors.put("#fc7cfc", "Đất phèn tiềm tàng nông, mặn trung bình");
+        caMauSoilColors.put("#fc88f8", "Đất phèn tiềm tàng nông, mặn trung bình");
+        caMauSoilColors.put("#fc88fc", "Đất phèn tiềm tàng nông, mặn trung bình");
+
+        // === ĐẤT PHÈN TIỀM TÀNG NÔNG, MẶN ÍT - Light Pink #ffb1d9 ===
+        caMauSoilColors.put("#ffb1d9", "Đất phèn tiềm tàng nông, mặn ít"); // OpenCV exact: RGB(255,177,217)
+        caMauSoilColors.put("#f5b2db", "Đất phèn tiềm tàng nông, mặn ít"); // K-means detected
+        caMauSoilColors.put("#fcb0d8", "Đất phèn tiềm tàng nông, mặn ít");
+
+        // === ĐẤT PHÈN TIỀM TÀNG SÂU dưới rừng ngập mặn - Very Light Pink #ffcfff ===
+        caMauSoilColors.put("#ffcfff", "Đất phèn tiềm tàng sâu dưới rừng ngập mặn"); // OpenCV exact: RGB(255,207,255)
+        caMauSoilColors.put("#f9d2f9", "Đất phèn tiềm tàng sâu dưới rừng ngập mặn"); // K-means detected
+        caMauSoilColors.put("#fcd0fc", "Đất phèn tiềm tàng sâu dưới rừng ngập mặn");
+
+        // === ĐẤT PHÈN TIỀM TÀNG SÂU, MẶN NHIỀU - Blue-Purple #a4c1fd ===
+        // Note: #a0c0fc is actually rivers, NOT this soil type
+        caMauSoilColors.put("#a4c1fd", "Đất phèn tiềm tàng sâu, mặn nhiều"); // OpenCV exact: RGB(164,193,253)
+        caMauSoilColors.put("#a3c0f7", "Đất phèn tiềm tàng sâu, mặn nhiều"); // K-means detected
+        caMauSoilColors.put("#98b8f8", "Đất phèn tiềm tàng sâu, mặn nhiều"); // Darker blue-purple
+
+        // === ĐẤT PHÈN TIỀM TÀNG SÂU, MẶN TRUNG BÌNH - Bright Magenta #ff73fa ===
+        caMauSoilColors.put("#ff73fa", "Đất phèn tiềm tàng sâu, mặn trung bình"); // OpenCV exact: RGB(255,115,250)
+        caMauSoilColors.put("#fc70f8", "Đất phèn tiềm tàng sâu, mặn trung bình");
+        caMauSoilColors.put("#ff78fc", "Đất phèn tiềm tàng sâu, mặn trung bình");
+
+        // === ĐẤT PHÈN TIỀM TÀNG SÂU, MẶN ÍT - Light Magenta #fea4fb ===
+        caMauSoilColors.put("#fea4fb", "Đất phèn tiềm tàng sâu, mặn ít"); // OpenCV exact: RGB(254,164,251)
+        caMauSoilColors.put("#fbabf8", "Đất phèn tiềm tàng sâu, mặn ít"); // K-means: 14.7%
+        caMauSoilColors.put("#fca8f8", "Đất phèn tiềm tàng sâu, mặn ít");
+
+        // === ĐẤT PHÈN HOẠT ĐỘNG NÔNG, MẶN NHIỀU - Light Pink-Magenta #feb3f8 ===
+        caMauSoilColors.put("#feb3f8", "Đất phèn hoạt động nông, mặn nhiều"); // OpenCV exact: RGB(254,179,248)
+        caMauSoilColors.put("#fcb0f8", "Đất phèn hoạt động nông, mặn nhiều");
+        caMauSoilColors.put("#fbb4fa", "Đất phèn hoạt động nông, mặn nhiều");
+
+        // === ĐẤT PHÈN HOẠT ĐỘNG NÔNG, MẶN TRUNG BÌNH - Hot Pink #ff65ae ===
+        caMauSoilColors.put("#ff65ae", "Đất phèn hoạt động nông, mặn trung bình"); // OpenCV exact: RGB(255,101,174)
+        caMauSoilColors.put("#f75daa", "Đất phèn hoạt động nông, mặn trung bình"); // K-means: 7.2%
+        caMauSoilColors.put("#fc60a8", "Đất phèn hoạt động nông, mặn trung bình");
+
+        // === ĐẤT PHÈN HOẠT ĐỘNG NÔNG, MẶN ÍT - Light Violet #c1c3fe ===
+        caMauSoilColors.put("#c1c3fe", "Đất phèn hoạt động nông, mặn ít"); // OpenCV exact: RGB(193,195,254)
+        caMauSoilColors.put("#c0c0fc", "Đất phèn hoạt động nông, mặn ít");
+        caMauSoilColors.put("#c4c4fc", "Đất phèn hoạt động nông, mặn ít");
+
+        // === ĐẤT PHÈN HOẠT ĐỘNG SÂU, MẶN NHIỀU - Light Pink #fbb4fa ===
+        caMauSoilColors.put("#fbb4fa", "Đất phèn hoạt động sâu, mặn nhiều"); // OpenCV exact: RGB(251,180,250)
+        caMauSoilColors.put("#f8b0f8", "Đất phèn hoạt động sâu, mặn nhiều");
+
+        // === ĐẤT PHÈN HOẠT ĐỘNG SÂU, MẶN TRUNG BÌNH - Deep Pink #fc54a9 ===
+        caMauSoilColors.put("#fc54a9", "Đất phèn hoạt động sâu, mặn trung bình"); // OpenCV exact: RGB(252,84,169)
+        caMauSoilColors.put("#f850a8", "Đất phèn hoạt động sâu, mặn trung bình");
+        caMauSoilColors.put("#ff58b0", "Đất phèn hoạt động sâu, mặn trung bình");
+
+        // === ĐẤT PHÈN HOẠT ĐỘNG SÂU, MẶN ÍT - Purple-Blue #9292f2 ===
+        caMauSoilColors.put("#9292f2", "Đất phèn hoạt động sâu, mặn ít"); // OpenCV exact: RGB(146,146,242)
+        caMauSoilColors.put("#9191f3", "Đất phèn hoạt động sâu, mặn ít"); // K-means: 3.9%
+        caMauSoilColors.put("#9090f0", "Đất phèn hoạt động sâu, mặn ít");
+
+        // === ĐẤT THAN BÙN PHÈN MẶN - Dark Purple #27034b ===
+        caMauSoilColors.put("#27034b", "Đất than bùn phèn mặn"); // OpenCV exact: RGB(39,3,75)
+        caMauSoilColors.put("#25024a", "Đất than bùn phèn mặn"); // K-means: 3.4%
+        caMauSoilColors.put("#2a0850", "Đất than bùn phèn mặn");
+        caMauSoilColors.put("#300860", "Đất than bùn phèn mặn");
+        caMauSoilColors.put("#1a1424", "Đất than bùn phèn mặn"); // K-means: 1.4%
+
+        // === ĐẤT VÀNG ĐỎ trên đá Macma axit - Near White #fdf8f4 ===
+        caMauSoilColors.put("#fdf8f4", "Đất vàng đỏ trên đá Macma axit"); // OpenCV exact: RGB(253,248,244)
+        caMauSoilColors.put("#f9f8e7", "Đất vàng đỏ trên đá Macma axit"); // K-means: 1.7%
+        caMauSoilColors.put("#faf6ca", "Đất vàng đỏ trên đá Macma axit"); // K-means: 0.6%
+        caMauSoilColors.put("#f9b9a5", "Đất vàng đỏ trên đá Macma axit"); // K-means: 4.0% (salmon tone)
+
+        // === SÔNG, SUỐI, AO HỒ - Light Blue Lavender (actual map colors) ===
+        // Note: Actual map uses lavender blue, NOT pure cyan due to JPEG compression
+        caMauSoilColors.put("#a0c0fc", "Sông, suối, ao hồ"); // Actual dominant - 0.8%
+        caMauSoilColors.put("#a4c0fc", "Sông, suối, ao hồ"); // Actual - 0.5%
+        caMauSoilColors.put("#9cc0fc", "Sông, suối, ao hồ"); // Variant
+        caMauSoilColors.put("#a0bcfc", "Sông, suối, ao hồ"); // Variant
+        caMauSoilColors.put("#a4c4fc", "Sông, suối, ao hồ"); // Variant
+        caMauSoilColors.put("#a4bcfc", "Sông, suối, ao hồ"); // Variant
+        caMauSoilColors.put("#a8c4fc", "Sông, suối, ao hồ"); // Variant
+        caMauSoilColors.put("#9cbcfc", "Sông, suối, ao hồ"); // Variant
+        caMauSoilColors.put("#a0c0f8", "Sông, suối, ao hồ"); // Variant
+        // Legacy cyan colors (in case of different map versions)
+        caMauSoilColors.put("#50fcfe", "Sông, suối, ao hồ"); // Pure cyan (legend)
+        caMauSoilColors.put("#54fbfc", "Sông, suối, ao hồ");
+        caMauSoilColors.put("#48f8fc", "Sông, suối, ao hồ");
+        caMauSoilColors.put("#00ffff", "Sông, suối, ao hồ");
+
+        // === BÃI BỒI VEN SÔNG, VEN BIỂN - Very Light Cyan/White ===
+        caMauSoilColors.put("#f0fcfc", "Bãi bồi ven sông, ven biển"); // Actual - 0.1%
+        caMauSoilColors.put("#ecfcfc", "Bãi bồi ven sông, ven biển"); // Actual - 0.1%
+        caMauSoilColors.put("#e8fcfc", "Bãi bồi ven sông, ven biển"); // Variant
+        caMauSoilColors.put("#f4fdfc", "Bãi bồi ven sông, ven biển"); // OpenCV exact
+        caMauSoilColors.put("#defafd", "Bãi bồi ven sông, ven biển");
+
+        // === KÝ HIỆU RỪNG/CÂY XANH - Bright Green (map symbols) ===
+        caMauSoilColors.put("#04f400", "Ký hiệu rừng/cây xanh"); // Actual - 0.15%
+        caMauSoilColors.put("#04f000", "Ký hiệu rừng/cây xanh"); // Actual - 0.12%
+        caMauSoilColors.put("#00ff00", "Ký hiệu rừng/cây xanh");
+        caMauSoilColors.put("#00f400", "Ký hiệu rừng/cây xanh");
+        caMauSoilColors.put("#08f000", "Ký hiệu rừng/cây xanh");
+        caMauSoilColors.put("#00f000", "Ký hiệu rừng/cây xanh");
+
+        // === ĐẤT THAN BÙN PHÈN MẶN - Additional colors from actual analysis ===
+        caMauSoilColors.put("#28004c", "Đất than bùn phèn mặn"); // Actual - 0.6%
+        caMauSoilColors.put("#280050", "Đất than bùn phèn mặn"); // Actual - 0.4%
+        caMauSoilColors.put("#2c0050", "Đất than bùn phèn mặn"); // Actual - 0.1%
+        caMauSoilColors.put("#2c004c", "Đất than bùn phèn mặn"); // Actual - 0.1%
+        caMauSoilColors.put("#24004c", "Đất than bùn phèn mặn"); // Actual - 0.1%
+        caMauSoilColors.put("#240048", "Đất than bùn phèn mặn"); // Actual - 0.1%
+
+        KNOWN_COLOR_MAPPINGS.put("ca_mau_tho_nhuong", caMauSoilColors);
+        KNOWN_COLOR_MAPPINGS.put("cà_mau_thổ_nhưỡng", caMauSoilColors);
+
+        // ==================== CÀ MAU QUY HOẠCH ====================
+        Map<String, Object> caMauPlanningCoords = new HashMap<>();
+        caMauPlanningCoords.put("sw", Map.of("lat", 8.58, "lng", 104.75));
+        caMauPlanningCoords.put("ne", Map.of("lat", 9.58, "lng", 105.25));
+        caMauPlanningCoords.put("center", Map.of("lat", 9.08, "lng", 105.0));
+        caMauPlanningCoords.put("scale", "1:100000");
+        caMauPlanningCoords.put("province", "Cà Mau");
+        KNOWN_MAP_COORDINATES.put("ca_mau_quy_hoach", caMauPlanningCoords);
+        KNOWN_MAP_COORDINATES.put("cà_mau_quy_hoạch", caMauPlanningCoords);
+    }
+
     /**
      * Callback interface for progress updates with detailed error info
      */
@@ -140,16 +368,25 @@ public class MultiAIOrchestrator {
 
         try {
             // ╔═══════════════════════════════════════════════════════════════╗
-            // ║ BƯỚC 1: TRÍCH XUẤT TỌA ĐỘ (GEMINI → GPT-4o FALLBACK) ║
+            // ║ BƯỚC 1: TRÍCH XUẤT TỌA ĐỘ (KNOWN DATA → GEMINI → GPT-4o) ║
             // ╚═══════════════════════════════════════════════════════════════╝
             callback.onProgress("step1_coords", "running", "Bước 1: Đang phân tích tọa độ bản đồ...");
 
             Map<String, Object> coordinatesResult = null;
             String coordsProvider = "none";
-            // String coordsError = null; // Unused
 
-            // Try Gemini first (better for OCR/coordinate reading)
-            if (geminiVisionService.isConfigured()) {
+            // Priority 1: Check for known map coordinates first (most reliable)
+            Map<String, Object> knownCoords = getKnownCoordinates(imageFile.getName());
+            if (knownCoords != null) {
+                coordinatesResult = new HashMap<>(knownCoords);
+                coordsProvider = "known_data";
+                addLog(logs, "System", "SUCCESS", "Sử dụng tọa độ đã biết cho bản đồ: " + province);
+                callback.onProgress("step1_coords", "completed", "✓ Sử dụng tọa độ chuẩn cho " + province);
+                logger.info("Using known coordinates for: {}", imageFile.getName());
+            }
+
+            // Priority 2: Try Gemini (better for OCR/coordinate reading)
+            if (coordinatesResult == null && geminiVisionService.isConfigured()) {
                 callback.onProgress("gemini", "running",
                         "Đang dùng Gemini " + geminiVisionService.getModelName() + " đọc tọa độ...");
                 addLog(logs, "Gemini", "START",
@@ -165,7 +402,6 @@ public class MultiAIOrchestrator {
                     geminiLogger.info("Coordinate extraction successful via Gemini");
                 } else {
                     // Gemini failed - log detailed error
-                    // coordsError = geminiResult.getErrorMessage(); // Unused
                     String errorIcon = getErrorIcon(geminiResult.getErrorType());
 
                     addLog(logs, "Gemini", "ERROR", errorIcon + " " + geminiResult.getErrorMessage());
@@ -184,7 +420,7 @@ public class MultiAIOrchestrator {
                         callback.onProgress("fallback", "running", "🔄 Đang chuyển sang GPT-4o...");
                     }
                 }
-            } else {
+            } else if (coordinatesResult == null) {
                 addLog(logs, "Gemini", "SKIP", "Gemini không được cấu hình, sử dụng GPT-4o");
                 callback.onProgress("gemini", "skipped", "Gemini chưa cấu hình, dùng GPT-4o");
             }
@@ -219,10 +455,16 @@ public class MultiAIOrchestrator {
             // ╔═══════════════════════════════════════════════════════════════╗
             // ║ BƯỚC 2: TRÍCH XUẤT POLYGON VÀ LEGEND (OPENCV) ║
             // ╚═══════════════════════════════════════════════════════════════╝
-            callback.onProgress("step2_opencv", "running", "Bước 2: Đang trích xuất vùng màu và polygon...");
-            addLog(logs, "OpenCV", "START", "Bắt đầu trích xuất polygon bằng OpenCV");
+            // Soil maps use Image Overlay Mode for better accuracy
+            boolean useImageOverlay = !isPlanningMap; // Use image overlay for soil maps
+            String overlayMessage = useImageOverlay
+                    ? "Bước 2: Đang tạo Image Overlay (chế độ mới - giữ nguyên hình ảnh)..."
+                    : "Bước 2: Đang trích xuất vùng màu và polygon...";
+            callback.onProgress("step2_opencv", "running", overlayMessage);
+            addLog(logs, "OpenCV", "START",
+                    useImageOverlay ? "Bắt đầu tạo Image Overlay" : "Bắt đầu trích xuất polygon bằng OpenCV");
 
-            Map<String, Object> opencvResult = extractPolygonsWithOpenCV(imageFile, coordinatesResult);
+            Map<String, Object> opencvResult = extractPolygonsWithOpenCV(imageFile, coordinatesResult, useImageOverlay);
 
             List<Map<String, Object>> zones = new ArrayList<>();
             List<Map<String, Object>> colorSummary = new ArrayList<>();
@@ -244,7 +486,7 @@ public class MultiAIOrchestrator {
 
                 result.put("zones", zones);
                 result.put("colorSummary", colorSummary);
-                
+
                 // Extract image processing info (Smart Resize)
                 @SuppressWarnings("unchecked")
                 Map<String, Object> originalSize = (Map<String, Object>) opencvResult.get("originalSize");
@@ -252,7 +494,7 @@ public class MultiAIOrchestrator {
                 Map<String, Object> resizeInfo = (Map<String, Object>) opencvResult.get("resizeInfo");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> processedSize = (Map<String, Object>) opencvResult.get("imageSize");
-                
+
                 if (originalSize != null) {
                     result.put("originalSize", originalSize);
                 }
@@ -260,18 +502,18 @@ public class MultiAIOrchestrator {
                     result.put("resizeInfo", resizeInfo);
                     Boolean wasResized = (Boolean) resizeInfo.get("resized");
                     if (wasResized != null && wasResized) {
-                        addLog(logs, "OpenCV", "INFO", 
-                            String.format("Đã resize ảnh: %sx%s → %sx%s", 
-                                originalSize != null ? originalSize.get("width") : "?",
-                                originalSize != null ? originalSize.get("height") : "?",
-                                processedSize != null ? processedSize.get("width") : "?",
-                                processedSize != null ? processedSize.get("height") : "?"));
+                        addLog(logs, "OpenCV", "INFO",
+                                String.format("Đã resize ảnh: %sx%s → %sx%s",
+                                        originalSize != null ? originalSize.get("width") : "?",
+                                        originalSize != null ? originalSize.get("height") : "?",
+                                        processedSize != null ? processedSize.get("width") : "?",
+                                        processedSize != null ? processedSize.get("height") : "?"));
                     }
                 }
                 if (processedSize != null) {
                     result.put("processedSize", processedSize);
                 }
-                
+
                 addLog(logs, "OpenCV", "SUCCESS",
                         "Đã trích xuất " + zones.size() + " vùng polygon (tối đa 20 điểm/zone)");
                 callback.onProgress("step2_opencv", "completed",
@@ -294,15 +536,65 @@ public class MultiAIOrchestrator {
             aiUsage.put("polygons", "opencv");
 
             // ╔═══════════════════════════════════════════════════════════════╗
-            // ║ BƯỚC 3: GÁN NHÃN LOẠI ĐẤT (GPT-4o) ║
+            // ║ BƯỚC 3: GÁN NHÃN LOẠI ĐẤT (KNOWN DATA → GPT-4o) ║
             // ╚═══════════════════════════════════════════════════════════════╝
             String step3Label = isPlanningMap ? "loại đất quy hoạch" : "loại đất thổ nhưỡng";
             callback.onProgress("step3_labels", "running",
-                    "Bước 3: AI đang phân loại " + step3Label + " từ chú giải...");
-            addLog(logs, "GPT-4o", "START", "Bắt đầu phân loại màu sắc bằng GPT-4o (mode: " + mapType + ")");
+                    "Bước 3: Đang phân loại " + step3Label + " từ chú giải...");
 
-            Map<String, Object> colorMapping = labelColorsWithGPT4o(imageFile, colorSummary, province, legendInfo,
-                    mapType);
+            Map<String, Object> colorMapping = null;
+            String labelProvider = "none";
+
+            // Priority 1: Check for known color mappings first (most accurate for Cà Mau
+            // Thổ Nhưỡng)
+            Map<String, String> knownColors = getKnownColorMappings(imageFile.getName());
+            if (knownColors != null && !knownColors.isEmpty()) {
+                addLog(logs, "System", "SUCCESS", "Sử dụng bảng màu đã biết cho: " + province);
+
+                // Build colorToSoil mapping from known colors
+                Map<String, String> colorToSoilFromKnown = new HashMap<>();
+                String dominantTypeFromKnown = null;
+                int maxCount = 0;
+                Map<String, Integer> typeCount = new HashMap<>();
+
+                for (Map<String, Object> colorInfo : colorSummary) {
+                    String hexColor = (String) colorInfo.get("hex");
+                    if (hexColor == null)
+                        hexColor = (String) colorInfo.get("color");
+                    if (hexColor == null)
+                        continue;
+
+                    String soilType = matchColorToKnownMapping(hexColor, knownColors);
+                    if (soilType != null) {
+                        colorToSoilFromKnown.put(hexColor, soilType);
+                        int count = typeCount.getOrDefault(soilType, 0) + 1;
+                        typeCount.put(soilType, count);
+                        if (count > maxCount) {
+                            maxCount = count;
+                            dominantTypeFromKnown = soilType;
+                        }
+                    }
+                }
+
+                if (!colorToSoilFromKnown.isEmpty()) {
+                    colorMapping = new HashMap<>();
+                    colorMapping.put("colorToSoil", colorToSoilFromKnown);
+                    colorMapping.put("dominantType", dominantTypeFromKnown);
+                    labelProvider = "known_data";
+                    callback.onProgress("step3_labels", "completed",
+                            "✓ Sử dụng bảng màu chuẩn: " + colorToSoilFromKnown.size() + " màu");
+                    logger.info("Using known color mappings: {} colors matched", colorToSoilFromKnown.size());
+                }
+            }
+
+            // Priority 2: Use GPT-4o if no known mappings available
+            if (colorMapping == null) {
+                addLog(logs, "GPT-4o", "START", "Bắt đầu phân loại màu sắc bằng GPT-4o (mode: " + mapType + ")");
+                colorMapping = labelColorsWithGPT4o(imageFile, colorSummary, province, legendInfo, mapType);
+                if (colorMapping != null && !colorMapping.isEmpty()) {
+                    labelProvider = "gpt4o";
+                }
+            }
 
             if (colorMapping != null && !colorMapping.isEmpty()) {
                 result.put("colorMapping", colorMapping);
@@ -395,18 +687,20 @@ public class MultiAIOrchestrator {
                     }
                 }
 
-                addLog(logs, "GPT-4o", "SUCCESS",
+                String providerLabel = "known_data".equals(labelProvider) ? "Bảng màu chuẩn" : "GPT-4o";
+                addLog(logs, providerLabel, "SUCCESS",
                         String.format("Đã gán nhãn %d màu. Mapped: %d, Unmapped: %d",
                                 colorToSoil.size(), mappedCount, unmappedCount));
                 callback.onProgress("step3_labels", "completed",
-                        String.format("Bước 3 hoàn thành: %d/%d %s đã liên kết DB", mappedCount,
+                        String.format("Bước 3 hoàn thành (%s): %d/%d %s đã liên kết DB",
+                                labelProvider.toUpperCase(), mappedCount,
                                 colorToSoil.size(), isPlanningMap ? "loại quy hoạch" : "loại đất"));
             } else {
-                addLog(logs, "GPT-4o", "WARNING", "Không thể đọc chú giải");
+                addLog(logs, "System", "WARNING", "Không thể đọc chú giải");
                 callback.onProgress("step3_labels", "warning", "⚠️ Không thể đọc chú giải");
             }
 
-            aiUsage.put("labeling", "gpt4o");
+            aiUsage.put("labeling", labelProvider);
 
             // Final summary
             result.put("logs", logs);
@@ -457,6 +751,13 @@ public class MultiAIOrchestrator {
      */
     private Map<String, Object> analyzeCoordinatesWithGPT4o(File imageFile) {
         gpt4oLogger.info("Starting coordinate analysis for: {}", imageFile.getName());
+
+        // First check if we have known coordinates for this map
+        Map<String, Object> knownCoords = getKnownCoordinates(imageFile.getName());
+        if (knownCoords != null) {
+            gpt4oLogger.info("Using known coordinates for: {}", imageFile.getName());
+            return new HashMap<>(knownCoords);
+        }
 
         if (githubToken == null || githubToken.isEmpty()) {
             gpt4oLogger.warn("GitHub token not configured");
@@ -547,12 +848,155 @@ public class MultiAIOrchestrator {
     }
 
     /**
+     * Get known coordinates for map files based on filename
+     */
+    private Map<String, Object> getKnownCoordinates(String filename) {
+        if (filename == null)
+            return null;
+
+        // Normalize filename for matching
+        String normalized = filename.toLowerCase()
+                .replace(" ", "_")
+                .replace("-", "_")
+                .replaceAll("\\.(jpeg|jpg|png)$", "");
+
+        // Try to match with known coordinates
+        for (Map.Entry<String, Map<String, Object>> entry : KNOWN_MAP_COORDINATES.entrySet()) {
+            if (normalized.contains(entry.getKey().toLowerCase().replace(" ", "_"))) {
+                logger.info("Found known coordinates for: {} -> {}", filename, entry.getKey());
+                return entry.getValue();
+            }
+        }
+
+        // Check for Cà Mau in filename
+        if (normalized.contains("ca_mau") || normalized.contains("cà_mau") || normalized.contains("camau")) {
+            if (normalized.contains("tho_nhuong") || normalized.contains("thổ_nhưỡng") || normalized.contains("soil")) {
+                return KNOWN_MAP_COORDINATES.get("ca_mau_tho_nhuong");
+            }
+            if (normalized.contains("quy_hoach") || normalized.contains("quy_hoạch")
+                    || normalized.contains("planning")) {
+                return KNOWN_MAP_COORDINATES.get("ca_mau_quy_hoach");
+            }
+            // Default to soil map for Ca Mau
+            return KNOWN_MAP_COORDINATES.get("ca_mau_tho_nhuong");
+        }
+
+        return null;
+    }
+
+    /**
+     * Get known color mappings for map files based on filename (for Bước 2)
+     * Returns Map of hex color -> soil type name
+     */
+    private Map<String, String> getKnownColorMappings(String filename) {
+        if (filename == null)
+            return null;
+
+        // Normalize filename for matching
+        String normalized = filename.toLowerCase()
+                .replace(" ", "_")
+                .replace("-", "_")
+                .replaceAll("\\.(jpeg|jpg|png)$", "");
+
+        // Try to match with known color mappings
+        for (Map.Entry<String, Map<String, String>> entry : KNOWN_COLOR_MAPPINGS.entrySet()) {
+            if (normalized.contains(entry.getKey().toLowerCase().replace(" ", "_"))) {
+                logger.info("Found known color mappings for: {} -> {} colors", filename, entry.getValue().size());
+                return entry.getValue();
+            }
+        }
+
+        // Check for Cà Mau Thổ Nhưỡng in filename
+        if ((normalized.contains("ca_mau") || normalized.contains("cà_mau") || normalized.contains("camau")) &&
+                (normalized.contains("tho_nhuong") || normalized.contains("thổ_nhưỡng")
+                        || normalized.contains("soil"))) {
+            return KNOWN_COLOR_MAPPINGS.get("ca_mau_tho_nhuong");
+        }
+
+        return null;
+    }
+
+    /**
+     * Match a detected color to known color mappings using color distance
+     * Returns the closest matching soil type name, or null if no close match
+     */
+    private String matchColorToKnownMapping(String hexColor, Map<String, String> knownMappings) {
+        if (hexColor == null || knownMappings == null)
+            return null;
+
+        // Exact match first
+        String exactMatch = knownMappings.get(hexColor.toLowerCase());
+        if (exactMatch != null)
+            return exactMatch;
+
+        // Convert hex to RGB for distance calculation
+        int[] targetRgb = hexToRgb(hexColor);
+        if (targetRgb == null)
+            return null;
+
+        String bestMatch = null;
+        double minDistance = Double.MAX_VALUE;
+        double threshold = 60.0; // Maximum color distance to accept as match
+
+        for (Map.Entry<String, String> entry : knownMappings.entrySet()) {
+            int[] knownRgb = hexToRgb(entry.getKey());
+            if (knownRgb == null)
+                continue;
+
+            // Calculate Euclidean distance in RGB space
+            double distance = Math.sqrt(
+                    Math.pow(targetRgb[0] - knownRgb[0], 2) +
+                            Math.pow(targetRgb[1] - knownRgb[1], 2) +
+                            Math.pow(targetRgb[2] - knownRgb[2], 2));
+
+            if (distance < minDistance && distance < threshold) {
+                minDistance = distance;
+                bestMatch = entry.getValue();
+            }
+        }
+
+        if (bestMatch != null) {
+            logger.debug("Matched color {} to '{}' (distance: {:.1f})", hexColor, bestMatch, minDistance);
+        }
+
+        return bestMatch;
+    }
+
+    /**
+     * Convert hex color to RGB array
+     */
+    private int[] hexToRgb(String hex) {
+        if (hex == null)
+            return null;
+        hex = hex.replace("#", "");
+        if (hex.length() != 6)
+            return null;
+
+        try {
+            return new int[] {
+                    Integer.parseInt(hex.substring(0, 2), 16),
+                    Integer.parseInt(hex.substring(2, 4), 16),
+                    Integer.parseInt(hex.substring(4, 6), 16)
+            };
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /**
      * Step 2 (NEW): Extract polygons using Python/OpenCV
      * Returns zones with polygon coordinates extracted by color segmentation
+     * 
+     * @param imageFile       Image file to process
+     * @param geoBounds       Geographic bounds for coordinate transformation
+     * @param useImageOverlay If true, creates an image overlay instead of
+     *                        extracting polygons (better for soil maps)
      */
     @SuppressWarnings("unchecked")
-    private Map<String, Object> extractPolygonsWithOpenCV(File imageFile, Map<String, Object> geoBounds) {
-        opencvLogger.info("[HYBRID] Starting polygon extraction for: {}", imageFile.getName());
+    private Map<String, Object> extractPolygonsWithOpenCV(File imageFile, Map<String, Object> geoBounds,
+            boolean useImageOverlay) {
+        opencvLogger.info("[HYBRID] Starting {} for: {}",
+                useImageOverlay ? "image overlay creation" : "polygon extraction", imageFile.getName());
 
         Path tempDir = null;
         try {
@@ -575,13 +1019,25 @@ public class MultiAIOrchestrator {
             command.add(outputJson.getAbsolutePath());
             command.add("--with-legend");
 
+            // Add image overlay flag for soil maps
+            if (useImageOverlay) {
+                command.add("--image-overlay");
+                opencvLogger.info("[HYBRID] Using Image Overlay Mode (preserves original map appearance)");
+            }
+
+            // Write geo-bounds to a temporary file instead of passing as argument
+            // This avoids command-line escaping issues on Windows and length limits
+            File geoBoundsFile = null;
             if (geoBounds != null) {
-                String pointsJson = objectMapper.writeValueAsString(geoBounds);
-                // Windows might need careful escaping for JSON in args, but ProcessBuilder
-                // handles basic spaces
-                // Enclose in quotes to be safe?
-                // Actually passing simple JSON structure without spaces is safer
-                command.add("--geo-bounds=" + pointsJson);
+                try {
+                    geoBoundsFile = new File(tempDir.toFile(), "geo_bounds.json");
+                    objectMapper.writeValue(geoBoundsFile, geoBounds);
+                    command.add("--geo-bounds-file");
+                    command.add(geoBoundsFile.getAbsolutePath());
+                    opencvLogger.debug("[DEBUG] Wrote geo-bounds to file: {}", geoBoundsFile.getAbsolutePath());
+                } catch (Exception e) {
+                    opencvLogger.warn("[WARN] Failed to write geo-bounds file, continuing without: {}", e.getMessage());
+                }
             }
 
             ProcessBuilder pb = new ProcessBuilder(command);
@@ -625,13 +1081,15 @@ public class MultiAIOrchestrator {
             opencvLogger.info("[DEBUG] Extracted JSON output (from stdout): {}",
                     jsonOutput != null ? jsonOutput.substring(0, Math.min(500, jsonOutput.length())) : "null");
 
-            // PRIORITY: Always read from file first (contains full data including legend_base64)
+            // PRIORITY: Always read from file first (contains full data including
+            // legend_base64)
             // stdout only contains minimal result without large base64 data
             if (exitCode == 0 && outputJson.exists()) {
                 opencvLogger.info("[DEBUG] Reading full result from output file: {}", outputJson.getAbsolutePath());
                 Map<String, Object> result = objectMapper.readValue(outputJson, Map.class);
                 List<?> zones = (List<?>) result.get("zones");
-                opencvLogger.info("[HYBRID] Successfully extracted {} zones from file", zones != null ? zones.size() : 0);
+                opencvLogger.info("[HYBRID] Successfully extracted {} zones from file",
+                        zones != null ? zones.size() : 0);
                 if (zones != null && !zones.isEmpty()) {
                     opencvLogger.info("[DEBUG] First zone sample: {}", zones.get(0));
                 }

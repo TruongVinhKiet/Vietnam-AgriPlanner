@@ -74,7 +74,7 @@ function initNavigation() {
                 // Don't prevent default - let the browser navigate
                 return;
             }
-            
+
             e.preventDefault();
             const tab = item.dataset.tab;
 
@@ -1036,7 +1036,7 @@ function renderCategoryIcon(icon) {
 }
 
 async function fetchAPI(url, method = 'GET', body = null) {
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
 
     // Handle different URL formats:
     // 1. Relative URL starting with / → prepend API_BASE_URL

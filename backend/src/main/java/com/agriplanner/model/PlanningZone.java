@@ -92,6 +92,10 @@ public class PlanningZone {
     @Column(name = "map_type", length = 20)
     private String mapType = "planning";
 
+    // Link to AI analysis history (for zones created via AI analysis)
+    @Column(name = "analysis_id", length = 50)
+    private String analysisId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 

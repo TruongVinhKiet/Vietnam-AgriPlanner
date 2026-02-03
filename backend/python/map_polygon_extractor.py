@@ -4,9 +4,14 @@ Map Polygon Extractor - Hybrid Approach
 Sử dụng OpenCV để tách các vùng màu và tạo polygon chính xác.
 AI chỉ cần đọc legend và gán nhãn cho các màu.
 
+Supports TWO MODES:
+1. POLYGON MODE (default): Extract polygon coordinates for each color zone
+2. IMAGE OVERLAY MODE (--image-overlay): Save processed map image for overlay display (like KMZ)
+
 Usage:
     python map_polygon_extractor.py <input_image> <output_json>
     python map_polygon_extractor.py <input_image> <output_json> --with-legend
+    python map_polygon_extractor.py <input_image> <output_json> --with-legend --image-overlay
 """
 
 import cv2
@@ -76,15 +81,14 @@ def quantize_colors(image, n_colors=16):
     
     return quantized, centers
 
-def get_dominant_colors(image, n_colors=20, min_percentage=0.15):
+def get_dominant_colors(image, n_colors=20, min_percentage=0.5):
     """
     Lấy danh sách các màu chiếm diện tích đáng kể trong ảnh.
     Loại bỏ các màu quá gần trắng/đen (nền, viền).
-    Reduced min_percentage from 1.0 to 0.15 for soil maps with many small zones.
-    Increased n_colors to 20 for maps with many soil types.
+    min_percentage=0.5% để chỉ lấy các vùng màu lớn, tránh nhiễu.
     """
     # Quantize with more colors to capture all soil types
-    quantized, centers = quantize_colors(image, min(n_colors * 3, 64))
+    quantized, centers = quantize_colors(image, min(n_colors * 2, 32))
     
     # Count pixels for each color
     pixels = quantized.reshape(-1, 3)
@@ -101,6 +105,8 @@ def get_dominant_colors(image, n_colors=20, min_percentage=0.15):
     skipped_black = 0
     skipped_gray = 0
     skipped_small = 0
+    skipped_red = 0
+    skipped_cyan = 0
     
     for color, count in color_counts.most_common():
         percentage = (count / total_pixels) * 100
@@ -109,18 +115,34 @@ def get_dominant_colors(image, n_colors=20, min_percentage=0.15):
             skipped_small += 1
             continue
             
-        # Skip colors too close to white (background) - relaxed threshold
+        # Skip colors too close to white (background)
         r, g, b = int(color[0]), int(color[1]), int(color[2])  # Convert numpy to int to avoid overflow
-        if r > 245 and g > 245 and b > 245:
+        if r > 240 and g > 240 and b > 240:
             skipped_white += 1
             continue
-        # Skip colors too close to black (borders)
-        if r < 10 and g < 10 and b < 10:
+        # Skip colors too close to black (borders) - stronger filter
+        if r < 30 and g < 30 and b < 30:
             skipped_black += 1
             continue
-        # Skip grayscale (text, lines) - but allow slightly off-gray colors
-        if abs(r - g) < 8 and abs(g - b) < 8 and abs(r - b) < 8 and min(r,g,b) < 230:
+        # Skip dark borders (charcoal, dark gray)
+        if max(r,g,b) < 60:
+            skipped_black += 1
+            continue
+        # Skip grayscale (text, lines, coordinate grids)
+        if abs(r - g) < 12 and abs(g - b) < 12 and abs(r - b) < 12 and min(r,g,b) < 230:
             skipped_gray += 1
+            continue
+        # Skip RED lines (roads on map)
+        if r > 180 and g < 100 and b < 100:
+            skipped_red += 1
+            continue
+        # Skip CYAN/blue grid lines (coordinate grid) - R low, G & B high
+        if r < 120 and g > 180 and b > 220 and (b > r + 80):
+            skipped_cyan += 1
+            continue
+        # Skip light blue grid lines
+        if r < 150 and g > 200 and b > 240 and abs(g - b) < 40:
+            skipped_cyan += 1
             continue
             
         dominant.append({
@@ -130,7 +152,7 @@ def get_dominant_colors(image, n_colors=20, min_percentage=0.15):
             'pixel_count': count
         })
     
-    log(f"  Skipped colors: white={skipped_white}, black={skipped_black}, gray={skipped_gray}, small={skipped_small}")
+    log(f"  Skipped colors: white={skipped_white}, black={skipped_black}, gray={skipped_gray}, red={skipped_red}, cyan={skipped_cyan}, small={skipped_small}")
     log(f"  Accepted {len(dominant)} dominant colors")
     
     return dominant[:n_colors]
@@ -138,17 +160,25 @@ def get_dominant_colors(image, n_colors=20, min_percentage=0.15):
 def create_color_mask(image, target_rgb, tolerance=35):
     """
     Tạo mask cho một màu cụ thể với độ chấp nhận sai số.
-    Increased tolerance to 35 for better matching with gradient maps.
+    tolerance=35 for better matching while preserving detail.
+    Morphology nhẹ hơn để giữ hình dạng gốc.
     """
     lower = np.array([max(0, c - tolerance) for c in target_rgb])
     upper = np.array([min(255, c + tolerance) for c in target_rgb])
     
     mask = cv2.inRange(image, lower, upper)
     
-    # Clean up mask
-    kernel = np.ones((5, 5), np.uint8)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    # LIGHTER morphology to preserve original shape
+    kernel_tiny = np.ones((3, 3), np.uint8)
+    kernel_small = np.ones((5, 5), np.uint8)
+    
+    # Remove only very small noise
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel_tiny, iterations=1)
+    # Fill small gaps but don't merge separate regions
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel_small, iterations=2)
+    # Light smoothing
+    mask = cv2.GaussianBlur(mask, (5, 5), 0)
+    _, mask = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
     
     return mask
 
@@ -333,20 +363,26 @@ def match_color_to_legend(target_rgb, legend_colors, tolerance=30):
     
     return best_match
 
-def simplify_contour(contour, max_points=20):
+def simplify_contour(contour, max_points=50):
     """
-    Đơn giản hóa contour để giảm số điểm xuống tối đa max_points.
-    Giúp giảm kích thước JSON output đáng kể.
+    Đơn giản hóa contour nhưng giữ hình dạng tự nhiên.
+    max_points=50 để giữ nhiều chi tiết hơn.
     """
-    # Start with small epsilon and increase until we get <= max_points
     arc_length = cv2.arcLength(contour, True)
-    for factor in [0.001, 0.002, 0.005, 0.01, 0.02, 0.03, 0.05, 0.08, 0.1]:
+    area = cv2.contourArea(contour)
+    
+    # Không dùng convex hull - giữ hình dạng thực
+    # Chỉ dùng approxPolyDP với epsilon nhỏ
+    
+    # Start with small epsilon, increase gradually
+    for factor in [0.002, 0.004, 0.006, 0.008, 0.01, 0.015, 0.02, 0.03, 0.04, 0.05]:
         epsilon = factor * arc_length
         simplified = cv2.approxPolyDP(contour, epsilon, True)
         if len(simplified) <= max_points:
             return simplified
-    # If still too many points, return with highest simplification
-    epsilon = 0.15 * arc_length
+    
+    # If still too many points, use slightly larger epsilon
+    epsilon = 0.06 * arc_length
     return cv2.approxPolyDP(contour, epsilon, True)
 
 def contour_to_polygon(contour, image_shape, geo_bounds=None):
@@ -382,11 +418,12 @@ def contour_to_polygon(contour, image_shape, geo_bounds=None):
     
     return points
 
-def extract_polygons_for_color(image, color_info, min_area_percent=0.02, geo_bounds=None, max_points=20):
+def extract_polygons_for_color(image, color_info, min_area_percent=0.1, geo_bounds=None, max_points=50):
     """
     Trích xuất tất cả polygon cho một màu cụ thể.
     Output format: ready for planning_zones table.
-    Reduced min_area_percent from 0.1 to 0.02 (2% -> 0.2% of image) for small soil zones.
+    min_area_percent=0.1% để giữ cả vùng nhỏ trong bản đồ.
+    max_points=50 để giữ hình dạng chi tiết, khớp với bản đồ gốc.
     """
     h, w = image.shape[:2]
     total_pixels = h * w
@@ -404,8 +441,19 @@ def extract_polygons_for_color(image, color_info, min_area_percent=0.02, geo_bou
         
         if area < min_area:
             continue
+        
+        # Skip polygons that are TOO LARGE (>90% of image = likely background/sea)
+        area_percent = (area / total_pixels) * 100
+        if area_percent > 90:
+            continue
+        
+        # Skip very thin/elongated contours (likely borders) - nhưng giữ ngưỡng thấp hơn
+        perimeter = cv2.arcLength(contour, True)
+        circularity = 4 * np.pi * area / (perimeter * perimeter + 1)
+        if circularity < 0.02:  # Chỉ skip hình quá mỏng
+            continue
             
-        # Simplify contour to max 20 points
+        # Simplify contour to max 10 points for clean polygons
         simplified = simplify_contour(contour, max_points=max_points)
         
         if len(simplified) < 3:  # Need at least 3 points for polygon
@@ -475,6 +523,128 @@ def extract_legend_region(image):
             best_legend = (name, crop)
     
     return best_legend
+
+
+def create_image_overlay(image, output_path, geo_bounds=None, quality=85):
+    """
+    Tạo ảnh overlay để hiển thị trên bản đồ (như KMZ GroundOverlay).
+    Loại bỏ nền trắng và vùng không có dữ liệu để overlay trong suốt.
+    
+    IMPROVED VERSION:
+    - Giữ nguyên hình dạng gốc của bản đồ
+    - Loại bỏ nền trắng triệt để hơn  
+    - Bảo toàn các đường viền và ranh giới
+    - Giữ lại cả vùng nhỏ
+    
+    Args:
+        image: OpenCV image (BGR)
+        output_path: Đường dẫn lưu ảnh PNG với alpha channel
+        geo_bounds: dict với sw/ne coordinates để tính boundaryCoordinates
+        quality: Chất lượng nén PNG (không dùng cho PNG, chỉ cho JPEG fallback)
+    
+    Returns:
+        dict với thông tin overlay: imageUrl, boundaryCoordinates, dimensions
+    """
+    h, w = image.shape[:2]
+    log(f"  Creating enhanced image overlay: {w}x{h}")
+    
+    # Chuyển sang RGBA (thêm alpha channel)
+    bgra = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
+    
+    # Convert to multiple color spaces for better detection
+    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    
+    # ===== IMPROVED WHITE DETECTION =====
+    # 1. Near-white detection using HSV (saturation < 25, value > 235)
+    white_hsv = (hsv[:, :, 1] < 25) & (hsv[:, :, 2] > 235)
+    
+    # 2. Near-white detection using LAB (L > 245, a and b near center)
+    # LAB is better at detecting off-white colors
+    white_lab = (lab[:, :, 0] > 245) & (np.abs(lab[:, :, 1] - 128) < 10) & (np.abs(lab[:, :, 2] - 128) < 10)
+    
+    # 3. Light gray detection (very low saturation, high value but not map content)
+    light_gray = (hsv[:, :, 1] < 12) & (hsv[:, :, 2] > 200)
+    
+    # 4. Black/very dark detection (for borders that should remain)
+    # Keep black areas visible (they're usually borders)
+    
+    # Combine white/gray masks
+    white_mask = white_hsv | white_lab | light_gray
+    
+    # ===== EDGE PRESERVATION =====
+    # Detect edges to preserve colored region boundaries
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 50, 150)
+    
+    # Dilate edges slightly to ensure they're not made transparent
+    kernel = np.ones((3, 3), np.uint8)
+    edges_dilated = cv2.dilate(edges, kernel, iterations=1)
+    edge_mask = edges_dilated > 0
+    
+    # ===== COLOR REGION DETECTION =====
+    # Pixels with significant saturation are map content (not background)
+    colored_mask = hsv[:, :, 1] > 30  # Saturation > 30 means it has color
+    
+    # Pixels with medium brightness range (not too dark, not too light)
+    medium_value_mask = (hsv[:, :, 2] > 30) & (hsv[:, :, 2] < 235)
+    
+    # ===== FINAL ALPHA CALCULATION =====
+    # Keep visible: colored pixels, edges, medium value pixels
+    # Make transparent: white background, light gray areas
+    keep_visible = colored_mask | edge_mask | (medium_value_mask & ~white_mask)
+    
+    # Apply morphological closing to fill small holes in regions
+    kernel_close = np.ones((5, 5), np.uint8)
+    keep_visible = keep_visible.astype(np.uint8) * 255
+    keep_visible = cv2.morphologyEx(keep_visible, cv2.MORPH_CLOSE, kernel_close, iterations=2)
+    
+    # Apply slight smoothing to reduce jagged edges
+    keep_visible = cv2.GaussianBlur(keep_visible, (3, 3), 0)
+    
+    # Convert back to boolean
+    keep_visible = keep_visible > 127
+    
+    # Set alpha: 0 for transparent, 240 for semi-transparent colored areas
+    # Use higher opacity (240/255 = 94%) to make colors more visible
+    bgra[:, :, 3] = np.where(keep_visible, 240, 0)
+    
+    # ===== SAVE OUTPUT =====
+    # Save as PNG with alpha
+    png_path = output_path.replace('.json', '_overlay.png')
+    cv2.imwrite(png_path, bgra, [cv2.IMWRITE_PNG_COMPRESSION, 6])
+    log(f"  Overlay image saved: {png_path}")
+    
+    # Log statistics
+    total_pixels = h * w
+    visible_pixels = np.sum(keep_visible)
+    log(f"  Overlay stats: {visible_pixels}/{total_pixels} visible ({100*visible_pixels/total_pixels:.1f}%)")
+    
+    # Calculate boundary coordinates (4 corners in lat/lng)
+    if geo_bounds and 'sw' in geo_bounds and 'ne' in geo_bounds:
+        sw = geo_bounds['sw']
+        ne = geo_bounds['ne']
+        boundary_coords = [
+            [sw['lat'], sw['lng']],  # SW corner
+            [sw['lat'], ne['lng']],  # SE corner
+            [ne['lat'], ne['lng']],  # NE corner
+            [ne['lat'], sw['lng']]   # NW corner
+        ]
+    else:
+        # Fallback: normalized coordinates (0-1)
+        boundary_coords = [
+            [0, 0], [0, 1], [1, 1], [1, 0]
+        ]
+    
+    return {
+        'imagePath': png_path,
+        'imageFilename': os.path.basename(png_path),
+        'boundaryCoordinates': boundary_coords,
+        'width': w,
+        'height': h,
+        'opacity': 0.94  # 94% opacity for overlay
+    }
+
 
 def smart_resize_image(image, max_dimension=2000):
     """
@@ -576,19 +746,28 @@ def crop_to_map_content(image):
     
     return cropped, (x, y, w_crop, h_crop)
 
-def analyze_map_image(image_path, output_json_path, extract_legend=False, geo_bounds=None, max_dimension=2000):
+def analyze_map_image(image_path, output_json_path, extract_legend=False, geo_bounds=None, max_dimension=2000, image_overlay=False):
     """
     Phân tích ảnh bản đồ và trích xuất polygons theo màu.
     Output format: ready for planning_zones database table.
+    
+    TWO MODES:
+    1. POLYGON MODE (default): Extract detailed polygon coordinates for each color zone
+    2. IMAGE OVERLAY MODE (image_overlay=True): Save processed map image for overlay display
+       - Giữ nguyên hình ảnh gốc của bản đồ
+       - Overlay lên bản đồ nền như KMZ GroundOverlay
+       - Tốt hơn cho việc hiển thị chính xác
     
     Args:
         image_path: Đường dẫn ảnh đầu vào (PNG, JPG, JPEG)
         output_json_path: Đường dẫn lưu kết quả JSON
         extract_legend: Có trích xuất vùng legend không
-        geo_bounds: Tọa độ địa lý của bản đồ
+        geo_bounds: Tọa độ địa lý của bản đồ {'sw': {lat, lng}, 'ne': {lat, lng}}
         max_dimension: Kích thước tối đa để resize (default 2000px)
+        image_overlay: Bật chế độ Image Overlay (như KMZ)
     """
     log(f"Loading image: {image_path}")
+    log(f"Mode: {'IMAGE OVERLAY' if image_overlay else 'POLYGON EXTRACTION'}")
     
     # Validate file extension
     valid_extensions = ['.png', '.jpg', '.jpeg']
@@ -661,6 +840,57 @@ def analyze_map_image(image_path, output_json_path, extract_legend=False, geo_bo
     
     log(f"Final processing size: {w}x{h}")
     
+    # ============ IMAGE OVERLAY MODE ============
+    # Nếu bật image_overlay, tạo ảnh overlay và return ngay
+    # Không cần extract polygons - frontend sẽ dùng L.imageOverlay như KMZ
+    overlay_info = None
+    if image_overlay:
+        log("=== IMAGE OVERLAY MODE ===")
+        log("Creating map overlay image (like KMZ GroundOverlay)...")
+        overlay_info = create_image_overlay(image, output_json_path, geo_bounds)
+        
+        # Build simple result with overlay info
+        result = {
+            'success': True,
+            'mode': 'IMAGE_OVERLAY',
+            'imageSize': {'width': w, 'height': h},
+            'originalSize': {'width': w_orig, 'height': h_orig},
+            'resizeInfo': resize_info,
+            'overlay': overlay_info,  # Contains imagePath, boundaryCoordinates
+            'legend': legend_info,
+            'colorSummary': [{'color': c['hex'], 'rgb': c['rgb']} for c in legend_colors] if legend_colors else [],
+            'totalZones': 1,  # Single zone: the entire map overlay
+            'zones': [{
+                'id': 1,
+                'name': 'Map Overlay',
+                'imageUrl': '/api/files/map-overlays/' + overlay_info['imageFilename'],  # URL for frontend
+                'boundaryCoordinates': json.dumps(overlay_info['boundaryCoordinates']),
+                'fillOpacity': overlay_info['opacity'],
+                'isOverlay': True  # Flag to identify as image overlay
+            }]
+        }
+        
+        # Save JSON
+        with open(output_json_path, 'w', encoding='utf-8') as f:
+            json.dump(result, f, ensure_ascii=False, indent=2)
+        
+        log(f"Image overlay result saved to: {output_json_path}")
+        
+        # Stdout for Java
+        stdout_status = {
+            "status": "SUCCESS",
+            "mode": "IMAGE_OVERLAY",
+            "totalZones": 1,
+            "overlayImage": overlay_info['imageFilename'],
+            "outputFile": output_json_path
+        }
+        print("===JSON_START===")
+        print(json.dumps(stdout_status, ensure_ascii=False))
+        print("===JSON_END===")
+        
+        return result
+    
+    # ============ POLYGON MODE (default) ============
     # Step 1: Determine which colors to extract
     if legend_colors:
         # LEGEND-BASED MODE: Only extract colors that match the legend
@@ -678,8 +908,8 @@ def analyze_map_image(image_path, output_json_path, extract_legend=False, geo_bo
             colors = get_dominant_colors(image, n_colors=20, min_percentage=0.1)
             log(f"  Retry found {len(colors)} colors with 0.1% threshold")
     
-    # Step 2: Extract polygons for each color (max 20 points per polygon)
-    log("Step 2: Extracting polygons for each color (max 20 points)...")
+    # Step 2: Extract polygons for each color (max 50 points để giữ hình dạng tự nhiên)
+    log("Step 2: Extracting polygons for each color (max 50 points)...")
     zones = []
     zone_id = 1
     color_summary = []
@@ -689,9 +919,9 @@ def analyze_map_image(image_path, output_json_path, extract_legend=False, geo_bo
         log(f"  Processing color {color_hex}...")
         polygons = extract_polygons_for_color(
             image, color, 
-            min_area_percent=0.02,  # Reduced from 0.05 for small soil zones
+            min_area_percent=0.1,  # Giữ vùng nhỏ từ 0.1%
             geo_bounds=geo_bounds,
-            max_points=20
+            max_points=50  # Giữ nhiều điểm để polygon khớp hình dạng thực
         )
         
         total_area_percent = sum(p['areaPercent'] for p in polygons)
@@ -781,7 +1011,10 @@ def main():
     parser.add_argument("input_path", help="Path to input image file (PNG, JPG, JPEG)")
     parser.add_argument("output_path", help="Path to save output JSON")
     parser.add_argument("--with-legend", action="store_true", help="Extract legend region")
+    parser.add_argument("--image-overlay", action="store_true", 
+                        help="Use IMAGE OVERLAY mode (like KMZ GroundOverlay) instead of polygon extraction")
     parser.add_argument("--geo-bounds", help="JSON string of geometric bounds (sw, ne, center)")
+    parser.add_argument("--geo-bounds-file", help="Path to JSON file containing geometric bounds")
     parser.add_argument("--max-dimension", type=int, default=2000, 
                         help="Maximum image dimension for resize (default: 2000px)")
 
@@ -790,9 +1023,21 @@ def main():
     input_path = args.input_path
     output_path = args.output_path
     extract_legend = args.with_legend
+    image_overlay = args.image_overlay
     
     geo_bounds = None
-    if args.geo_bounds:
+    
+    # Priority 1: Read from file (more reliable)
+    if args.geo_bounds_file:
+        try:
+            with open(args.geo_bounds_file, 'r', encoding='utf-8') as f:
+                geo_bounds = json.load(f)
+            log(f"Loaded geo bounds from file: {args.geo_bounds_file}")
+        except Exception as e:
+            log(f"Error reading geo bounds file: {e}")
+    
+    # Priority 2: Parse from command-line argument (legacy support)
+    elif args.geo_bounds:
         try:
             # Handle potential shell quoting issues
             json_str = args.geo_bounds.strip()
@@ -800,9 +1045,9 @@ def main():
                (json_str.startswith('"') and json_str.endswith('"')):
                 json_str = json_str[1:-1]
             geo_bounds = json.loads(json_str)
-            log(f"Received geo bounds: {geo_bounds}")
+            log(f"Received geo bounds from argument")
         except Exception as e:
-            log(f"Error parsing geo bounds: {e}")
+            log(f"Error parsing geo bounds argument: {e}")
 
     if not os.path.exists(input_path):
         log(f"ERROR: File not found: {input_path}")
@@ -812,10 +1057,15 @@ def main():
     max_dim = args.max_dimension
     log(f"Using max dimension: {max_dim}px")
     
-    result = analyze_map_image(input_path, output_path, extract_legend, geo_bounds, max_dimension=max_dim)
+    # Call analyze with image_overlay parameter
+    result = analyze_map_image(
+        input_path, output_path, extract_legend, geo_bounds, 
+        max_dimension=max_dim, image_overlay=image_overlay
+    )
     
     if result:
-        log(f"SUCCESS: Extracted {result['totalZones']} zones")
+        mode = result.get('mode', 'POLYGON')
+        log(f"SUCCESS: {mode} mode - {result['totalZones']} zones")
         sys.exit(0)
     else:
         log("FAILED: Could not analyze image")

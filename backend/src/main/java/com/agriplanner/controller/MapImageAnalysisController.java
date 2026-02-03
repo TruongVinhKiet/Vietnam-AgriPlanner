@@ -1,7 +1,9 @@
 package com.agriplanner.controller;
 
+import com.agriplanner.model.MapAnalysisHistory;
 import com.agriplanner.model.PlanningZone;
 import com.agriplanner.model.User;
+import com.agriplanner.repository.MapAnalysisHistoryRepository;
 import com.agriplanner.repository.PlanningZoneRepository;
 import com.agriplanner.service.MultiAIOrchestrator;
 import org.slf4j.Logger;
@@ -12,10 +14,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import jakarta.annotation.PreDestroy;
 import java.io.File;
 import java.math.BigDecimal;
 import java.nio.file.*;
@@ -40,6 +44,9 @@ public class MapImageAnalysisController {
     @Autowired
     private PlanningZoneRepository planningZoneRepository;
 
+    @Autowired
+    private MapAnalysisHistoryRepository analysisHistoryRepository;
+
     @Value("${map.image.upload.dir:${user.home}/agriplanner/uploads/map-images}")
     private String uploadDir;
 
@@ -50,6 +57,28 @@ public class MapImageAnalysisController {
 
     // Store SSE emitters for progress updates
     private final Map<String, SseEmitter> progressEmitters = new ConcurrentHashMap<>();
+
+    @PreDestroy
+    public void cleanup() {
+        logger.info("Shutting down MapImageAnalysisController executor service...");
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(30, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+        // Close all SSE emitters
+        progressEmitters.forEach((id, emitter) -> {
+            try {
+                emitter.complete();
+            } catch (Exception ignored) {
+            }
+        });
+        progressEmitters.clear();
+    }
 
     /**
      * Start analysis with Server-Sent Events for real-time progress
@@ -191,9 +220,173 @@ public class MapImageAnalysisController {
     }
 
     /**
+     * Get analysis history from database
+     * Combines persisted history with in-memory pending analyses
+     */
+    @GetMapping("/analyze/history")
+    public ResponseEntity<?> getAnalysisHistory() {
+        logger.info("Getting analysis history from database");
+
+        List<Map<String, Object>> history = new ArrayList<>();
+
+        // 1. Get persisted history from database
+        try {
+            List<MapAnalysisHistory> dbHistory = analysisHistoryRepository.findAllByOrderByCreatedAtDesc();
+            for (MapAnalysisHistory h : dbHistory) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("analysisId", h.getAnalysisId());
+                item.put("timestamp", h.getCreatedAt());
+                item.put("mapType", h.getMapType());
+                item.put("province", h.getProvince());
+                item.put("district", h.getDistrict());
+                item.put("status", h.getStatus());
+                item.put("zoneCount", h.getZoneCount() != null ? h.getZoneCount() : 0);
+                item.put("notes", h.getNotes());
+                item.put("persisted", true); // Mark as from database
+                history.add(item);
+            }
+        } catch (Exception e) {
+            logger.warn("Error reading history from database: {}", e.getMessage());
+        }
+
+        // 2. Add in-memory pending analyses (not yet confirmed)
+        Set<String> persistedIds = new HashSet<>();
+        history.forEach(h -> persistedIds.add((String) h.get("analysisId")));
+
+        analysisResults.forEach((id, result) -> {
+            if (!persistedIds.contains(id)) {
+                Map<String, Object> item = new LinkedHashMap<>();
+                item.put("analysisId", id);
+                item.put("timestamp", result.get("timestamp"));
+                item.put("mapType", result.get("mapType"));
+                item.put("province", result.get("province"));
+                item.put("district", result.get("district"));
+                item.put("status", result.getOrDefault("status", "pending"));
+
+                // Add zone count if available
+                if (result.containsKey("zones")) {
+                    List<?> zones = (List<?>) result.get("zones");
+                    item.put("zoneCount", zones != null ? zones.size() : 0);
+                }
+                item.put("persisted", false); // Mark as in-memory only
+                history.add(item);
+            }
+        });
+
+        // Sort by timestamp descending (newest first)
+        history.sort((a, b) -> {
+            Object timeA = a.get("timestamp");
+            Object timeB = b.get("timestamp");
+            if (timeA instanceof LocalDateTime && timeB instanceof LocalDateTime) {
+                return ((LocalDateTime) timeB).compareTo((LocalDateTime) timeA);
+            }
+            return 0;
+        });
+
+        return ResponseEntity.ok(Map.of(
+                "success", true,
+                "history", history,
+                "totalCount", history.size()));
+    }
+
+    /**
+     * Delete analysis result and associated zones
+     * Removes from both in-memory cache and database
+     */
+    @DeleteMapping("/analyze/{analysisId}")
+    @Transactional
+    public ResponseEntity<?> deleteAnalysisResult(@PathVariable String analysisId) {
+        java.util.Objects.requireNonNull(analysisId, "Analysis ID must not be null");
+        logger.info("Deleting analysis result: {}", analysisId);
+
+        int deletedZones = 0;
+        boolean removedFromMemory = false;
+        boolean removedFromDb = false;
+
+        // 1. Remove from in-memory cache
+        Map<String, Object> removed = analysisResults.remove(analysisId);
+        if (removed != null) {
+            removedFromMemory = true;
+        }
+
+        // 2. Remove from SSE emitters
+        SseEmitter emitter = progressEmitters.remove(analysisId);
+        if (emitter != null) {
+            try {
+                emitter.complete();
+            } catch (Exception ignored) {
+            }
+        }
+
+        // 3. Delete associated zones from database
+        try {
+            long zoneCount = planningZoneRepository.countByAnalysisId(analysisId);
+            if (zoneCount > 0) {
+                planningZoneRepository.deleteByAnalysisId(analysisId);
+                deletedZones = (int) zoneCount;
+                logger.info("Deleted {} zones for analysis {}", deletedZones, analysisId);
+            }
+        } catch (Exception e) {
+            logger.warn("Error deleting zones for analysis {}: {}", analysisId, e.getMessage());
+        }
+
+        // 4. Delete from history database
+        try {
+            if (analysisHistoryRepository.existsById(analysisId)) {
+                analysisHistoryRepository.deleteById(analysisId);
+                removedFromDb = true;
+                logger.info("Deleted history record for analysis {}", analysisId);
+            }
+        } catch (Exception e) {
+            logger.warn("Error deleting history for analysis {}: {}", analysisId, e.getMessage());
+        }
+
+        if (removedFromMemory || removedFromDb || deletedZones > 0) {
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", String.format("Đã xóa kết quả phân tích và %d vùng liên quan", deletedZones),
+                    "deletedZones", deletedZones));
+        } else {
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Kết quả phân tích không tồn tại hoặc đã được xóa"));
+        }
+    }
+
+    /**
+     * Delete all planning zones from database
+     */
+    @DeleteMapping("/zones/all")
+    public ResponseEntity<?> deleteAllPlanningZones() {
+        logger.info("Deleting all planning zones from database");
+
+        try {
+            long count = planningZoneRepository.count();
+            planningZoneRepository.deleteAll();
+
+            // Also clear in-memory analysis results
+            analysisResults.clear();
+
+            logger.info("Deleted {} planning zones", count);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Đã xóa " + count + " vùng quy hoạch",
+                    "deletedCount", count));
+        } catch (Exception e) {
+            logger.error("Failed to delete planning zones: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "success", false,
+                    "error", "Lỗi xóa vùng quy hoạch: " + e.getMessage()));
+        }
+    }
+
+    /**
      * Confirm and save analysis results to database
+     * Also saves analysis history for admin management
      */
     @PostMapping("/analyze/{analysisId}/confirm")
+    @Transactional
     public ResponseEntity<?> confirmAnalysis(
             @PathVariable String analysisId,
             @RequestBody Map<String, Object> confirmData) {
@@ -225,12 +418,14 @@ public class MapImageAnalysisController {
             // Get current user
             Long userId = getCurrentUserId();
 
-            // Convert and save zones
+            // Convert and save zones WITH analysisId linkage
             int savedCount = 0;
             if (zones != null && !zones.isEmpty()) {
                 for (Map<String, Object> zoneData : zones) {
                     try {
                         PlanningZone zone = convertToZone(zoneData, coordinates, province, district, mapType, userId);
+                        // Link zone with analysis history
+                        zone.setAnalysisId(analysisId);
                         PlanningZone saved = planningZoneRepository.save(Objects.requireNonNull(zone));
                         if (saved != null) {
                             savedCount++;
@@ -243,12 +438,34 @@ public class MapImageAnalysisController {
 
             logger.info("Saved {} zones for analysis {}", savedCount, analysisId);
 
-            // Clean up
+            // Save analysis history to database
+            try {
+                MapAnalysisHistory history = new MapAnalysisHistory();
+                history.setAnalysisId(analysisId);
+                history.setCreatedAt(LocalDateTime.now());
+                history.setMapType(mapType);
+                history.setProvince(province);
+                history.setDistrict(district);
+                history.setZoneCount(savedCount);
+                history.setStatus("completed");
+                history.setUserId(userId);
+                history.setOriginalImagePath((String) analysisResult.get("imagePath"));
+                history.setNotes((String) confirmData.get("notes"));
+
+                analysisHistoryRepository.save(history);
+                logger.info("Saved analysis history for {}", analysisId);
+            } catch (Exception e) {
+                logger.warn("Error saving analysis history: {}", e.getMessage());
+                // Don't fail the whole operation if history save fails
+            }
+
+            // Clean up in-memory cache
             analysisResults.remove(analysisId);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
                     "savedZones", savedCount,
+                    "analysisId", analysisId,
                     "message", String.format("Đã lưu %d vùng vào hệ thống", savedCount)));
 
         } catch (Exception e) {
@@ -259,31 +476,7 @@ public class MapImageAnalysisController {
         }
     }
 
-    /**
-     * Discard analysis results
-     */
-    @DeleteMapping("/analyze/{analysisId}")
-    public ResponseEntity<?> discardAnalysis(@PathVariable String analysisId) {
-        analysisResults.remove(analysisId);
-        progressEmitters.remove(analysisId);
-
-        logger.info("Discarded analysis: {}", analysisId);
-
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "Đã hủy kết quả phân tích"));
-    }
-
-    /**
-     * Get analysis history
-     */
-    @GetMapping("/history")
-    public ResponseEntity<?> getAnalysisHistory() {
-        // Placeholder for history from database
-        return ResponseEntity.ok(Map.of(
-                "history", Collections.emptyList(),
-                "total", 0));
-    }
+    // discardAnalysis and old getAnalysisHistory moved to new methods above
 
     /**
      * P3 FIX: Cleanup old analysis results (called by scheduler)
@@ -492,6 +685,20 @@ public class MapImageAnalysisController {
                     }
                 }
             }
+        }
+
+        // IMAGE OVERLAY MODE: Set imageUrl if this is an overlay zone
+        String imageUrl = (String) zoneData.get("imageUrl");
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            zone.setImageUrl(imageUrl);
+            logger.info("Set imageUrl for zone: {}", imageUrl);
+        }
+
+        // Handle fillOpacity from Python
+        Number fillOpacity = (Number) zoneData.get("fillOpacity");
+        if (fillOpacity != null) {
+            zone.setFillOpacity(
+                    BigDecimal.valueOf(fillOpacity.doubleValue()).setScale(2, java.math.RoundingMode.HALF_UP));
         }
 
         // Metadata
