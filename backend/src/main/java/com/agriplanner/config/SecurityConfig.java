@@ -94,6 +94,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/money/**").permitAll()
                         // Planning zones (Quy hoạch đất đai)
                         .requestMatchers("/api/planning-zones/**").permitAll()
+                        // Land parcels (Lớp thửa đất)
+                        .requestMatchers("/api/land-parcels/**").permitAll()
                         // KMZ overlay images (public for map display)
                         .requestMatchers("/api/kmz/images/**").permitAll()
                         // Static uploads (images, videos)

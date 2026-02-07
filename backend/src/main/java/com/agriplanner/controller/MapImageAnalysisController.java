@@ -156,6 +156,103 @@ public class MapImageAnalysisController {
     }
 
     /**
+     * NEW: Start georeferenced offline analysis with control points
+     * Sử dụng OpenCV hoàn toàn offline, không cần AI API
+     */
+    @PostMapping("/analyze/georef")
+    public ResponseEntity<?> startGeorefAnalysis(
+            @RequestParam("image") MultipartFile imageFile,
+            @RequestParam("controlPoints") String controlPointsJson,
+            @RequestParam(value = "province", defaultValue = "Cà Mau") String province,
+            @RequestParam(value = "district", required = false) String district,
+            @RequestParam(value = "mapType", defaultValue = "soil") String mapType) {
+
+        logger.info("=== GEOREFERENCED ANALYSIS REQUEST ===");
+        logger.info("File: {}, Size: {} bytes, MapType: {}",
+                imageFile.getOriginalFilename(), imageFile.getSize(), mapType);
+        logger.info("ControlPoints JSON length: {}", controlPointsJson != null ? controlPointsJson.length() : 0);
+
+        try {
+            // Validate file
+            String filename = imageFile.getOriginalFilename();
+            if (filename == null || filename.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "Tên file không hợp lệ"));
+            }
+
+            String ext = filename.toLowerCase();
+            if (!ext.endsWith(".jpg") && !ext.endsWith(".jpeg") && !ext.endsWith(".png")) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "Chỉ hỗ trợ file JPG và PNG"));
+            }
+
+            // Parse control points
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> controlPoints = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(controlPointsJson, List.class);
+
+            if (controlPoints == null || controlPoints.size() != 4) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "Cần đúng 4 điểm tham chiếu (control points)"));
+            }
+
+            // Validate each control point has required fields
+            for (int i = 0; i < controlPoints.size(); i++) {
+                Map<String, Object> cp = controlPoints.get(i);
+                if (cp.get("pixelX") == null || cp.get("pixelY") == null ||
+                        cp.get("lat") == null || cp.get("lng") == null) {
+                    return ResponseEntity.badRequest().body(Map.of(
+                            "success", false,
+                            "error", "Điểm tham chiếu " + (i + 1) + " thiếu thông tin (pixelX, pixelY, lat, lng)"));
+                }
+            }
+
+            // Save file
+            String analysisId = UUID.randomUUID().toString().substring(0, 8);
+            Path uploadPath = Paths.get(uploadDir);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+
+            String sanitizedFilename = sanitizeFilename(filename);
+            String savedFilename = analysisId + "_" + sanitizedFilename;
+            Path filePath = uploadPath.resolve(savedFilename);
+            imageFile.transferTo(java.util.Objects.requireNonNull(filePath.toFile()));
+
+            logger.info("File saved: {}", filePath);
+
+            // Return ID immediately, process async
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("success", true);
+            response.put("analysisId", analysisId);
+            response.put("message", "Đã nhận file và 4 điểm tham chiếu, bắt đầu phân tích offline...");
+            response.put("imagePath", filePath.toString());
+            response.put("offlineMode", true);
+
+            // Start async georeferenced analysis
+            final List<Map<String, Object>> finalControlPoints = controlPoints;
+            executorService.submit(() -> runGeorefAnalysisAsync(
+                    analysisId, filePath.toFile(), finalControlPoints, province, district, mapType));
+
+            return ResponseEntity.ok(response);
+
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            logger.error("Invalid control points JSON: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "JSON control points không hợp lệ: " + e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Error starting georef analysis: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                    "success", false,
+                    "error", "Lỗi xử lý: " + e.getMessage()));
+        }
+    }
+
+    /**
      * SSE endpoint for real-time progress updates
      */
     @GetMapping("/analyze/{analysisId}/progress")
@@ -386,7 +483,6 @@ public class MapImageAnalysisController {
      * Also saves analysis history for admin management
      */
     @PostMapping("/analyze/{analysisId}/confirm")
-    @Transactional
     public ResponseEntity<?> confirmAnalysis(
             @PathVariable String analysisId,
             @RequestBody Map<String, Object> confirmData) {
@@ -412,31 +508,69 @@ public class MapImageAnalysisController {
             @SuppressWarnings("unchecked")
             Map<String, Object> coordinates = (Map<String, Object>) analysisResult.get("coordinates");
 
+            // === Duplicate location check ===
+            if (coordinates != null) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> swCheck = (Map<String, Object>) coordinates.get("sw");
+                @SuppressWarnings("unchecked")
+                Map<String, Object> neCheck = (Map<String, Object>) coordinates.get("ne");
+                if (swCheck != null && neCheck != null) {
+                    double swLat = ((Number) swCheck.get("lat")).doubleValue();
+                    double swLng = ((Number) swCheck.get("lng")).doubleValue();
+                    double neLat = ((Number) neCheck.get("lat")).doubleValue();
+                    double neLng = ((Number) neCheck.get("lng")).doubleValue();
+
+                    List<MapAnalysisHistory> overlapping = analysisHistoryRepository
+                            .findOverlappingAnalyses(mapType, swLat, swLng, neLat, neLng);
+
+                    if (!overlapping.isEmpty()) {
+                        MapAnalysisHistory existing = overlapping.get(0);
+                        String msg = String.format(
+                                "Vị trí này đã được phân tích trước đó (ID: %s, ngày: %s, %d vùng). " +
+                                "Vui lòng xóa bản đồ cũ trước khi lưu bản đồ mới cùng vị trí.",
+                                existing.getAnalysisId(),
+                                existing.getCreatedAt() != null ? existing.getCreatedAt().toLocalDate().toString() : "N/A",
+                                existing.getZoneCount() != null ? existing.getZoneCount() : 0);
+                        logger.warn("Duplicate location detected for {} analysis: overlaps with {}",
+                                mapType, existing.getAnalysisId());
+                        return ResponseEntity.badRequest().body(Map.of(
+                                "success", false,
+                                "error", msg,
+                                "duplicateLocation", true,
+                                "existingAnalysisId", existing.getAnalysisId()));
+                    }
+                }
+            }
+
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> zones = (List<Map<String, Object>>) analysisResult.get("zones");
 
             // Get current user
             Long userId = getCurrentUserId();
 
-            // Convert and save zones WITH analysisId linkage
+            // Save zones one by one (each in its own flush to avoid transaction rollback cascade)
             int savedCount = 0;
+            int errorCount = 0;
             if (zones != null && !zones.isEmpty()) {
                 for (Map<String, Object> zoneData : zones) {
                     try {
                         PlanningZone zone = convertToZone(zoneData, coordinates, province, district, mapType, userId);
-                        // Link zone with analysis history
                         zone.setAnalysisId(analysisId);
-                        PlanningZone saved = planningZoneRepository.save(Objects.requireNonNull(zone));
-                        if (saved != null) {
-                            savedCount++;
-                        }
+                        planningZoneRepository.saveAndFlush(zone);
+                        savedCount++;
                     } catch (Exception e) {
-                        logger.warn("Error saving zone: {}", e.getMessage());
+                        errorCount++;
+                        logger.warn("Error saving zone {}/{}: {} - {}",
+                            errorCount, zones.size(), e.getClass().getSimpleName(), e.getMessage());
+                        if (errorCount <= 3) {
+                            logger.debug("Zone save error detail:", e);
+                        }
                     }
                 }
             }
 
-            logger.info("Saved {} zones for analysis {}", savedCount, analysisId);
+            logger.info("Saved {}/{} zones for analysis {} ({} errors)",
+                savedCount, zones != null ? zones.size() : 0, analysisId, errorCount);
 
             // Save analysis history to database
             try {
@@ -452,8 +586,73 @@ public class MapImageAnalysisController {
                 history.setOriginalImagePath((String) analysisResult.get("imagePath"));
                 history.setNotes((String) confirmData.get("notes"));
 
-                analysisHistoryRepository.save(history);
-                logger.info("Saved analysis history for {}", analysisId);
+                // Save geo bounds if available (from georef analysis)
+                if (coordinates != null) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> sw = (Map<String, Object>) coordinates.get("sw");
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> ne = (Map<String, Object>) coordinates.get("ne");
+                    if (sw != null && ne != null) {
+                        history.setBoundsSWLat(((Number) sw.get("lat")).doubleValue());
+                        history.setBoundsSWLng(((Number) sw.get("lng")).doubleValue());
+                        history.setBoundsNELat(((Number) ne.get("lat")).doubleValue());
+                        history.setBoundsNELng(((Number) ne.get("lng")).doubleValue());
+                    }
+                }
+
+                // Save control points if available
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> controlPoints = (List<Map<String, Object>>) analysisResult.get("controlPoints");
+                if (controlPoints != null && controlPoints.size() == 4) {
+                    for (int i = 0; i < 4; i++) {
+                        Map<String, Object> cp = controlPoints.get(i);
+                        Number pxX = (Number) cp.get("pixelX");
+                        Number pxY = (Number) cp.get("pixelY");
+                        Number lat = (Number) cp.get("lat");
+                        Number lng = (Number) cp.get("lng");
+                        switch (i) {
+                            case 0:
+                                if (pxX != null) history.setPoint1PixelX(pxX.intValue());
+                                if (pxY != null) history.setPoint1PixelY(pxY.intValue());
+                                if (lat != null) history.setPoint1Lat(lat.doubleValue());
+                                if (lng != null) history.setPoint1Lng(lng.doubleValue());
+                                break;
+                            case 1:
+                                if (pxX != null) history.setPoint2PixelX(pxX.intValue());
+                                if (pxY != null) history.setPoint2PixelY(pxY.intValue());
+                                if (lat != null) history.setPoint2Lat(lat.doubleValue());
+                                if (lng != null) history.setPoint2Lng(lng.doubleValue());
+                                break;
+                            case 2:
+                                if (pxX != null) history.setPoint3PixelX(pxX.intValue());
+                                if (pxY != null) history.setPoint3PixelY(pxY.intValue());
+                                if (lat != null) history.setPoint3Lat(lat.doubleValue());
+                                if (lng != null) history.setPoint3Lng(lng.doubleValue());
+                                break;
+                            case 3:
+                                if (pxX != null) history.setPoint4PixelX(pxX.intValue());
+                                if (pxY != null) history.setPoint4PixelY(pxY.intValue());
+                                if (lat != null) history.setPoint4Lat(lat.doubleValue());
+                                if (lng != null) history.setPoint4Lng(lng.doubleValue());
+                                break;
+                        }
+                    }
+                }
+
+                // Calculate and save total area in hectares
+                double totalHa = 0;
+                if (zones != null) {
+                    for (Map<String, Object> z : zones) {
+                        Number ha = (Number) z.get("areaHectares");
+                        if (ha != null) totalHa += ha.doubleValue();
+                    }
+                }
+                if (totalHa > 0) {
+                    history.setTotalAreaHectares(Math.round(totalHa * 100.0) / 100.0);
+                }
+
+                analysisHistoryRepository.saveAndFlush(history);
+                logger.info("Saved analysis history for {} with {} zones, {} ha", analysisId, savedCount, totalHa);
             } catch (Exception e) {
                 logger.warn("Error saving analysis history: {}", e.getMessage());
                 // Don't fail the whole operation if history save fails
@@ -567,6 +766,66 @@ public class MapImageAnalysisController {
         }
     }
 
+    /**
+     * NEW: Async worker for georeferenced analysis using advanced_zone_detector.py
+     */
+    private void runGeorefAnalysisAsync(String analysisId, File imageFile,
+            List<Map<String, Object>> controlPoints, String province, String district, String mapType) {
+
+        logger.info("Starting async georeferenced analysis: {} (mapType: {})", analysisId, mapType);
+
+        try {
+            // Create progress callback
+            MultiAIOrchestrator.ProgressCallback callback = (step, status, message) -> {
+                sendProgressUpdate(analysisId, step, status, message);
+            };
+
+            // Run georeferenced analysis (offline, no AI API)
+            Map<String, Object> result = multiAIOrchestrator.analyzeWithGeoreferencing(
+                    imageFile, controlPoints, province, district, mapType, callback);
+
+            // Store result
+            result.put("analysisId", analysisId);
+            result.put("timestamp", System.currentTimeMillis());
+            result.put("mapType", mapType);
+            result.put("province", province);
+            result.put("district", district);
+            // Ensure coordinates key is set for frontend compatibility
+            if (!result.containsKey("coordinates") && result.containsKey("bounds")) {
+                result.put("coordinates", result.get("bounds"));
+            }
+            analysisResults.put(analysisId, result);
+
+            // Send completion event
+            sendProgressUpdate(analysisId, "complete",
+                    (Boolean) result.getOrDefault("success", false) ? "completed" : "failed",
+                    "Phân tích hoàn tất");
+
+            // Close SSE with result
+            SseEmitter emitter = progressEmitters.get(analysisId);
+            if (emitter != null) {
+                try {
+                    emitter.send(SseEmitter.event()
+                            .name("complete")
+                            .data(result));
+                    emitter.complete();
+                } catch (Exception e) {
+                    logger.debug("Error completing SSE", e);
+                }
+            }
+
+        } catch (Exception e) {
+            logger.error("Async georef analysis failed: {}", e.getMessage(), e);
+
+            Map<String, Object> errorResult = new HashMap<>();
+            errorResult.put("success", false);
+            errorResult.put("error", e.getMessage());
+            analysisResults.put(analysisId, errorResult);
+
+            sendProgressUpdate(analysisId, "error", "failed", e.getMessage());
+        }
+    }
+
     private void sendProgressUpdate(String analysisId, String step, String status, String message) {
         SseEmitter emitter = progressEmitters.get(analysisId);
         if (emitter != null) {
@@ -622,7 +881,8 @@ public class MapImageAnalysisController {
         // Soil type or zone type - Use zoneType field (max 50 chars)
         String soilType = (String) zoneData.getOrDefault("soilType",
                 zoneData.getOrDefault("zoneType", "Unknown"));
-        zone.setZoneType(soilType != null && soilType.length() > 50 ? soilType.substring(0, 50) : soilType);
+        if (soilType == null || soilType.trim().isEmpty()) soilType = "Unknown";
+        zone.setZoneType(soilType.length() > 50 ? soilType.substring(0, 50) : soilType);
         zone.setLandUsePurpose(soilType != null && soilType.length() > 255 ? soilType.substring(0, 255) : soilType);
 
         // Color - Use fillColor from Python (fallback to color for backwards compat)
@@ -636,12 +896,24 @@ public class MapImageAnalysisController {
         zone.setStrokeColor("#333333"); // Black border for all zones
         zone.setFillOpacity(new BigDecimal("0.5"));
 
-        // Area calculation - from percentage or boundaryCoordinates
-        Object areaPercent = zoneData.get("areaPercent");
-        if (areaPercent instanceof Number) {
-            // Estimate: 1% = ~10000 m² (rough estimate for province maps)
-            double estimatedArea = ((Number) areaPercent).doubleValue() * 10000;
-            zone.setAreaSqm(BigDecimal.valueOf(estimatedArea).setScale(2, java.math.RoundingMode.HALF_UP));
+        // Area calculation - prefer Python-calculated areaSqm/areaHectares, fallback to percentage estimate
+        Object areaSqm = zoneData.get("areaSqm");
+        Object areaM2 = zoneData.get("areaM2");
+        Object areaHectares = zoneData.get("areaHectares");
+        if (areaSqm instanceof Number && ((Number) areaSqm).doubleValue() > 0) {
+            zone.setAreaSqm(BigDecimal.valueOf(((Number) areaSqm).doubleValue()).setScale(2, java.math.RoundingMode.HALF_UP));
+        } else if (areaM2 instanceof Number && ((Number) areaM2).doubleValue() > 0) {
+            zone.setAreaSqm(BigDecimal.valueOf(((Number) areaM2).doubleValue()).setScale(2, java.math.RoundingMode.HALF_UP));
+        } else if (areaHectares instanceof Number && ((Number) areaHectares).doubleValue() > 0) {
+            double m2 = ((Number) areaHectares).doubleValue() * 10000;
+            zone.setAreaSqm(BigDecimal.valueOf(m2).setScale(2, java.math.RoundingMode.HALF_UP));
+        } else {
+            Object areaPercent = zoneData.get("areaPercent");
+            if (areaPercent instanceof Number) {
+                // Estimate: use geo bounds if available for better accuracy
+                double estimatedArea = ((Number) areaPercent).doubleValue() * 10000;
+                zone.setAreaSqm(BigDecimal.valueOf(estimatedArea).setScale(2, java.math.RoundingMode.HALF_UP));
+            }
         }
 
         // Boundary coordinates - JSON string from Python (already serialized)
@@ -760,5 +1032,60 @@ public class MapImageAnalysisController {
         }
 
         return ascii + ext;
+    }
+
+    // ===========================================
+    // HISTORY & ROLLBACK ENDPOINTS (Phase 6)
+    // ===========================================
+
+    /**
+     * Get analysis history list (simple version for Phase 6 rollback UI)
+     */
+    @GetMapping("/history")
+    public ResponseEntity<?> getAnalysisHistorySimple() {
+        try {
+            // Sort by createdAt desc
+            List<MapAnalysisHistory> history = analysisHistoryRepository.findAll(
+                    org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC,
+                            "createdAt"));
+            return ResponseEntity.ok(Map.of("success", true, "history", history));
+        } catch (Exception e) {
+            logger.error("Error fetching history: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of("success", false, "error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Delete/Rollback an analysis
+     * This removes all zones created by this analysis and the history record itself
+     */
+    @DeleteMapping("/history/{analysisId}")
+    @Transactional
+    public ResponseEntity<?> rollbackAnalysis(@PathVariable String analysisId) {
+        logger.info("Rolling back analysis: {}", analysisId);
+        try {
+            Optional<MapAnalysisHistory> historyOpt = analysisHistoryRepository
+                    .findById(java.util.Objects.requireNonNull(analysisId));
+            if (historyOpt.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // 1. Delete all planning zones associated with this analysis
+            long zonesDeleted = planningZoneRepository.countByAnalysisId(analysisId);
+            planningZoneRepository.deleteByAnalysisId(analysisId);
+            logger.info("Deleted {} zones for analysis {}", zonesDeleted, analysisId);
+
+            // 2. Delete the history record
+            analysisHistoryRepository.deleteById(java.util.Objects.requireNonNull(analysisId));
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Đã xóa lịch sử và " + zonesDeleted + " vùng quy hoạch liên quan",
+                    "deletedZones", zonesDeleted));
+
+        } catch (Exception e) {
+            logger.error("Error rolling back analysis {}: {}", analysisId, e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of("success", false, "error", e.getMessage()));
+        }
     }
 }

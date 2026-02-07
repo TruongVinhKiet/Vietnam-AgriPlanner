@@ -473,3 +473,55 @@
 .icon-lg {
     font-size: 28px !important;
 }
+
+/* =====================================================
+   LEAFLET MAP POPUP STYLES (guland.vn style)
+   ===================================================== */
+.zone-popup-wrapper .leaflet-popup-content-wrapper {
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    padding: 0;
+}
+
+.zone-popup-wrapper .leaflet-popup-content {
+    margin: 12px 14px;
+    width: auto !important;
+}
+
+.zone-popup-wrapper .leaflet-popup-tip {
+    background: white;
+}
+
+.zone-tooltip {
+    background: rgba(0, 188, 212, 0.9);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-weight: 500;
+    padding: 6px 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.zone-tooltip::before {
+    border-top-color: rgba(0, 188, 212, 0.9);
+}
+
+/* Georeferenced map overlay styles */
+.georef-map-overlay {
+    mix-blend-mode: multiply;
+}
+
+/* Zone polygon hover effects */
+.leaflet-interactive:hover {
+    cursor: pointer;
+}
+
+/* Planning zone info panel styles */
+.planning-popup {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    padding: 8px 12px;
+    font-weight: 500;
+}

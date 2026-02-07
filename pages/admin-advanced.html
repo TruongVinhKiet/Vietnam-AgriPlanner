@@ -117,8 +117,8 @@
                 <a href="#"
                     class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
                     data-tab="image-analysis">
-                    <span class="material-icons-round">auto_awesome</span>
-                    <span class="font-medium">Phân tích Ảnh AI</span>
+                    <span class="material-icons-round">analytics</span>
+                    <span class="font-medium">Phân tích Chuyên sâu</span>
                 </a>
                 <a href="#"
                     class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
@@ -221,6 +221,10 @@
                         <button class="map-type-btn" data-map-type="soil" title="Bản đồ Thổ nhưỡng">
                             <span class="material-icons-round">landscape</span>
                             <span>Thổ nhưỡng</span>
+                        </button>
+                        <button class="map-type-btn" data-map-type="land-parcels" title="Lớp thửa đất - Huyện Thới Bình">
+                            <span class="material-icons-round">grid_on</span>
+                            <span>Thửa đất</span>
                         </button>
                     </div>
 
@@ -403,12 +407,11 @@
                     </div>
                 </div>
 
-                <!-- Image Analysis Tab - Multi-AI Processing -->
                 <div id="image-analysis-container" class="tab-content hidden p-6 overflow-y-auto h-full">
                     <div class="max-w-5xl mx-auto">
-                        <h2 class="text-2xl font-bold mb-2">Phân tích Ảnh Bản đồ bằng AI</h2>
-                        <p class="text-gray-600 mb-6">Upload ảnh bản đồ (JPG/PNG) để AI tự động phân tích tọa độ, loại
-                            đất và tạo vùng quy hoạch</p>
+                        <h2 class="text-2xl font-bold mb-2">Phân tích Bản đồ Chuyên sâu</h2>
+                        <p class="text-gray-600 mb-6">Upload ảnh bản đồ (JPG/PNG), đặt 4 điểm tham chiếu để định vị địa
+                            lý, và hệ thống sẽ tự động phát hiện các vùng đất</p>
 
                         <!-- MAP TYPE TABS - NEW -->
                         <div class="mb-6">
@@ -441,46 +444,56 @@
                             </div>
                         </div>
 
-                        <!-- AI Pipeline Info - SIMPLIFIED -->
+                        <!-- Processing Pipeline Info -->
                         <div
-                            class="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-4 mb-6 border border-green-200">
+                            class="bg-gradient-to-r from-green-50 to-teal-50 rounded-xl p-4 mb-6 border border-green-200">
                             <h3 class="font-semibold text-green-900 flex items-center gap-2 mb-3">
-                                <span class="material-icons-round text-green-600">psychology</span>
-                                Quy trình xử lý AI (GitHub Models)
+                                <span class="material-icons-round text-green-600">memory</span>
+                                Quy trình xử lý nâng cao (Hoàn toàn Offline)
                             </h3>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
                                 <div class="flex items-start gap-2 bg-white/50 rounded-lg p-3">
                                     <div
                                         class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm font-bold">
                                         1</div>
                                     <div>
-                                        <div class="font-medium text-blue-700">Smart Resize</div>
-                                        <div class="text-gray-600">Tối ưu hóa kích thước (max 2000px)</div>
-                                    </div>
-                                </div>
-                                <div class="flex items-start gap-2 bg-white/50 rounded-lg p-3">
-                                    <div
-                                        class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold">
-                                        2</div>
-                                    <div>
-                                        <div class="font-medium text-green-700">OpenCV (Python)</div>
-                                        <div class="text-gray-600">Trích xuất vùng màu và polygon</div>
+                                        <div class="font-medium text-blue-700">Upload & Resize</div>
+                                        <div class="text-gray-600">Tối ưu hóa kích thước ảnh</div>
                                     </div>
                                 </div>
                                 <div class="flex items-start gap-2 bg-white/50 rounded-lg p-3">
                                     <div
                                         class="w-8 h-8 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm font-bold">
+                                        2</div>
+                                    <div>
+                                        <div class="font-medium text-purple-700">Georeferencing</div>
+                                        <div class="text-gray-600">Đặt 4 điểm tham chiếu GPS</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-2 bg-white/50 rounded-lg p-3">
+                                    <div
+                                        class="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center text-sm font-bold">
                                         3</div>
                                     <div>
-                                        <div class="font-medium text-purple-700">GPT-4o Vision</div>
-                                        <div class="text-gray-600">Đọc chú giải, gán nhãn <span id="ai-target-type">loại
-                                                quy hoạch</span></div>
+                                        <div class="font-medium text-green-700">OpenCV Detection</div>
+                                        <div class="text-gray-600">Phát hiện polygon màu sắc</div>
+                                    </div>
+                                </div>
+                                <div class="flex items-start gap-2 bg-white/50 rounded-lg p-3">
+                                    <div
+                                        class="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold">
+                                        4</div>
+                                    <div>
+                                        <div class="font-medium text-amber-700">Soil Mapping</div>
+                                        <div class="text-gray-600">Gán <span id="ai-target-type">loại đất</span> từ
+                                            legend</div>
                                     </div>
                                 </div>
                             </div>
                             <div class="mt-3 text-xs text-gray-500 flex items-center gap-1">
-                                <span class="material-icons-round" style="font-size:14px">info</span>
-                                Miễn phí 150 requests/ngày với GitHub Models • Smart Resize giúp giảm token/chi phí
+                                <span class="material-icons-round" style="font-size:14px">offline_bolt</span>
+                                Xử lý hoàn toàn offline bằng Python OpenCV • Không cần API key • Tính diện tích thực
+                                (ha, km²)
                             </div>
                         </div>
 
@@ -513,17 +526,159 @@
                                     <div class="flex-1">
                                         <p class="font-medium" id="preview-image-name">image.jpg</p>
                                         <p class="text-sm text-gray-500" id="preview-image-size">0 MB</p>
-                                        <p class="text-sm text-gray-400" id="preview-image-dimensions">Kích thước: đang tải...</p>
+                                        <p class="text-sm text-gray-400" id="preview-image-dimensions">Kích thước: đang
+                                            tải...</p>
                                         <div id="resize-info" class="hidden mt-1">
-                                            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
-                                                <span class="material-icons-round" style="font-size:12px">photo_size_select_large</span>
+                                            <span
+                                                class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                                                <span class="material-icons-round"
+                                                    style="font-size:12px">photo_size_select_large</span>
                                                 Sẽ resize xuống max 2000px
                                             </span>
                                         </div>
                                     </div>
                                     <button onclick="clearMapImage()" class="text-gray-400 hover:text-red-500">
                                         <span class="material-icons-round">close</span>
-                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Georeferencing Control Points - NEW SECTION -->
+                            <div id="georef-section" class="hidden mt-4 border-t pt-4">
+                                <h4 class="font-medium mb-3 flex items-center gap-2">
+                                    <span class="material-icons-round text-purple-600">location_on</span>
+                                    Đặt 4 điểm tham chiếu địa lý (Georeferencing)
+                                </h4>
+                                <p class="text-sm text-gray-500 mb-4">
+                                    Click vào 4 góc trên ảnh bản đồ, sau đó nhập tọa độ GPS (Latitude, Longitude) tương
+                                    ứng.
+                                    Giống như Global Mapper, 4 điểm này giúp ánh xạ pixel sang tọa độ thực.
+                                </p>
+
+                                <!-- Interactive Image Preview for Control Points -->
+                                <div class="relative mb-4" id="georef-preview-wrapper">
+                                    <div class="bg-gray-100 rounded-lg overflow-hidden border-2 border-dashed border-gray-300"
+                                        id="georef-preview-container" style="max-height: 400px; position: relative;">
+                                        <img id="georef-preview-image" class="w-full h-auto cursor-crosshair"
+                                            onclick="handleGeorefClick(event)" style="display: none;">
+                                        <div id="georef-markers-layer" class="absolute inset-0 pointer-events-none">
+                                            <!-- Markers will be added here dynamically -->
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-gray-400 mt-1 text-center">
+                                        <span class="material-icons-round" style="font-size:12px">touch_app</span>
+                                        Click vào ảnh để đặt điểm tham chiếu
+                                    </p>
+                                </div>
+
+                                <!-- Control Points Input Grid -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <!-- Point 1: Top-Left -->
+                                    <div class="p-3 bg-blue-50 rounded-lg border border-blue-200" id="cp-1-container">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <div
+                                                class="w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs font-bold">
+                                                1</div>
+                                            <span class="font-medium text-blue-800">Góc trên trái</span>
+                                            <span class="text-xs text-blue-500 ml-auto" id="cp-1-status">Chưa đặt</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <input type="number" step="0.0001" id="cp-1-lat"
+                                                placeholder="Latitude (VD: 9.75)"
+                                                class="px-2 py-1 border rounded text-sm w-full"
+                                                onchange="updateControlPoint(1)">
+                                            <input type="number" step="0.0001" id="cp-1-lng"
+                                                placeholder="Longitude (VD: 104.45)"
+                                                class="px-2 py-1 border rounded text-sm w-full"
+                                                onchange="updateControlPoint(1)">
+                                        </div>
+                                        <input type="hidden" id="cp-1-px">
+                                        <input type="hidden" id="cp-1-py">
+                                    </div>
+
+                                    <!-- Point 2: Top-Right -->
+                                    <div class="p-3 bg-green-50 rounded-lg border border-green-200" id="cp-2-container">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <div
+                                                class="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center text-xs font-bold">
+                                                2</div>
+                                            <span class="font-medium text-green-800">Góc trên phải</span>
+                                            <span class="text-xs text-green-500 ml-auto" id="cp-2-status">Chưa
+                                                đặt</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <input type="number" step="0.0001" id="cp-2-lat" placeholder="Latitude"
+                                                class="px-2 py-1 border rounded text-sm w-full"
+                                                onchange="updateControlPoint(2)">
+                                            <input type="number" step="0.0001" id="cp-2-lng" placeholder="Longitude"
+                                                class="px-2 py-1 border rounded text-sm w-full"
+                                                onchange="updateControlPoint(2)">
+                                        </div>
+                                        <input type="hidden" id="cp-2-px">
+                                        <input type="hidden" id="cp-2-py">
+                                    </div>
+
+                                    <!-- Point 3: Bottom-Left -->
+                                    <div class="p-3 bg-amber-50 rounded-lg border border-amber-200" id="cp-3-container">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <div
+                                                class="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold">
+                                                3</div>
+                                            <span class="font-medium text-amber-800">Góc dưới trái</span>
+                                            <span class="text-xs text-amber-500 ml-auto" id="cp-3-status">Chưa
+                                                đặt</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <input type="number" step="0.0001" id="cp-3-lat" placeholder="Latitude"
+                                                class="px-2 py-1 border rounded text-sm w-full"
+                                                onchange="updateControlPoint(3)">
+                                            <input type="number" step="0.0001" id="cp-3-lng" placeholder="Longitude"
+                                                class="px-2 py-1 border rounded text-sm w-full"
+                                                onchange="updateControlPoint(3)">
+                                        </div>
+                                        <input type="hidden" id="cp-3-px">
+                                        <input type="hidden" id="cp-3-py">
+                                    </div>
+
+                                    <!-- Point 4: Bottom-Right -->
+                                    <div class="p-3 bg-purple-50 rounded-lg border border-purple-200"
+                                        id="cp-4-container">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <div
+                                                class="w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-xs font-bold">
+                                                4</div>
+                                            <span class="font-medium text-purple-800">Góc dưới phải</span>
+                                            <span class="text-xs text-purple-500 ml-auto" id="cp-4-status">Chưa
+                                                đặt</span>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <input type="number" step="0.0001" id="cp-4-lat" placeholder="Latitude"
+                                                class="px-2 py-1 border rounded text-sm w-full"
+                                                onchange="updateControlPoint(4)">
+                                            <input type="number" step="0.0001" id="cp-4-lng" placeholder="Longitude"
+                                                class="px-2 py-1 border rounded text-sm w-full"
+                                                onchange="updateControlPoint(4)">
+                                        </div>
+                                        <input type="hidden" id="cp-4-px">
+                                        <input type="hidden" id="cp-4-py">
+                                    </div>
+                                </div>
+
+                                <!-- Quick Fill Presets -->
+                                <div class="mt-4 p-3 bg-gray-50 rounded-lg">
+                                    <p class="text-sm text-gray-600 mb-2">
+                                        <span class="material-icons-round" style="font-size:14px">auto_fix_high</span>
+                                        Tọa độ mẫu:
+                                    </p>
+                                    <div class="flex flex-wrap gap-2">
+                                        <button onclick="fillThoiBinhPreset()"
+                                            class="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition">
+                                            H. Thới Bình (9°15'-9°30'N, 105°00'-105°15'E)
+                                        </button>
+                                        <button onclick="fillCaMauPreset()"
+                                            class="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition">
+                                            Toàn tỉnh Cà Mau (8.55°-9.55°N, 104.75°-105.45°E)
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -548,112 +703,150 @@
 
                             <!-- Start Analysis Button -->
                             <button id="start-analysis-btn" disabled
-                                class="w-full mt-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
-                                <span class="material-icons-round">auto_awesome</span>
-                                Phân tích bằng AI (Hybrid Mode)
+                                class="w-full mt-6 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                                <span class="material-icons-round">memory</span>
+                                Phân tích bằng OpenCV (Offline)
                             </button>
                         </div>
 
-                        <!-- Analysis Progress - HYBRID UI with 3 Steps -->
+
+                        <!-- Analysis Progress - OFFLINE 4 STEPS UI -->
                         <div id="analysis-progress-container" class="hidden bg-white rounded-xl shadow-lg p-6 mb-6">
                             <h3 class="font-semibold mb-4 flex items-center gap-2">
-                                <span class="material-icons-round text-blue-600 animate-spin"
+                                <span class="material-icons-round text-green-600 animate-spin"
                                     id="analysis-spinner">sync</span>
-                                <span id="analysis-title">Đang phân tích Hybrid AI...</span>
+                                <span id="analysis-title">Đang xử lý Offline...</span>
                             </h3>
 
-                            <!-- AI Steps Progress - 3 STEPS HYBRID -->
-                            <div class="space-y-4" id="ai-steps-progress">
+                            <!-- 4 STEPS OFFLINE WORKFLOW -->
+                            <div class="space-y-3" id="offline-steps-progress">
 
-                                <!-- BƯỚC 1: Tọa độ (Gemini → GPT-4o Fallback) -->
-                                <div class="ai-step border rounded-xl p-4 transition-all" data-step="step1"
+                                <!-- BƯỚC 1: Upload & Resize -->
+                                <div class="ai-step border rounded-xl p-4 transition-all" data-step="step1_upload"
                                     id="step1-container">
-                                    <div class="flex items-center gap-3 mb-3">
-                                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center shadow-lg"
-                                            id="step-step1_coords-icon">
-                                            <span class="text-white font-bold text-lg">1</span>
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 flex items-center justify-center shadow-md step-icon-container"
+                                            id="step-step1-icon">
+                                            <span class="text-white font-bold">1</span>
                                         </div>
                                         <div class="flex-1">
-                                            <div class="font-semibold text-lg flex items-center gap-2">
+                                            <div class="font-semibold flex items-center gap-2">
+                                                <span class="material-icons-round text-blue-600"
+                                                    style="font-size:18px">upload_file</span>
+                                                Upload & Resize
+                                            </div>
+                                            <div class="text-sm text-gray-500" id="step-step1-status">Tối ưu hóa kích
+                                                thước ảnh</div>
+                                        </div>
+                                        <span class="material-icons-round text-gray-300 step-check"
+                                            id="step1-check">check_circle</span>
+                                    </div>
+                                    <!-- Step 1 Details -->
+                                    <div class="ml-12 mt-2 text-xs text-gray-500 hidden" id="step1-details">
+                                        <div class="flex gap-4">
+                                            <span>Kích thước gốc: <b id="step1-original-size">—</b></span>
+                                            <span>Sau resize: <b id="step1-resized-size">—</b></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- BƯỚC 2: Georeferencing -->
+                                <div class="ai-step border rounded-xl p-4 transition-all opacity-50"
+                                    data-step="step2_georef" id="step2-container">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-600 flex items-center justify-center shadow-md step-icon-container"
+                                            id="step-step2-icon">
+                                            <span class="text-white font-bold">2</span>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="font-semibold flex items-center gap-2">
                                                 <span class="material-icons-round text-purple-600"
-                                                    style="font-size:20px">explore</span>
-                                                Trích xuất Tọa độ
+                                                    style="font-size:18px">location_on</span>
+                                                Georeferencing
                                             </div>
-                                            <div class="text-sm text-gray-500" id="step-step1_coords-status">Đang chờ...
-                                            </div>
+                                            <div class="text-sm text-gray-500" id="step-step2-status">Áp dụng 4 điểm
+                                                tham chiếu GPS</div>
                                         </div>
+                                        <span class="material-icons-round text-gray-300 step-check"
+                                            id="step2-check">check_circle</span>
                                     </div>
-                                    <!-- Sub-steps for Step 1 -->
-                                    <div class="ml-16 space-y-2" id="step1-substeps">
-                                        <div class="flex items-center gap-2 text-sm" id="gemini-substep">
-                                            <div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center"
-                                                id="step-gemini-icon">
-                                                <span class="material-icons-round text-gray-400"
-                                                    style="font-size:14px">hourglass_empty</span>
-                                            </div>
-                                            <span class="font-medium">Gemini 1.5 Pro</span>
-                                            <span class="text-gray-400" id="step-gemini-status">—</span>
-                                        </div>
-                                        <div class="flex items-center gap-2 text-sm hidden" id="gpt4o-coords-substep">
-                                            <div class="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center"
-                                                id="step-gpt4o_coords-icon">
-                                                <span class="material-icons-round text-gray-400"
-                                                    style="font-size:14px">hourglass_empty</span>
-                                            </div>
-                                            <span class="font-medium">GPT-4o (Fallback)</span>
-                                            <span class="text-gray-400" id="step-gpt4o_coords-status">—</span>
+                                    <!-- Step 2 Details -->
+                                    <div class="ml-12 mt-2 text-xs text-gray-500 hidden" id="step2-details">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <span>SW: <b id="step2-sw">—</b></span>
+                                            <span>NE: <b id="step2-ne">—</b></span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- BƯỚC 2: OpenCV -->
-                                <div class="ai-step border rounded-xl p-4 transition-all opacity-50" data-step="step2"
-                                    id="step2-container">
+                                <!-- BƯỚC 3: OpenCV Detection -->
+                                <div class="ai-step border rounded-xl p-4 transition-all opacity-50"
+                                    data-step="step3_opencv" id="step3-container">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-teal-600 flex items-center justify-center shadow-lg"
-                                            id="step-step2_opencv-icon">
-                                            <span class="text-white font-bold text-lg">2</span>
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-r from-green-500 to-teal-600 flex items-center justify-center shadow-md step-icon-container"
+                                            id="step-step3-icon">
+                                            <span class="text-white font-bold">3</span>
                                         </div>
                                         <div class="flex-1">
-                                            <div class="font-semibold text-lg flex items-center gap-2">
+                                            <div class="font-semibold flex items-center gap-2">
                                                 <span class="material-icons-round text-green-600"
-                                                    style="font-size:20px">polyline</span>
-                                                OpenCV - Trích xuất Polygon
+                                                    style="font-size:18px">polyline</span>
+                                                OpenCV Detection
                                             </div>
-                                            <div class="text-sm text-gray-500" id="step-step2_opencv-status">Đang chờ...
-                                            </div>
+                                            <div class="text-sm text-gray-500" id="step-step3-status">Phát hiện polygon
+                                                màu sắc</div>
+                                        </div>
+                                        <span class="material-icons-round text-gray-300 step-check"
+                                            id="step3-check">check_circle</span>
+                                    </div>
+                                    <!-- Step 3 Details -->
+                                    <div class="ml-12 mt-2 text-xs text-gray-500 hidden" id="step3-details">
+                                        <div class="flex gap-4">
+                                            <span>K-means: <b id="step3-kmeans">—</b></span>
+                                            <span>Vùng phát hiện: <b id="step3-zones">—</b></span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- BƯỚC 3: Gán nhãn (GPT-4o) -->
-                                <div class="ai-step border rounded-xl p-4 transition-all opacity-50" data-step="step3"
-                                    id="step3-container">
+                                <!-- BƯỚC 4: Soil Mapping -->
+                                <div class="ai-step border rounded-xl p-4 transition-all opacity-50"
+                                    data-step="step4_mapping" id="step4-container">
                                     <div class="flex items-center gap-3">
-                                        <div class="w-12 h-12 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 flex items-center justify-center shadow-lg"
-                                            id="step-step3_labels-icon">
-                                            <span class="text-white font-bold text-lg">3</span>
+                                        <div class="w-10 h-10 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 flex items-center justify-center shadow-md step-icon-container"
+                                            id="step-step4-icon">
+                                            <span class="text-white font-bold">4</span>
                                         </div>
                                         <div class="flex-1">
-                                            <div class="font-semibold text-lg flex items-center gap-2">
+                                            <div class="font-semibold flex items-center gap-2">
                                                 <span class="material-icons-round text-amber-600"
-                                                    style="font-size:20px">label</span>
-                                                GPT-4o - Gán nhãn Loại đất
+                                                    style="font-size:18px">terrain</span>
+                                                Soil Mapping
                                             </div>
-                                            <div class="text-sm text-gray-500" id="step-step3_labels-status">Đang chờ...
-                                            </div>
+                                            <div class="text-sm text-gray-500" id="step-step4-status">Gán loại đất từ
+                                                legend</div>
+                                        </div>
+                                        <span class="material-icons-round text-gray-300 step-check"
+                                            id="step4-check">check_circle</span>
+                                    </div>
+                                    <!-- Step 4 Details -->
+                                    <div class="ml-12 mt-2 text-xs text-gray-500 hidden" id="step4-details">
+                                        <div class="flex gap-4">
+                                            <span>Loại đất: <b id="step4-soil-types">—</b></span>
+                                            <span>Tổng diện tích: <b id="step4-total-area">—</b></span>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- AI Usage Summary -->
-                            <div class="mt-4 p-3 bg-blue-50 rounded-lg hidden" id="ai-usage-summary">
-                                <div class="text-sm font-medium text-blue-800 flex items-center gap-2">
-                                    <span class="material-icons-round" style="font-size:16px">insights</span>
-                                    AI đã sử dụng:
+                            <!-- Offline Processing Info -->
+                            <div class="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                                <div class="text-sm font-medium text-green-800 flex items-center gap-2">
+                                    <span class="material-icons-round" style="font-size:16px">cloud_off</span>
+                                    Xử lý 100% Offline
                                 </div>
-                                <div class="text-xs text-blue-600 mt-1" id="ai-usage-details"></div>
+                                <div class="text-xs text-green-600 mt-1">
+                                    Không cần API key • Python OpenCV + K-means • Tính diện tích thực (ha, km²)
+                                </div>
                             </div>
 
                             <!-- Log Output - Enhanced -->
@@ -672,6 +865,7 @@
                                 </div>
                             </div>
                         </div>
+
 
                         <!-- Analysis Results -->
                         <div id="analysis-results-container" class="hidden bg-white rounded-xl shadow-lg p-6">
@@ -713,6 +907,34 @@
                                 <h4 class="font-medium mb-2">Tổng quan các vùng phát hiện</h4>
                                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="zones-summary">
                                     <!-- Zone stats will be shown here -->
+                                </div>
+                            </div>
+
+                            <!-- Soil Statistics - NEW -->
+                            <div id="soil-statistics-container" class="mb-4 hidden">
+                                <h4 class="font-medium mb-2 flex items-center gap-2">
+                                    <span class="material-icons-round text-amber-600"
+                                        style="font-size:18px">terrain</span>
+                                    Thống kê Loại đất (<span id="soil-types-count">0</span> loại)
+                                </h4>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full text-sm border rounded-lg overflow-hidden">
+                                        <thead class="bg-amber-50">
+                                            <tr>
+                                                <th class="px-3 py-2 text-left font-medium text-amber-900">Mã</th>
+                                                <th class="px-3 py-2 text-left font-medium text-amber-900">Loại đất</th>
+                                                <th class="px-3 py-2 text-center font-medium text-amber-900">Số vùng
+                                                </th>
+                                                <th class="px-3 py-2 text-right font-medium text-amber-900">Diện tích
+                                                    (%)</th>
+                                                <th class="px-3 py-2 text-right font-medium text-amber-900">Diện tích
+                                                    (ha)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="soil-statistics-body" class="divide-y">
+                                            <!-- Soil stats will be inserted here -->
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
 

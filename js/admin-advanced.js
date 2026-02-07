@@ -212,7 +212,7 @@ function switchTab(tab) {
     const titles = {
         map: 'Bản đồ Quy hoạch Đất đai',
         uploads: 'Quản lý File KMZ',
-        'image-analysis': 'Phân tích Ảnh Bản đồ AI',
+        'image-analysis': 'Phân tích Bản đồ Chuyên sâu',
         zones: 'Danh sách Vùng Quy hoạch',
         legend: 'Chú giải Màu sắc',
         snapshots: 'Lịch sử Phiên bản'
@@ -902,6 +902,12 @@ function showZoneInfo(zone) {
     // Store zone ID for edit/delete
     panel.dataset.zoneId = zone.id;
 
+    // Ensure edit/delete buttons are visible for planning zones
+    const editBtn = document.getElementById('zone-edit-btn');
+    const deleteBtn = document.getElementById('zone-delete-btn');
+    if (editBtn) editBtn.style.display = '';
+    if (deleteBtn) deleteBtn.style.display = '';
+
     // Setup edit button
     document.getElementById('zone-edit-btn').onclick = () => openEditModal(zone);
     document.getElementById('zone-delete-btn').onclick = () => deleteZone(zone.id);
@@ -1563,6 +1569,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ============ MAP TYPE TOGGLE ============
 let currentMapType = 'planning';
+let landParcelsWmsLayer = null;
+let landParcelsLocalLayer = null;
+let landParcelsActive = false;
+
+// GeoServer WMS/WFS endpoints for land parcels
+const GEOSERVER_WMS_URL = 'https://ilis-sdk.vnpt.vn/map/geoserver/iLIS_CMU/wms';
+const GEOSERVER_WFS_URL = 'https://ilis-sdk.vnpt.vn/map/geoserver/iLIS_CMU/wfs';
+const LAND_PARCEL_LAYER = 'iLIS_CMU:cmu_thuadat_huyenthoibinh';
+
+// Land use color mapping
+const LAND_USE_COLORS = {
+    'LUK': '#FFD700',     // Đất trồng lúa nước còn lại - Vàng gold
+    'LUC': '#FFC107',     // Đất trồng lúa nước - Vàng amber
+    'ONT': '#FF6B6B',     // Đất ở nông thôn - Đỏ nhạt
+    'CLN': '#4CAF50',     // Đất trồng cây lâu năm - Xanh lá
+    'NTS': '#2196F3',     // Đất nuôi trồng thủy sản - Xanh nước biển
+    'BHK': '#8BC34A',     // Đất bằng chưa sử dụng - Xanh lá nhạt
+    'DGT': '#9E9E9E',     // Đất giao thông - Xám
+    'DTL': '#00BCD4',     // Đất thủy lợi - Cyan
+    'TMD': '#E91E63',     // Đất thương mại dịch vụ - Hồng
+    'SKC': '#FF5722',     // Đất sản xuất kinh doanh - Cam đỏ
+    'ODT': '#F44336',     // Đất ở đô thị - Đỏ
+    'CQP': '#795548',     // Đất quốc phòng - Nâu
+    'TSC': '#607D8B',     // Đất cơ sở tín ngưỡng - Xám xanh
+    'DHT': '#3F51B5',     // Đất hạ tầng - Xanh dương đậm
+    'DYT': '#E91E63',     // Đất y tế - Hồng
+    'DGD': '#FF9800',     // Đất giáo dục - Cam
+    'TIN': '#9C27B0',     // Đất tôn giáo - Tím
+    'NTD': '#CDDC39',     // Đất nông trại - Vàng xanh
+    'RSX': '#388E3C',     // Đất rừng sản xuất - Xanh đậm
+    'RPH': '#1B5E20',     // Đất rừng phòng hộ - Xanh rất đậm
+    'RDD': '#2E7D32',     // Đất rừng đặc dụng - Xanh lá đậm
+    'HNK': '#A1887F',     // Đất trồng cây hàng năm khác - Nâu nhạt
+    'MNC': '#81C784',     // Đất mặt nước chuyên dùng - Xanh lá nhạt
+    'SON': '#B0BEC5',     // Đất sông ngòi - Xám bạc
+    'ONT+CLN': '#E8A838', // Đất ở + cây lâu năm - Cam vàng
+    'default': '#90A4AE'  // Mặc định - Xám xanh
+};
+
+function getLandUseColor(code) {
+    if (!code) return LAND_USE_COLORS['default'];
+    const upper = code.toUpperCase().trim();
+    return LAND_USE_COLORS[upper] || LAND_USE_COLORS['default'];
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
@@ -1577,30 +1627,423 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.map-type-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
 
-                // Reload zones for this map type
-                loadPlanningZones(mapType);
+                if (mapType === 'land-parcels') {
+                    // Hide planning zones, show land parcels
+                    planningZonesLayer.clearLayers();
+                    activateLandParcelsLayer();
 
-                // Update legend header
-                const legendHeader = document.querySelector('.legend-header');
-                if (legendHeader) {
-                    if (mapType === 'soil') {
-                        legendHeader.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
-                        legendHeader.querySelector('span:nth-child(2)').textContent = 'Chú giải Thổ nhưỡng';
-                    } else {
-                        legendHeader.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
-                        legendHeader.querySelector('span:nth-child(2)').textContent = 'Chú giải Màu sắc';
+                    // Update legend
+                    loadLandParcelLegend();
+
+                    // Update legend header
+                    const legendHeader = document.querySelector('.legend-header');
+                    if (legendHeader) {
+                        legendHeader.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+                        legendHeader.querySelector('span:nth-child(2)').textContent = 'Chú giải Thửa đất';
                     }
-                }
 
-                showToast(
-                    mapType === 'soil' ? 'Bản đồ Thổ nhưỡng' : 'Bản đồ Quy hoạch',
-                    `Đang hiển thị lớp ${mapType === 'soil' ? 'thổ nhưỡng' : 'quy hoạch'}`,
-                    'success'
-                );
+                    showToast('Lớp Thửa đất', 'Hiển thị 129,000+ thửa đất Huyện Thới Bình (WMS)', 'success');
+                } else {
+                    // Remove land parcels layers
+                    deactivateLandParcelsLayer();
+
+                    // Reload zones for this map type
+                    loadPlanningZones(mapType);
+
+                    // Update legend header
+                    const legendHeader = document.querySelector('.legend-header');
+                    if (legendHeader) {
+                        if (mapType === 'soil') {
+                            legendHeader.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                            legendHeader.querySelector('span:nth-child(2)').textContent = 'Chú giải Thổ nhưỡng';
+                        } else {
+                            legendHeader.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                            legendHeader.querySelector('span:nth-child(2)').textContent = 'Chú giải Màu sắc';
+                        }
+                    }
+
+                    showToast(
+                        mapType === 'soil' ? 'Bản đồ Thổ nhưỡng' : 'Bản đồ Quy hoạch',
+                        `Đang hiển thị lớp ${mapType === 'soil' ? 'thổ nhưỡng' : 'quy hoạch'}`,
+                        'success'
+                    );
+                }
             });
         });
     }, 500);
 });
+
+// ============ LAND PARCELS LAYER (Hybrid: WMS Tiles + WFS Click) ============
+
+/**
+ * Activate land parcels using WMS tile overlay from GeoServer
+ * This renders ALL 129,000+ parcels directly from the server (complete coverage)
+ * On click, uses WFS GetFeatureInfo to show parcel details
+ */
+function activateLandParcelsLayer() {
+    // Pan to Thới Bình if not already in view
+    const center = map.getCenter();
+    if (center.lat < 9.0 || center.lat > 9.6 || center.lng < 104.8 || center.lng > 105.5) {
+        map.setView([9.30, 105.15], 13);
+    }
+
+    // Add WMS tile layer from GeoServer (renders ALL parcels with server-side styling)
+    if (!landParcelsWmsLayer) {
+        landParcelsWmsLayer = L.tileLayer.wms(GEOSERVER_WMS_URL, {
+            layers: LAND_PARCEL_LAYER,
+            format: 'image/png',
+            transparent: true,
+            version: '1.1.1',
+            srs: 'EPSG:4326',
+            opacity: 0.85,
+            maxZoom: 22,
+            attribution: '© ilis.camau.gov.vn'
+        });
+    }
+    landParcelsWmsLayer.addTo(map);
+    landParcelsActive = true;
+
+    // Also load local DB parcels overlay (for hover tooltips at high zoom)
+    loadLocalParcelsOverlay();
+
+    // Setup click handler for WFS GetFeatureInfo
+    map.on('click', onMapClickGetParcelInfo);
+
+    // Update stats with total from API
+    updateLandParcelStats();
+}
+
+function deactivateLandParcelsLayer() {
+    if (landParcelsWmsLayer) {
+        map.removeLayer(landParcelsWmsLayer);
+    }
+    if (landParcelsLocalLayer) {
+        map.removeLayer(landParcelsLocalLayer);
+        landParcelsLocalLayer = null;
+    }
+    landParcelsActive = false;
+    map.off('click', onMapClickGetParcelInfo);
+    map.off('moveend', onMapMoveLoadLocalParcels);
+}
+
+/**
+ * On map click: query GeoServer WFS GetFeatureInfo for clicked parcel
+ * This works even for parcels NOT in our local DB
+ */
+async function onMapClickGetParcelInfo(e) {
+    if (!landParcelsActive) return;
+
+    const latlng = e.latlng;
+    const mapSize = map.getSize();
+    const bounds = map.getBounds();
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+
+    // Convert click position to pixel coordinates
+    const point = map.latLngToContainerPoint(latlng);
+
+    // Build WMS GetFeatureInfo URL
+    const bbox = `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`;
+    const url = `${GEOSERVER_WMS_URL}?` +
+        `SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo` +
+        `&LAYERS=${LAND_PARCEL_LAYER}` +
+        `&QUERY_LAYERS=${LAND_PARCEL_LAYER}` +
+        `&SRS=EPSG:4326` +
+        `&BBOX=${bbox}` +
+        `&WIDTH=${mapSize.x}` +
+        `&HEIGHT=${mapSize.y}` +
+        `&X=${Math.round(point.x)}` +
+        `&Y=${Math.round(point.y)}` +
+        `&INFO_FORMAT=application/json` +
+        `&FEATURE_COUNT=1`;
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) return;
+
+        const data = await response.json();
+        const features = data.features || [];
+
+        if (features.length === 0) return;
+
+        const f = features[0];
+        const props = f.properties || {};
+
+        // Map WFS properties to our display format
+        const parcelInfo = {
+            mapSheetNumber: props.tobandoso,
+            parcelNumber: props.sothututhua,
+            areaSqm: props.dientich,
+            legalAreaSqm: props.dientichpl,
+            landUseCode: props.loaidat,
+            landUseName: lookupLandUseName(props.loaidat),
+            address: props.diachithua,
+            adminUnitName: props.tendvhc,
+            adminUnitCode: props.madvhc,
+            district: 'Thới Bình'
+        };
+
+        showLandParcelInfo(parcelInfo);
+    } catch (error) {
+        console.error('GetFeatureInfo error:', error);
+    }
+}
+
+/**
+ * Load local DB parcels as semi-transparent overlay at high zoom levels
+ * for hover tooltips (WMS tiles don't support hover)
+ */
+async function loadLocalParcelsOverlay() {
+    const zoom = map.getZoom();
+    // Only load local overlay at zoom >= 14 for hover tooltips
+    if (zoom < 14) {
+        if (landParcelsLocalLayer) {
+            map.removeLayer(landParcelsLocalLayer);
+            landParcelsLocalLayer = null;
+        }
+        document.getElementById('zones-count').textContent = 'WMS';
+        map.off('moveend', onMapMoveLoadLocalParcels);
+        map.on('moveend', onMapMoveLoadLocalParcels);
+        return;
+    }
+
+    try {
+        const bounds = map.getBounds();
+        const sw = bounds.getSouthWest();
+        const ne = bounds.getNorthEast();
+
+        const parcels = await fetchAPI(
+            `/land-parcels/bounds?swLat=${sw.lat}&swLng=${sw.lng}&neLat=${ne.lat}&neLng=${ne.lng}`
+        );
+
+        renderLocalParcelsOverlay(parcels || []);
+    } catch (error) {
+        console.error('Error loading local parcels overlay:', error);
+    }
+
+    map.off('moveend', onMapMoveLoadLocalParcels);
+    map.on('moveend', onMapMoveLoadLocalParcels);
+}
+
+function renderLocalParcelsOverlay(parcels) {
+    if (landParcelsLocalLayer) {
+        map.removeLayer(landParcelsLocalLayer);
+    }
+
+    const geojsonFeatures = [];
+    parcels.forEach(parcel => {
+        if (!parcel.boundaryGeojson) return;
+        try {
+            const geometry = typeof parcel.boundaryGeojson === 'string'
+                ? JSON.parse(parcel.boundaryGeojson)
+                : parcel.boundaryGeojson;
+            geojsonFeatures.push({
+                type: 'Feature',
+                geometry: geometry,
+                properties: {
+                    parcelNumber: parcel.parcelNumber,
+                    mapSheetNumber: parcel.mapSheetNumber,
+                    landUseCode: parcel.landUseCode,
+                    landUseName: parcel.landUseName,
+                    areaSqm: parcel.areaSqm,
+                    legalAreaSqm: parcel.legalAreaSqm,
+                    address: parcel.address,
+                    adminUnitName: parcel.adminUnitName,
+                    district: parcel.district
+                }
+            });
+        } catch (e) { /* skip */ }
+    });
+
+    if (geojsonFeatures.length === 0) return;
+
+    landParcelsLocalLayer = L.geoJSON({
+        type: 'FeatureCollection',
+        features: geojsonFeatures
+    }, {
+        style: {
+            fillOpacity: 0,     // Transparent fill (WMS handles rendering)
+            color: 'transparent',
+            weight: 0
+        },
+        onEachFeature: function (feature, layer) {
+            const p = feature.properties;
+            const area = p.areaSqm ? (p.areaSqm / 10000).toFixed(4) : '—';
+            layer.bindTooltip(
+                `<b>Thửa ${p.parcelNumber || '—'}</b> | Tờ BĐ: ${p.mapSheetNumber || '—'}<br>` +
+                `${p.landUseName || p.landUseCode || 'Chưa phân loại'} | ${area} ha`,
+                { className: 'land-parcel-tooltip', sticky: true }
+            );
+        },
+        coordsToLatLng: function (coords) {
+            return L.latLng(coords[1], coords[0]);
+        }
+    });
+
+    landParcelsLocalLayer.addTo(map);
+    document.getElementById('zones-count').textContent = `${geojsonFeatures.length} (local)`;
+}
+
+async function onMapMoveLoadLocalParcels() {
+    if (currentMapType !== 'land-parcels' || !landParcelsActive) {
+        map.off('moveend', onMapMoveLoadLocalParcels);
+        return;
+    }
+    clearTimeout(window._parcelLoadTimeout);
+    window._parcelLoadTimeout = setTimeout(() => loadLocalParcelsOverlay(), 400);
+}
+
+async function updateLandParcelStats() {
+    try {
+        const stats = await fetchAPI('/land-parcels/stats?district=Th%E1%BB%9Bi%20B%C3%ACnh');
+        if (stats) {
+            document.getElementById('zones-count').textContent =
+                `${stats.totalParcels.toLocaleString()} (DB) + WMS`;
+        }
+    } catch (e) {
+        document.getElementById('zones-count').textContent = 'WMS';
+    }
+}
+
+// Lookup land use name from code (client-side for WFS GetFeatureInfo results)
+const LAND_USE_NAME_MAP = {
+    'LUC': 'Đất chuyên trồng lúa nước',
+    'LUK': 'Đất trồng lúa nước còn lại',
+    'CLN': 'Đất trồng cây lâu năm',
+    'RSX': 'Đất rừng sản xuất',
+    'RPH': 'Đất rừng phòng hộ',
+    'RDD': 'Đất rừng đặc dụng',
+    'NTS': 'Đất nuôi trồng thủy sản',
+    'ONT': 'Đất ở nông thôn',
+    'ODT': 'Đất ở đô thị',
+    'DGT': 'Đất giao thông',
+    'DTL': 'Đất thủy lợi',
+    'TMD': 'Đất thương mại dịch vụ',
+    'SKC': 'Đất cụm khu công nghiệp',
+    'BHK': 'Đất bằng trồng cây hàng năm khác',
+    'HNK': 'Đất nương rẫy',
+    'TSC': 'Đất trụ sở cơ quan',
+    'DGD': 'Đất cơ sở giáo dục đào tạo',
+    'DYT': 'Đất cơ sở y tế',
+    'TIN': 'Đất tôn giáo',
+    'CQP': 'Đất quốc phòng',
+    'DNL': 'Đất công trình năng lượng',
+    'SON': 'Đất mặt nước sông ngòi, kênh rạch',
+    'MNC': 'Đất mặt nước chuyên dùng',
+    'NTD': 'Đất cơ sở nghĩa trang, nhà tang lễ',
+    'ONT+CLN': 'Đất ở + Cây lâu năm',
+    'CLN+LUK': 'Đất cây lâu năm + Lúa',
+    'NTS+CLN': 'Đất thủy sản + Cây lâu năm',
+    'LUK+NTS': 'Đất lúa + Thủy sản',
+    'ONT+NTS': 'Đất ở + Thủy sản',
+};
+
+function lookupLandUseName(code) {
+    if (!code) return 'Chưa phân loại';
+    const c = code.trim();
+    if (LAND_USE_NAME_MAP[c]) return LAND_USE_NAME_MAP[c];
+    // Try splitting compound codes
+    const parts = c.replace('+', ',').split(',');
+    const names = parts.map(p => LAND_USE_NAME_MAP[p.trim()] || p.trim());
+    return names.join(' + ');
+}
+
+function showLandParcelInfo(props) {
+    const panel = document.getElementById('zone-info-panel');
+    const content = document.getElementById('zone-info-content');
+    const title = document.getElementById('zone-info-title');
+
+    title.textContent = `Thửa đất số ${props.parcelNumber || '—'}`;
+
+    const area = props.areaSqm ? (props.areaSqm / 10000).toFixed(4) : '—';
+    const legalArea = props.legalAreaSqm ? (props.legalAreaSqm / 10000).toFixed(4) : '—';
+    const colorBox = `<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${getLandUseColor(props.landUseCode)};margin-right:6px;vertical-align:middle;border:1px solid #999"></span>`;
+
+    content.innerHTML = `
+        <div class="zone-info-grid" style="display:grid;grid-template-columns:auto 1fr;gap:8px 12px;font-size:14px;">
+            <span style="color:#6b7280;font-weight:500">Tờ bản đồ số:</span>
+            <span style="font-weight:600">${props.mapSheetNumber || '—'}</span>
+
+            <span style="color:#6b7280;font-weight:500">Thửa số:</span>
+            <span style="font-weight:600">${props.parcelNumber || '—'}</span>
+
+            <span style="color:#6b7280;font-weight:500">Diện tích:</span>
+            <span style="font-weight:600">${area} ha <span style="color:#9ca3af;font-size:12px">(${props.areaSqm ? Math.round(props.areaSqm) : '—'} m²)</span></span>
+
+            <span style="color:#6b7280;font-weight:500">Diện tích pháp lý:</span>
+            <span style="font-weight:600">${legalArea} ha</span>
+
+            <span style="color:#6b7280;font-weight:500">Mục đích sử dụng:</span>
+            <span style="font-weight:600">${colorBox}${props.landUseName || 'Chưa phân loại'} <span style="color:#3b82f6;font-size:12px">(${props.landUseCode || '—'})</span></span>
+
+            <span style="color:#6b7280;font-weight:500">Địa chỉ:</span>
+            <span>${props.address || '—'}</span>
+
+            <span style="color:#6b7280;font-weight:500">Xã/Thị trấn:</span>
+            <span>${props.adminUnitName || '—'}</span>
+
+            <span style="color:#6b7280;font-weight:500">Huyện:</span>
+            <span>${props.district || 'Thới Bình'}</span>
+
+            <span style="color:#6b7280;font-weight:500">Tỉnh:</span>
+            <span>Cà Mau</span>
+        </div>
+        <div style="margin-top:12px;padding:8px 12px;background:#f0f9ff;border-radius:8px;font-size:12px;color:#3b82f6">
+            <span class="material-icons-round" style="font-size:14px;vertical-align:middle">info</span>
+            Nguồn: ilis.camau.gov.vn — Hệ thống thông tin đất đai tỉnh Cà Mau
+        </div>
+    `;
+
+    // Hide edit/delete buttons for land parcels (read-only data)
+    const editBtn = document.getElementById('zone-edit-btn');
+    const deleteBtn = document.getElementById('zone-delete-btn');
+    if (editBtn) editBtn.style.display = 'none';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+
+    panel.classList.remove('hidden');
+}
+
+function loadLandParcelLegend() {
+    const legendContent = document.getElementById('legend-content');
+    if (!legendContent) return;
+
+    const legendItems = [
+        { code: 'LUK', name: 'Đất trồng lúa nước còn lại' },
+        { code: 'LUC', name: 'Đất chuyên trồng lúa nước' },
+        { code: 'ONT+CLN', name: 'Đất ở + cây lâu năm' },
+        { code: 'NTS', name: 'Đất nuôi trồng thủy sản' },
+        { code: 'CLN', name: 'Đất trồng cây lâu năm' },
+        { code: 'DGT', name: 'Đất giao thông' },
+        { code: 'BHK', name: 'Đất bằng chưa sử dụng' },
+        { code: 'DTL', name: 'Đất thủy lợi' },
+        { code: 'ONT', name: 'Đất ở nông thôn' },
+        { code: 'TMD', name: 'Đất thương mại dịch vụ' },
+        { code: 'SKC', name: 'Đất sản xuất kinh doanh' },
+        { code: 'RSX', name: 'Đất rừng sản xuất' },
+        { code: 'RPH', name: 'Đất rừng phòng hộ' },
+        { code: 'HNK', name: 'Đất cây hàng năm khác' },
+        { code: 'DGD', name: 'Đất giáo dục' },
+        { code: 'DYT', name: 'Đất y tế' },
+        { code: 'TIN', name: 'Đất tôn giáo' },
+        { code: 'TSC', name: 'Đất cơ sở tín ngưỡng' },
+        { code: 'CQP', name: 'Đất quốc phòng' },
+        { code: 'MNC', name: 'Đất mặt nước chuyên dùng' },
+    ];
+
+    legendContent.innerHTML = `
+        <div style="margin-bottom:8px;padding:6px 10px;background:#dbeafe;border-radius:6px;font-size:11px;color:#1e40af">
+            <b>129,000+</b> thửa đất từ GeoServer WMS
+        </div>
+    ` + legendItems.map(item => `
+        <div class="legend-item">
+            <div class="legend-color" style="background-color: ${getLandUseColor(item.code)}"></div>
+            <div class="legend-info">
+                <div class="legend-name">${item.name}</div>
+                <div class="legend-code">${item.code}</div>
+            </div>
+        </div>
+    `).join('');
+}
 
 // ============ AI ANALYSIS ============
 let aiAnalysisData = null;
@@ -2046,10 +2489,10 @@ function initImageAnalysisTab() {
         dropzone.dataset.initialized = 'true';
     }
 
-    // Setup start button
+    // Setup start button - Use startGeorefAnalysis for 4-point georeferencing workflow
     const startBtn = document.getElementById('start-analysis-btn');
     if (startBtn && !startBtn.dataset.initialized) {
-        startBtn.addEventListener('click', startMultiAIAnalysis);
+        startBtn.addEventListener('click', startGeorefAnalysis);
         startBtn.dataset.initialized = 'true';
     }
 
@@ -2334,6 +2777,7 @@ async function startMultiAIAnalysis() {
 
     // Reset progress steps
     resetAnalysisSteps();
+    updateAnalysisStep('step1', 'processing', 'Đang upload ảnh...');
 
     // Clear log
     document.getElementById('analysis-log').innerHTML = '';
@@ -2369,6 +2813,10 @@ async function startMultiAIAnalysis() {
 
         currentAnalysisId = data.analysisId;
         addAnalysisLog('System', `Analysis ID: ${currentAnalysisId}`);
+
+        // Step 1 completed - upload succeeded
+        updateAnalysisStep('step1_upload', 'completed', '✓ Đã nhận ảnh bản đồ');
+        updateAnalysisStep('step2', 'processing', 'Đang xử lý georeferencing...');
 
         // Connect to SSE for progress updates
         connectToAnalysisProgress(currentAnalysisId);
@@ -2490,174 +2938,172 @@ async function pollAnalysisStatus(analysisId, maxAttempts = 120) {
     resetAnalysisUI();
 }
 
-function updateAnalysisStep(step, status, message) {
-    const icon = document.getElementById(`step-${step}-icon`);
-    const statusEl = document.getElementById(`step-${step}-status`);
-
-    if (!icon || !statusEl) return;
-
-    statusEl.textContent = message;
-
-    if (status === 'running') {
-        icon.className = 'w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center';
-        icon.innerHTML = '<span class="material-icons-round text-white animate-spin" style="font-size:18px">sync</span>';
-    } else if (status === 'completed') {
-        icon.className = 'w-8 h-8 rounded-full bg-green-500 flex items-center justify-center';
-        icon.innerHTML = '<span class="material-icons-round text-white" style="font-size:18px">check</span>';
-    } else if (status === 'warning') {
-        icon.className = 'w-8 h-8 rounded-full bg-yellow-500 flex items-center justify-center';
-        icon.innerHTML = '<span class="material-icons-round text-white" style="font-size:18px">warning</span>';
-    } else if (status === 'error') {
-        icon.className = 'w-8 h-8 rounded-full bg-red-500 flex items-center justify-center';
-        icon.innerHTML = '<span class="material-icons-round text-white" style="font-size:18px">error</span>';
-    }
-}
+// Note: updateAnalysisStep is defined below (single comprehensive version with step mappings)
 
 /**
- * Reset analysis steps UI for Hybrid mode (3 main steps)
+ * Reset analysis steps UI for new Offline 4-step workflow
  */
 function resetAnalysisSteps() {
-    // Reset main step containers
-    ['step1', 'step2', 'step3'].forEach((step, idx) => {
+    // Reset all 4 step containers
+    ['step1', 'step2', 'step3', 'step4'].forEach((step, idx) => {
         const container = document.getElementById(`${step}-container`);
+        const check = document.getElementById(`${step}-check`);
+        const details = document.getElementById(`${step}-details`);
+
         if (container) {
             container.classList.remove('border-green-500', 'border-red-500', 'border-blue-500', 'bg-green-50', 'bg-red-50', 'bg-blue-50');
-            container.classList.add('opacity-50');
+            if (idx > 0) container.classList.add('opacity-50');
+            else container.classList.remove('opacity-50');
         }
+        if (check) check.classList.remove('text-green-500', 'text-blue-500', 'text-red-500');
+        if (details) details.classList.add('hidden');
     });
 
-    // Reset main step statuses
-    const mainSteps = ['step1_coords', 'step2_opencv', 'step3_labels'];
-    mainSteps.forEach(step => {
+    // Reset step statuses
+    const stepIds = ['step1', 'step2', 'step3', 'step4'];
+    const defaultMessages = [
+        'Tối ưu hóa kích thước ảnh',
+        'Áp dụng 4 điểm tham chiếu GPS',
+        'Phát hiện polygon màu sắc',
+        'Gán loại đất từ legend'
+    ];
+
+    stepIds.forEach((step, idx) => {
         const status = document.getElementById(`step-${step}-status`);
-        if (status) status.textContent = 'Đang chờ...';
+        if (status) status.textContent = defaultMessages[idx];
     });
 
-    // Reset substeps
-    const subSteps = ['gemini', 'gpt4o_coords', 'fallback'];
-    subSteps.forEach(step => {
-        const icon = document.getElementById(`step-${step}-icon`);
-        const status = document.getElementById(`step-${step}-status`);
-        if (icon) {
-            icon.className = 'w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center';
-            icon.innerHTML = '<span class="material-icons-round text-gray-400" style="font-size:14px">hourglass_empty</span>';
-        }
-        if (status) status.textContent = '—';
-    });
-
-    // Hide GPT-4o fallback substep initially
-    const gpt4oSubstep = document.getElementById('gpt4o-coords-substep');
-    if (gpt4oSubstep) gpt4oSubstep.classList.add('hidden');
-
-    // Hide AI usage summary
-    document.getElementById('ai-usage-summary')?.classList.add('hidden');
-
-    // Make step 1 active
+    // Make step 1 active (processing style)
     const step1 = document.getElementById('step1-container');
     if (step1) {
         step1.classList.remove('opacity-50');
         step1.classList.add('border-blue-500', 'bg-blue-50');
     }
+
+    // Reset title
+    const title = document.getElementById('analysis-title');
+    if (title) title.textContent = 'Đang xử lý Offline...';
+
+    // Reset spinner
+    const spinner = document.getElementById('analysis-spinner');
+    if (spinner) {
+        spinner.classList.add('animate-spin');
+        spinner.classList.remove('text-green-500', 'text-red-500');
+        spinner.classList.add('text-green-600');
+        spinner.textContent = 'sync';
+    }
 }
 
 /**
- * Update analysis step with enhanced UI for Hybrid mode
+ * Update analysis step with enhanced UI for Offline 4-step workflow
  */
 function updateAnalysisStep(step, status, message) {
     console.log(`[UI] Step: ${step}, Status: ${status}, Message: ${message}`);
 
-    // Map step names to UI elements
+    // Map backend step names to UI element IDs
     const stepMappings = {
-        'step1_coords': { container: 'step1-container', mainStep: true },
-        'step2_opencv': { container: 'step2-container', mainStep: true },
-        'step3_labels': { container: 'step3-container', mainStep: true },
-        'gemini': { substep: true, parent: 'step1' },
-        'gpt4o_coords': { substep: true, parent: 'step1' },
-        'fallback': { substep: true, parent: 'step1' },
-        'legend': { substep: true, parent: 'step2' }
+        'step1_upload': { container: 'step1-container', statusEl: 'step-step1-status', check: 'step1-check', details: 'step1-details', next: 'step2' },
+        'step2_georef': { container: 'step2-container', statusEl: 'step-step2-status', check: 'step2-check', details: 'step2-details', next: 'step3' },
+        'step3_opencv': { container: 'step3-container', statusEl: 'step-step3-status', check: 'step3-check', details: 'step3-details', next: 'step4' },
+        'step4_mapping': { container: 'step4-container', statusEl: 'step-step4-status', check: 'step4-check', details: 'step4-details', next: null },
+        // Also support short names
+        'step1': { container: 'step1-container', statusEl: 'step-step1-status', check: 'step1-check', details: 'step1-details', next: 'step2' },
+        'step2': { container: 'step2-container', statusEl: 'step-step2-status', check: 'step2-check', details: 'step2-details', next: 'step3' },
+        'step3': { container: 'step3-container', statusEl: 'step-step3-status', check: 'step3-check', details: 'step3-details', next: 'step4' },
+        'step4': { container: 'step4-container', statusEl: 'step-step4-status', check: 'step4-check', details: 'step4-details', next: null },
+        // Legacy support for old step names
+        'step1_coords': { container: 'step1-container', statusEl: 'step-step1-status', check: 'step1-check', next: 'step2' },
+        'step2_opencv': { container: 'step3-container', statusEl: 'step-step3-status', check: 'step3-check', next: 'step4' },
+        'step3_labels': { container: 'step4-container', statusEl: 'step-step4-status', check: 'step4-check', next: null },
     };
 
     const mapping = stepMappings[step];
+    if (!mapping) {
+        console.warn(`Unknown step: ${step}`);
+        return;
+    }
 
-    // Handle main steps
-    if (mapping?.mainStep) {
-        const container = document.getElementById(mapping.container);
-        const statusEl = document.getElementById(`step-${step}-status`);
+    const container = document.getElementById(mapping.container);
+    const statusEl = document.getElementById(mapping.statusEl);
+    const checkEl = document.getElementById(mapping.check);
+    const detailsEl = mapping.details ? document.getElementById(mapping.details) : null;
 
-        if (container) {
-            container.classList.remove('opacity-50', 'border-gray-200', 'border-blue-500', 'border-green-500', 'border-yellow-500', 'border-red-500');
-            container.classList.remove('bg-blue-50', 'bg-green-50', 'bg-yellow-50', 'bg-red-50');
+    if (container) {
+        container.classList.remove('opacity-50', 'border-gray-200', 'border-blue-500', 'border-green-500', 'border-yellow-500', 'border-red-500');
+        container.classList.remove('bg-blue-50', 'bg-green-50', 'bg-yellow-50', 'bg-red-50');
 
-            if (status === 'running') {
-                container.classList.add('border-blue-500', 'bg-blue-50');
-            } else if (status === 'completed') {
-                container.classList.add('border-green-500', 'bg-green-50');
-                // Activate next step
-                const nextStep = step === 'step1_coords' ? 'step2' : step === 'step2_opencv' ? 'step3' : null;
-                if (nextStep) {
-                    const nextContainer = document.getElementById(`${nextStep}-container`);
-                    if (nextContainer) {
-                        nextContainer.classList.remove('opacity-50');
-                        nextContainer.classList.add('border-blue-500', 'bg-blue-50');
-                    }
+        if (status === 'running' || status === 'processing') {
+            container.classList.add('border-blue-500', 'bg-blue-50');
+            // Show spinning icon
+            if (checkEl) {
+                checkEl.classList.remove('text-gray-300', 'text-green-500', 'text-red-500');
+                checkEl.classList.add('text-blue-500', 'animate-spin');
+                checkEl.textContent = 'sync';
+            }
+        } else if (status === 'completed') {
+            container.classList.add('border-green-500', 'bg-green-50');
+            // Show green checkmark (stop spinning)
+            if (checkEl) {
+                checkEl.classList.remove('text-gray-300', 'text-blue-500', 'text-red-500', 'animate-spin');
+                checkEl.classList.add('text-green-500');
+                checkEl.textContent = 'check_circle';
+            }
+            // Show details if available
+            if (detailsEl) detailsEl.classList.remove('hidden');
+            // Activate next step
+            if (mapping.next) {
+                const nextContainer = document.getElementById(`${mapping.next}-container`);
+                if (nextContainer) {
+                    nextContainer.classList.remove('opacity-50');
+                    nextContainer.classList.add('border-blue-500', 'bg-blue-50');
                 }
-            } else if (status === 'warning') {
-                container.classList.add('border-yellow-500', 'bg-yellow-50');
-            } else if (status === 'error' || status === 'failed') {
-                container.classList.add('border-red-500', 'bg-red-50');
+            }
+        } else if (status === 'warning') {
+            container.classList.add('border-yellow-500', 'bg-yellow-50');
+        } else if (status === 'error' || status === 'failed') {
+            container.classList.add('border-red-500', 'bg-red-50');
+            if (checkEl) {
+                checkEl.classList.remove('text-gray-300', 'text-green-500', 'text-blue-500');
+                checkEl.classList.add('text-red-500');
+                checkEl.textContent = 'error';
             }
         }
-
-        if (statusEl) statusEl.textContent = message;
     }
 
-    // Handle substeps (Gemini, GPT-4o fallback, etc.)
-    const icon = document.getElementById(`step-${step}-icon`);
-    const statusEl = document.getElementById(`step-${step}-status`);
-
-    if (icon) {
-        icon.classList.remove('bg-gray-200', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-red-500');
-
-        if (status === 'running') {
-            icon.className = 'w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center';
-            icon.innerHTML = '<span class="material-icons-round text-white animate-spin" style="font-size:14px">sync</span>';
-        } else if (status === 'completed') {
-            icon.className = 'w-6 h-6 rounded-full bg-green-500 flex items-center justify-center';
-            icon.innerHTML = '<span class="material-icons-round text-white" style="font-size:14px">check</span>';
-        } else if (status === 'warning') {
-            icon.className = 'w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center';
-            icon.innerHTML = '<span class="material-icons-round text-white" style="font-size:14px">warning</span>';
-        } else if (status === 'error') {
-            icon.className = 'w-6 h-6 rounded-full bg-red-500 flex items-center justify-center';
-            icon.innerHTML = '<span class="material-icons-round text-white" style="font-size:14px">close</span>';
-        } else if (status === 'skipped') {
-            icon.className = 'w-6 h-6 rounded-full bg-gray-400 flex items-center justify-center';
-            icon.innerHTML = '<span class="material-icons-round text-white" style="font-size:14px">skip_next</span>';
-        }
-    }
-
-    if (statusEl) {
+    // Update status text
+    if (statusEl && message) {
         statusEl.textContent = message;
-        statusEl.className = status === 'error' ? 'text-red-500' :
+        statusEl.className = 'text-sm ' + (status === 'error' ? 'text-red-500' :
             status === 'completed' ? 'text-green-600' :
-                status === 'warning' ? 'text-yellow-600' : 'text-gray-400';
+                status === 'warning' ? 'text-yellow-600' :
+                    status === 'running' || status === 'processing' ? 'text-blue-600' : 'text-gray-500');
     }
 
-    // Show GPT-4o fallback substep when needed
-    if (step === 'fallback' || step === 'gpt4o_coords') {
-        const gpt4oSubstep = document.getElementById('gpt4o-coords-substep');
-        if (gpt4oSubstep) gpt4oSubstep.classList.remove('hidden');
+    // Update title
+    const title = document.getElementById('analysis-title');
+    if (title && message) {
+        title.textContent = message;
     }
 }
+
 
 function addAnalysisLog(source, message) {
     const logContainer = document.getElementById('analysis-log');
     const time = new Date().toLocaleTimeString('vi-VN');
 
-    // Enhanced color mapping
+    // Enhanced color mapping for 4-step offline workflow
     const colorClass = {
-        'GEMINI': 'text-purple-400',
+        'UPLOAD': 'text-blue-400',
+        'GEOREF': 'text-purple-400',
         'OPENCV': 'text-green-400',
+        'MAPPING': 'text-amber-400',
+        'PYTHON': 'text-cyan-400',
+        'STEP1_UPLOAD': 'text-blue-300',
+        'STEP2_GEOREF': 'text-purple-300',
+        'STEP3_OPENCV': 'text-green-300',
+        'STEP4_MAPPING': 'text-amber-300',
+        // Legacy support
+        'GEMINI': 'text-purple-400',
         'GPT4O': 'text-blue-400',
         'GPT4O_COORDS': 'text-blue-300',
         'STEP1_COORDS': 'text-purple-300',
@@ -2671,18 +3117,24 @@ function addAnalysisLog(source, message) {
 
     // Icon mapping
     const icons = {
-        'GEMINI': '🌟',
+        'UPLOAD': '📤',
+        'GEOREF': '📍',
         'OPENCV': '🔷',
+        'MAPPING': '🗺️',
+        'PYTHON': '🐍',
+        'GEMINI': '🌟',
         'GPT4O': '🤖',
         'SYSTEM': '⚙️',
         'ERROR': '❌',
-        'FALLBACK': '🔄'
+        'FALLBACK': '🔄',
+        'SUCCESS': '✅'
     };
     const icon = icons[source.toUpperCase()] || '📋';
 
     logContainer.innerHTML += `<div class="py-0.5"><span class="text-gray-500">[${time}]</span> ${icon} <span class="${colorClass}">[${source}]</span> ${message}</div>`;
     logContainer.scrollTop = logContainer.scrollHeight;
 }
+
 
 function toggleAnalysisLog() {
     const log = document.getElementById('analysis-log');
@@ -2777,9 +3229,84 @@ function displayProcessingInfo(results) {
     }
 }
 
+/**
+ * Create zone popup content like guland.vn
+ * @param {Object} zone - Zone data
+ * @param {number} idx - Zone index
+ * @returns {string} HTML content for popup
+ */
+function createZonePopupContent(zone, idx) {
+    const areaPercent = zone.areaPercent || 0;
+    // Estimate area in hectares (can be customized based on actual map size)
+    const estimatedAreaHa = zone.areaHectares || (areaPercent * 100); // Rough estimate
+    const areaDisplay = estimatedAreaHa >= 100
+        ? `${(estimatedAreaHa / 100).toFixed(2)} km²`
+        : `${estimatedAreaHa.toFixed(2)} ha`;
+
+    return `
+        <div style="font-family: 'Segoe UI', sans-serif; min-width: 280px;">
+            <!-- Header with color and name -->
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);color:white;border-radius:8px 8px 0 0;margin:-13px -14px 12px -14px;">
+                <div style="width:48px;height:48px;border-radius:8px;background-color:${zone.fillColor || zone.color || '#ccc'};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.2);"></div>
+                <div>
+                    <h3 style="font-size:16px;font-weight:600;margin:0;">${zone.zoneName || zone.name || 'Vùng ' + (idx + 1)}</h3>
+                    <div style="font-size:12px;opacity:0.9;">${zone.zoneCode || ''}</div>
+                </div>
+            </div>
+            
+            <!-- Area highlight -->
+            <div style="background:#f0fdf4;padding:10px;border-radius:6px;margin:8px 0;text-align:center;">
+                <div style="font-size:20px;font-weight:700;color:#166534;">${areaDisplay}</div>
+                <div style="font-size:11px;color:#666;margin-top:2px;">Diện tích (${areaPercent.toFixed(2)}%)</div>
+            </div>
+
+            <!-- Details -->
+            <div style="border-top:1px solid #eee;padding-top:8px;">
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;">
+                    <span style="color:#666;font-size:13px;">🌱 Loại đất</span>
+                    <span style="font-weight:500;color:#333;font-size:13px;">${zone.zoneType || zone.soilType || '-'}</span>
+                </div>
+                
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;">
+                    <span style="color:#666;font-size:13px;">📋 Mã code</span>
+                    <span style="font-weight:500;color:#333;font-size:13px;">${zone.zoneCode || '-'}</span>
+                </div>
+                
+                <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;">
+                    <span style="color:#666;font-size:13px;">🎯 Mục đích</span>
+                    <span style="font-weight:500;color:#333;font-size:13px;max-width:160px;text-align:right;">${zone.landUsePurpose || zone.zoneName || '-'}</span>
+                </div>
+                
+                <div style="display:flex;justify-content:space-between;padding:6px 0;">
+                    <span style="color:#666;font-size:13px;">🎨 Màu sắc</span>
+                    <span style="font-weight:500;color:#333;font-size:13px;">
+                        <span style="display:inline-block;width:14px;height:14px;background:${zone.fillColor || zone.color};border:1px solid #ccc;border-radius:3px;vertical-align:middle;margin-right:4px;"></span>
+                        ${zone.fillColor || zone.color || '-'}
+                    </span>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div style="margin-top:12px;padding-top:10px;border-top:1px solid #eee;display:flex;gap:8px;">
+                <button onclick="flyToZone(${idx})" style="flex:1;padding:8px;background:#eff6ff;color:#1e40af;border:none;border-radius:6px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
+                    <span class="material-icons-round" style="font-size:14px;">center_focus_strong</span> Focus
+                </button>
+                <button onclick="highlightZoneOnMap(${idx})" style="flex:1;padding:8px;background:#fef3c7;color:#92400e;border:none;border-radius:6px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;">
+                    <span class="material-icons-round" style="font-size:14px;">highlight</span> Highlight
+                </button>
+            </div>
+        </div>
+    `;
+}
+
 function displayAnalysisResults(results) {
     console.log('Displaying results:', results);
     currentAnalysisResult = results;
+
+    // Auto-sync result-map-type radio with the map type used for analysis
+    const currentMapType = document.getElementById('selected-map-type')?.value || 'planning';
+    const matchingRadio = document.querySelector(`input[name="result-map-type"][value="${currentMapType}"]`);
+    if (matchingRadio) matchingRadio.checked = true;
 
     // Show AI usage summary if available
     if (results.aiUsage) {
@@ -2823,38 +3350,56 @@ function displayAnalysisResults(results) {
     const ne = coords.ne || coords.bottomRight || {};
     const center = coords.center || {};
 
+    // Compute 4 corners from SW and NE
+    const nw = { lat: ne.lat, lng: sw.lng };
+    const se = { lat: sw.lat, lng: ne.lng };
+
     coordsInfo.innerHTML = `
         <div>
-            <span class="text-gray-500">Tâm bản đồ:</span>
-            <span class="font-medium">${center.lat?.toFixed(4) || 'N/A'}, ${center.lng?.toFixed(4) || 'N/A'}</span>
+            <span class="text-gray-500">🔵 Góc Tây-Bắc (NW):</span>
+            <span class="font-medium">${nw.lat?.toFixed(4) || 'N/A'}, ${nw.lng?.toFixed(4) || 'N/A'}</span>
         </div>
         <div>
-            <span class="text-gray-500">Tỉ lệ:</span>
-            <span class="font-medium">${coords.scale || 'N/A'}</span>
+            <span class="text-gray-500">🔴 Góc Đông-Bắc (NE):</span>
+            <span class="font-medium">${ne.lat?.toFixed(4) || 'N/A'}, ${ne.lng?.toFixed(4) || 'N/A'}</span>
         </div>
         <div>
-            <span class="text-gray-500">Góc Tây-Nam:</span>
+            <span class="text-gray-500">🟢 Góc Tây-Nam (SW):</span>
             <span class="font-medium">${sw.lat?.toFixed(4) || 'N/A'}, ${sw.lng?.toFixed(4) || 'N/A'}</span>
         </div>
         <div>
-            <span class="text-gray-500">Góc Đông-Bắc:</span>
-            <span class="font-medium">${ne.lat?.toFixed(4) || 'N/A'}, ${ne.lng?.toFixed(4) || 'N/A'}</span>
+            <span class="text-gray-500">🟡 Góc Đông-Nam (SE):</span>
+            <span class="font-medium">${se.lat?.toFixed(4) || 'N/A'}, ${se.lng?.toFixed(4) || 'N/A'}</span>
         </div>
         ${coords.confidence ? `<div class="col-span-2"><span class="text-gray-500">Độ tin cậy:</span> <span class="font-medium text-${coords.confidence === 'high' ? 'green' : coords.confidence === 'medium' ? 'yellow' : 'red'}-600">${coords.confidence.toUpperCase()}</span></div>` : ''}
     `;
 
-    // Clear existing layers on map
+    // Clear existing layers on map (including previous image overlays)
     if (resultMapPreview) {
         resultMapPreview.eachLayer(layer => {
-            if (layer instanceof L.Rectangle || layer instanceof L.Polygon || layer instanceof L.Circle) {
+            if (layer instanceof L.Rectangle || layer instanceof L.Polygon ||
+                layer instanceof L.Circle || layer instanceof L.ImageOverlay) {
                 resultMapPreview.removeLayer(layer);
             }
         });
     }
 
+    // Also clear tracked overlays
+    if (window.currentMapOverlays) {
+        window.currentMapOverlays = [];
+    }
+
     // Update map preview
     if (resultMapPreview && center.lat && center.lng) {
-        resultMapPreview.setView([center.lat, center.lng], 10);
+        // Use fitBounds/flyToBounds if we have valid bounds
+        if (sw.lat && ne.lat && sw.lng && ne.lng) {
+            resultMapPreview.flyToBounds([
+                [sw.lat, sw.lng],
+                [ne.lat, ne.lng]
+            ], { padding: [20, 20], duration: 1.5 });
+        } else {
+            resultMapPreview.setView([center.lat, center.lng], 10);
+        }
 
         // Add bounding box with dashed line
         if (sw.lat && ne.lat) {
@@ -2868,6 +3413,46 @@ function displayAnalysisResults(results) {
                 fillOpacity: 0.05,
                 fillColor: '#8B5CF6'
             }).addTo(resultMapPreview);
+
+            // NEW: Add the original map image as a georeferenced overlay
+            // Get image from either the preview or the uploaded file
+            const georefImage = document.getElementById('georef-preview-image');
+            const mapImageInput = document.getElementById('map-image-input');
+
+            if (georefImage && georefImage.src && georefImage.src.startsWith('data:')) {
+                // Use the preview image directly
+                const imageBounds = [[sw.lat, sw.lng], [ne.lat, ne.lng]];
+
+                const mapImageOverlay = L.imageOverlay(georefImage.src, imageBounds, {
+                    opacity: 0.8,
+                    interactive: false,
+                    className: 'georef-map-overlay'
+                });
+
+                mapImageOverlay.addTo(resultMapPreview);
+
+                // Store reference for later removal
+                if (!window.currentMapOverlays) window.currentMapOverlays = [];
+                window.currentMapOverlays.push(mapImageOverlay);
+
+                console.log('Added georeferenced image overlay with bounds:', imageBounds);
+            } else if (mapImageInput && mapImageInput.files[0]) {
+                // Read the file and create overlay
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const imageBounds = [[sw.lat, sw.lng], [ne.lat, ne.lng]];
+                    const mapImageOverlay = L.imageOverlay(e.target.result, imageBounds, {
+                        opacity: 0.8,
+                        interactive: false,
+                        className: 'georef-map-overlay'
+                    });
+                    mapImageOverlay.addTo(resultMapPreview);
+
+                    if (!window.currentMapOverlays) window.currentMapOverlays = [];
+                    window.currentMapOverlays.push(mapImageOverlay);
+                };
+                reader.readAsDataURL(mapImageInput.files[0]);
+            }
         }
 
         // Display zones on map with black borders
@@ -2884,19 +3469,54 @@ function displayAnalysisResults(results) {
             }
 
             if (boundaries && Array.isArray(boundaries) && boundaries.length >= 3) {
+                // Create popup content like guland.vn
+                const popupContent = createZonePopupContent(zone, idx);
+
                 // Draw polygon from boundaries
-                L.polygon(boundaries, {
+                const polygon = L.polygon(boundaries, {
                     color: '#333333',           // Black border
                     weight: 2,                  // Border thickness
                     fillColor: zone.fillColor || zone.color || '#808080',
-                    fillOpacity: 0.5,
+                    fillOpacity: 0.3,           // More transparent by default
                     className: `zone-${idx}`
-                }).bindPopup(`
-                    <b>${zone.name || 'Vùng ' + (idx + 1)}</b><br>
-                    Loại đất: ${zone.soilType || zone.zoneType || 'N/A'}<br>
-                    Mã: ${zone.zoneCode || 'N/A'}<br>
-                    Diện tích: ${zone.areaPercent ? zone.areaPercent + '%' : 'N/A'}
-                `).addTo(resultMapPreview);
+                });
+
+                // Add popup and tooltip
+                polygon.bindPopup(popupContent, { maxWidth: 320, className: 'zone-popup-wrapper' });
+                polygon.bindTooltip(`${zone.zoneName || zone.name || zone.soilType || 'Vùng'}`, {
+                    permanent: false,
+                    direction: 'top',
+                    className: 'zone-tooltip'
+                });
+
+                // Add hover interactions like guland.vn
+                polygon.on('mouseover', function () {
+                    this.setStyle({
+                        color: '#00BCD4',   // Cyan border on hover
+                        weight: 3,
+                        fillOpacity: 0.4
+                    });
+                    this.bringToFront();
+                });
+
+                polygon.on('mouseout', function () {
+                    this.setStyle({
+                        color: '#333333',
+                        weight: 2,
+                        fillOpacity: 0.3
+                    });
+                });
+
+                polygon.on('click', function () {
+                    this.setStyle({
+                        color: '#00BCD4',
+                        weight: 4,
+                        fillOpacity: 0.5,
+                        dashArray: null
+                    });
+                });
+
+                polygon.addTo(resultMapPreview);
             } else if (coords.center) {
                 // Create approximate zones as circles if no boundaries
                 const offsetLat = (Math.random() - 0.5) * 0.1;
@@ -2913,8 +3533,8 @@ function displayAnalysisResults(results) {
                     <b>${zone.name || 'Vùng ' + (idx + 1)}</b><br>
                     Loại đất: ${zone.soilType || zone.zoneType || 'N/A'}<br>
                     Mã: ${zone.zoneCode || 'N/A'}<br>
-                    Diện tích: ${zone.areaPercent ? zone.areaPercent + '%' : 'N/A'}
-                `).addTo(resultMapPreview);
+                    Diện tích: ${zone.areaHectares ? zone.areaHectares.toFixed(2) + ' ha' : (zone.areaPercent ? zone.areaPercent + '%' : 'N/A')}
+                `).bindTooltip(`${zone.name || zone.soilType || 'Vùng'}: ${zone.areaHectares ? zone.areaHectares.toFixed(2) + ' ha' : ''}`, { permanent: false, direction: 'top' }).addTo(resultMapPreview);
             }
         });
     }
@@ -2937,6 +3557,38 @@ function displayAnalysisResults(results) {
         </div>
     `).join('');
 
+    // Display soil statistics table (NEW)
+    const soilStats = results.soilStatistics || [];
+    const soilStatsContainer = document.getElementById('soil-statistics-container');
+    const soilStatsBody = document.getElementById('soil-statistics-body');
+    const soilTypesCount = document.getElementById('soil-types-count');
+
+    if (soilStats.length > 0 && soilStatsContainer && soilStatsBody) {
+        soilStatsContainer.classList.remove('hidden');
+        soilTypesCount.textContent = soilStats.length;
+
+        // Sort by area descending
+        soilStats.sort((a, b) => (b.totalAreaPercent || 0) - (a.totalAreaPercent || 0));
+
+        soilStatsBody.innerHTML = soilStats.map(stat => `
+            <tr class="hover:bg-gray-50">
+                <td class="px-3 py-2">
+                    <span class="inline-flex items-center px-2 py-1 bg-amber-100 text-amber-800 text-xs font-medium rounded">
+                        ${stat.zoneCode || '?'}
+                    </span>
+                </td>
+                <td class="px-3 py-2 text-gray-700">${stat.zoneName || stat.zoneType || 'N/A'}</td>
+                <td class="px-3 py-2 text-center font-medium">${stat.zoneCount || 0}</td>
+                <td class="px-3 py-2 text-right">${(stat.totalAreaPercent || 0).toFixed(2)}%</td>
+                <td class="px-3 py-2 text-right font-medium text-amber-700">
+                    ${stat.totalAreaHa ? stat.totalAreaHa.toLocaleString('vi-VN', { maximumFractionDigits: 2 }) + ' ha' : 'N/A'}
+                </td>
+            </tr>
+        `).join('');
+    } else if (soilStatsContainer) {
+        soilStatsContainer.classList.add('hidden');
+    }
+
     // Display zones list with color indicator and border
     document.getElementById('total-zones-count').textContent = zones.length;
     const zonesList = document.getElementById('detected-zones-list');
@@ -2946,13 +3598,12 @@ function displayAnalysisResults(results) {
              title="Click để highlight trên bản đồ">
             <div class="w-8 h-8 rounded border-2 border-gray-800" style="background-color: ${zone.fillColor || zone.color || '#ccc'}"></div>
             <div class="flex-1 min-w-0">
-                <div class="font-medium truncate">${zone.name || `Vùng ${idx + 1}`}</div>
-                <div class="text-sm text-gray-500">${zone.soilType || zone.zoneType || 'N/A'}</div>
-                <div class="text-xs text-gray-400">${zone.zoneCode ? `Mã: ${zone.zoneCode}` : ''}</div>
+                <div class="font-medium truncate">${zone.zoneName || zone.name || `Vùng ${idx + 1}`}</div>
+                <div class="text-sm text-gray-500">${zone.zoneCode ? `[${zone.zoneCode}]` : ''} ${zone.soilType || zone.zoneType || 'N/A'}</div>
             </div>
             <div class="text-right">
-                <div class="text-sm font-medium text-gray-700">${zone.areaPercent ? zone.areaPercent + '%' : ''}</div>
-                <div class="text-xs text-gray-400">${zone.areaPercent ? '~' + Math.round(zone.areaPercent * 100) + ' ha' : ''}</div>
+                <div class="text-sm font-medium text-gray-700">${zone.areaPercent ? zone.areaPercent.toFixed(2) + '%' : ''}</div>
+                <div class="text-xs text-amber-600 font-medium">${zone.areaHectares ? zone.areaHectares.toLocaleString('vi-VN', { maximumFractionDigits: 2 }) + ' ha' : ''}</div>
             </div>
         </div>
     `).join('');
@@ -2978,6 +3629,38 @@ function displayAnalysisResults(results) {
     showToast('Thành công', `Đã phân tích ${zones.length} vùng`, 'success');
 }
 
+// Helper function to fly/zoom to a specific zone
+function flyToZone(zoneIndex) {
+    if (!resultMapPreview || !currentAnalysisResult?.zones) return;
+
+    const zone = currentAnalysisResult.zones[zoneIndex];
+    if (!zone) return;
+
+    // Parse boundaries to get center
+    let boundaries = zone.boundaryCoordinates;
+    if (typeof boundaries === 'string') {
+        try {
+            boundaries = JSON.parse(boundaries);
+        } catch (e) {
+            return;
+        }
+    }
+
+    if (boundaries && boundaries.length > 0) {
+        // Calculate center of polygon
+        const lats = boundaries.map(b => b[0]);
+        const lngs = boundaries.map(b => b[1]);
+        const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+        const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+
+        // Fly to center with zoom
+        resultMapPreview.flyTo([centerLat, centerLng], 14, { duration: 1 });
+
+        // Highlight the zone after flying
+        setTimeout(() => highlightZoneOnMap(zoneIndex), 1000);
+    }
+}
+
 // Helper function to highlight zone on map
 function highlightZoneOnMap(zoneIndex) {
     if (!resultMapPreview || !currentAnalysisResult?.zones) return;
@@ -2989,10 +3672,27 @@ function highlightZoneOnMap(zoneIndex) {
     resultMapPreview.eachLayer(layer => {
         if (layer.options?.className === `zone-${zoneIndex}`) {
             const originalColor = layer.options.fillColor;
-            layer.setStyle({ fillColor: '#FFFF00', fillOpacity: 0.8 });
+            const originalOpacity = layer.options.fillOpacity || 0.3;
+
+            // Flash cyan then back
+            layer.setStyle({
+                color: '#00BCD4',
+                weight: 4,
+                fillColor: '#FFFF00',
+                fillOpacity: 0.7
+            });
+
             setTimeout(() => {
-                layer.setStyle({ fillColor: originalColor, fillOpacity: 0.5 });
-            }, 500);
+                layer.setStyle({
+                    color: '#00BCD4',
+                    weight: 3,
+                    fillColor: originalColor,
+                    fillOpacity: 0.5
+                });
+            }, 800);
+
+            // Open popup
+            layer.openPopup();
         }
     });
 }
@@ -3032,7 +3732,7 @@ async function confirmAndSaveAnalysis() {
 
         if (data.success) {
             showToast('Thành công', data.message, 'success');
-            discardAnalysis();
+            discardAnalysis(true); // Skip backend DELETE - zones already saved to DB
             await loadPlanningZones();
             setTimeout(() => switchTab('map'), 1000);
         } else {
@@ -3044,8 +3744,8 @@ async function confirmAndSaveAnalysis() {
     }
 }
 
-function discardAnalysis() {
-    if (currentAnalysisId) {
+function discardAnalysis(skipBackendDelete = false) {
+    if (currentAnalysisId && !skipBackendDelete) {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
         fetch(`${API_BASE_URL}/admin/map-image/analyze/${currentAnalysisId}`, {
             method: 'DELETE',
@@ -3058,13 +3758,22 @@ function discardAnalysis() {
     clearMapImage();
     document.getElementById('analysis-results-container').classList.add('hidden');
 
-    // Clear map layers
+    // Clear map layers (including image overlays)
     if (resultMapPreview) {
         resultMapPreview.eachLayer(layer => {
-            if (layer instanceof L.Rectangle || layer instanceof L.Polygon) {
+            if (layer instanceof L.Rectangle || layer instanceof L.Polygon ||
+                layer instanceof L.Circle || layer instanceof L.ImageOverlay) {
                 resultMapPreview.removeLayer(layer);
             }
         });
+    }
+
+    // Clear tracked image overlays
+    if (window.currentMapOverlays) {
+        window.currentMapOverlays.forEach(overlay => {
+            if (resultMapPreview) resultMapPreview.removeLayer(overlay);
+        });
+        window.currentMapOverlays = [];
     }
 }
 
@@ -3074,3 +3783,635 @@ window.toggleAnalysisLog = toggleAnalysisLog;
 window.discardAnalysis = discardAnalysis;
 window.confirmAndSaveAnalysis = confirmAndSaveAnalysis;
 window.highlightZoneOnMap = highlightZoneOnMap;
+
+// ============ GEOREFERENCING CONTROL POINTS ============
+/**
+ * Georeferencing System for Advanced Map Analysis
+ * Allows placing 4 control points on image to map pixel coordinates to lat/lng
+ */
+
+// State for control points
+const controlPoints = {
+    1: { px: null, py: null, lat: null, lng: null, set: false },
+    2: { px: null, py: null, lat: null, lng: null, set: false },
+    3: { px: null, py: null, lat: null, lng: null, set: false },
+    4: { px: null, py: null, lat: null, lng: null, set: false }
+};
+let currentControlPointToSet = 1;
+let georefImageLoaded = false;
+
+// Control point colors for visual markers
+const cpColors = {
+    1: '#3B82F6', // Blue
+    2: '#22C55E', // Green
+    3: '#F59E0B', // Amber
+    4: '#A855F7'  // Purple
+};
+
+/**
+ * Handle click on georeferencing preview image to set control point pixel position
+ */
+function handleGeorefClick(event) {
+    const img = document.getElementById('georef-preview-image');
+    if (!img) return;
+
+    const rect = img.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    // Convert to actual image pixel coordinates
+    const scaleX = img.naturalWidth / rect.width;
+    const scaleY = img.naturalHeight / rect.height;
+    const pixelX = Math.round(x * scaleX);
+    const pixelY = Math.round(y * scaleY);
+
+    // Set the next unset control point
+    let pointToSet = currentControlPointToSet;
+    for (let i = 1; i <= 4; i++) {
+        if (!controlPoints[i].px && !controlPoints[i].py) {
+            pointToSet = i;
+            break;
+        }
+    }
+
+    // Update control point
+    controlPoints[pointToSet].px = pixelX;
+    controlPoints[pointToSet].py = pixelY;
+    document.getElementById(`cp-${pointToSet}-px`).value = pixelX;
+    document.getElementById(`cp-${pointToSet}-py`).value = pixelY;
+
+    // Update status
+    updateControlPointStatus(pointToSet);
+
+    // Render marker on image
+    renderGeorefMarkers();
+
+    // Move to next point
+    currentControlPointToSet = (pointToSet % 4) + 1;
+
+    console.log(`Control Point ${pointToSet}: Pixel(${pixelX}, ${pixelY})`);
+}
+
+/**
+ * Update control point when lat/lng input changes
+ */
+function updateControlPoint(pointNum) {
+    const lat = parseFloat(document.getElementById(`cp-${pointNum}-lat`).value);
+    const lng = parseFloat(document.getElementById(`cp-${pointNum}-lng`).value);
+
+    if (!isNaN(lat)) controlPoints[pointNum].lat = lat;
+    if (!isNaN(lng)) controlPoints[pointNum].lng = lng;
+
+    updateControlPointStatus(pointNum);
+    checkGeorefComplete();
+}
+
+/**
+ * Update visual status of a control point card
+ */
+function updateControlPointStatus(pointNum) {
+    const cp = controlPoints[pointNum];
+    const hasPixel = cp.px !== null && cp.py !== null;
+    const hasGeo = cp.lat !== null && cp.lng !== null;
+    const statusEl = document.getElementById(`cp-${pointNum}-status`);
+    const container = document.getElementById(`cp-${pointNum}-container`);
+
+    if (hasPixel && hasGeo) {
+        cp.set = true;
+        if (statusEl) {
+            statusEl.textContent = '✓ Hoàn tất';
+            statusEl.classList.remove('text-blue-500', 'text-green-500', 'text-amber-500', 'text-purple-500');
+            statusEl.classList.add('text-green-600', 'font-semibold');
+        }
+        if (container) {
+            container.classList.add('ring-2', 'ring-green-400');
+        }
+    } else if (hasPixel) {
+        if (statusEl) {
+            statusEl.textContent = `Pixel: (${cp.px}, ${cp.py})`;
+        }
+        if (container) {
+            container.classList.remove('ring-2', 'ring-green-400');
+        }
+    } else {
+        cp.set = false;
+        if (statusEl) {
+            statusEl.textContent = 'Chưa đặt';
+        }
+        if (container) {
+            container.classList.remove('ring-2', 'ring-green-400');
+        }
+    }
+}
+
+/**
+ * Render visual markers on the georef preview image
+ */
+function renderGeorefMarkers() {
+    const markersLayer = document.getElementById('georef-markers-layer');
+    const img = document.getElementById('georef-preview-image');
+    if (!markersLayer || !img) return;
+
+    // Clear existing markers
+    markersLayer.innerHTML = '';
+
+    const rect = img.getBoundingClientRect();
+    const containerRect = document.getElementById('georef-preview-container').getBoundingClientRect();
+
+    for (let i = 1; i <= 4; i++) {
+        const cp = controlPoints[i];
+        if (cp.px !== null && cp.py !== null) {
+            // Convert image pixels to display position
+            const scaleX = rect.width / img.naturalWidth;
+            const scaleY = rect.height / img.naturalHeight;
+            const displayX = cp.px * scaleX;
+            const displayY = cp.py * scaleY;
+
+            const marker = document.createElement('div');
+            marker.className = 'absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none';
+            marker.style.left = `${displayX}px`;
+            marker.style.top = `${displayY}px`;
+            marker.innerHTML = `
+                <div class="relative">
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg"
+                         style="background-color: ${cpColors[i]};">
+                        ${i}
+                    </div>
+                    <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 
+                                border-l-4 border-r-4 border-t-4 border-transparent"
+                         style="border-top-color: ${cpColors[i]};"></div>
+                </div>
+            `;
+            markersLayer.appendChild(marker);
+        }
+    }
+}
+
+/**
+ * Fill GCP preset for Thới Bình district, Ca Mau province
+ * Coordinates match Global Mapper: 9°15'-9°30'N, 105°00'-105°15'E
+ */
+function fillThoiBinhPreset() {
+    const img = document.getElementById('georef-preview-image');
+    if (!img || !img.naturalWidth) {
+        showToast('Lỗi', 'Vui lòng upload ảnh trước', 'error');
+        return;
+    }
+
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+
+    // GCP pixel positions from Global Mapper (proportional to image size)
+    // Original image: 3352x3566, GCP at content corners
+    const presets = [
+        { point: 1, px: Math.round(w * 0.1209), py: Math.round(h * 0.1627), lat: 9.5000, lng: 105.0000 },  // Top-left
+        { point: 2, px: Math.round(w * 0.1191), py: Math.round(h * 0.8567), lat: 9.2500, lng: 105.0000 },  // Bottom-left
+        { point: 3, px: Math.round(w * 0.8649), py: Math.round(h * 0.8567), lat: 9.2500, lng: 105.2500 },  // Bottom-right
+        { point: 4, px: Math.round(w * 0.8617), py: Math.round(h * 0.1638), lat: 9.5000, lng: 105.2500 }   // Top-right
+    ];
+
+    presets.forEach(p => {
+        controlPoints[p.point] = {
+            px: p.px,
+            py: p.py,
+            lat: p.lat,
+            lng: p.lng,
+            set: true
+        };
+
+        document.getElementById(`cp-${p.point}-px`).value = p.px;
+        document.getElementById(`cp-${p.point}-py`).value = p.py;
+        document.getElementById(`cp-${p.point}-lat`).value = p.lat;
+        document.getElementById(`cp-${p.point}-lng`).value = p.lng;
+
+        updateControlPointStatus(p.point);
+    });
+
+    renderGeorefMarkers();
+    checkGeorefComplete();
+
+    showToast('Áp dụng preset', 'H. Thới Bình - Cà Mau (9°15\'-9°30\'N, 105°00\'-105°15\'E)', 'success');
+}
+
+/**
+ * Fill with Ca Mau province preset coordinates (whole province)
+ */
+function fillCaMauPreset() {
+    const img = document.getElementById('georef-preview-image');
+    if (!img || !img.naturalWidth) {
+        showToast('Lỗi', 'Vui lòng upload ảnh trước', 'error');
+        return;
+    }
+
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+
+    // Set pixel coordinates (corners)
+    const presets = [
+        { point: 1, px: 0, py: 0, lat: 9.55, lng: 104.75 },      // Top-left
+        { point: 2, px: 0, py: h, lat: 8.55, lng: 104.75 },      // Bottom-left
+        { point: 3, px: w, py: h, lat: 8.55, lng: 105.45 },      // Bottom-right
+        { point: 4, px: w, py: 0, lat: 9.55, lng: 105.45 }       // Top-right
+    ];
+
+    presets.forEach(p => {
+        controlPoints[p.point] = {
+            px: p.px,
+            py: p.py,
+            lat: p.lat,
+            lng: p.lng,
+            set: true
+        };
+
+        document.getElementById(`cp-${p.point}-px`).value = p.px;
+        document.getElementById(`cp-${p.point}-py`).value = p.py;
+        document.getElementById(`cp-${p.point}-lat`).value = p.lat;
+        document.getElementById(`cp-${p.point}-lng`).value = p.lng;
+
+        updateControlPointStatus(p.point);
+    });
+
+    renderGeorefMarkers();
+    checkGeorefComplete();
+
+    showToast('Áp dụng preset', 'Toàn tỉnh Cà Mau (8.55°-9.55°N, 104.75°-105.45°E)', 'success');
+}
+
+/**
+ * Check if all 4 control points are complete and enable analysis button
+ */
+function checkGeorefComplete() {
+    const allComplete = Object.values(controlPoints).every(cp => cp.set);
+    const analysisBtn = document.getElementById('start-analysis-btn');
+
+    if (analysisBtn) {
+        if (allComplete && georefImageLoaded) {
+            analysisBtn.disabled = false;
+        }
+    }
+
+    return allComplete;
+}
+
+/**
+ * Get control points data for API submission
+ */
+function getControlPointsData() {
+    return Object.entries(controlPoints).map(([id, cp]) => ({
+        pointId: parseInt(id),
+        pixelX: cp.px,
+        pixelY: cp.py,
+        lat: cp.lat,
+        lng: cp.lng
+    }));
+}
+
+/**
+ * Reset all control points
+ */
+function resetControlPoints() {
+    for (let i = 1; i <= 4; i++) {
+        controlPoints[i] = { px: null, py: null, lat: null, lng: null, set: false };
+        document.getElementById(`cp-${i}-px`).value = '';
+        document.getElementById(`cp-${i}-py`).value = '';
+        document.getElementById(`cp-${i}-lat`).value = '';
+        document.getElementById(`cp-${i}-lng`).value = '';
+        updateControlPointStatus(i);
+    }
+    currentControlPointToSet = 1;
+    renderGeorefMarkers();
+}
+
+/**
+ * Initialize georeferencing preview when image is uploaded
+ */
+function initGeorefPreview(imageSrc) {
+    const georefSection = document.getElementById('georef-section');
+    const georefImage = document.getElementById('georef-preview-image');
+
+    if (georefSection && georefImage) {
+        georefImage.src = imageSrc;
+        georefImage.style.display = 'block';
+        georefSection.classList.remove('hidden');
+        georefImageLoaded = true;
+
+        // Wait for image to load then render any existing markers
+        georefImage.onload = () => {
+            renderGeorefMarkers();
+        };
+    }
+}
+
+// Update the existing map-image-input handler to also initialize georef preview
+document.addEventListener('DOMContentLoaded', () => {
+    const mapImageInput = document.getElementById('map-image-input');
+    if (mapImageInput) {
+        mapImageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    // Initialize georef preview with the uploaded image
+                    initGeorefPreview(ev.target.result);
+
+                    // Reset control points for new image
+                    resetControlPoints();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+});
+
+// Export georeferencing functions
+window.handleGeorefClick = handleGeorefClick;
+window.updateControlPoint = updateControlPoint;
+window.fillCaMauPreset = fillCaMauPreset;
+window.resetControlPoints = resetControlPoints;
+window.getControlPointsData = getControlPointsData;
+window.checkGeorefComplete = checkGeorefComplete;
+
+// ============ GEOREFERENCED ANALYSIS SUBMISSION ============
+
+/**
+ * Start georeferenced analysis with the new offline-only API
+ * Collects control points and file, then calls /api/admin/map-image/analyze/georef
+ */
+async function startGeorefAnalysis() {
+    const fileInput = document.getElementById('map-image-input');
+    const file = fileInput?.files[0];
+
+    if (!file) {
+        showToast('Lỗi', 'Vui lòng chọn file ảnh bản đồ', 'error');
+        return;
+    }
+
+    // Validate control points
+    const controlPoints = getControlPointsData();
+    const validPoints = controlPoints.filter(cp =>
+        cp.pixelX !== null && cp.pixelY !== null &&
+        cp.lat !== null && cp.lng !== null
+    );
+
+    if (validPoints.length !== 4) {
+        showToast('Lỗi', 'Vui lòng đặt đủ 4 điểm tham chiếu GPS', 'error');
+        return;
+    }
+
+    // Get province/district and map type from UI
+    const province = document.getElementById('analysis-province')?.value || 'Cà Mau';
+    const district = document.getElementById('analysis-district')?.value || '';
+    const mapType = document.getElementById('selected-map-type')?.value || 'soil';
+
+    // Disable button and show loading
+    const btn = document.getElementById('start-analysis-btn');
+    btn.disabled = true;
+    btn.innerHTML = `
+        <span class="material-icons-round animate-spin">sync</span>
+        Đang phân tích...
+    `;
+
+    // Show progress container
+    document.getElementById('analysis-progress-container')?.classList.remove('hidden');
+    // Reset all steps to pending state first
+    resetAnalysisSteps();
+    updateAnalysisStep('step1', 'processing', 'Đang upload ảnh...');
+
+    try {
+        // Build FormData
+        const formData = new FormData();
+        formData.append('image', file);
+        formData.append('controlPoints', JSON.stringify(controlPoints));
+        formData.append('province', province);
+        formData.append('district', district);
+        formData.append('mapType', mapType);
+
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+
+        // Send to new georef endpoint
+        const response = await fetch(`${API_BASE_URL}/admin/map-image/analyze/georef`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'Lỗi khởi tạo phân tích');
+        }
+
+        console.log('Georef analysis started:', data);
+        currentAnalysisId = data.analysisId;
+
+        // Step 1 completed - upload succeeded
+        updateAnalysisStep('step1_upload', 'completed', '✓ Đã nhận ảnh bản đồ');
+        updateAnalysisStep('step2', 'processing', 'Đang xử lý georeferencing...');
+
+        // Connect to SSE for progress updates
+        connectToAnalysisProgress(data.analysisId);
+
+        showToast('Đang phân tích', data.message, 'info');
+
+    } catch (error) {
+        console.error('Georef analysis error:', error);
+        showToast('Lỗi', error.message, 'error');
+
+        btn.disabled = false;
+        btn.innerHTML = `
+            <span class="material-icons-round">memory</span>
+            Phân tích bằng OpenCV (Offline)
+        `;
+        document.getElementById('analysis-progress-container')?.classList.add('hidden');
+    }
+}
+
+/**
+ * Update analysis step UI — delegates to the comprehensive version above
+ * (This wrapper exists for compatibility with the georef analysis flow)
+ */
+// Note: The main updateAnalysisStep function is defined earlier with full step mapping support.
+// No duplicate needed here.
+
+/**
+ * Handle analysis completion
+ */
+function handleAnalysisComplete(result) {
+    console.log('Analysis result:', result);
+
+    // Store result for confirmation
+    currentAnalysisResult = result;
+
+    // Update UI
+    const spinner = document.getElementById('analysis-spinner');
+    if (spinner) {
+        spinner.classList.remove('animate-spin');
+        spinner.textContent = 'check_circle';
+        spinner.classList.add('text-green-500');
+    }
+
+    const title = document.getElementById('analysis-title');
+    if (title) {
+        const zoneCount = result.zones?.length || 0;
+        const totalHa = result.totalAreaHectares?.toFixed(2) || '0';
+        title.textContent = `Hoàn tất! Phát hiện ${zoneCount} vùng, tổng ${totalHa} ha`;
+    }
+
+    // Reset button
+    const btn = document.getElementById('start-analysis-btn');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `
+            <span class="material-icons-round">memory</span>
+            Phân tích bằng OpenCV (Offline)
+        `;
+    }
+
+    // Display results
+    if (result.success && result.zones?.length > 0) {
+        displayAnalysisResults(result);
+        showToast('Thành công', `Phát hiện ${result.zones.length} vùng`, 'success');
+    } else {
+        showToast('Cảnh báo', result.error || 'Không phát hiện được vùng nào', 'warning');
+    }
+}
+
+/**
+ * Reset analysis UI to initial state
+ */
+function resetAnalysisUI() {
+    const btn = document.getElementById('start-analysis-btn');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `
+            <span class="material-icons-round">memory</span>
+            Phân tích bằng OpenCV (Offline)
+        `;
+    }
+    document.getElementById('analysis-progress-container')?.classList.add('hidden');
+}
+
+// Wire up the analysis button on page load
+document.addEventListener('DOMContentLoaded', () => {
+    const analysisBtn = document.getElementById('start-analysis-btn');
+    if (analysisBtn) {
+        analysisBtn.addEventListener('click', startGeorefAnalysis);
+    }
+});
+
+
+// ============ ANALYSIS HISTORY (Phase 6) ============
+
+async function loadAnalysisHistory() {
+    const container = document.getElementById('analysis-history-list');
+    if (!container) return;
+
+    container.innerHTML = '<div class="text-center py-4 text-gray-500">Đang tải lịch sử...</div>';
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/admin/map-image/history`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        if (!data.success || !data.history || data.history.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-gray-500">
+                    <span class="material-icons-round text-4xl mb-2">history</span>
+                    <p>Chưa có lịch sử phân tích nào</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = data.history.map(item => `
+            <div class="bg-white p-4 rounded-lg border border-gray-200 hover:shadow-md transition-shadow relative group">
+                <div class="flex items-start justify-between">
+                    <div class="flex gap-3">
+                        <div class="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border">
+                            ${item.originalImagePath ?
+                `<img src="/api/admin/map-image/uploads/${item.originalImagePath.split('/').pop()}" class="w-full h-full object-cover" onerror="this.src='/images/placeholder.png'">` :
+                `<span class="material-icons-round text-gray-400">image</span>`
+            }
+                        </div>
+                        <div>
+                            <div class="font-medium text-gray-800">
+                                ${item.mapType === 'planning' ? 'Bản đồ Quy hoạch' : 'Bản đồ Thổ nhưỡng'}
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                ${new Date(item.createdAt).toLocaleString('vi-VN')}
+                            </div>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">
+                                    ${item.zoneCount || 0} vùng
+                                </span>
+                                ${item.totalAreaHectares ? `
+                                    <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
+                                        ${item.totalAreaHectares} ha
+                                    </span>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="confirmRollbackAnalysis('${item.analysisId}')" 
+                        class="text-red-500 hover:bg-red-50 p-2 rounded-lg transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                        title="Xóa & Rollback">
+                        <span class="material-icons-round">delete_forever</span>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (error) {
+        console.error('Load history error:', error);
+        container.innerHTML = '<div class="text-center py-4 text-red-500">Lỗi tải lịch sử</div>';
+    }
+}
+
+function confirmRollbackAnalysis(analysisId) {
+    if (confirm('CẢNH BÁO: Hành động này sẽ xóa toàn bộ các vùng quy hoạch và dữ liệu liên quan đến lần phân tích này.\n\nBạn có chắc chắn muốn tiếp tục?')) {
+        rollbackAnalysis(analysisId);
+    }
+}
+
+async function rollbackAnalysis(analysisId) {
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        showToast('Đang xử lý...', 'Đang xóa lịch sử và zones...', 'info');
+
+        const response = await fetch(`${API_BASE_URL}/admin/map-image/history/${analysisId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('Thành công', data.message, 'success');
+            loadAnalysisHistory(); // Reload list
+            loadPlanningZones(); // Reload map zones
+        } else {
+            showToast('Lỗi', data.error || 'Xóa thất bại', 'error');
+        }
+    } catch (error) {
+        console.error('Rollback error:', error);
+        showToast('Lỗi', 'Không thể kết nối đến server', 'error');
+    }
+}
+
+// Ensure initImageAnalysisTab loads history
+window.initImageAnalysisTab = function () {
+    loadAnalysisHistory();
+};
+
+
+window.loadAnalysisHistory = loadAnalysisHistory;
+window.confirmRollbackAnalysis = confirmRollbackAnalysis;
+window.startGeorefAnalysis = startGeorefAnalysis;
+
+

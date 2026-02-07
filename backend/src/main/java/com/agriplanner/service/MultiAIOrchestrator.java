@@ -455,14 +455,11 @@ public class MultiAIOrchestrator {
             // ╔═══════════════════════════════════════════════════════════════╗
             // ║ BƯỚC 2: TRÍCH XUẤT POLYGON VÀ LEGEND (OPENCV) ║
             // ╚═══════════════════════════════════════════════════════════════╝
-            // Soil maps use Image Overlay Mode for better accuracy
-            boolean useImageOverlay = !isPlanningMap; // Use image overlay for soil maps
-            String overlayMessage = useImageOverlay
-                    ? "Bước 2: Đang tạo Image Overlay (chế độ mới - giữ nguyên hình ảnh)..."
-                    : "Bước 2: Đang trích xuất vùng màu và polygon...";
-            callback.onProgress("step2_opencv", "running", overlayMessage);
-            addLog(logs, "OpenCV", "START",
-                    useImageOverlay ? "Bắt đầu tạo Image Overlay" : "Bắt đầu trích xuất polygon bằng OpenCV");
+            // Note: Image Overlay mode was disabled because it returns only 1 zone
+            // Use Polygon mode for all maps to extract multiple zones
+            boolean useImageOverlay = false; // Disabled - Polygon mode extracts 82+ zones correctly
+            callback.onProgress("step2_opencv", "running", "Bước 2: Đang trích xuất vùng màu và polygon...");
+            addLog(logs, "OpenCV", "START", "Bắt đầu trích xuất polygon bằng OpenCV");
 
             Map<String, Object> opencvResult = extractPolygonsWithOpenCV(imageFile, coordinatesResult, useImageOverlay);
 
@@ -1120,6 +1117,310 @@ public class MultiAIOrchestrator {
         } catch (Exception e) {
             opencvLogger.error("Polygon extraction failed: {}", e.getMessage(), e);
             return null;
+        } finally {
+            deleteTempDirQuietly(tempDir);
+        }
+    }
+
+    /**
+     * NEW: Offline-only analysis with Georeferencing using
+     * advanced_zone_detector.py
+     * Processes map image with 4 control points to produce georeferenced polygons
+     * 
+     * @param imageFile     Image file to process
+     * @param controlPoints List of 4 control points with pixelX, pixelY, lat, lng
+     * @param province      Province name for context
+     * @param district      District name (optional)
+     * @param mapType       "soil" or "planning"
+     * @param callback      Progress callback
+     * @return Analysis result with georeferenced zones
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> analyzeWithGeoreferencing(
+            File imageFile,
+            List<Map<String, Object>> controlPoints,
+            String province,
+            String district,
+            String mapType,
+            ProgressCallback callback) {
+
+        logger.info("=== OFFLINE GEOREFERENCED ANALYSIS START ===");
+        logger.info("Image: {}, ControlPoints: {}, MapType: {}",
+                imageFile.getName(), controlPoints != null ? controlPoints.size() : 0, mapType);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        List<Map<String, Object>> logs = new ArrayList<>();
+        Path tempDir = null;
+
+        try {
+            // Validate control points
+            if (controlPoints == null || controlPoints.size() != 4) {
+                result.put("success", false);
+                result.put("error", "Cần đúng 4 điểm tham chiếu để định vị bản đồ");
+                return result;
+            }
+
+            callback.onProgress("step1_upload", "completed", "✓ Bước 1: Đã nhận ảnh bản đồ");
+            addLog(logs, "System", "INFO", "Nhận ảnh: " + imageFile.getName());
+
+            // Step 2: Write control points to temp file
+            callback.onProgress("step2_georef", "processing", "Đang xử lý georeferencing...");
+            tempDir = Files.createTempDirectory("georef_analysis_");
+            File controlPointsFile = new File(tempDir.toFile(), "control_points.json");
+            File outputJson = new File(tempDir.toFile(), "analysis_result.json");
+
+            // Format control points for Python script
+            Map<String, Object> cpData = new LinkedHashMap<>();
+            for (int i = 0; i < controlPoints.size(); i++) {
+                Map<String, Object> cp = controlPoints.get(i);
+                Map<String, Object> point = new LinkedHashMap<>();
+                point.put("pixel_x", cp.get("pixelX"));
+                point.put("pixel_y", cp.get("pixelY"));
+                point.put("lat", cp.get("lat"));
+                point.put("lng", cp.get("lng"));
+                cpData.put("point" + (i + 1), point);
+            }
+            objectMapper.writeValue(controlPointsFile, cpData);
+            logger.info("Control points written to: {}", controlPointsFile.getAbsolutePath());
+
+            callback.onProgress("step2_georef", "completed", "✓ Bước 2: Đã thiết lập 4 điểm tham chiếu GPS");
+            addLog(logs, "System", "INFO", "4 control points đã được cấu hình");
+
+            // NEW: Calculate geo bounds for area calculation (Technical Report Step 2)
+            double minLat = Double.MAX_VALUE, maxLat = Double.MIN_VALUE;
+            double minLng = Double.MAX_VALUE, maxLng = Double.MIN_VALUE;
+
+            for (Map<String, Object> cp : controlPoints) {
+                Number lat = (Number) cp.get("lat");
+                Number lng = (Number) cp.get("lng");
+                if (lat != null && lng != null) {
+                    minLat = Math.min(minLat, lat.doubleValue());
+                    maxLat = Math.max(maxLat, lat.doubleValue());
+                    minLng = Math.min(minLng, lng.doubleValue());
+                    maxLng = Math.max(maxLng, lng.doubleValue());
+                }
+            }
+
+            // Create geo_bounds.json structure
+            Map<String, Object> geoBounds = new LinkedHashMap<>();
+            geoBounds.put("sw", Map.of("lat", minLat, "lng", minLng));
+            geoBounds.put("ne", Map.of("lat", maxLat, "lng", maxLng));
+            geoBounds.put("center", Map.of("lat", (minLat + maxLat) / 2, "lng", (minLng + maxLng) / 2));
+
+            File geoBoundsFile = new File(tempDir.toFile(), "geo_bounds.json");
+            objectMapper.writeValue(geoBoundsFile, geoBounds);
+            logger.info("Geo bounds written to: {}", geoBoundsFile.getAbsolutePath());
+
+            // Step 3: Run map_polygon_extractor.py (main production script)
+            callback.onProgress("step3_opencv", "processing", "Đang phát hiện vùng bằng OpenCV...");
+
+            String scriptPath = findPythonScript("map_polygon_extractor.py");
+            if (scriptPath == null) {
+                // Fallback to advanced_zone_detector.py if not found
+                scriptPath = findPythonScript("advanced_zone_detector.py");
+            }
+            if (scriptPath == null) {
+                opencvLogger.error("Cannot find map_polygon_extractor.py script!");
+                result.put("success", false);
+                result.put("error", "Không tìm thấy script map_polygon_extractor.py");
+                return result;
+            }
+
+            List<String> command = new ArrayList<>();
+            command.add(pythonPath != null ? pythonPath : "python");
+            command.add(scriptPath);
+            command.add(imageFile.getAbsolutePath());
+            command.add(outputJson.getAbsolutePath());
+            if (scriptPath.contains("map_polygon_extractor")) {
+                // map_polygon_extractor.py args: input_image output_json [--with-legend]
+                // --geo-bounds-file <file> --control-points-file <file> --map-type <soil|planning>
+                command.add("--with-legend");
+                command.add("--geo-bounds-file");
+                command.add(geoBoundsFile.getAbsolutePath());
+                // Pass control points for proper affine transform
+                command.add("--control-points-file");
+                command.add(controlPointsFile.getAbsolutePath());
+                // Pass map type to use different algorithms
+                // soil = K-means clustering + color matching (Thổ nhưỡng)
+                // planning = Watershed + boundary detection (Quy hoạch)
+                command.add("--map-type");
+                command.add(MAP_TYPE_PLANNING.equalsIgnoreCase(mapType) ? "planning" : "soil");
+            } else {
+                // Legacy advanced_zone_detector args
+                command.add("--control-points");
+                command.add(controlPointsFile.getAbsolutePath());
+                command.add("--n-colors");
+                command.add("40");
+                command.add("--min-area");
+                command.add("0.02");
+            }
+
+            ProcessBuilder pb = new ProcessBuilder(command);
+            pb.redirectErrorStream(true);
+
+            opencvLogger.info("Running advanced zone detector: {}", String.join(" ", command));
+
+            Process process = pb.start();
+            StringBuilder fullOutput = new StringBuilder();
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    fullOutput.append(line).append("\n");
+                    opencvLogger.debug("Python: {}", line);
+                }
+            }
+
+            int exitCode = process.waitFor();
+            opencvLogger.info("Python exit code: {}, output length: {}", exitCode, fullOutput.length());
+
+            if (exitCode != 0 || !outputJson.exists()) {
+                opencvLogger.error("Advanced zone detector failed. Exit: {}, Output: {}", exitCode, fullOutput);
+                result.put("success", false);
+                result.put("error", "Lỗi phân tích OpenCV: "
+                        + fullOutput.toString().substring(0, Math.min(500, fullOutput.length())));
+                addLog(logs, "OpenCV", "ERROR", "Script failed: exit code " + exitCode);
+                callback.onProgress("step3_opencv", "failed", "❌ Lỗi OpenCV");
+                return result;
+            }
+
+            // Parse results
+            Map<String, Object> analysisResult = objectMapper.readValue(outputJson, Map.class);
+
+            // map_polygon_extractor returns "zones", get zones array
+            List<Map<String, Object>> zones = (List<Map<String, Object>>) analysisResult.get("zones");
+            int zoneCount = zones != null ? zones.size() : 0;
+
+            // Get statistics from map_polygon_extractor format
+            Double totalHectares = null;
+            Double coverage = null;
+            if (analysisResult.containsKey("totalCoverage")) {
+                coverage = ((Number) analysisResult.get("totalCoverage")).doubleValue();
+            }
+            // Get color summary for statistics
+            List<Map<String, Object>> colorSummary = (List<Map<String, Object>>) analysisResult.get("colorSummary");
+            if (colorSummary != null) {
+                // Sum up percentages for total coverage if not provided
+                if (coverage == null) {
+                    coverage = colorSummary.stream()
+                            .mapToDouble(c -> ((Number) c.getOrDefault("percentage", 0)).doubleValue())
+                            .sum();
+                }
+            }
+
+            callback.onProgress("step3_opencv", "completed",
+                    String.format("✓ Bước 3: Phát hiện %d vùng đất, độ phủ %.1f%%",
+                            zoneCount, coverage != null ? coverage : 0));
+            addLog(logs, "OpenCV", "SUCCESS",
+                    String.format("Phát hiện %d vùng, %.1f%% coverage", zoneCount, coverage != null ? coverage : 0));
+
+            // Step 4: Map colors to soil types from database
+            callback.onProgress("step4_mapping", "processing", "Đang gán loại đất từ database...");
+
+            boolean isPlanningMap = MAP_TYPE_PLANNING.equalsIgnoreCase(mapType);
+            int mappedCount = 0;
+
+            if (zones != null) {
+                for (Map<String, Object> zone : zones) {
+                    // map_polygon_extractor format: fillColor, colorRgb, zoneType, zoneCode,
+                    // zoneName
+                    String soilType = (String) zone.get("zoneType");
+                    String soilName = (String) zone.get("zoneName");
+                    String color = (String) zone.get("fillColor");
+
+                    // If soilType/soilName not set, try legacy fields
+                    if (soilType == null) {
+                        soilType = (String) zone.get("soil_type");
+                    }
+                    if (soilName == null) {
+                        soilName = (String) zone.get("soil_name");
+                    }
+
+                    if (soilType != null && !soilType.isEmpty()) {
+                        // Try to map to database
+                        String dbCode = isPlanningMap
+                                ? planningZoneTypeMappingService.mapAiNameToCode(soilType)
+                                : soilTypeMappingService.mapAiNameToCode(soilType);
+
+                        if (dbCode != null) {
+                            if (isPlanningMap) {
+                                Optional<PlanningZoneType> typeOpt = planningZoneTypeMappingService
+                                        .getZoneTypeByCode(dbCode);
+                                if (typeOpt.isPresent()) {
+                                    PlanningZoneType type = typeOpt.get();
+                                    zone.put("zoneCode", type.getCode());
+                                    zone.put("zoneType", type.getName());
+                                    zone.put("landUsePurpose", type.getName());
+                                    mappedCount++;
+                                }
+                            } else {
+                                Optional<SoilType> typeOpt = soilTypeMappingService.getSoilTypeByCode(dbCode);
+                                if (typeOpt.isPresent()) {
+                                    SoilType type = typeOpt.get();
+                                    zone.put("zoneCode", type.getCode());
+                                    zone.put("zoneType", type.getName());
+                                    zone.put("landUsePurpose", type.getName());
+                                    zone.put("soilCategory", type.getCategory());
+                                    mappedCount++;
+                                }
+                            }
+                        }
+                    }
+
+                    // Ensure all zones have required fields
+                    zone.putIfAbsent("zoneCode", soilType != null ? soilType : "AI_" + sanitizeColorCode(color));
+                    zone.putIfAbsent("zoneType",
+                            soilName != null ? soilName : (soilType != null ? soilType : "Unknown"));
+                    zone.putIfAbsent("name", zone.get("zoneType"));
+                }
+            }
+
+            callback.onProgress("step4_mapping", "completed",
+                    String.format("✓ Bước 4: Đã liên kết %d/%d loại đất với DB", mappedCount, zoneCount));
+            addLog(logs, "Mapping", "SUCCESS", String.format("Mapped %d/%d zones to DB", mappedCount, zoneCount));
+
+            // Build final result
+            result.put("success", true);
+            result.put("zones", zones);
+            result.put("zoneCount", zoneCount);
+            result.put("mappedCount", mappedCount);
+            result.put("totalAreaHectares", totalHectares);
+            result.put("coverage", coverage);
+            result.put("controlPoints", controlPoints);
+            result.put("province", province);
+            result.put("district", district);
+            result.put("mapType", mapType);
+            result.put("imagePath", imageFile.getAbsolutePath());
+            result.put("logs", logs);
+            result.put("offlineMode", true);
+            result.put("analysisTime", System.currentTimeMillis());
+            result.put("detectorVersion",
+                    scriptPath.contains("map_polygon_extractor") ? "map_polygon_extractor" : "advanced");
+            result.put("colorSummary", analysisResult.get("colorSummary"));
+            result.put("soilStatistics", analysisResult.get("soilStatistics")); // NEW: Pass soil statistics to frontend
+            result.put("soilTypesCount", analysisResult.get("soilTypesCount")); // NEW: Number of soil types
+
+            // Get bounds from control points for Leaflet (using values calculated above)
+            Map<String, Object> bounds = new LinkedHashMap<>();
+            bounds.put("sw", Map.of("lat", minLat, "lng", minLng));
+            bounds.put("ne", Map.of("lat", maxLat, "lng", maxLng));
+            bounds.put("center", Map.of("lat", (minLat + maxLat) / 2, "lng", (minLng + maxLng) / 2));
+            result.put("bounds", bounds);
+            // Also set as "coordinates" for frontend compatibility (displayAnalysisResults uses this key)
+            result.put("coordinates", bounds);
+
+            logger.info("=== OFFLINE GEOREFERENCED ANALYSIS COMPLETE ===");
+            logger.info("Zones: {}, Mapped: {}, Total Area: {} ha", zoneCount, mappedCount, totalHectares);
+
+            return result;
+
+        } catch (Exception e) {
+            logger.error("Georeferenced analysis failed: {}", e.getMessage(), e);
+            result.put("success", false);
+            result.put("error", "Lỗi phân tích: " + e.getMessage());
+            result.put("logs", logs);
+            callback.onProgress("error", "failed", "❌ Lỗi: " + e.getMessage());
+            return result;
         } finally {
             deleteTempDirQuietly(tempDir);
         }

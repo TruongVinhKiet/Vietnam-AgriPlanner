@@ -43,4 +43,23 @@ public interface MapAnalysisHistoryRepository extends JpaRepository<MapAnalysisH
      * Find by province and district
      */
     List<MapAnalysisHistory> findByProvinceAndDistrictOrderByCreatedAtDesc(String province, String district);
+
+    /**
+     * Find overlapping analyses by bounding box intersection.
+     * Two bounding boxes overlap when:
+     * sw1.lat < ne2.lat AND ne1.lat > sw2.lat (latitude overlap)
+     * sw1.lng < ne2.lng AND ne1.lng > sw2.lng (longitude overlap)
+     */
+    @Query("SELECT h FROM MapAnalysisHistory h WHERE h.status = 'completed' " +
+           "AND h.mapType = :mapType " +
+           "AND h.boundsSWLat IS NOT NULL AND h.boundsNELat IS NOT NULL " +
+           "AND h.boundsSWLng IS NOT NULL AND h.boundsNELng IS NOT NULL " +
+           "AND h.boundsSWLat < :neLat AND h.boundsNELat > :swLat " +
+           "AND h.boundsSWLng < :neLng AND h.boundsNELng > :swLng")
+    List<MapAnalysisHistory> findOverlappingAnalyses(
+            @org.springframework.data.repository.query.Param("mapType") String mapType,
+            @org.springframework.data.repository.query.Param("swLat") double swLat,
+            @org.springframework.data.repository.query.Param("swLng") double swLng,
+            @org.springframework.data.repository.query.Param("neLat") double neLat,
+            @org.springframework.data.repository.query.Param("neLng") double neLng);
 }
