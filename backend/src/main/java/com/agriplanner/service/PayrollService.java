@@ -74,10 +74,10 @@ public class PayrollService {
         return salarySettingRepository.save(setting);
     }
 
-    @Scheduled(cron = "0 5 0 * * *")
+    @Scheduled(cron = "0 5 0 * * *", zone = "Asia/Ho_Chi_Minh")
     @Transactional
     public void autoPaySalaries() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
         List<SalarySetting> settings = salarySettingRepository.findByIsActiveTrue();
 
         for (SalarySetting setting : settings) {
@@ -124,9 +124,10 @@ public class PayrollService {
                 .orElseThrow(() -> new RuntimeException("Worker not found"));
 
         BigDecimal ownerBalance = owner.getBalance() != null ? owner.getBalance() : BigDecimal.ZERO;
-        LocalDateTime now = LocalDateTime.now();
+        java.time.ZoneId vnZone = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDateTime now = LocalDateTime.now(vnZone);
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(vnZone);
         LocalDate payPeriodStart = today.withDayOfMonth(1);
         LocalDate payPeriodEnd = today.withDayOfMonth(today.lengthOfMonth());
         if ("DAILY".equals(frequency)) {
@@ -166,7 +167,8 @@ public class PayrollService {
                 .amount(amount)
                 .transactionType("EXPENSE")
                 .category("PAYROLL")
-                .description("Trả lương cho " + (worker.getFullName() != null ? worker.getFullName() : ("Worker#" + workerId)))
+                .description("Trả lương cho "
+                        + (worker.getFullName() != null ? worker.getFullName() : ("Worker#" + workerId)))
                 .build());
 
         assetTransactionRepository.save(AssetTransaction.builder()
@@ -174,7 +176,8 @@ public class PayrollService {
                 .amount(amount)
                 .transactionType("INCOME")
                 .category("PAYROLL")
-                .description("Nhận lương từ " + (owner.getFullName() != null ? owner.getFullName() : ("Owner#" + ownerId)))
+                .description(
+                        "Nhận lương từ " + (owner.getFullName() != null ? owner.getFullName() : ("Owner#" + ownerId)))
                 .build());
 
         payment.setStatus("PAID");
@@ -212,7 +215,8 @@ public class PayrollService {
     }
 
     private boolean isSamePayPeriod(LocalDate a, LocalDate b, String frequency) {
-        if (a == null || b == null) return false;
+        if (a == null || b == null)
+            return false;
         if ("DAILY".equals(frequency)) {
             return a.equals(b);
         }

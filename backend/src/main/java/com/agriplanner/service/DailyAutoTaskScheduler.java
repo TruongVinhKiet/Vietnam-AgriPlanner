@@ -32,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.LocalTime;
 import java.util.Objects;
 import java.util.List;
@@ -59,13 +60,14 @@ public class DailyAutoTaskScheduler {
     private final PestDetectionRepository pestDetectionRepository;
     private final HealthRecordRepository healthRecordRepository;
 
-    @Scheduled(cron = "0 0 7 * * *")
+    @Scheduled(cron = "0 0 0 * * *", zone = "Asia/Ho_Chi_Minh")
     @Transactional
     public void generateDailyAutoTasks() {
-        LocalDate today = LocalDate.now();
+        ZoneId vnZone = ZoneId.of("Asia/Ho_Chi_Minh");
+        LocalDate today = LocalDate.now(vnZone);
         LocalDateTime start = today.atStartOfDay();
         LocalDateTime end = today.plusDays(1).atStartOfDay().minusNanos(1);
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(vnZone);
 
         List<Farm> farms = farmRepository.findAll();
         for (Farm farm : farms) {

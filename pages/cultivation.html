@@ -18,7 +18,6 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <!-- Leaflet Draw CSS -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css" />
 
     <!-- Styles -->
@@ -41,10 +40,6 @@
 
     <!-- ApexCharts -->
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-    <!-- Chart.js and Adapter for Financial Analysis -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script
-        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <!-- Chart.js and Adapter for Financial Analysis -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script
@@ -560,6 +555,22 @@
             background: linear-gradient(135deg, #d97706, #f59e0b);
             border-color: #d97706;
             box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.3);
+        }
+
+        .map-layer-btn--suitability {
+            background: linear-gradient(135deg, #7c3aed, #6d28d9);
+            color: white;
+            border-color: #7c3aed;
+        }
+
+        .map-layer-btn--suitability:hover {
+            background: linear-gradient(135deg, #6d28d9, #5b21b6);
+        }
+
+        .map-layer-btn--suitability.active {
+            background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+            border-color: #8b5cf6;
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
         }
 
         /* Soil Legend specific styles */
@@ -1793,14 +1804,19 @@
                         <button class="map-layer-btn active" data-layer="satellite">Vệ tinh</button>
                         <button class="map-layer-btn" data-layer="terrain">Địa hình</button>
                         <button class="map-layer-btn map-layer-btn--planning" data-layer="planning"
-                            title="Bản đồ quy hoạch sử dụng đất">
+                            title="Bản đồ quy hoạch (thửa đất WMS)">
                             <span class="material-symbols-outlined"
-                                style="font-size: 14px; vertical-align: middle;">map</span> Quy hoạch
+                                style="font-size: 14px; vertical-align: middle;">grid_on</span> Quy hoạch
                         </button>
                         <button class="map-layer-btn map-layer-btn--soil" data-layer="soil"
                             title="Bản đồ thổ nhưỡng - loại đất">
                             <span class="material-symbols-outlined"
                                 style="font-size: 14px; vertical-align: middle;">landscape</span> Thổ nhưỡng
+                        </button>
+                        <button class="map-layer-btn map-layer-btn--suitability" data-layer="suitability"
+                            title="Bản đồ thích nghi - Cây trồng phù hợp">
+                            <span class="material-symbols-outlined"
+                                style="font-size: 14px; vertical-align: middle;">eco</span> Thích nghi
                         </button>
                     </div>
 
@@ -1859,7 +1875,7 @@
                         <div class="planning-legend__header">
                             <span class="material-symbols-outlined">map</span>
                             <span>Bản đồ Quy hoạch</span>
-                            <button class="planning-legend__close" onclick="togglePlanningLayer()" title="Đóng">
+                            <button class="planning-legend__close" onclick="togglePlanningLayer(); if(typeof deactivateAllUserMapLayers==='function') deactivateAllUserMapLayers(); document.querySelector('.map-layer-btn[data-layer=planning]')?.classList.remove('active');" title="Đóng">
                                 <span class="material-symbols-outlined">close</span>
                             </button>
                         </div>
@@ -1918,10 +1934,11 @@
 
                     <!-- Soil Layer Legend -->
                     <div class="planning-legend soil-legend" id="soil-legend" style="display: none;">
-                        <div class="planning-legend__header" style="background: linear-gradient(135deg, #92400e 0%, #d97706 100%);">
+                        <div class="planning-legend__header"
+                            style="background: linear-gradient(135deg, #92400e 0%, #d97706 100%);">
                             <span class="material-symbols-outlined">landscape</span>
                             <span>Bản đồ Thổ nhưỡng</span>
-                            <button class="planning-legend__close" onclick="toggleSoilLayer()" title="Đóng">
+                            <button class="planning-legend__close" onclick="toggleSoilLayer(); if(typeof deactivateAllUserMapLayers==='function') deactivateAllUserMapLayers(); document.querySelector('.map-layer-btn[data-layer=soil]')?.classList.remove('active');" title="Đóng">
                                 <span class="material-symbols-outlined">close</span>
                             </button>
                         </div>
@@ -1967,9 +1984,56 @@
                                 <span>Đất xám</span>
                             </div>
                         </div>
-                        <div class="planning-legend__info" style="padding: 8px 12px; font-size: 11px; color: #666; background: #f8f9fa; border-radius: 0 0 8px 8px;">
-                            <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">info</span>
+                        <div class="planning-legend__info"
+                            style="padding: 8px 12px; font-size: 11px; color: #666; background: #f8f9fa; border-radius: 0 0 8px 8px;">
+                            <span class="material-symbols-outlined"
+                                style="font-size: 14px; vertical-align: middle;">info</span>
                             Click vào vùng để xem thông tin chi tiết về loại đất, độ pH, cây trồng phù hợp
+                        </div>
+                    </div>
+
+                    <!-- Suitability Legend (hidden by default) -->
+                    <div class="planning-legend" id="user-suitability-legend" style="display: none;">
+                        <div class="planning-legend__header"
+                            style="background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);">
+                            <span class="material-symbols-outlined">eco</span>
+                            <span>Bản đồ Thích nghi</span>
+                            <button class="planning-legend__close" onclick="toggleUserMapLayer('suitability')"
+                                title="Đóng">
+                                <span class="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        <div class="planning-legend__items" style="max-height: 180px; overflow-y: auto;">
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #22c55e;"></span>
+                                <span>Rất phù hợp nông nghiệp (Lúa, Hoa màu)</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #4CAF50;"></span>
+                                <span>Cây lâu năm (Dừa, ăn trái)</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #3b82f6;"></span>
+                                <span>Nuôi trồng thủy sản (Tôm, Cá)</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #166534;"></span>
+                                <span>Đất rừng (RSX, RPH)</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #E8A838;"></span>
+                                <span>Đất ở + Cây lâu năm</span>
+                            </div>
+                            <div class="planning-legend__item">
+                                <span class="planning-legend__dot" style="background: #6b7280;"></span>
+                                <span>Đất phi nông nghiệp</span>
+                            </div>
+                        </div>
+                        <div class="planning-legend__info"
+                            style="padding: 8px 12px; font-size: 11px; color: #5b21b6; background: #ede9fe; border-radius: 0 0 8px 8px;">
+                            <span class="material-symbols-outlined"
+                                style="font-size: 14px; vertical-align: middle;">lightbulb</span>
+                            Click vào thửa đất để xem cây trồng/vật nuôi phù hợp
                         </div>
                     </div>
                 </div>
@@ -2633,8 +2697,10 @@
     <script src="../js/config.js"></script>
     <script src="../js/auth.js"></script>
     <!-- cultivation.js disabled - using inline script instead to avoid duplicate map initialization -->
-    <!-- <script src="../js/cultivation.js?v=2"></script>
-<!-- Financial Analysis Logic -->
+    <!-- <script src="../js/cultivation.js?v=2"></script> -->
+    <!-- Cultivation Map Layers - WMS Land Parcels + Suitability -->
+    <script src="../js/cultivation-map-layers.js?v=1"></script>
+    <!-- Financial Analysis Logic -->
     <script src="../js/financial-analysis.js"></script>
 
     <!-- Pest Analysis Modal -->
@@ -2669,9 +2735,104 @@
         let isDrawing = false;
         let drawnLayer = null;
 
-        // API_BASE is defined in features.js/config.js
-        // const API_BASE = 'http://localhost:8080/api';
+        // API_BASE is globally defined in features.js -> var API_BASE
+        // DO NOT redeclare it here with const/let
         let currentFarmId = null; // Will be loaded from /api/farms/my-farms
+
+        // === 1. SOIL & CROP SUITABILITY DATA (User Map) ===
+        // === 1. SOIL & CROP SUITABILITY DATA (User Map) ===
+        // Note: SOIL_CROP_SUITABILITY is already defined in cultivation-map-layers.js
+        // We use that definition to ensure consistency across the application.
+
+        // New helper to find Planning Zone (Polygon) at point
+        function findPlanningZoneAtPoint(latlng) {
+            if (!planningZonesData || planningZonesData.length === 0) return null;
+
+            for (const zone of planningZonesData) {
+                let coords = null;
+                if (zone.boundaryCoordinates) {
+                    try {
+                        coords = typeof zone.boundaryCoordinates === 'string' ? JSON.parse(zone.boundaryCoordinates) : zone.boundaryCoordinates;
+                    } catch (e) { }
+                }
+                if (!coords && zone.geojson) {
+                    try {
+                        const gj = typeof zone.geojson === 'string' ? JSON.parse(zone.geojson) : zone.geojson;
+                        if (gj.type === 'Polygon') coords = gj.coordinates[0];
+                        else if (gj.type === 'Feature' && gj.geometry.type === 'Polygon') coords = gj.geometry.coordinates[0];
+                    } catch (e) { }
+                }
+
+                if (coords) {
+                    let ring = coords;
+                    while (ring.length > 0 && Array.isArray(ring[0]) && typeof ring[0][0] !== 'undefined') {
+                        ring = ring.map(p => ({ lat: (p.lat !== undefined ? p.lat : p[0]), lng: (p.lng !== undefined ? p.lng : p[1]) }));
+                        break;
+                    }
+                    if (ring.length > 0 && ring[0].lat !== undefined) {
+                        if (raycastPointInPolygon(latlng.lat, latlng.lng, ring)) {
+                            return zone;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        // === 2. ROBUST POINT-IN-POLYGON (Matches admin logic) ===
+        function raycastPointInPolygon(lat, lng, ring) {
+            let inside = false;
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                const xi = ring[i].lat, yi = ring[i].lng;
+                const xj = ring[j].lat, yj = ring[j].lng;
+                const intersect = ((yi > lng) !== (yj > lng)) && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function findSoilZoneAtPoint(layerGroup, latlng) {
+            let bestMatch = null;
+            let bestMatchBbox = null;
+
+            function checkAllRings(allLatLngs, lat, lng) {
+                if (!allLatLngs || allLatLngs.length === 0) return false;
+                if (allLatLngs[0] && allLatLngs[0].lat !== undefined) {
+                    return allLatLngs.length >= 3 && raycastPointInPolygon(lat, lng, allLatLngs);
+                }
+                for (let i = 0; i < allLatLngs.length; i++) {
+                    if (Array.isArray(allLatLngs[i]) && checkAllRings(allLatLngs[i], lat, lng)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            function traverse(layer, parentSoilData) {
+                const soilData = layer.soilData || parentSoilData;
+                // If it's a polygon layer with soilData attached
+                if (layer.getLatLngs && soilData) {
+                    try {
+                        const bounds = layer.getBounds();
+                        if (bounds && bounds.isValid() && bounds.contains(latlng)) {
+                            if (!bestMatchBbox) bestMatchBbox = soilData;
+
+                            const allLatLngs = layer.getLatLngs();
+                            if (checkAllRings(allLatLngs, latlng.lat, latlng.lng)) {
+                                bestMatch = soilData;
+                            }
+                        }
+                    } catch (e) { /* skip */ }
+                }
+                // If it's a FeatureGroup/LayerGroup, traverse children
+                if (layer.eachLayer) {
+                    layer.eachLayer(child => traverse(child, soilData));
+                }
+            }
+
+            traverse(layerGroup, null);
+            return bestMatch || bestMatchBbox;
+        }
 
         // User inventory cache for checking before activities
         let userInventoryCache = [];
@@ -2767,9 +2928,9 @@
         }
 
         const tileLayers = {
-            streets: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM', maxZoom: 19 }),
-            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri', maxZoom: 19 }),
-            terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: '© OpenTopoMap', maxZoom: 17 })
+            streets: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM', maxZoom: 22, maxNativeZoom: 19 }),
+            satellite: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: '© Esri', maxZoom: 22, maxNativeZoom: 18 }),
+            terrain: L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { attribution: '© OpenTopoMap', maxZoom: 22, maxNativeZoom: 17 })
         };
 
         // ==================== PLANNING MAP INTEGRATION ====================
@@ -3011,8 +3172,204 @@
             });
         }
 
+        // Toggle suitability layer (Combined WMS + Soil + Suitability Info)
+        let isSuitabilityLayerVisible = false; // Define state variable
+
+        function toggleSuitabilityLayer() {
+            // Turn off other layers
+            if (isPlanningLayerVisible) togglePlanningLayer();
+            if (isSoilLayerVisible) toggleSoilLayer();
+
+            isSuitabilityLayerVisible = !isSuitabilityLayerVisible;
+
+            const btn = document.querySelector('.map-layer-btn[data-layer="suitability"]');
+
+            if (isSuitabilityLayerVisible) {
+                btn?.classList.add('active');
+
+                // Show toast
+                showToast('Bản đồ Thích nghi', 'Đang hiển thị dữ liệu thích nghi cây trồng', 'success');
+
+                // 1. Ensure Planning Data is loaded
+                if (!planningZonesData || planningZonesData.length === 0) {
+                    loadPlanningZones();
+                }
+
+                // 2. Load Soil Zones (both internal and external for cross-referencing)
+                if (!soilLayerGroup) {
+                    loadSoilZones();
+                } else {
+                    soilLayerGroup.addTo(map);
+                }
+                // Also load external soil overlay for better detection
+                if (typeof loadUserSoilZones === 'function' && !userSoilOverlay) {
+                    loadUserSoilZones(true, false); // as overlay, don't add to map visually
+                }
+
+                // 3. Add click handler
+                map.on('click', onMapClickSuitability);
+            } else {
+                btn?.classList.remove('active');
+                if (soilLayerGroup) map.removeLayer(soilLayerGroup);
+                map.off('click', onMapClickSuitability);
+            }
+        }
+
+        async function onMapClickSuitability(e) {
+            if (isDrawing || isClickToAddLandMode) return;
+
+            // 1. Find Soil Zone (client-side)
+            let soilZone = null;
+            if (soilLayerGroup) {
+                soilZone = findSoilZoneAtPoint(soilLayerGroup, e.latlng);
+            }
+            // Also try userSoilOverlay from cultivation-map-layers.js
+            if (!soilZone && typeof userSoilOverlay !== 'undefined' && userSoilOverlay) {
+                soilZone = findSoilZoneAtPoint(userSoilOverlay, e.latlng);
+            }
+
+            // 1b. API fallback if client-side detection failed
+            if (!soilZone) {
+                try {
+                    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+                    const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                    const resp = await fetch(`${API_BASE}/planning-zones/near?lat=${e.latlng.lat}&lng=${e.latlng.lng}&radius=0.01&mapType=soil`, { headers });
+                    if (resp.ok) {
+                        const nearZones = await resp.json();
+                        if (nearZones && nearZones.length > 0) {
+                            soilZone = nearZones[0];
+                            console.log(`[Suitability] Found soil zone via API: ${soilZone.name} (${soilZone.zoneCode})`);
+                        }
+                    }
+                } catch (err) { console.warn('[Suitability] API fallback error:', err); }
+            }
+
+            // 2. Find Planning Zone
+            let planningZone = findPlanningZoneAtPoint(e.latlng);
+
+            if (soilZone || planningZone) {
+                const soilCode = soilZone ? (soilZone.zoneCode || soilZone.zoneType) : null;
+
+                // Get suitability match
+                let suit = null;
+                if (soilCode) {
+                    suit = SOIL_CROP_SUITABILITY[soilCode] || SOIL_CROP_SUITABILITY[soilZone.zoneType];
+                    // Partial match check
+                    if (!suit) {
+                        const key = Object.keys(SOIL_CROP_SUITABILITY).find(k => soilCode.includes(k) || k.includes(soilCode));
+                        if (key) suit = SOIL_CROP_SUITABILITY[key];
+                    }
+                }
+
+                // Build Popup Content
+                let content = `<div class="soil-zone-popup" style="min-width: 280px; font-family: 'Inter', sans-serif;">`;
+
+                // Header
+                content += `
+                    <h4 style="margin: 0 0 10px 0; color: #15803d; border-bottom: 2px solid #dcfce7; padding-bottom: 8px;">
+                        <span class="material-symbols-outlined" style="font-size: 20px; vertical-align: bottom; margin-right: 4px;">fact_check</span>
+                        Thông tin tích hợp
+                    </h4>
+                 `;
+
+                // Planning Info Section
+                if (planningZone) {
+                    content += `
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">Quy hoạch sử dụng đất</div>
+                            <div style="font-size: 14px; font-weight: 600; color: #1e293b; margin-top: 2px;">
+                                ${planningZone.landUsePurpose || 'Chưa xác định'} (${planningZone.mapSymbol || '---'})
+                            </div>
+                            ${planningZone.planningPeriod ? `<div style="font-size: 11px; color: #94a3b8;">Kỳ QH: ${planningZone.planningPeriod}</div>` : ''}
+                        </div>
+                     `;
+                } else {
+                    content += `<div style="margin-bottom: 10px; color: #94a3b8; font-style: italic;">Chưa có dữ liệu quy hoạch tại vị trí này.</div>`;
+                }
+
+                // Soil Info Section (with separator)
+                content += `<div style="border-top: 1px dashed #e2e8f0; margin: 8px 0;"></div>`;
+
+                if (soilZone) {
+                    content += `
+                        <div style="margin-bottom: 10px;">
+                            <div style="font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase;">Đặc điểm thổ nhưỡng</div>
+                            <div style="font-size: 14px; font-weight: 600; color: #b45309; margin-top: 2px;">
+                                ${soilZone.name}
+                            </div>
+                            <div style="font-size: 12px; color: #4b5563;">Mã: <strong>${soilCode}</strong></div>
+                        </div>
+                     `;
+                } else {
+                    content += `<div style="margin-bottom: 10px; color: #94a3b8; font-style: italic;">Chưa có dữ liệu thổ nhưỡng tại vị trí này.</div>`;
+                }
+
+                // Suitability Section
+                content += `<div style="border-top: 1px solid #e2e8f0; margin: 10px 0; padding-top: 10px;">`;
+
+                if (suit) {
+                    content += `<div style="font-size: 12px; color: #334155; font-style: italic; margin-bottom: 8px;">${suit.description}</div>`;
+
+                    // Crops
+                    if (suit.crops && suit.crops.length > 0) {
+                        content += `
+                            <div style="margin-bottom: 8px;">
+                                <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
+                                    <span class="material-symbols-outlined" style="font-size: 16px; color: #16a34a;">grass</span>
+                                    <strong style="color: #16a34a; font-size: 12px;">Cây trồng phù hợp:</strong>
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                    ${suit.crops.map(c => `<span style="background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">${c}</span>`).join('')}
+                                </div>
+                            </div>
+                         `;
+                    }
+
+                    // Animals
+                    if (suit.animals && suit.animals.length > 0) {
+                        content += `
+                            <div>
+                                <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
+                                    <span class="material-symbols-outlined" style="font-size: 16px; color: #0284c7;">water_drop</span>
+                                    <strong style="color: #0284c7; font-size: 12px;">Vật nuôi phù hợp:</strong>
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                                    ${suit.animals.map(a => `<span style="background: #e0f2fe; color: #075985; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 500;">${a}</span>`).join('')}
+                                </div>
+                            </div>
+                         `;
+                    }
+                } else {
+                    content += `<div style="color: #94a3b8; font-size: 12px; text-align: center;">Không có gợi ý canh tác cho vùng này.</div>`;
+                }
+
+                content += `</div></div>`;
+
+                L.popup({ maxWidth: 320 })
+                    .setLatLng(e.latlng)
+                    .setContent(content)
+                    .openOn(map);
+            }
+        }
+
         // Toggle planning layer visibility
         function togglePlanningLayer() {
+            // New: Disable Suitability if active
+            if (typeof isSuitabilityLayerVisible !== 'undefined' && isSuitabilityLayerVisible) {
+                toggleSuitabilityLayer(); // This will toggle it OFF
+            }
+            // Exclusive with soil (already exists)
+            if (isSoilLayerVisible) {
+                // We don't call toggleSoilLayer here to avoid circular dependency if not careful, 
+                // but original code did manual cleanup. Let's keep manual cleanup or call toggle?
+                // Original code:
+                /*
+                isSoilLayerVisible = false;
+                const soilBtn = ...
+                */
+                // Let's rely on the original logic below for soil, but we handled suitability above.
+            }
+
             isPlanningLayerVisible = !isPlanningLayerVisible;
 
             const planningBtn = document.querySelector('.map-layer-btn[data-layer="planning"]');
@@ -3165,6 +3522,9 @@
 
                     if (!layer) return;
 
+                    // Attach data for detection
+                    layer.soilData = zone;
+
                     // Create popup content for soil zone
                     const popupContent = `
                         <div class="soil-zone-popup" style="min-width: 220px;">
@@ -3198,11 +3558,11 @@
         }
 
         // Toggle soil layer visibility
+        // Toggle soil layer visibility
         function toggleSoilLayer() {
-            // If planning is active, turn it off first (exclusive toggle)
-            if (isPlanningLayerVisible) {
-                togglePlanningLayer();
-            }
+            // Exclusive with planning & suitability
+            if (isPlanningLayerVisible) togglePlanningLayer();
+            if (typeof isSuitabilityLayerVisible !== 'undefined' && isSuitabilityLayerVisible) toggleSuitabilityLayer();
 
             isSoilLayerVisible = !isSoilLayerVisible;
 
@@ -3213,7 +3573,12 @@
                 soilBtn?.classList.add('active');
                 if (soilLegend) soilLegend.style.display = 'block';
 
-                // Load and render soil zones
+                // Call external script function if available
+                if (typeof activateUserSoilLayer === 'function') {
+                    activateUserSoilLayer();
+                }
+
+                // Load and render soil zones (internal)
                 loadSoilZones();
 
                 showToast('Bản đồ Thổ nhưỡng', 'Đang hiển thị các vùng thổ nhưỡng', 'success');
@@ -3224,6 +3589,12 @@
                 // Clear layer
                 if (soilLayerGroup) {
                     soilLayerGroup.clearLayers();
+                    if (map.hasLayer(soilLayerGroup)) map.removeLayer(soilLayerGroup);
+                }
+
+                // Clear external if manually toggled off
+                if (typeof userSoilOverlay !== 'undefined' && userSoilOverlay && map.hasLayer(userSoilOverlay)) {
+                    map.removeLayer(userSoilOverlay);
                 }
             }
         }
@@ -3294,15 +3665,28 @@
 
         // Update togglePlanningLayer to be exclusive with soil
         const originalTogglePlanningLayer = togglePlanningLayer;
-        togglePlanningLayer = function() {
+        togglePlanningLayer = function () {
             // If soil is active, turn it off first
-            if (isSoilLayerVisible) {
+            if (isSoilLayerVisible || (typeof soilLayerGroup !== 'undefined' && soilLayerGroup && map.hasLayer(soilLayerGroup))) {
                 isSoilLayerVisible = false;
                 const soilBtn = document.querySelector('.map-layer-btn[data-layer="soil"]');
                 const soilLegend = document.getElementById('soil-legend');
-                soilBtn?.classList.remove('active');
+                if (soilBtn) soilBtn.classList.remove('active');
                 if (soilLegend) soilLegend.style.display = 'none';
-                if (soilLayerGroup) soilLayerGroup.clearLayers();
+
+                if (soilLayerGroup) {
+                    soilLayerGroup.clearLayers();
+                    if (map.hasLayer(soilLayerGroup)) map.removeLayer(soilLayerGroup);
+                }
+            }
+
+            // Also turn off suitability if active
+            if (typeof isSuitabilityLayerVisible !== 'undefined' && isSuitabilityLayerVisible) {
+                isSuitabilityLayerVisible = false;
+                const suitBtn = document.querySelector('.map-layer-btn[data-layer="suitability"]');
+                if (suitBtn) suitBtn.classList.remove('active');
+                // suitabilityLayer is handled by toggleSuitabilityLayer usually, but let's be safe
+                if (typeof suitabilityLayer !== 'undefined' && suitabilityLayer) map.removeLayer(suitabilityLayer);
             }
 
             isPlanningLayerVisible = !isPlanningLayerVisible;
@@ -3313,6 +3697,13 @@
             if (isPlanningLayerVisible) {
                 planningBtn?.classList.add('active');
                 if (planningLegend) planningLegend.style.display = 'block';
+
+                // Call external script function if available (for WMS)
+                if (typeof activateUserPlanningLayer === 'function') {
+                    activateUserPlanningLayer();
+                }
+
+                // Load internal zones check
                 loadPlanningZones();
                 loadPlanningLegend();
                 showToast('Bản đồ Quy hoạch', 'Đang hiển thị các vùng quy hoạch đã lưu', 'success');
@@ -3320,6 +3711,9 @@
                 planningBtn?.classList.remove('active');
                 if (planningLegend) planningLegend.style.display = 'none';
                 if (planningLayerGroup) planningLayerGroup.clearLayers();
+
+                // Also deactivate external if needed
+                if (typeof userWmsLayer !== 'undefined' && userWmsLayer) map.removeLayer(userWmsLayer);
             }
         };
 
@@ -4924,6 +5318,20 @@
             drawControl.enable();
 
             map.on(L.Draw.Event.CREATED, onDrawComplete);
+
+            // Handle draw cancellation (Escape key or toolbar cancel)
+            map.on('draw:drawstop', onDrawCancelled);
+        }
+
+        function onDrawCancelled() {
+            // Only reset if no shape was completed (onDrawComplete handles that case)
+            if (isDrawing) {
+                isDrawing = false;
+                document.getElementById('drawing-indicator').classList.remove('active');
+                if (drawControl) drawControl.disable();
+                map.off(L.Draw.Event.CREATED, onDrawComplete);
+                map.off('draw:drawstop', onDrawCancelled);
+            }
         }
 
         function onDrawComplete(e) {
@@ -4943,6 +5351,7 @@
 
             if (drawControl) drawControl.disable();
             map.off(L.Draw.Event.CREATED, onDrawComplete);
+            map.off('draw:drawstop', onDrawCancelled);
         }
 
         function showFieldConfirmationModal(coordinates, areaSqm, areaHa) {
@@ -6171,20 +6580,82 @@
                 btn.onclick = () => {
                     const layerType = btn.dataset.layer;
 
-                    // Xử lý riêng cho nút Quy hoạch - toggle layer quy hoạch
+                    // === CLEANUP OLD INLINE LAYERS ===
+                    // The old inline toggle functions (togglePlanningLayer, toggleSoilLayer, toggleSuitabilityLayer)
+                    // maintain their own layer groups. Clean them up before activating the new system.
+                    if (typeof isPlanningLayerVisible !== 'undefined' && isPlanningLayerVisible) {
+                        isPlanningLayerVisible = false;
+                        if (planningLayerGroup) planningLayerGroup.clearLayers();
+                        document.getElementById('planning-admin-bar')?.style.setProperty('display', 'none');
+                    }
+                    if (typeof isSoilLayerVisible !== 'undefined' && isSoilLayerVisible) {
+                        isSoilLayerVisible = false;
+                        if (soilLayerGroup) {
+                            soilLayerGroup.clearLayers();
+                            if (map.hasLayer(soilLayerGroup)) map.removeLayer(soilLayerGroup);
+                        }
+                    }
+                    if (typeof isSuitabilityLayerVisible !== 'undefined' && isSuitabilityLayerVisible) {
+                        isSuitabilityLayerVisible = false;
+                        map.off('click', onMapClickSuitability);
+                    }
+                    // Hide both legends by default (the activate functions will show the right one)
+                    const planLegend = document.getElementById('planning-legend');
+                    const soilLegend = document.getElementById('soil-legend');
+                    if (planLegend) planLegend.style.display = 'none';
+                    if (soilLegend) soilLegend.style.display = 'none';
+
+                    // Xử lý cho nút Quy hoạch (WMS land parcels)
                     if (layerType === 'planning') {
-                        togglePlanningLayer();
+                        // Deactivate other special layers
+                        document.querySelectorAll('.map-layer-btn--soil, .map-layer-btn--suitability')
+                            .forEach(b => b.classList.remove('active'));
+
+                        if (btn.classList.contains('active')) {
+                            btn.classList.remove('active');
+                            deactivateAllUserMapLayers();
+                        } else {
+                            btn.classList.add('active');
+                            activateUserPlanningLayer();
+                        }
                         return;
                     }
 
-                    // Xử lý riêng cho nút Thổ nhưỡng - toggle layer thổ nhưỡng
+                    // Xử lý cho nút Thổ nhưỡng
                     if (layerType === 'soil') {
-                        toggleSoilLayer();
+                        // Deactivate other special layers
+                        document.querySelectorAll('.map-layer-btn--planning, .map-layer-btn--suitability')
+                            .forEach(b => b.classList.remove('active'));
+
+                        if (btn.classList.contains('active')) {
+                            btn.classList.remove('active');
+                            deactivateAllUserMapLayers();
+                        } else {
+                            btn.classList.add('active');
+                            activateUserSoilLayer();
+                        }
                         return;
                     }
 
+                    // Xử lý cho nút Thích nghi (suitability)
+                    if (layerType === 'suitability') {
+                        // Deactivate other special layers
+                        document.querySelectorAll('.map-layer-btn--planning, .map-layer-btn--soil')
+                            .forEach(b => b.classList.remove('active'));
+
+                        if (btn.classList.contains('active')) {
+                            btn.classList.remove('active');
+                            deactivateAllUserMapLayers();
+                        } else {
+                            btn.classList.add('active');
+                            activateUserSuitabilityLayer();
+                        }
+                        return;
+                    }
+
+                    // Base tile layer switching (streets/satellite/terrain)
                     document.querySelectorAll('.map-layer-btn[data-layer]').forEach(b => {
-                        if (b.dataset.layer !== 'planning' && b.dataset.layer !== 'soil') b.classList.remove('active');
+                        if (!['planning', 'soil', 'suitability'].includes(b.dataset.layer)) b.classList.remove('active');
                     });
                     btn.classList.add('active');
                     Object.values(tileLayers).forEach(l => map.removeLayer(l));
@@ -7246,9 +7717,6 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
     }
 </script>
 
-<!-- Financial Analysis Logic -->
-<script src="../js/financial-analysis.js"></script>
-
 <!-- Pest Analysis Modal -->
 <div class="modal" id="pest-analysis-modal" style="z-index: 10002;">
     <div class="modal-content" style="max-width: 800px; width: 90%;">
@@ -7350,9 +7818,6 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
         </div>
     </div>
 </div>
-
-<!-- AI Agronomist Logic -->
-<script src="../js/ai-agronomist.js"></script>
 
 <!-- Inverse Inventory Modal -->
 <div class="modal" id="inventory-modal">
@@ -7827,14 +8292,14 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
         window.open(url, '_blank', 'noopener,noreferrer');
     }
 
-    // Show Add Field Options Modal
+    // Show Add Field Options Modal (NEW - with parcel click flow)
     function showAddFieldOptions() {
         const modal = document.createElement('div');
         modal.className = 'modal-overlay';
         modal.id = 'add-field-options-modal';
         modal.innerHTML = `
             <div class="modal-content" style="max-width: 520px;">
-                <div class="modal-header" style="background: linear-gradient(135deg, #10b981, #059669); color: white;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #7c3aed, #8b5cf6); color: white;">
                     <div>
                         <h3 style="margin: 0;">
                             <span class="material-symbols-outlined" style="vertical-align: middle;">add_location_alt</span>
@@ -7846,61 +8311,49 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
                 </div>
                 <div class="modal-body" style="padding: 20px;">
                     <div class="add-field-options">
-                        <!-- Option 1: View Planning Layer (NEW - RECOMMENDED) -->
-                        <div class="add-field-option add-field-option--recommended" onclick="closeModalById('add-field-options-modal'); if(!isPlanningLayerVisible) togglePlanningLayer();">
-                            <div class="add-field-option__icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
-                                <span class="material-symbols-outlined">layers</span>
+                        <!-- Option 1: Select from parcel map (RECOMMENDED) -->
+                        <div class="add-field-option add-field-option--recommended" onclick="closeModalById('add-field-options-modal'); startAddFieldByParcel();">
+                            <div class="add-field-option__icon" style="background: linear-gradient(135deg, #7c3aed, #6d28d9);">
+                                <span class="material-symbols-outlined">touch_app</span>
                             </div>
                             <div class="add-field-option__content">
-                                <div class="add-field-option__badge" style="background: #f59e0b;">Khuyến nghị</div>
-                                <h4>Xem lớp Quy hoạch trên bản đồ</h4>
-                                <p>Bật hiển thị các vùng quy hoạch đã lưu trực tiếp trên bản đồ</p>
+                                <div class="add-field-option__badge" style="background: #7c3aed;">Khuyến nghị</div>
+                                <h4>Chọn thửa đất trên bản đồ</h4>
+                                <p>Bật bản đồ Thích nghi, click vào thửa đất có sẵn. Hệ thống tự tạo ruộng theo ranh giới thửa đất</p>
+                            </div>
+                            <span class="material-symbols-outlined" style="color: #7c3aed;">arrow_forward</span>
+                        </div>
+                        
+                        <!-- Option 2: View WMS Planning Layer -->
+                        <div class="add-field-option" onclick="closeModalById('add-field-options-modal'); activateUserPlanningLayer(); document.querySelector('.map-layer-btn--planning')?.classList.add('active');">
+                            <div class="add-field-option__icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                                <span class="material-symbols-outlined">grid_on</span>
+                            </div>
+                            <div class="add-field-option__content">
+                                <h4>Xem lớp Thửa đất (WMS)</h4>
+                                <p>Hiển thị toàn bộ thửa đất từ hệ thống iLIS Cà Mau trên bản đồ</p>
                             </div>
                             <span class="material-symbols-outlined" style="color: #d97706;">arrow_forward</span>
                         </div>
-                        
-                        <!-- Option 2: Compare with Guland -->
-                        <div class="add-field-option" onclick="closeModalById('add-field-options-modal'); openPlanningMapSynced();">
-                            <div class="add-field-option__icon" style="background: linear-gradient(135deg, #059669, #047857);">
-                                <span class="material-symbols-outlined">sync_alt</span>
-                            </div>
-                            <div class="add-field-option__content">
-                                <h4>So sánh với Guland.vn</h4>
-                                <p>Mở Guland.vn song song để tra cứu và so sánh quy hoạch</p>
-                            </div>
-                            <span class="material-symbols-outlined" style="color: #059669;">arrow_forward</span>
-                        </div>
-                        
-                        <!-- Option 3: Click to Add Land Point -->
-                        <div class="add-field-option" onclick="closeModalById('add-field-options-modal'); startClickToAddLand();">
-                            <div class="add-field-option__icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
-                                <span class="material-symbols-outlined">pin_drop</span>
-                            </div>
-                            <div class="add-field-option__content">
-                                <h4>Click vào điểm trên bản đồ</h4>
-                                <p>Chọn 1 điểm trên bản đồ để xem thông tin quy hoạch & thổ nhưỡng</p>
-                            </div>
-                            <span class="material-symbols-outlined" style="color: #8b5cf6;">arrow_forward</span>
-                        </div>
 
-                        <!-- Option 4: Draw Directly -->
+                        <!-- Option 3: Draw polygon directly -->
                         <div class="add-field-option" onclick="closeModalById('add-field-options-modal'); startDrawingField();">
                             <div class="add-field-option__icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
                                 <span class="material-symbols-outlined">draw</span>
                             </div>
                             <div class="add-field-option__content">
                                 <h4>Vẽ ruộng trực tiếp</h4>
-                                <p>Bỏ qua tra cứu quy hoạch, vẽ ranh giới ruộng ngay trên bản đồ</p>
+                                <p>Vẽ ranh giới ruộng tùy ý trên bản đồ (không theo thửa đất)</p>
                             </div>
                             <span class="material-symbols-outlined" style="color: #3b82f6;">arrow_forward</span>
                         </div>
                     </div>
                     
-                    <div style="margin-top: 16px; padding: 12px; background: #fef3c7; border-radius: 8px; border-left: 3px solid #f59e0b;">
-                        <p style="margin: 0; font-size: 12px; color: #92400e; line-height: 1.5;">
+                    <div style="margin-top: 16px; padding: 12px; background: #f5f3ff; border-radius: 8px; border-left: 3px solid #7c3aed;">
+                        <p style="margin: 0; font-size: 12px; color: #5b21b6; line-height: 1.5;">
                             <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">lightbulb</span>
-                            <strong>Mẹo:</strong> Bật "Lớp Quy hoạch" để xem các vùng đất đã được ghi nhận. 
-                            Bạn cũng có thể vẽ thêm vùng quy hoạch mới từ thông tin tra cứu trên Guland.vn.
+                            <strong>Mẹo:</strong> Chọn "Chọn thửa đất trên bản đồ" để sử dụng dữ liệu thửa đất thực tế. 
+                            Hệ thống sẽ hiển thị cây trồng phù hợp cho từng thửa.
                         </p>
                     </div>
                 </div>
@@ -7915,7 +8368,7 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
 
     function startClickToAddLand() {
         isClickToAddLandMode = true;
-        
+
         // Show instruction banner
         const banner = document.createElement('div');
         banner.id = 'click-to-add-banner';
@@ -8006,7 +8459,7 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
         modal.className = 'modal-overlay';
         modal.id = 'combined-land-info-modal';
 
-        const planningInfo = planningZones.length > 0 
+        const planningInfo = planningZones.length > 0
             ? planningZones.map(z => `
                 <div style="padding: 12px; background: #fff7ed; border-radius: 8px; border-left: 4px solid #f59e0b;">
                     <div style="font-weight: 600; color: #92400e;">${z.name || 'Vùng quy hoạch'}</div>
@@ -8018,7 +8471,7 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
             `).join('')
             : '<p style="color: #9ca3af; text-align: center; padding: 12px;">Không có dữ liệu quy hoạch tại điểm này</p>';
 
-        const soilInfo = soilZones.length > 0 
+        const soilInfo = soilZones.length > 0
             ? soilZones.map(z => `
                 <div style="padding: 12px; background: #fef3c7; border-radius: 8px; border-left: 4px solid #d97706;">
                     <div style="font-weight: 600; color: #78350f;">${z.name || 'Vùng thổ nhưỡng'}</div>
@@ -8096,7 +8549,7 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
         event.preventDefault();
         const form = event.target;
         const formData = new FormData(form);
-        
+
         const landName = formData.get('landName');
         const area = formData.get('area');
         const documentFile = formData.get('landDocument');
@@ -8108,7 +8561,7 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
         setTimeout(() => {
             closeModalById('combined-land-info-modal');
             showToast('Thành công', `Đã ghi nhận yêu cầu đăng ký mảnh đất "${landName}"`, 'success');
-            
+
             // Optionally start drawing the field boundary
             // startDrawingField();
         }, 1500);
@@ -8139,7 +8592,7 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
     }
 
     .click-to-add-banner__cancel {
-        background: rgba(255,255,255,0.2);
+        background: rgba(255, 255, 255, 0.2);
         border: none;
         color: white;
         padding: 6px 12px;
@@ -8152,7 +8605,7 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
     }
 
     .click-to-add-banner__cancel:hover {
-        background: rgba(255,255,255,0.3);
+        background: rgba(255, 255, 255, 0.3);
     }
 </style>
 </script>
@@ -8238,6 +8691,9 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
     }
 </style>
 
+<!-- Bottom DOMContentLoaded handler REMOVED: was conflicting with setupControls() onclick handlers.
+     setupControls() in the inline script already correctly dispatches to activateUserPlanningLayer(),
+     activateUserSoilLayer(), activateUserSuitabilityLayer() from cultivation-map-layers.js -->
 </body>
 
 </html>

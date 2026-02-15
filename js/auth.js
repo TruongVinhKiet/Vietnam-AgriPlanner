@@ -20,12 +20,27 @@ const AUTH_CONFIG = {
 };
 
 /**
- * Check if user is authenticated
+ * Check if user is authenticated (token exists AND not expired)
  * @returns {boolean}
  */
 function isAuthenticated() {
     const token = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
-    return token !== null && token !== '';
+    if (!token || token === '') return false;
+    
+    // Check JWT expiration
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+            console.warn('Auth token expired, clearing session');
+            localStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
+            return false;
+        }
+    } catch (e) {
+        // Invalid token format
+        localStorage.removeItem(AUTH_CONFIG.TOKEN_KEY);
+        return false;
+    }
+    return true;
 }
 
 /**
@@ -256,8 +271,8 @@ async function syncUserProfile() {
             if (profile.fullName) localStorage.setItem(AUTH_CONFIG.NAME_KEY, profile.fullName);
             if (profile.email) localStorage.setItem(AUTH_CONFIG.USER_KEY, profile.email);
             if (profile.role) localStorage.setItem(AUTH_CONFIG.ROLE_KEY, profile.role);
-            if (profile.avatar) {
-                localStorage.setItem(AUTH_CONFIG.AVATAR_KEY, profile.avatar);
+            if (profile.avatarUrl) {
+                localStorage.setItem(AUTH_CONFIG.AVATAR_KEY, profile.avatarUrl);
             }
         }
     } catch (error) {

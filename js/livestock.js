@@ -13,8 +13,7 @@ let selectedWaterType = null;
 
 // Farm ID - dynamically loaded from user's farms
 let currentFarmId = null;
-var API_BASE_URL = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL :
-    (typeof CONFIG !== 'undefined' ? CONFIG.API_BASE_URL : 'http://localhost:8080/api');
+// API_BASE_URL is defined in config.js (loaded before this script)
 
 // User inventory cache for checking before activities
 let livestockInventoryCache = [];
@@ -138,9 +137,20 @@ document.addEventListener('DOMContentLoaded', async function () {
 async function loadCurrentFarm() {
     try {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        if (!token) {
+            console.warn('No auth token, cannot load farm');
+            return;
+        }
+        const headers = { 'Authorization': `Bearer ${token}` };
 
         const response = await fetch(`${API_BASE_URL}/farms/my-farms`, { headers });
+        if (response.status === 401 || response.status === 403) {
+            console.warn('Auth token invalid/expired, redirecting to login');
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('token');
+            window.location.href = 'login.html';
+            return;
+        }
         if (response.ok) {
             const farms = await response.json();
             if (farms.length > 0) {

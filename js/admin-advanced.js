@@ -813,7 +813,7 @@ function showZoneInfo(zone) {
     };
 
     // Determine map type for section headers
-    const isSoilMap = zone.mapType === 'soil' || zone.soilCategory;
+    const isSoilMap = zone.mapType === 'soil';
     const typeLabel = isSoilMap ? 'Loại đất' : 'Loại quy hoạch';
 
     content.innerHTML = `
@@ -846,13 +846,13 @@ function showZoneInfo(zone) {
             <span class="zone-info-value" style="font-weight:600;color:#166534;">${formatArea(zone.areaSqm)}</span>
         </div>
 
-        ${isSoilMap && zone.soilCategory ? `
+        ${isSoilMap ? `
         <!-- Soil Type Details -->
         <div style="margin:10px 0;padding:10px;background:#fef3c7;border-radius:8px;">
             <div style="font-size:11px;text-transform:uppercase;color:#92400e;font-weight:600;margin-bottom:6px;">🌱 Thông tin đất</div>
             <div class="zone-info-row" style="margin:0;">
                 <span class="zone-info-label">Phân loại</span>
-                <span class="zone-info-value">${zone.soilCategory || '-'}</span>
+                <span class="zone-info-value">${zone.zoneType || '-'}</span>
             </div>
             ${zone.phRange ? `<div class="zone-info-row" style="margin:0;"><span class="zone-info-label">pH</span><span class="zone-info-value">${zone.phRange}</span></div>` : ''}
             ${zone.fertility ? `<div class="zone-info-row" style="margin:0;"><span class="zone-info-label">Độ phì</span><span class="zone-info-value">${zone.fertility}</span></div>` : ''}
@@ -1568,15 +1568,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ============ MAP TYPE TOGGLE ============
+// New tab structure: planning (WMS land parcels), soil, suitability (parcels + soil combined)
 let currentMapType = 'planning';
 let landParcelsWmsLayer = null;
 let landParcelsLocalLayer = null;
 let landParcelsActive = false;
+let suitabilityLayer = null;
+let suitabilityActive = false;
 
 // GeoServer WMS/WFS endpoints for land parcels
 const GEOSERVER_WMS_URL = 'https://ilis-sdk.vnpt.vn/map/geoserver/iLIS_CMU/wms';
 const GEOSERVER_WFS_URL = 'https://ilis-sdk.vnpt.vn/map/geoserver/iLIS_CMU/wfs';
-const LAND_PARCEL_LAYER = 'iLIS_CMU:cmu_thuadat_huyenthoibinh';
+
+// All available land parcel layers by district (verified from WFS GetCapabilities)
+const LAND_PARCEL_LAYERS = {
+    'Thới Bình': 'iLIS_CMU:cmu_thuadat_huyenthoibinh',
+    'Cái Nước': 'iLIS_CMU:cmu_thuadat_huyencainuoc',
+    'Đầm Dơi': 'iLIS_CMU:cmu_thuadat_huyendamdoi',
+    'Phú Tân': 'iLIS_CMU:cmu_thuadat_huyenphutan',
+    'Trần Văn Thời': 'iLIS_CMU:cmu_thuadat_huyentranvanthoi',
+    'U Minh': 'iLIS_CMU:cmu_thuadat_huyenuminh',
+    'TP Cà Mau': 'iLIS_CMU:cmu_thuadat_tpcamau'
+};
+// Join ALL district layers for WMS display (comma-separated = all districts visible)
+const LAND_PARCEL_LAYER = Object.values(LAND_PARCEL_LAYERS).join(',');
 
 // Land use color mapping
 const LAND_USE_COLORS = {
@@ -1627,49 +1642,51 @@ document.addEventListener('DOMContentLoaded', () => {
                 document.querySelectorAll('.map-type-btn').forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
 
-                if (mapType === 'land-parcels') {
-                    // Hide planning zones, show land parcels
-                    planningZonesLayer.clearLayers();
+                // Always deactivate layers first
+                deactivateLandParcelsLayer();
+                deactivateSuitabilityLayer();
+                planningZonesLayer.clearLayers();
+
+                const legendHeader = document.querySelector('.legend-header');
+
+                if (mapType === 'planning') {
+                    // Tab Quy hoạch = WMS land parcels (was old "Thửa đất" tab)
                     activateLandParcelsLayer();
-
-                    // Update legend
                     loadLandParcelLegend();
-
-                    // Update legend header
-                    const legendHeader = document.querySelector('.legend-header');
                     if (legendHeader) {
-                        legendHeader.style.background = 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
-                        legendHeader.querySelector('span:nth-child(2)').textContent = 'Chú giải Thửa đất';
+                        legendHeader.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                        legendHeader.querySelector('span:nth-child(2)').textContent = 'Chú giải Quy hoạch';
                     }
-
-                    showToast('Lớp Thửa đất', 'Hiển thị 129,000+ thửa đất Huyện Thới Bình (WMS)', 'success');
-                } else {
-                    // Remove land parcels layers
-                    deactivateLandParcelsLayer();
-
-                    // Reload zones for this map type
-                    loadPlanningZones(mapType);
-
-                    // Update legend header
-                    const legendHeader = document.querySelector('.legend-header');
+                    showToast('Bản đồ Quy hoạch', 'Hiển thị thửa đất từ iLIS (WMS)', 'success');
+                } else if (mapType === 'soil') {
+                    // Tab Thổ nhưỡng = soil zones from KMZ
+                    loadPlanningZones('soil');
                     if (legendHeader) {
-                        if (mapType === 'soil') {
-                            legendHeader.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
-                            legendHeader.querySelector('span:nth-child(2)').textContent = 'Chú giải Thổ nhưỡng';
-                        } else {
-                            legendHeader.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
-                            legendHeader.querySelector('span:nth-child(2)').textContent = 'Chú giải Màu sắc';
-                        }
+                        legendHeader.style.background = 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+                        legendHeader.querySelector('span:nth-child(2)').textContent = 'Chú giải Thổ nhưỡng';
                     }
-
-                    showToast(
-                        mapType === 'soil' ? 'Bản đồ Thổ nhưỡng' : 'Bản đồ Quy hoạch',
-                        `Đang hiển thị lớp ${mapType === 'soil' ? 'thổ nhưỡng' : 'quy hoạch'}`,
-                        'success'
-                    );
+                    showToast('Bản đồ Thổ nhưỡng', 'Đang hiển thị lớp thổ nhưỡng', 'success');
+                } else if (mapType === 'suitability') {
+                    // Tab Thích nghi = WMS land parcels + soil overlay combined
+                    activateSuitabilityLayer();
+                    loadSuitabilityLegend();
+                    if (legendHeader) {
+                        legendHeader.style.background = 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)';
+                        legendHeader.querySelector('span:nth-child(2)').textContent = 'Bản đồ Thích nghi';
+                    }
+                    showToast('Bản đồ Thích nghi', 'Kết hợp thửa đất + thổ nhưỡng → cây trồng phù hợp', 'success');
                 }
             });
         });
+
+        // On initial load, activate planning (WMS land parcels) by default
+        activateLandParcelsLayer();
+        loadLandParcelLegend();
+        const legendHeader = document.querySelector('.legend-header');
+        if (legendHeader) {
+            legendHeader.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+            legendHeader.querySelector('span:nth-child(2)').textContent = 'Chú giải Quy hoạch';
+        }
     }, 500);
 });
 
@@ -1780,7 +1797,7 @@ async function onMapClickGetParcelInfo(e) {
             address: props.diachithua,
             adminUnitName: props.tendvhc,
             adminUnitCode: props.madvhc,
-            district: 'Thới Bình'
+            district: props.tendvhc || ''
         };
 
         showLandParcelInfo(parcelInfo);
@@ -2043,6 +2060,489 @@ function loadLandParcelLegend() {
             </div>
         </div>
     `).join('');
+}
+
+// ============ SUITABILITY LAYER (Thích nghi) ============
+// Combines land parcels + soil data to show crop/animal suitability per parcel
+
+// Soil type → crop suitability mapping
+// Keys matching zone_code values from planning_zones DB + legacy detailed codes
+const SOIL_CROP_SUITABILITY = {
+    // === DB zone_codes (primary match from planning_zones table) ===
+    'M': { crops: ['Lúa nước'], animals: ['Tôm sú', 'Tôm thẻ chân trắng', 'Cua biển'], description: 'Đất mặn - Chuyên tôm/cua' },
+    'MIT': { crops: ['Lúa nước', 'Dưa hấu', 'Dừa'], animals: ['Tôm càng xanh', 'Cá tra'], description: 'Đất mặn ít - Lúa tôm kết hợp' },
+    'MN': { crops: [], animals: ['Tôm sú', 'Cua biển', 'Sò huyết'], description: 'Đất mặn nhiều - Chuyên thủy sản' },
+    'PH': { crops: ['Lúa nước', 'Mía', 'Khoai tây'], animals: ['Cá rô đồng'], description: 'Đất phèn - Cần cải tạo' },
+    'PHH': { crops: ['Tràm'], animals: ['Cá rô đồng'], description: 'Đất phèn hoạt động - Hạn chế canh tác' },
+    'TB': { crops: ['Tràm'], animals: [], description: 'Đất than bùn U Minh - Rừng tràm' },
+    'Bb': { crops: ['Lúa nước', 'Bắp cải'], animals: ['Cá tra'], description: 'Bãi bồi, đất mới mầu mỡ' },
+    // === Legacy/detailed soil codes ===
+    'Cg': { crops: ['Dừa', 'Dưa hấu', 'Ớt'], animals: [], description: 'Đất cát giồng - Rau màu' },
+    'M3': { crops: [], animals: ['Tôm sú', 'Cua biển'], description: 'Đất mặn nhiều' },
+    'M2': { crops: ['Lúa nước'], animals: ['Tôm sú', 'Cá tra'], description: 'Đất mặn trung bình' },
+    'M1': { crops: ['Lúa nước', 'Dưa hấu'], animals: ['Tôm càng xanh'], description: 'Đất mặn ít, đa canh' },
+    'SP-tt-nn-RNM': { crops: [], animals: ['Tôm sú', 'Cua biển', 'Sò huyết'], description: 'Phèn tiềm tàng nông + Rừng ngập mặn' },
+    'SP-tt-nn-M3': { crops: ['Lúa nước'], animals: ['Tôm sú', 'Cua biển'], description: 'Phèn tiềm tàng nông, mặn nhiều' },
+    'SP-tt-nn-M2': { crops: ['Lúa nước', 'Mía'], animals: ['Tôm sú', 'Cá rô đồng'], description: 'Phèn tiềm tàng nông, mặn TB' },
+    'SP-tt-nn-M1': { crops: ['Lúa nước', 'Cà chua'], animals: ['Cá tra', 'Tôm càng xanh'], description: 'Phèn tiềm tàng nông, mặn ít' },
+    'SP-tt-s-RNM': { crops: [], animals: ['Tôm sú', 'Nghêu'], description: 'Phèn tiềm tàng sâu + Rừng ngập mặn' },
+    'SP-tt-s-M3': { crops: ['Lúa nước'], animals: ['Tôm sú'], description: 'Phèn tiềm tàng sâu, mặn nhiều' },
+    'SP-tt-s-M2': { crops: ['Lúa nước'], animals: ['Tôm sú'], description: 'Phèn tiềm tàng sâu, mặn TB' },
+    'SP-tt-s-M1': { crops: ['Lúa nước', 'Xoài', 'Bưởi'], animals: ['Cá tra', 'Tôm càng xanh'], description: 'Phèn tiềm tàng sâu, mặn ít - đất tốt' },
+    'SP-hd-nn-M3': { crops: ['Lúa nước'], animals: ['Tôm sú'], description: 'Phèn hoạt động nông, mặn nhiều' },
+    'SP-hd-nn-M2': { crops: ['Lúa nước', 'Mía'], animals: ['Cá rô đồng'], description: 'Phèn hoạt động nông, mặn TB' },
+    'SP-hd-nn-M1': { crops: ['Lúa nước', 'Khoai tây'], animals: ['Cá rô đồng'], description: 'Phèn hoạt động nông, mặn ít' },
+    'SP-hd-s-M3': { crops: ['Lúa nước'], animals: ['Tôm sú', 'Cua biển'], description: 'Phèn hoạt động sâu, mặn nhiều' },
+    'SP-hd-s-M2': { crops: ['Lúa nước'], animals: ['Tôm thẻ chân trắng'], description: 'Phèn hoạt động sâu, mặn TB' },
+    'SP-hd-s-M1': { crops: ['Lúa nước', 'Cam', 'Bưởi'], animals: ['Cá tra'], description: 'Phèn hoạt động sâu, mặn ít' },
+    'T-p-M': { crops: ['Tràm', 'Keo lá tràm'], animals: [], description: 'Đất than bùn U Minh - rừng tràm' },
+    'Fa': { crops: ['Cao su', 'Cà phê', 'Hồ tiêu'], animals: [], description: 'Đất vùng đồi núi thấp' },
+    'WATER': { crops: [], animals: ['Cá tra', 'Tôm sú', 'Nghêu'], description: 'Sông suối, mặt nước' },
+};
+
+// Land use code → suitability color  
+const SUITABILITY_COLORS = {
+    'high': '#22c55e',     // Xanh lá - Rất phù hợp
+    'medium': '#f59e0b',   // Vàng - Phù hợp trung bình
+    'low': '#ef4444',      // Đỏ - Ít phù hợp
+    'water': '#3b82f6',    // Xanh dương - Mặt nước
+    'forest': '#166534',   // Xanh đậm - Rừng
+    'urban': '#6b7280',    // Xám - Đất ở/đô thị
+};
+
+function getSuitabilityLevel(landUseCode, soilCode) {
+    if (!landUseCode) return 'medium';
+    const code = landUseCode.toUpperCase().trim();
+    if (['SON', 'MNC', 'DTL'].includes(code)) return 'water';
+    if (['RSX', 'RPH', 'RDD'].includes(code)) return 'forest';
+    if (['ONT', 'ODT', 'DGT', 'TSC', 'DGD', 'DYT', 'TMD', 'SKC', 'CQP'].includes(code)) return 'urban';
+    if (['LUC', 'LUK', 'CLN', 'NTS'].includes(code)) return 'high';
+    if (['BHK', 'HNK', 'NTD'].includes(code)) return 'medium';
+    return 'medium';
+}
+
+/**
+ * Activate suitability layer: WMS parcels + soil zones overlay + click shows combined info
+ */
+function activateSuitabilityLayer() {
+    // Pan to Cà Mau area
+    const center = map.getCenter();
+    if (center.lat < 9.0 || center.lat > 9.6 || center.lng < 104.8 || center.lng > 105.5) {
+        map.setView([9.30, 105.15], 13);
+    }
+
+    // Add WMS tile layer (land parcels base)
+    if (!landParcelsWmsLayer) {
+        landParcelsWmsLayer = L.tileLayer.wms(GEOSERVER_WMS_URL, {
+            layers: LAND_PARCEL_LAYER,
+            format: 'image/png',
+            transparent: true,
+            version: '1.1.1',
+            srs: 'EPSG:4326',
+            opacity: 0.6, // More transparent to show soil overlay
+            maxZoom: 22,
+            attribution: '© ilis.camau.gov.vn'
+        });
+    } else {
+        landParcelsWmsLayer.setOpacity(0.6);
+    }
+    landParcelsWmsLayer.addTo(map);
+    landParcelsActive = true;
+    suitabilityActive = true;
+
+    // Load soil zones as overlay
+    loadSoilZonesForSuitability();
+
+    // Load local parcels for hover/click
+    loadLocalParcelsOverlay();
+
+    // Setup enhanced click handler showing combined parcel+soil info
+    map.on('click', onMapClickSuitabilityInfo);
+    map.on('moveend', onMapMoveLoadLocalParcels);
+}
+
+function deactivateSuitabilityLayer() {
+    suitabilityActive = false;
+    if (suitabilityLayer) {
+        map.removeLayer(suitabilityLayer);
+        suitabilityLayer = null;
+    }
+    map.off('click', onMapClickSuitabilityInfo);
+}
+
+/**
+ * Load soil zones overlay for suitability view
+ */
+async function loadSoilZonesForSuitability() {
+    try {
+        const zones = await fetchAPI('/planning-zones?mapType=soil');
+        if (!zones || zones.length === 0) return;
+
+        if (suitabilityLayer) map.removeLayer(suitabilityLayer);
+        suitabilityLayer = L.layerGroup();
+
+        zones.forEach(zone => {
+            try {
+                let layer = null;
+
+                // 1. Try GeoJSON polygon
+                if (zone.geojson) {
+                    const geojson = typeof zone.geojson === 'string' ? JSON.parse(zone.geojson) : zone.geojson;
+                    layer = L.geoJSON(geojson, {
+                        style: {
+                            fillColor: zone.fillColor || '#ccc',
+                            fillOpacity: 0.25,
+                            color: zone.fillColor || '#999',
+                            weight: 1,
+                            opacity: 0.5,
+                            dashArray: '4 4'
+                        },
+                        onEachFeature: (feature, lyr) => {
+                            lyr.soilData = zone;
+                            lyr.bindTooltip(
+                                `<b>${zone.name || zone.zoneType || 'Thổ nhưỡng'}</b><br>${zone.zoneType || ''}`,
+                                { className: 'soil-tooltip', sticky: true, opacity: 0.9 }
+                            );
+                        },
+                        coordsToLatLng: coords => L.latLng(coords[1], coords[0])
+                    });
+                }
+
+                // 2. Fallback to boundaryCoordinates
+                if (!layer && zone.boundaryCoordinates) {
+                    const coords = typeof zone.boundaryCoordinates === 'string'
+                        ? JSON.parse(zone.boundaryCoordinates) : zone.boundaryCoordinates;
+                    if (coords && coords.length > 2) {
+                        layer = L.polygon(coords, {
+                            fillColor: zone.fillColor || '#ccc',
+                            fillOpacity: 0.25,
+                            color: zone.fillColor || '#999',
+                            weight: 1,
+                            opacity: 0.5,
+                            dashArray: '4 4'
+                        });
+                        layer.soilData = zone;
+                        layer.bindTooltip(
+                            `<b>${zone.name || zone.zoneType || 'Thổ nhưỡng'}</b><br>${zone.zoneType || ''}`,
+                            { className: 'soil-tooltip', sticky: true, opacity: 0.9 }
+                        );
+                    }
+                }
+
+                if (layer) suitabilityLayer.addLayer(layer);
+            } catch (e) { /* skip */ }
+        });
+
+        suitabilityLayer.addTo(map);
+        console.log(`[Suitability] Loaded ${zones.length} soil zones for suitability overlay`);
+    } catch (error) {
+        console.error('Error loading soil zones for suitability:', error);
+    }
+}
+
+/**
+ * Ray-casting point-in-polygon check
+ */
+function raycastPointInPolygon(lat, lng, ring) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i].lat, yi = ring[i].lng;
+        const xj = ring[j].lat, yj = ring[j].lng;
+        const intersect = ((yi > lng) !== (yj > lng)) && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+/**
+ * Find soil zone data at a given point by recursively traversing all layers
+ * Uses bounding box for fast pre-filtering, then ray-casting for accuracy
+ */
+function findSoilZoneAtPoint(layerGroup, latlng) {
+    let bestMatch = null;
+    let bestMatchBbox = null; // fallback: bounding box match
+
+    function checkAllRings(allLatLngs, lat, lng) {
+        // Recursively find all rings in the nested array structure
+        // and check each one with ray-casting
+        if (!allLatLngs || allLatLngs.length === 0) return false;
+        
+        // If the first element has .lat, this is a ring of LatLngs
+        if (allLatLngs[0] && allLatLngs[0].lat !== undefined) {
+            return allLatLngs.length >= 3 && raycastPointInPolygon(lat, lng, allLatLngs);
+        }
+        
+        // Otherwise, recurse into each sub-array (handles MultiPolygon: [[[LatLng]]])
+        for (let i = 0; i < allLatLngs.length; i++) {
+            if (Array.isArray(allLatLngs[i]) && checkAllRings(allLatLngs[i], lat, lng)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function traverse(layer, parentSoilData) {
+        const soilData = layer.soilData || layer._soilZoneData || parentSoilData;
+
+        // Check if this is a polygon layer with actual coordinates
+        if (layer.getLatLngs && soilData) {
+            try {
+                // Quick bounding box pre-filter
+                const bounds = layer.getBounds();
+                if (bounds && bounds.isValid() && bounds.contains(latlng)) {
+                    // Store as bbox fallback
+                    if (!bestMatchBbox) bestMatchBbox = soilData;
+
+                    // Try ray-casting on ALL polygon rings (handles MultiPolygon)
+                    const allLatLngs = layer.getLatLngs();
+                    if (checkAllRings(allLatLngs, latlng.lat, latlng.lng)) {
+                        bestMatch = soilData;
+                    }
+                }
+            } catch (e) { /* skip */ }
+        }
+
+        // Recurse into child layers
+        if (layer.eachLayer) {
+            layer.eachLayer(child => traverse(child, soilData));
+        }
+    }
+
+    traverse(layerGroup, null);
+    return bestMatch || bestMatchBbox; // prefer ray-cast, fall back to bbox
+}
+
+/**
+ * Click handler for suitability map: shows combined parcel + soil info + crop suggestions
+ */
+async function onMapClickSuitabilityInfo(e) {
+    if (!suitabilityActive) return;
+
+    const latlng = e.latlng;
+    const mapSize = map.getSize();
+    const bounds = map.getBounds();
+    const sw = bounds.getSouthWest();
+    const ne = bounds.getNorthEast();
+    const point = map.latLngToContainerPoint(latlng);
+
+    // 1. Get parcel info from WMS GetFeatureInfo
+    const bbox = `${sw.lng},${sw.lat},${ne.lng},${ne.lat}`;
+    const url = `${GEOSERVER_WMS_URL}?` +
+        `SERVICE=WMS&VERSION=1.1.1&REQUEST=GetFeatureInfo` +
+        `&LAYERS=${LAND_PARCEL_LAYER}` +
+        `&QUERY_LAYERS=${LAND_PARCEL_LAYER}` +
+        `&SRS=EPSG:4326` +
+        `&BBOX=${bbox}` +
+        `&WIDTH=${mapSize.x}` +
+        `&HEIGHT=${mapSize.y}` +
+        `&X=${Math.round(point.x)}` +
+        `&Y=${Math.round(point.y)}` +
+        `&INFO_FORMAT=application/json` +
+        `&FEATURE_COUNT=1`;
+
+    let parcelInfo = null;
+    try {
+        const response = await fetch(url);
+        if (response.ok) {
+            const data = await response.json();
+            const features = data.features || [];
+            if (features.length > 0) {
+                const props = features[0].properties || {};
+                parcelInfo = {
+                    mapSheetNumber: props.tobandoso,
+                    parcelNumber: props.sothututhua,
+                    areaSqm: props.dientich,
+                    legalAreaSqm: props.dientichpl,
+                    landUseCode: props.loaidat,
+                    landUseName: lookupLandUseName(props.loaidat),
+                    address: props.diachithua,
+                    adminUnitName: props.tendvhc,
+                    adminUnitCode: props.madvhc,
+                    district: props.tendvhc || ''
+                };
+            }
+        }
+    } catch (err) { console.warn('GetFeatureInfo error:', err); }
+
+    // 2. Find which soil zone the click falls in (recursive traversal)
+    let soilInfo = null;
+    if (suitabilityLayer) {
+        soilInfo = findSoilZoneAtPoint(suitabilityLayer, latlng);
+        if (!soilInfo) {
+            // Debug: count how many soil zone layers are loaded
+            let layerCount = 0;
+            suitabilityLayer.eachLayer(l => { if (l.eachLayer) l.eachLayer(() => layerCount++); else layerCount++; });
+            console.log(`[Suitability] No soil zone found at ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}. Soil overlay has ${layerCount} sub-layers.`);
+        }
+    } else {
+        console.warn('[Suitability] suitabilityLayer is null - soil zones not loaded');
+    }
+
+    // 2b. API fallback: if client-side detection failed, query backend
+    if (!soilInfo) {
+        try {
+            const nearZones = await fetchAPI(`/planning-zones/near?lat=${latlng.lat}&lng=${latlng.lng}&radius=0.01&mapType=soil`);
+            if (nearZones && nearZones.length > 0) {
+                soilInfo = nearZones[0];
+                console.log(`[Suitability] Found soil zone via API fallback: ${soilInfo.name} (${soilInfo.zoneCode})`);
+            }
+        } catch (apiErr) {
+            console.warn('[Suitability] API fallback failed:', apiErr);
+        }
+    }
+
+    // 3. Show combined suitability info
+    showSuitabilityInfo(parcelInfo, soilInfo, latlng);
+}
+
+function showSuitabilityInfo(parcelInfo, soilInfo, latlng) {
+    const panel = document.getElementById('zone-info-panel');
+    const content = document.getElementById('zone-info-content');
+    const title = document.getElementById('zone-info-title');
+
+    if (!parcelInfo && !soilInfo) {
+        title.textContent = 'Thông tin Thích nghi';
+        content.innerHTML = '<p style="color:#6b7280;text-align:center;padding:20px;">Không tìm thấy dữ liệu tại vị trí này</p>';
+        panel.classList.remove('hidden');
+        return;
+    }
+
+    // Determine soil-based suitability (try multiple matching strategies)
+    const soilCode = soilInfo?.zoneCode || '';
+    let suitData = SOIL_CROP_SUITABILITY[soilCode] || null;
+    // Fallback: try matching by zoneType
+    if (!suitData && soilInfo?.zoneType) {
+        suitData = SOIL_CROP_SUITABILITY[soilInfo.zoneType] || null;
+    }
+    // Fallback: partial match on soilCode
+    if (!suitData && soilCode) {
+        const partialKey = Object.keys(SOIL_CROP_SUITABILITY).find(k => soilCode.includes(k) || k.includes(soilCode));
+        if (partialKey) suitData = SOIL_CROP_SUITABILITY[partialKey];
+    }
+    const landUseCode = parcelInfo?.landUseCode || '';
+    const suitLevel = getSuitabilityLevel(landUseCode, soilCode);
+    const suitColor = SUITABILITY_COLORS[suitLevel] || SUITABILITY_COLORS['medium'];
+
+    title.textContent = parcelInfo ? `Thích nghi - Thửa ${parcelInfo.parcelNumber || '—'}` : 'Thông tin Thích nghi';
+
+    const area = parcelInfo?.areaSqm ? (parcelInfo.areaSqm / 10000).toFixed(4) : '—';
+    const colorBox = `<span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:${getLandUseColor(landUseCode)};margin-right:6px;vertical-align:middle;border:1px solid #999"></span>`;
+
+    let html = '<div style="font-size:14px;">';
+
+    // Suitability badge
+    const suitLabels = { high: 'Rất phù hợp', medium: 'Phù hợp TB', low: 'Ít phù hợp', water: 'Mặt nước', forest: 'Rừng', urban: 'Đất phi nông nghiệp' };
+    html += `<div style="margin-bottom:12px;padding:10px;background:${suitColor}15;border-left:4px solid ${suitColor};border-radius:0 8px 8px 0;">
+        <span style="font-weight:700;color:${suitColor};font-size:15px;">🌱 ${suitLabels[suitLevel] || 'Chưa xác định'}</span>
+    </div>`;
+
+    // Parcel info section
+    if (parcelInfo) {
+        html += `<div style="margin-bottom:12px;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px;">
+            <span style="color:#6b7280;">Diện tích:</span><span style="font-weight:600;">${area} ha</span>
+            <span style="color:#6b7280;">Mục đích SD:</span><span>${colorBox}${parcelInfo.landUseName || '—'} <br><span style="font-size:11px;color:#9ca3af;">(${landUseCode})</span></span>
+            <span style="color:#6b7280;">Xã:</span><span>${parcelInfo.district || '—'}</span>
+        </div>`;
+    }
+
+    // Soil Info Section (New - Strictly matched)
+    if (soilInfo) {
+        html += `<div style="margin-bottom:12px;padding:10px;background:#fef3c7;border-radius:6px;border:1px solid #fde68a;">
+            <div style="font-weight:700;color:#92400e;margin-bottom:6px;display:flex;align-items:center;">
+                <span class="material-icons-round" style="font-size:16px;margin-right:4px;">terrain</span>
+                Thông tin Thổ nhưỡng
+            </div>
+            <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;">
+                <span style="color:#78350f;">Loại đất:</span><span style="font-weight:600;">${soilInfo.name || soilInfo.zoneType || '—'}</span>
+                <span style="color:#78350f;">Mã đất:</span><span>${soilInfo.zoneCode || '—'}</span>
+                ${soilInfo.zoneType ? `<span style="color:#78350f;">Phân loại:</span><span>${soilInfo.zoneType}</span>` : ''}
+            </div>
+        </div>`;
+    } else {
+        html += `<div style="margin-bottom:12px;padding:8px;background:#f3f4f6;border-radius:6px;font-size:12px;color:#6b7280;font-style:italic;">
+            Không có dữ liệu thổ nhưỡng tại vị trí này
+        </div>`;
+    }
+
+    // Strict Soil-based recommendations
+    const suit = suitData;
+    const suitSource = suit ? 'Thổ nhưỡng' : 'Mục đích sử dụng';
+
+    if (suit) {
+        html += `<div style="margin-bottom:8px;border-top:1px dashed #e5e7eb;padding-top:10px;">
+            <div style="font-weight:600;color:#166534;margin-bottom:6px;">🌾 Cây trồng phù hợp <span style="font-size:11px;font-weight:400;color:#6b7280;">(theo ${suitSource})</span></div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                ${suit.crops.map(c => `<span style="padding:4px 10px;background:#dcfce7;color:#166534;border-radius:16px;font-size:12px;border:1px solid #bbf7d0;">${c}</span>`).join('')}
+            </div>
+        </div>
+        <div style="margin-bottom:8px;">
+            <div style="font-weight:600;color:#1d4ed8;margin-bottom:6px;">🐟 Vật nuôi phù hợp <span style="font-size:11px;font-weight:400;color:#6b7280;">(theo ${suitSource})</span></div>
+             <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                ${suit.animals.map(a => `<span style="padding:4px 10px;background:#dbeafe;color:#1d4ed8;border-radius:16px;font-size:12px;border:1px solid #bfdbfe;">${a}</span>`).join('')}
+            </div>
+        </div>`;
+    } else {
+        // Fallback based on Land Use
+        const genericCrops = getGenericCropsForLandUse(landUseCode);
+        if (genericCrops.length > 0 && suitLevel !== 'urban' && suitLevel !== 'water') {
+            html += `<div style="margin-top:8px;padding:8px;background:#fff7ed;border-radius:6px;font-size:12px;color:#c2410c;">
+                <b>Gợi ý theo MĐSD</b> (Chưa có dữ liệu thổ nhưỡng):<br>
+                ${genericCrops.join(', ')}
+             </div>`;
+        }
+    }
+
+    html += `<div style="margin-top:8px;padding:6px 10px;background:#f0f9ff;border-radius:6px;font-size:11px;color:#3b82f6;">
+        <span class="material-icons-round" style="font-size:13px;vertical-align:middle;">info</span>
+        Dữ liệu kết hợp: Thửa đất (iLIS) + Thổ nhưỡng (KMZ)
+    </div>`;
+    html += '</div>';
+
+    content.innerHTML = html;
+
+    // Hide edit/delete buttons
+    const editBtn = document.getElementById('zone-edit-btn');
+    const deleteBtn = document.getElementById('zone-delete-btn');
+    if (editBtn) editBtn.style.display = 'none';
+    if (deleteBtn) deleteBtn.style.display = 'none';
+
+    panel.classList.remove('hidden');
+}
+
+function getGenericCropsForLandUse(code) {
+    if (!code) return [];
+    const c = code.toUpperCase().trim();
+    const map = {
+        'LUC': ['Lúa (2-3 vụ)', 'Lúa nếp', 'Lúa thơm'],
+        'LUK': ['Lúa (1-2 vụ)', 'Lúa mùa'],
+        'CLN': ['Dừa', 'Xoài', 'Bưởi', 'Cam', 'Chuối'],
+        'NTS': ['Tôm sú', 'Tôm thẻ', 'Cá tra', 'Cua'],
+        'BHK': ['Rau màu', 'Đậu', 'Bắp'],
+        'HNK': ['Khoai lang', 'Rau ăn lá', 'Đậu phộng'],
+        'RSX': ['Tràm', 'Keo', 'Cây gỗ'],
+        'RPH': ['Đước', 'Mắm', 'Rừng ngập mặn'],
+    };
+    return map[c] || [];
+}
+
+function loadSuitabilityLegend() {
+    const legendContent = document.getElementById('legend-content');
+    if (!legendContent) return;
+
+    legendContent.innerHTML = `
+        <div style="margin-bottom:10px;padding:8px 12px;background:#ede9fe;border-radius:8px;font-size:12px;color:#5b21b6;">
+            <b>Bản đồ Thích nghi</b> — Kết hợp thửa đất + thổ nhưỡng
+        </div>
+        <div class="legend-item"><div class="legend-color" style="background:${SUITABILITY_COLORS.high}"></div><div class="legend-info"><div class="legend-name">Rất phù hợp nông nghiệp</div><div class="legend-code">LUC, LUK, CLN, NTS</div></div></div>
+        <div class="legend-item"><div class="legend-color" style="background:${SUITABILITY_COLORS.medium}"></div><div class="legend-info"><div class="legend-name">Phù hợp trung bình</div><div class="legend-code">BHK, HNK</div></div></div>
+        <div class="legend-item"><div class="legend-color" style="background:${SUITABILITY_COLORS.low}"></div><div class="legend-info"><div class="legend-name">Ít phù hợp / Cần cải tạo</div><div class="legend-code">Cần đánh giá thêm</div></div></div>
+        <div class="legend-item"><div class="legend-color" style="background:${SUITABILITY_COLORS.forest}"></div><div class="legend-info"><div class="legend-name">Đất rừng</div><div class="legend-code">RSX, RPH, RDD</div></div></div>
+        <div class="legend-item"><div class="legend-color" style="background:${SUITABILITY_COLORS.water}"></div><div class="legend-info"><div class="legend-name">Mặt nước</div><div class="legend-code">SON, MNC, DTL</div></div></div>
+        <div class="legend-item"><div class="legend-color" style="background:${SUITABILITY_COLORS.urban}"></div><div class="legend-info"><div class="legend-name">Đất phi nông nghiệp</div><div class="legend-code">ONT, ODT, DGT...</div></div></div>
+        <div style="margin-top:10px;padding:8px;background:#fef3c7;border-radius:6px;font-size:11px;color:#92400e;">
+            <b>💡 Mẹo:</b> Click vào thửa đất để xem cây trồng/vật nuôi phù hợp dựa trên loại đất & thổ nhưỡng
+        </div>
+    `;
 }
 
 // ============ AI ANALYSIS ============
