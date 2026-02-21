@@ -7823,45 +7823,62 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
 <div class="modal" id="inventory-modal">
     <div class="modal-content inventory-modal-content">
         <div class="modal-header">
-            <h3>Quản lý kho vật tư</h3>
+            <h3><span class="material-symbols-outlined" style="font-size:20px;">warehouse</span> Kho vật tư</h3>
             <span class="close-modal" onclick="closeInventoryModal()">&times;</span>
         </div>
         <div class="modal-body">
-            <!-- Tabs or Actions -->
-            <div class="inventory-actions" style="margin-bottom: 20px; display: flex; justify-content: space-between;">
-                <div class="search-box" style="flex: 1; margin-right: 16px;">
-                    <input type="text" id="inventory-search" placeholder="Tìm kiếm vật tư..." class="form-input">
+            <!-- Summary Cards -->
+            <div class="inventory-summary" id="inventory-summary"></div>
+
+            <!-- Search & View Toggle -->
+            <div class="inventory-actions" style="margin-bottom: 16px;">
+                <div style="flex: 1; position: relative;">
+                    <span class="material-symbols-outlined" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#9ca3af; font-size:20px;">search</span>
+                    <input type="text" id="inventory-search" placeholder="Tìm kiếm vật tư..." class="form-input" style="padding-left: 38px;">
                 </div>
-                <button class="btn btn--primary" onclick="showAddInventoryForm()">
+                <div style="display:flex; gap:4px; margin-left:8px;">
+                    <button class="inv-view-btn active" data-view="grid" onclick="toggleInventoryView('grid')" title="Dạng lưới" style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:8px; cursor:pointer; color:#059669;">
+                        <span class="material-symbols-outlined" style="font-size:20px;">grid_view</span>
+                    </button>
+                    <button class="inv-view-btn" data-view="table" onclick="toggleInventoryView('table')" title="Dạng bảng" style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:8px; cursor:pointer; color:#6b7280;">
+                        <span class="material-symbols-outlined" style="font-size:20px;">table_rows</span>
+                    </button>
+                </div>
+                <button class="btn btn--primary" onclick="showAddInventoryForm()" style="margin-left:8px;">
                     <span class="material-symbols-outlined">add</span> Nhập kho
                 </button>
             </div>
 
-            <!-- Inventory List -->
-            <div class="inventory-list-container">
+            <!-- Category Tabs -->
+            <div class="inv-category-tabs" id="inventory-category-tabs"></div>
+
+            <!-- Grid View -->
+            <div class="inventory-grid-container">
+                <div class="inventory-grid" id="inventory-grid-view"></div>
+            </div>
+
+            <!-- Table View (hidden by default) -->
+            <div class="inventory-list-container" style="display:none;">
                 <table class="inventory-table">
                     <thead>
                         <tr>
                             <th>Tên vật tư</th>
                             <th>Loại</th>
                             <th>Tồn kho</th>
-                            <th>Đơn giá (VNĐ)</th>
+                            <th>Đơn giá</th>
                             <th>Trạng thái</th>
-                            <th>Thao tác</th>
+                            <th>Giá trị</th>
                         </tr>
                     </thead>
-                    <tbody id="inventory-table-body">
-                        <!-- Items Injected Here -->
-                    </tbody>
+                    <tbody id="inventory-table-body"></tbody>
                 </table>
             </div>
 
             <!-- Add/Edit Form (Hidden by default) -->
             <div id="inventory-form-overlay" class="inventory-overlay" style="display: none;">
                 <div class="inventory-form-card">
-                    <h4 id="inv-form-title">Nhập kho vật tư mới</h4>
+                    <h4 id="inv-form-title"><span class="material-symbols-outlined">add_shopping_cart</span> Nhập kho vật tư mới</h4>
 
-                    <!-- Tab Selection: Catalog vs Custom -->
                     <div class="inv-tabs" style="display: flex; gap: 8px; margin-bottom: 16px;">
                         <button type="button" id="tab-catalog" class="inv-tab active"
                             onclick="switchInventoryTab('catalog')">
@@ -7876,8 +7893,6 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
 
                     <form id="inventory-form" onsubmit="handleInventorySubmit(event)">
                         <input type="hidden" id="inv-id">
-
-                        <!-- Catalog Mode -->
                         <div id="catalog-mode">
                             <div class="form-group">
                                 <label>Loại vật tư</label>
@@ -7910,8 +7925,6 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
                                 <div class="preview-desc" id="preview-desc"></div>
                             </div>
                         </div>
-
-                        <!-- Custom Mode (Hidden by default) -->
                         <div id="custom-mode" style="display: none;">
                             <div class="form-group">
                                 <label>Tên vật tư</label>

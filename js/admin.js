@@ -1187,213 +1187,893 @@ async function showCropDetail(id) {
     const crop = cropsData.find(c => c.id === id) || await fetchAPI(`${API_BASE_URL}/admin/crops/${id}`);
     if (!crop) return;
 
+    // Parse JSON fields safely
+    const commonPests = (() => { try { return typeof crop.commonPests === 'string' ? JSON.parse(crop.commonPests) : (crop.commonPests || []); } catch { return []; } })();
+    const idealSeasons = (() => { try { return typeof crop.idealSeasons === 'string' ? JSON.parse(crop.idealSeasons) : (crop.idealSeasons || []); } catch { return crop.idealSeasons ? [crop.idealSeasons] : []; } })();
+    const avoidWeather = (() => { try { return typeof crop.avoidWeather === 'string' ? JSON.parse(crop.avoidWeather) : (crop.avoidWeather || []); } catch { return []; } })();
+    const idealHumidity = (() => { try { return typeof crop.idealHumidityRange === 'string' ? JSON.parse(crop.idealHumidityRange) : (crop.idealHumidityRange || null); } catch { return null; } })();
+
+    // Calculate resource allocation from costs
+    const seedCost = crop.seedCostPerKg || 0;
+    const careCost = crop.careCostPerSqm || 0;
+    const totalCost = seedCost + careCost;
+    const seedPct = totalCost > 0 ? Math.round((seedCost / totalCost) * 100) : 50;
+    const carePct = totalCost > 0 ? Math.round((careCost / totalCost) * 100) : 50;
+
+    // Category label map
+    const categoryLabels = { 'GRAIN': 'Ngũ cốc', 'FRUIT': 'Trái cây', 'VEGETABLE': 'Rau củ', 'LEGUME': 'Đậu', 'INDUSTRIAL': 'Công nghiệp' };
+    const seasonLabels = { 'SPRING': 'Xuân', 'SUMMER': 'Hè', 'FALL': 'Thu', 'WINTER': 'Đông', 'ALL': 'Quanh năm' };
+
     document.getElementById('page-title').innerHTML = `
-        <div class="flex items-center gap-2">
-            <button onclick="loadCrops()" class="text-gray-400 hover:text-gray-600"><span class="material-icons-round">arrow_back</span></button>
-            <span>Chi tiết Cây trồng</span>
+        <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
+            <a onclick="loadCrops()" class="hover:text-emerald-600 cursor-pointer transition-colors">Cây trồng</a>
+            <span class="material-icons-round text-base">chevron_right</span>
+            <span class="text-gray-800 font-medium">${crop.name}</span>
         </div>
+        <h2 class="text-2xl font-bold text-gray-800">Chi tiết Cây trồng</h2>
     `;
 
     document.getElementById('main-content').innerHTML = `
-        <div class="space-y-6">
+        <div class="max-w-7xl mx-auto space-y-6">
             <!-- Header Card -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex justify-between items-start">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div class="flex items-center gap-5">
-                    ${crop.imageUrl
-            ? `<img src="${crop.imageUrl}" alt="${crop.name}" class="w-20 h-20 rounded-xl object-cover border-2 border-gray-200">`
-            : `<div class="w-20 h-20 rounded-xl bg-green-100 flex items-center justify-center text-green-600"><span class="material-icons-round text-4xl">eco</span></div>`
+                    <div class="w-16 h-16 ${crop.imageUrl ? '' : 'bg-yellow-100'} rounded-xl flex items-center justify-center text-yellow-600 overflow-hidden flex-shrink-0">
+                        ${crop.imageUrl
+            ? `<img src="${crop.imageUrl}" alt="${crop.name}" class="w-full h-full object-cover">`
+            : `<span class="material-icons-round text-3xl">agriculture</span>`
         }
+                    </div>
                     <div>
                         <div class="flex items-center gap-3">
-                            <h3 class="text-2xl font-bold text-gray-800">${crop.name}</h3>
-                            <span class="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">${crop.category || 'N/A'}</span>
+                            <h3 class="text-xl font-bold text-gray-800">${crop.name}</h3>
+                            <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                                ${categoryLabels[crop.category] || crop.category || 'N/A'}
+                            </span>
                         </div>
-                        <p class="text-gray-500 mt-1">${crop.description || 'Không có mô tả'}</p>
+                        <p class="text-gray-500 italic mt-1">${crop.description || 'Không có mô tả'}</p>
                     </div>
                 </div>
                 <div class="flex gap-3">
-                    <button onclick="showCropModal(${crop.id})" class="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg flex items-center gap-2">
+                    <button onclick="loadCrops()" class="px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors bg-white">
+                        Quay lại
+                    </button>
+                    <button onclick="showCropModal(${crop.id})" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2">
                         <span class="material-icons-round text-sm">edit</span> Chỉnh sửa
                     </button>
                 </div>
             </div>
 
-            <!-- Technical Specs -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <h4 class="text-lg font-bold text-gray-800 mb-4">Thông số kỹ thuật</h4>
-                    <div class="space-y-4">
-                        <div class="flex justify-between items-center py-3 border-b border-gray-100">
-                            <span class="text-gray-500">Thời gian trưởng thành</span>
-                            <span class="font-medium text-gray-800">${crop.growthDurationDays || '-'} ngày</span>
+            <!-- Main Content Grid: 2/3 + 1/3 -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left Column (2/3) -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Growth Analytics Chart -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h4 class="text-lg font-bold text-gray-800">Phân tích Sinh trưởng</h4>
                         </div>
-                        <div class="flex justify-between items-center py-3 border-b border-gray-100">
-                            <span class="text-gray-500">Nhiệt độ lý tưởng</span>
-                            <span class="font-medium text-gray-800">${crop.minTemp || '-'}°C - ${crop.maxTemp || '-'}°C</span>
+                        <div class="h-64 w-full">
+                            <canvas id="cropGrowthChart"></canvas>
                         </div>
-                        <div class="flex justify-between items-center py-3 border-b border-gray-100">
-                            <span class="text-gray-500">Mùa vụ</span>
-                            <span class="font-medium text-gray-800">${crop.idealSeasons || '-'}</span>
+                    </div>
+
+                    <!-- Technical Specifications -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
+                            <h4 class="text-base font-semibold text-gray-800">Thông số kỹ thuật</h4>
                         </div>
-                        <div class="flex justify-between items-center py-3">
-                            <span class="text-gray-500">Nhu cầu nước</span>
-                            <div class="flex gap-1">
-                                ${[1, 2, 3].map(i => `<span class="material-icons-round text-lg ${i <= (crop.waterNeeds || 2) ? 'text-blue-500' : 'text-gray-300'}">water_drop</span>`).join('')}
+                        <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200">
+                            <div class="p-6 space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Danh mục</span>
+                                    <span class="text-sm font-medium text-gray-800">${categoryLabels[crop.category] || crop.category || '-'}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Thời gian sinh trưởng</span>
+                                    <span class="text-sm font-medium text-gray-800 flex items-center gap-1">
+                                        <span class="material-icons-round text-base text-gray-400">schedule</span>
+                                        ${crop.growthDurationDays || '-'} ngày
+                                    </span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Thời gian nảy mầm</span>
+                                    <span class="text-sm font-medium text-gray-800">${crop.germinationDays || '-'} ngày</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Mùa vụ lý tưởng</span>
+                                    <span class="text-sm font-medium text-gray-800">${Array.isArray(idealSeasons) ? idealSeasons.map(s => seasonLabels[s] || s).join(', ') : (idealSeasons || '-')}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Loại đất phù hợp</span>
+                                    <span class="text-sm font-medium text-gray-800">${crop.soilTypePreferred || '-'}</span>
+                                </div>
+                            </div>
+                            <div class="p-6 space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Nhiệt độ lý tưởng</span>
+                                    <span class="text-sm font-medium text-gray-800">${crop.minTemp || '-'}°C - ${crop.maxTemp || '-'}°C</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Độ ẩm lý tưởng</span>
+                                    <span class="text-sm font-medium text-gray-800">${idealHumidity ? `${idealHumidity.min || idealHumidity[0] || '-'}% - ${idealHumidity.max || idealHumidity[1] || '-'}%` : '-'}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Mật độ gieo</span>
+                                    <span class="text-sm font-medium text-gray-800">${crop.seedsPerSqm || '-'} hạt/m²</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Nhu cầu nước</span>
+                                    <div class="flex gap-1">
+                                        ${[1, 2, 3].map(i => `<span class="material-icons-round text-base ${i <= (crop.waterNeeds || 0) ? 'text-blue-500' : 'text-gray-300'}">water_drop</span>`).join('')}
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Tránh thời tiết</span>
+                                    <span class="text-sm font-medium text-gray-800">${Array.isArray(avoidWeather) && avoidWeather.length > 0 ? avoidWeather.join(', ') : '-'}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-                
-                <!-- Activity Log -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <h4 class="text-lg font-bold text-gray-800 mb-4">Lịch sử hoạt động</h4>
-                    <div class="space-y-4 max-h-64 overflow-y-auto">
-                        ${getActivityForEntity('crop', id).slice(0, 5).map(a => `
-                            <div class="flex items-start gap-3 py-2 border-b border-gray-50">
-                                <div class="w-8 h-8 rounded-full ${a.action === 'CREATE' ? 'bg-green-100 text-green-600' : a.action === 'UPDATE' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'} flex items-center justify-center">
-                                    <span class="material-icons-round text-sm">${a.action === 'CREATE' ? 'add' : a.action === 'UPDATE' ? 'edit' : 'delete'}</span>
+
+                    <!-- Care Intervals -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
+                            <h4 class="text-base font-semibold text-gray-800">Chu kỳ chăm sóc</h4>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
+                            <div class="p-6 text-center">
+                                <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-green-50 flex items-center justify-center text-green-600">
+                                    <span class="material-icons-round text-xl">grass</span>
                                 </div>
-                                <div>
-                                    <p class="text-sm font-medium text-gray-800">${a.details}</p>
-                                    <p class="text-xs text-gray-400">${formatDateTime(a.timestamp)} - ${a.user}</p>
-                                </div>
+                                <p class="text-2xl font-bold text-gray-800">${crop.fertilizerIntervalDays || '-'}</p>
+                                <p class="text-sm text-gray-500">ngày/lần bón phân</p>
                             </div>
-                        `).join('') || '<p class="text-gray-400 text-sm">Chưa có hoạt động</p>'}
+                            <div class="p-6 text-center">
+                                <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                                    <span class="material-icons-round text-xl">water_drop</span>
+                                </div>
+                                <p class="text-2xl font-bold text-gray-800">${crop.wateringIntervalDays || '-'}</p>
+                                <p class="text-sm text-gray-500">ngày/lần tưới nước</p>
+                            </div>
+                            <div class="p-6 text-center">
+                                <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-red-50 flex items-center justify-center text-red-600">
+                                    <span class="material-icons-round text-xl">bug_report</span>
+                                </div>
+                                <p class="text-2xl font-bold text-gray-800">${crop.pesticideIntervalDays || '-'}</p>
+                                <p class="text-sm text-gray-500">ngày/lần phun thuốc</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Common Pests -->
+                    ${commonPests.length > 0 ? `
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
+                            <h4 class="text-base font-semibold text-gray-800">Sâu bệnh thường gặp</h4>
+                        </div>
+                        <div class="p-6">
+                            <div class="flex flex-wrap gap-2">
+                                ${commonPests.map(pest => `
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-red-50 text-red-700 border border-red-200">
+                                        <span class="material-icons-round text-sm">bug_report</span>
+                                        ${pest}
+                                    </span>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+
+                <!-- Right Column (1/3) -->
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Resource Allocation (Cost Breakdown) -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h4 class="text-base font-bold text-gray-800 mb-4">Phân bổ Chi phí</h4>
+                        <div class="relative h-48 flex justify-center items-center">
+                            <canvas id="cropResourceChart"></canvas>
+                        </div>
+                        <div class="mt-4 space-y-2">
+                            <div class="flex items-center justify-between text-sm">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                                    <span class="text-gray-500">Chi phí hạt giống</span>
+                                </div>
+                                <span class="font-medium text-gray-800">${formatCurrency(seedCost)}/kg</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                                    <span class="text-gray-500">Chi phí chăm sóc</span>
+                                </div>
+                                <span class="font-medium text-gray-800">${formatCurrency(careCost)}/m²</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Yield Economics -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h4 class="text-base font-bold text-gray-800 mb-4">Kinh tế Thu hoạch</h4>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="text-gray-400"><span class="material-icons-round">trending_up</span></div>
+                                    <span class="text-sm font-medium text-gray-700">Sản lượng dự kiến</span>
+                                </div>
+                                <span class="text-sm font-bold text-gray-900">${crop.expectedYieldPerSqm || '-'} kg/m²</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="text-gray-400"><span class="material-icons-round">sell</span></div>
+                                    <span class="text-sm font-medium text-gray-700">Giá thị trường</span>
+                                </div>
+                                <span class="text-sm font-bold text-emerald-600">${formatCurrency(crop.marketPricePerKg)}/kg</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                                <div class="flex items-center gap-3">
+                                    <div class="text-emerald-500"><span class="material-icons-round">payments</span></div>
+                                    <span class="text-sm font-medium text-emerald-700">Doanh thu/m²</span>
+                                </div>
+                                <span class="text-sm font-bold text-emerald-700">${formatCurrency((crop.expectedYieldPerSqm || 0) * (crop.marketPricePerKg || 0))}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activities -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h4 class="text-base font-bold text-gray-800 mb-4">Hoạt động gần đây</h4>
+                        <div class="space-y-6 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-gray-200 before:to-transparent">
+                            ${(() => {
+            const activities = getActivityForEntity('crop', id).slice(0, 4);
+            if (activities.length === 0) {
+                return `<p class="text-gray-400 text-sm pl-8">Chưa có hoạt động</p>`;
+            }
+            const colors = ['bg-emerald-500', 'bg-blue-500', 'bg-yellow-500', 'bg-purple-500'];
+            return activities.map((a, idx) => `
+                                <div class="relative flex items-start group">
+                                    <div class="absolute left-0 h-5 w-5 rounded-full border-2 border-white ${colors[idx % colors.length]} shadow-sm z-10"></div>
+                                    <div class="pl-8 w-full">
+                                        <p class="text-xs text-gray-400 mb-0.5">${formatDateTime(a.timestamp)}</p>
+                                        <p class="text-sm font-medium text-gray-800">${a.action === 'CREATE' ? 'Tạo mới' : a.action === 'UPDATE' ? 'Cập nhật' : 'Xóa'}</p>
+                                        <p class="text-xs text-gray-500 mt-1">${a.details}</p>
+                                    </div>
+                                </div>
+                            `).join('');
+        })()}
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     `;
 
-    gsap.fromTo('#main-content > div', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.1 });
+    // Initialize Growth Analytics Chart
+    setTimeout(() => {
+        const ctxGrowth = document.getElementById('cropGrowthChart');
+        if (ctxGrowth) {
+            const ctx = ctxGrowth.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
+            gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+            // Simulate growth stages based on actual crop data
+            const totalDays = crop.growthDurationDays || 90;
+            const germDays = crop.germinationDays || Math.round(totalDays * 0.1);
+            const stages = ['Gieo hạt', `Nảy mầm (${germDays}d)`, 'Phát triển', 'Ra hoa', 'Kết trái', 'Thu hoạch'];
+            const growthData = [0, 10, 35, 60, 85, 100];
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: stages,
+                    datasets: [{
+                        label: 'Tiến trình (%)',
+                        data: growthData,
+                        borderColor: '#10b981',
+                        backgroundColor: gradient,
+                        borderWidth: 2,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#10b981',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1f2937', titleColor: '#f9fafb', bodyColor: '#f9fafb', padding: 10, cornerRadius: 8, displayColors: false } },
+                    scales: {
+                        y: { beginAtZero: true, max: 100, grid: { color: 'rgba(107,114,128,0.1)', drawBorder: false }, ticks: { color: '#9ca3af', callback: v => v + '%' } },
+                        x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        // Initialize Resource Allocation Donut Chart
+        const ctxResource = document.getElementById('cropResourceChart');
+        if (ctxResource) {
+            new Chart(ctxResource, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Hạt giống', 'Chăm sóc'],
+                    datasets: [{
+                        data: [seedPct || 50, carePct || 50],
+                        backgroundColor: ['#10b981', '#3b82f6'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+    }, 100);
+
+    gsap.fromTo('#main-content .max-w-7xl > *', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.1 });
 }
 
 // ============ SHOP ITEM DETAIL VIEW ============
 async function showItemDetail(id) {
-    const item = itemsData.find(i => i.id === id);
+    const item = itemsData.find(i => i.id === id) || await fetchAPI(`${API_BASE_URL}/admin/shop-items/${id}`);
     if (!item) return;
 
+    // Category labels
+    const categoryLabels = { 'THUC_AN': 'Thức ăn', 'CON_GIONG': 'Con giống', 'HAT_GIONG': 'Hạt giống', 'THUOC_TRU_SAU': 'Thuốc trừ sâu', 'PHAN_BON': 'Phân bón', 'MAY_MOC': 'Máy móc' };
+
+    // Stock status
+    const stockQty = item.stockQuantity || 0;
+    const stockPct = Math.min(100, stockQty * 2);
+    const stockStatus = stockQty <= 0 ? { label: 'Hết hàng', color: 'red' } : stockQty < 20 ? { label: 'Sắp hết', color: 'yellow' } : { label: 'Còn hàng', color: 'green' };
+
+    // Rating stars
+    const rating = item.rating || 0;
+    const starsHtml = [1, 2, 3, 4, 5].map(i => `<span class="material-icons-round text-sm ${i <= Math.round(rating) ? 'text-yellow-400' : 'text-gray-300'}">star</span>`).join('');
+
+    // Discount calculation
+    const hasDiscount = item.discountPercent && item.discountPercent > 0;
+    const originalPrice = item.originalPrice || item.price;
+
     document.getElementById('page-title').innerHTML = `
-        <div class="flex items-center gap-2">
-            <button onclick="loadShopItems()" class="text-gray-400 hover:text-gray-600"><span class="material-icons-round">arrow_back</span></button>
-            <span>Chi tiết Sản phẩm</span>
+        <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
+            <a onclick="loadShopItems()" class="hover:text-emerald-600 cursor-pointer transition-colors">Cửa hàng</a>
+            <span class="material-icons-round text-base">chevron_right</span>
+            <span class="text-gray-800 font-medium">${item.name}</span>
         </div>
+        <h2 class="text-2xl font-bold text-gray-800">Chi tiết Sản phẩm</h2>
     `;
 
     document.getElementById('main-content').innerHTML = `
-        <div class="space-y-6">
+        <div class="max-w-7xl mx-auto space-y-6">
+            <!-- Main Grid: Image/Stock (1/3) + Info/Chart (2/3) -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Image & Stock -->
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <div class="aspect-square bg-gray-50 rounded-lg overflow-hidden mb-4 flex items-center justify-center">
+                <!-- Left: Image & Stock -->
+                <div class="bg-white rounded-xl shadow-sm p-6 col-span-1 border border-gray-200">
+                    <div class="aspect-w-4 aspect-h-3 bg-gray-50 rounded-lg overflow-hidden mb-6 flex items-center justify-center relative group" style="min-height: 200px;">
                         ${item.imageUrl
-            ? `<img src="${item.imageUrl}" alt="${item.name}" class="w-full h-full object-cover">`
+            ? `<img src="${item.imageUrl}" alt="${item.name}" class="object-cover w-full h-full transform transition hover:scale-105 duration-500">`
             : `<span class="material-icons-round text-gray-300 text-6xl">inventory_2</span>`
         }
+                        <span class="absolute top-3 left-3 bg-${stockStatus.color}-100 text-${stockStatus.color}-800 text-xs font-medium px-2.5 py-0.5 rounded border border-${stockStatus.color}-200">
+                            ${stockStatus.label}
+                        </span>
                     </div>
-                    <div class="flex justify-between items-center">
-                        <span class="text-sm text-gray-500">Tồn kho</span>
-                        <span class="text-lg font-bold ${item.stockQuantity < 10 ? 'text-red-500' : 'text-green-600'}">${item.stockQuantity || 0} ${item.unit || ''}</span>
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-500 font-medium">Tồn kho hiện tại</span>
+                            <span class="text-sm font-bold text-${stockStatus.color}-600">${stockQty} ${item.unit || 'đơn vị'}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-${stockStatus.color}-400 h-2.5 rounded-full transition-all" style="width: ${stockPct}%"></div>
+                        </div>
                     </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
-                        <div class="bg-primary h-2 rounded-full" style="width: ${Math.min(100, (item.stockQuantity || 0) * 2)}%"></div>
+                    <div class="mt-6 pt-6 border-t border-gray-100">
+                        <div class="grid grid-cols-2 gap-4">
+                            <button onclick="showItemModal(${item.id})" class="w-full bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg hover:bg-gray-50 transition flex items-center justify-center gap-2">
+                                <span class="material-icons-round text-sm">edit</span> Sửa
+                            </button>
+                            <button onclick="loadShopItems()" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition flex items-center justify-center gap-2">
+                                <span class="material-icons-round text-sm">arrow_back</span> Quay lại
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Info -->
-                <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                    <div class="flex justify-between items-start mb-6">
+                <!-- Right: Info + Sales -->
+                <div class="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Product Info -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200 flex flex-col justify-between">
                         <div>
-                            <h3 class="text-2xl font-bold text-gray-800">${item.name}</h3>
-                            <p class="text-gray-500">${item.category || 'Không phân loại'}</p>
+                            <div class="flex justify-between items-start mb-4">
+                                <div>
+                                    <h3 class="text-2xl font-bold text-gray-900">${item.name}</h3>
+                                    <p class="text-sm text-gray-500">SKU: ${item.sku || `SP-${String(item.id).padStart(4, '0')}`}</p>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-3xl font-bold text-emerald-600">${formatCurrency(item.price)}</span>
+                                    ${hasDiscount ? `<div class="text-sm"><span class="line-through text-gray-400">${formatCurrency(originalPrice)}</span> <span class="text-red-500 font-medium">-${item.discountPercent}%</span></div>` : ''}
+                                </div>
+                            </div>
+                            <div class="space-y-3 mt-6">
+                                <div class="flex justify-between border-b border-gray-100 pb-2">
+                                    <span class="text-gray-500 text-sm">Danh mục</span>
+                                    <span class="font-medium text-gray-900 text-sm">${categoryLabels[item.category] || item.category || '-'}</span>
+                                </div>
+                                ${item.subCategory ? `
+                                <div class="flex justify-between border-b border-gray-100 pb-2">
+                                    <span class="text-gray-500 text-sm">Phân loại</span>
+                                    <span class="font-medium text-gray-900 text-sm">${item.subCategory}</span>
+                                </div>` : ''}
+                                <div class="flex justify-between border-b border-gray-100 pb-2">
+                                    <span class="text-gray-500 text-sm">Đơn vị</span>
+                                    <span class="font-medium text-gray-900 text-sm">${item.unit || '-'}</span>
+                                </div>
+                                ${item.weightKg ? `
+                                <div class="flex justify-between border-b border-gray-100 pb-2">
+                                    <span class="text-gray-500 text-sm">Trọng lượng</span>
+                                    <span class="font-medium text-gray-900 text-sm">${item.weightKg} kg</span>
+                                </div>` : ''}
+                                <div class="flex justify-between pt-1">
+                                    <span class="text-gray-500 text-sm">Đánh giá</span>
+                                    <div class="flex items-center gap-1">${starsHtml}<span class="text-sm text-gray-500 ml-1">(${rating.toFixed(1)})</span></div>
+                                </div>
+                            </div>
                         </div>
-                        <span class="text-3xl font-bold text-primary">${formatCurrency(item.price)}</span>
-                    </div>
-                    <div class="space-y-3">
-                        <div class="flex justify-between py-2 border-b border-gray-100">
-                            <span class="text-gray-500">Danh mục</span>
-                            <span class="font-medium">${item.category || '-'}</span>
-                        </div>
-                        <div class="flex justify-between py-2 border-b border-gray-100">
-                            <span class="text-gray-500">Đơn vị</span>
-                            <span class="font-medium">${item.unit || '-'}</span>
-                        </div>
-                        <div class="flex justify-between py-2 border-b border-gray-100">
-                            <span class="text-gray-500">Trạng thái</span>
-                            <span class="px-2 py-1 rounded-full text-xs font-medium ${item.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}">${item.isActive ? 'Đang bán' : 'Ngừng bán'}</span>
+                        <div class="mt-6 flex gap-2">
+                            ${item.isActive ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Đang bán</span>` : `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Ngừng bán</span>`}
+                            ${item.isFeatured ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Nổi bật</span>` : ''}
+                            ${item.soldCount > 50 ? `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">Bán chạy</span>` : ''}
                         </div>
                     </div>
-                    <div class="mt-6">
-                        <h4 class="font-medium text-gray-700 mb-2">Mô tả</h4>
-                        <p class="text-gray-500 text-sm">${item.description || 'Không có mô tả'}</p>
+
+                    <!-- Sales Volume Chart -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="font-semibold text-gray-900">Thống kê bán hàng</h4>
+                        </div>
+                        <div class="h-40">
+                            <canvas id="shopSalesChart"></canvas>
+                        </div>
+                        <div class="mt-4 flex items-center justify-between">
+                            <div>
+                                <p class="text-xs text-gray-500">Đã bán</p>
+                                <p class="font-bold text-lg text-gray-900">${item.soldCount || 0} ${item.unit || 'sp'}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs text-gray-500">Doanh thu</p>
+                                <p class="font-bold text-lg text-emerald-600">${formatCurrency((item.soldCount || 0) * (item.price || 0))}</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="flex gap-3 mt-6">
-                        <button onclick="showItemModal(${item.id})" class="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg flex items-center gap-2">
-                            <span class="material-icons-round text-sm">edit</span> Chỉnh sửa
-                        </button>
+
+                    <!-- Description -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200 md:col-span-2">
+                        <h4 class="font-semibold text-gray-900 mb-2">Mô tả sản phẩm</h4>
+                        <p class="text-sm text-gray-600 leading-relaxed">${item.description || 'Không có mô tả chi tiết.'}</p>
                     </div>
+                </div>
+            </div>
+
+            <!-- Stock History (Recent Activities) -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                <div class="px-6 py-5 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="font-bold text-lg text-gray-900">Lịch sử hoạt động</h3>
+                </div>
+                <div class="divide-y divide-gray-100">
+                    ${(() => {
+            const activities = getActivityForEntity('shop', id).slice(0, 5);
+            if (activities.length === 0) {
+                return '<p class="p-6 text-gray-400 text-center">Chưa có hoạt động nào</p>';
+            }
+            return activities.map(a => `
+                        <div class="px-6 py-4 flex items-start gap-4 hover:bg-gray-50 transition-colors">
+                            <div class="w-10 h-10 rounded-full ${a.action === 'CREATE' ? 'bg-green-100 text-green-600' : a.action === 'UPDATE' ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'} flex items-center justify-center flex-shrink-0">
+                                <span class="material-icons-round">${a.action === 'CREATE' ? 'add' : a.action === 'UPDATE' ? 'edit' : 'delete'}</span>
+                            </div>
+                            <div class="flex-1">
+                                <h4 class="text-sm font-semibold text-gray-900">${a.action === 'CREATE' ? 'Tạo mới' : a.action === 'UPDATE' ? 'Cập nhật' : 'Xóa'}</h4>
+                                <p class="text-xs text-gray-500 mt-0.5">${a.details}</p>
+                            </div>
+                            <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">${formatDateTime(a.timestamp)}</span>
+                        </div>
+                    `).join('');
+        })()}
                 </div>
             </div>
         </div>
     `;
 
-    gsap.fromTo('#main-content > div', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4 });
+    // Initialize Sales Chart
+    setTimeout(() => {
+        const ctxSales = document.getElementById('shopSalesChart');
+        if (ctxSales) {
+            const soldCount = item.soldCount || 0;
+            // Simulate weekly distribution from soldCount
+            const weekData = [];
+            const weeks = 4;
+            let remaining = soldCount;
+            for (let i = 0; i < weeks; i++) {
+                const portion = i < weeks - 1 ? Math.round(remaining * (0.15 + Math.random() * 0.3)) : remaining;
+                weekData.push(portion);
+                remaining -= portion;
+                if (remaining < 0) remaining = 0;
+            }
+
+            new Chart(ctxSales, {
+                type: 'bar',
+                data: {
+                    labels: ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'],
+                    datasets: [{
+                        label: 'Số lượng bán',
+                        data: weekData,
+                        backgroundColor: ['rgba(16,185,129,0.2)', 'rgba(16,185,129,0.35)', 'rgba(16,185,129,0.5)', 'rgba(16,185,129,0.8)'],
+                        borderColor: '#10b981',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1f2937', titleColor: '#f9fafb', bodyColor: '#f9fafb', padding: 8, cornerRadius: 6, displayColors: false } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(107,114,128,0.1)', drawBorder: false }, ticks: { color: '#9ca3af', font: { size: 11 } } },
+                        x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+    }, 100);
+
+    gsap.fromTo('#main-content .max-w-7xl > *', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.1 });
 }
 
 // ============ ANIMAL DETAIL VIEW ============
 async function showAnimalDetail(id) {
-    const animal = animalsData.find(a => a.id === id);
+    const animal = animalsData.find(a => a.id === id) || await fetchAPI(`${API_BASE_URL}/admin/animals/${id}`);
     if (!animal) return;
 
+    // Fetch related data in parallel
+    const [vaccinations, feedCompat] = await Promise.all([
+        fetchAPI(`${API_BASE_URL}/admin/animals/${id}/vaccinations`).catch(() => []),
+        fetchAPI(`${API_BASE_URL}/admin/animals/${id}/feed-compatibility`).catch(() => [])
+    ]);
+    const vaccinationList = vaccinations || [];
+    const feedList = feedCompat || [];
+
+    // Parse JSON fields
+    const sizes = (() => { try { return typeof animal.sizes === 'string' ? JSON.parse(animal.sizes) : (animal.sizes || null); } catch { return null; } })();
+    const farmingTypes = (() => { try { return typeof animal.farmingTypes === 'string' ? JSON.parse(animal.farmingTypes) : (animal.farmingTypes || []); } catch { return []; } })();
+
+    // Category labels
+    const categoryLabels = { 'LAND': 'Trên cạn', 'FRESHWATER': 'Nước ngọt', 'BRACKISH': 'Nước lợ', 'SALTWATER': 'Nước mặn', 'SPECIAL': 'Đặc biệt' };
+    const categoryIcons = { 'LAND': 'terrain', 'FRESHWATER': 'water_drop', 'BRACKISH': 'waves', 'SALTWATER': 'sailing', 'SPECIAL': 'star' };
+    const categoryColors = { 'LAND': 'amber', 'FRESHWATER': 'blue', 'BRACKISH': 'teal', 'SALTWATER': 'indigo', 'SPECIAL': 'purple' };
+    const catColor = categoryColors[animal.category] || 'blue';
+    const catIcon = categoryIcons[animal.category] || 'pets';
+
     document.getElementById('page-title').innerHTML = `
-        <div class="flex items-center gap-2">
-            <button onclick="loadAnimals()" class="text-gray-400 hover:text-gray-600"><span class="material-icons-round">arrow_back</span></button>
-            <span>Chi tiết Vật nuôi</span>
+        <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
+            <a onclick="loadAnimals()" class="hover:text-emerald-600 cursor-pointer transition-colors">Vật nuôi</a>
+            <span class="material-icons-round text-base">chevron_right</span>
+            <span class="text-gray-800 font-medium">${animal.name}</span>
         </div>
+        <h2 class="text-2xl font-bold text-gray-800">Chi tiết Vật nuôi</h2>
     `;
 
     document.getElementById('main-content').innerHTML = `
-        <div class="space-y-6">
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex justify-between items-start">
-                <div class="flex items-center gap-5">
-                    ${animal.imageUrl
-            ? `<img src="${animal.imageUrl}" alt="${animal.name}" class="w-20 h-20 rounded-xl object-cover border-2 border-gray-200">`
-            : `<div class="w-20 h-20 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600"><span class="material-icons-round text-4xl">${animal.iconName || 'pets'}</span></div>`
+        <div class="max-w-7xl mx-auto space-y-6">
+            <!-- Header Card -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div class="flex items-center gap-6">
+                        <div class="w-20 h-20 rounded-full bg-${catColor}-50 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            ${animal.imageUrl
+            ? `<img src="${animal.imageUrl}" alt="${animal.name}" class="w-full h-full object-cover">`
+            : `<span class="material-icons-round text-4xl text-${catColor}-500">${catIcon}</span>`
         }
-                    <div>
-                        <div class="flex items-center gap-3">
-                            <h3 class="text-2xl font-bold text-gray-800">${animal.name}</h3>
-                            <span class="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">${animal.category || 'N/A'}</span>
                         </div>
-                        <p class="text-gray-500 mt-1">${animal.description || 'Không có mô tả'}</p>
+                        <div>
+                            <div class="flex items-center gap-3 mb-1">
+                                <h1 class="text-2xl font-bold text-gray-900">${animal.name}</h1>
+                                <span class="px-3 py-1 bg-${catColor}-100 text-${catColor}-700 text-xs font-semibold rounded-full border border-${catColor}-200 flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-${catColor}-500"></span>
+                                    ${categoryLabels[animal.category] || animal.category || 'N/A'}
+                                </span>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                                <span class="flex items-center gap-1.5">
+                                    <span class="material-icons-round text-lg">tag</span>
+                                    ID: #${String(animal.id).padStart(4, '0')}
+                                </span>
+                                ${animal.waterType ? `
+                                <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                                <span class="flex items-center gap-1.5">
+                                    <span class="material-icons-round text-lg">water</span>
+                                    ${animal.waterType}
+                                </span>` : ''}
+                                ${animal.spacePerUnitSqm ? `
+                                <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                                <span class="flex items-center gap-1.5">
+                                    <span class="material-icons-round text-lg">square_foot</span>
+                                    ${animal.spacePerUnitSqm} m²/con
+                                </span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 w-full md:w-auto">
+                        <button onclick="loadAnimals()" class="flex-1 md:flex-none items-center justify-center px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium flex gap-2">
+                            <span class="material-icons-round">arrow_back</span> Quay lại
+                        </button>
+                        <button onclick="showAnimalModal(${animal.id})" class="flex-1 md:flex-none items-center justify-center px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg transition-colors font-medium flex gap-2 shadow-sm">
+                            <span class="material-icons-round">edit</span> Chỉnh sửa
+                        </button>
                     </div>
                 </div>
-                <button onclick="showAnimalModal(${animal.id})" class="px-4 py-2 bg-primary hover:bg-primary-dark text-white font-medium rounded-lg flex items-center gap-2">
-                    <span class="material-icons-round text-sm">edit</span> Chỉnh sửa
-                </button>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
-                    <span class="material-icons-round text-4xl text-green-500 mb-2">schedule</span>
-                    <p class="text-2xl font-bold text-gray-800">${animal.growthDurationDays || '-'}</p>
-                    <p class="text-sm text-gray-500">Ngày nuôi</p>
+            <!-- Main Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left Column (2/3) -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Stat Cards -->
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="p-2 bg-green-50 rounded-lg text-green-500">
+                                    <span class="material-icons-round">schedule</span>
+                                </div>
+                                <span class="text-sm font-medium text-gray-500">Thời gian nuôi</span>
+                            </div>
+                            <div class="flex items-end gap-2">
+                                <span class="text-2xl font-bold text-gray-900">${animal.growthDurationDays || '-'}</span>
+                                <span class="text-sm text-gray-500 mb-1">ngày</span>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="p-2 bg-red-50 rounded-lg text-red-500">
+                                    <span class="material-icons-round">sell</span>
+                                </div>
+                                <span class="text-sm font-medium text-gray-500">Giá mua</span>
+                            </div>
+                            <div class="flex items-end gap-2">
+                                <span class="text-2xl font-bold text-gray-900">${formatCurrency(animal.buyPricePerUnit)}</span>
+                            </div>
+                            <div class="mt-1 text-xs text-gray-400">/ con</div>
+                        </div>
+                        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="p-2 bg-emerald-50 rounded-lg text-emerald-500">
+                                    <span class="material-icons-round">monetization_on</span>
+                                </div>
+                                <span class="text-sm font-medium text-gray-500">Giá bán</span>
+                            </div>
+                            <div class="flex items-end gap-2">
+                                <span class="text-2xl font-bold text-emerald-600">${formatCurrency(animal.sellPricePerUnit)}</span>
+                            </div>
+                            <div class="mt-1 text-xs text-green-600 flex items-center">
+                                <span class="material-icons-round text-sm mr-1">trending_up</span>
+                                Lợi nhuận: ${formatCurrency((animal.sellPricePerUnit || 0) - (animal.buyPricePerUnit || 0))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Weight/Size Chart -->
+                    ${sizes ? `
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-bold text-gray-900">Phân loại Kích cỡ</h3>
+                        </div>
+                        <div class="relative h-64 w-full">
+                            <canvas id="animalSizeChart"></canvas>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- Vaccination Schedule -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                            <h3 class="text-lg font-bold text-gray-900">Lịch tiêm phòng</h3>
+                            <span class="text-sm text-gray-500">${vaccinationList.length} lịch trình</span>
+                        </div>
+                        <div class="divide-y divide-gray-200">
+                            ${vaccinationList.length > 0 ? vaccinationList.slice(0, 6).map((v, idx) => {
+            const vColors = ['green', 'blue', 'yellow', 'purple', 'orange', 'red'];
+            const vc = vColors[idx % vColors.length];
+            return `
+                                <div class="p-4 hover:bg-gray-50 transition-colors">
+                                    <div class="flex items-start gap-4">
+                                        <div class="w-10 h-10 rounded-full bg-${vc}-100 flex items-center justify-center flex-shrink-0 text-${vc}-600">
+                                            <span class="material-icons-round">vaccines</span>
+                                        </div>
+                                        <div class="flex-1">
+                                            <div class="flex justify-between items-start">
+                                                <div>
+                                                    <h4 class="text-sm font-semibold text-gray-900">${v.vaccineName || 'Vaccine'}</h4>
+                                                    <p class="text-xs text-gray-500 mt-0.5">${v.description || v.notes || ''}</p>
+                                                </div>
+                                                <div class="text-right">
+                                                    <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Ngày ${v.dayNumber || v.ageInDays || '-'}</span>
+                                                    ${v.repeatIntervalDays ? `<p class="text-xs text-blue-500 mt-1">Lặp lại: ${v.repeatIntervalDays} ngày</p>` : ''}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+        }).join('') : '<p class="p-6 text-gray-400 text-center">Chưa có lịch tiêm phòng</p>'}
+                        </div>
+                    </div>
                 </div>
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
-                    <span class="material-icons-round text-4xl text-red-500 mb-2">sell</span>
-                    <p class="text-2xl font-bold text-gray-800">${formatCurrency(animal.buyPricePerUnit)}</p>
-                    <p class="text-sm text-gray-500">Giá mua</p>
-                </div>
-                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center">
-                    <span class="material-icons-round text-4xl text-primary mb-2">monetization_on</span>
-                    <p class="text-2xl font-bold text-gray-800">${formatCurrency(animal.sellPricePerUnit)}</p>
-                    <p class="text-sm text-gray-500">Giá bán</p>
+
+                <!-- Right Column (1/3) -->
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Farming Types & Info -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">Thông tin chăn nuôi</h3>
+                        <div class="space-y-4">
+                            ${animal.description ? `
+                            <div class="p-3 bg-gray-50 rounded-lg">
+                                <p class="text-sm text-gray-600 leading-relaxed">${animal.description}</p>
+                            </div>` : ''}
+                            
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="text-gray-400"><span class="material-icons-round">category</span></div>
+                                    <span class="text-sm font-medium text-gray-700">Phân loại</span>
+                                </div>
+                                <span class="text-sm font-bold text-gray-900">${categoryLabels[animal.category] || animal.category || '-'}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="text-gray-400"><span class="material-icons-round">square_foot</span></div>
+                                    <span class="text-sm font-medium text-gray-700">Diện tích/con</span>
+                                </div>
+                                <span class="text-sm font-bold text-gray-900">${animal.spacePerUnitSqm || '-'} m²</span>
+                            </div>
+                            ${animal.waterType ? `
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <div class="text-gray-400"><span class="material-icons-round">water</span></div>
+                                    <span class="text-sm font-medium text-gray-700">Loại nước</span>
+                                </div>
+                                <span class="text-sm font-bold text-gray-900">${animal.waterType}</span>
+                            </div>` : ''}
+                            ${farmingTypes.length > 0 ? `
+                            <div>
+                                <p class="text-sm font-medium text-gray-700 mb-2">Hình thức nuôi</p>
+                                <div class="flex flex-wrap gap-2">
+                                    ${farmingTypes.map(ft => `<span class="px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">${ft}</span>`).join('')}
+                                </div>
+                            </div>` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Feed Compatibility -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">Thức ăn tương thích</h3>
+                        <div class="space-y-3">
+                            ${feedList.length > 0 ? feedList.slice(0, 8).map(f => {
+            const eff = f.effectiveness || 0;
+            const effColor = eff >= 80 ? 'green' : eff >= 50 ? 'yellow' : 'gray';
+            return `
+                                <div class="flex gap-3 items-start p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                                    <span class="material-icons-round text-${effColor}-500 text-xl mt-0.5">restaurant</span>
+                                    <div class="flex-1">
+                                        <p class="text-sm font-semibold text-gray-900">${f.feedDefinition?.name || f.feedName || 'Thức ăn'}</p>
+                                        <div class="flex items-center gap-2 mt-1">
+                                            <div class="flex-1 h-1.5 bg-gray-200 rounded-full">
+                                                <div class="h-1.5 bg-${effColor}-500 rounded-full" style="width: ${eff}%"></div>
+                                            </div>
+                                            <span class="text-xs text-gray-500">${eff}%</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+        }).join('') : '<p class="text-gray-400 text-sm text-center">Chưa có dữ liệu</p>'}
+                        </div>
+                    </div>
+
+                    <!-- Activities -->
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">Hoạt động gần đây</h3>
+                        <div class="space-y-3">
+                            ${(() => {
+            const activities = getActivityForEntity('animal', id).slice(0, 3);
+            if (activities.length === 0) return '<p class="text-gray-400 text-sm text-center">Chưa có hoạt động</p>';
+            return activities.map(a => `
+                                <div class="flex gap-3 items-start p-3 border border-gray-200 rounded-lg">
+                                    <span class="material-icons-round text-gray-400 text-xl mt-0.5">${a.action === 'CREATE' ? 'add_circle' : a.action === 'UPDATE' ? 'edit' : 'delete'}</span>
+                                    <div>
+                                        <p class="text-sm font-semibold text-gray-900">${a.action === 'CREATE' ? 'Tạo mới' : a.action === 'UPDATE' ? 'Cập nhật' : 'Xóa'}</p>
+                                        <p class="text-xs text-gray-500 mt-1">${formatDateTime(a.timestamp)}</p>
+                                    </div>
+                                </div>
+                            `).join('');
+        })()}
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     `;
 
-    gsap.fromTo('#main-content > div', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.1 });
+    // Initialize Size/Weight Chart if sizes data exists
+    setTimeout(() => {
+        if (sizes) {
+            const ctxSize = document.getElementById('animalSizeChart');
+            if (ctxSize) {
+                // sizes can be an array of {label, minWeight, maxWeight} or {size, weight} etc.
+                let labels = [];
+                let minData = [];
+                let maxData = [];
+
+                if (Array.isArray(sizes)) {
+                    sizes.forEach(s => {
+                        labels.push(s.label || s.size || s.name || 'N/A');
+                        minData.push(s.minWeight || s.min || 0);
+                        maxData.push(s.maxWeight || s.max || s.weight || 0);
+                    });
+                } else if (typeof sizes === 'object') {
+                    Object.entries(sizes).forEach(([key, val]) => {
+                        labels.push(key);
+                        if (typeof val === 'object') {
+                            minData.push(val.minWeight || val.min || 0);
+                            maxData.push(val.maxWeight || val.max || 0);
+                        } else {
+                            minData.push(0);
+                            maxData.push(val);
+                        }
+                    });
+                }
+
+                new Chart(ctxSize, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Min (kg)',
+                                data: minData,
+                                backgroundColor: 'rgba(16, 185, 129, 0.3)',
+                                borderColor: '#10b981',
+                                borderWidth: 1,
+                                borderRadius: 4,
+                            },
+                            {
+                                label: 'Max (kg)',
+                                data: maxData,
+                                backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                                borderColor: '#059669',
+                                borderWidth: 1,
+                                borderRadius: 4,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top', labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, font: { size: 11 } } },
+                            tooltip: { backgroundColor: '#1f2937', titleColor: '#f9fafb', bodyColor: '#f9fafb', padding: 10, cornerRadius: 8 }
+                        },
+                        scales: {
+                            y: { beginAtZero: true, grid: { color: 'rgba(107,114,128,0.1)', drawBorder: false }, ticks: { color: '#9ca3af', callback: v => v + ' kg' } },
+                            x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 11 } } }
+                        }
+                    }
+                });
+            }
+        }
+    }, 100);
+
+    gsap.fromTo('#main-content .max-w-7xl > *', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.1 });
 }
 
 // ============ ACTIVITY LOG HELPERS ============

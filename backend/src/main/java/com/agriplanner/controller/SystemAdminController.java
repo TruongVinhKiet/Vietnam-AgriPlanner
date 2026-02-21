@@ -26,6 +26,10 @@ public class SystemAdminController {
     private final ShopItemRepository shopItemRepository;
     private final CropDefinitionRepository cropDefinitionRepository;
     private final AnimalDefinitionRepository animalDefinitionRepository;
+    private final VaccinationScheduleRepository vaccinationScheduleRepository;
+    private final AnimalFeedCompatibilityRepository animalFeedCompatibilityRepository;
+    private final FeedDefinitionRepository feedDefinitionRepository;
+    private final PestDefinitionRepository pestDefinitionRepository;
 
     // =============================================
     // USER MANAGEMENT
@@ -156,8 +160,55 @@ public class SystemAdminController {
     }
 
     // =============================================
-    // OTHER DEFINITIONS (Just in case needed separately)
+    // DETAIL ENDPOINTS (For Admin Detail Views)
     // =============================================
+
+    @GetMapping("/crops/{id}")
+    public ResponseEntity<CropDefinition> getCropById(@PathVariable Long id) {
+        return cropDefinitionRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/animals/{id}")
+    public ResponseEntity<AnimalDefinition> getAnimalById(@PathVariable Long id) {
+        return animalDefinitionRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/animals/{id}/vaccinations")
+    public ResponseEntity<List<VaccinationSchedule>> getVaccinationsByAnimal(@PathVariable Long id) {
+        return ResponseEntity.ok(vaccinationScheduleRepository.findByAnimalDefinitionId(id));
+    }
+
+    @GetMapping("/animals/{id}/feed-compatibility")
+    public ResponseEntity<List<AnimalFeedCompatibility>> getFeedCompatibility(@PathVariable Long id) {
+        return ResponseEntity.ok(animalFeedCompatibilityRepository.findByAnimalDefinitionId(id));
+    }
+
+    @GetMapping("/shop-items/{id}")
+    public ResponseEntity<ShopItem> getShopItemById(@PathVariable Long id) {
+        return shopItemRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/feed-definitions")
+    public ResponseEntity<List<FeedDefinition>> getAllFeedDefinitions() {
+        return ResponseEntity.ok(feedDefinitionRepository.findAll());
+    }
+
+    @GetMapping("/pest-definitions")
+    public ResponseEntity<List<PestDefinition>> getAllPestDefinitions() {
+        return ResponseEntity.ok(pestDefinitionRepository.findAll());
+    }
+
+    @GetMapping("/shop-items/{id}/reviews")
+    public ResponseEntity<?> getShopItemReviews(@PathVariable Long id) {
+        // Return empty list — reviews can be expanded later
+        return ResponseEntity.ok(List.of());
+    }
 
     // Add endpoint for Feed, Pests if logic differs from ShopItems/General
 }

@@ -18,14 +18,17 @@
     <link rel="stylesheet" href="../css/layout.css">
     <link rel="stylesheet" href="../css/components.css">
     <link rel="stylesheet" href="../css/pages/livestock.css">
+    <link rel="stylesheet" href="../css/pages/inventory.css">
     <link rel="stylesheet" href="../css/chatbot.css">
     <link rel="stylesheet" href="../css/smart-advisor.css">
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <!-- ApexCharts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
     <link rel="icon" type="image/x-icon" href="../images/logo.png">
 </head>
 
-<body data-page="livestock">
+<body data-page="livestock" style="overflow: hidden;">
     <div class="app-container">
         <!-- Sidebar -->
         <aside class="sidebar">
@@ -82,8 +85,8 @@
                         class="material-symbols-outlined header__search-icon">search</span><input type="text"
                         class="header__search-input" placeholder="Tìm kiếm chuồng trại..."></div>
                 <div class="header__actions">
-                    <button class="header__notification"><span
-                            class="material-symbols-outlined">notifications</span><span
+                    <button class="header__notification" onclick="toggleNotificationPanel()"><span
+                            class="material-symbols-outlined">notifications</span><span id="notification-badge"
                             class="header__notification-badge"></span></button>
                     <div class="header__user">
                         <div class="header__user-info">
@@ -97,209 +100,236 @@
                 </div>
             </header>
 
-            <main class="main-content">
-                <div class="main-content__container">
-                    <div class="page-header">
-                        <div>
-                            <h2 class="page-header__title">Mô phỏng chuồng trại</h2>
-                            <p class="page-header__subtitle">Bản đồ chuồng và theo dõi vật nuôi</p>
+            <main class="main-content" style="padding: 0; overflow: hidden;">
+                <div class="livestock-layout">
+                    <!-- ==================== LEFT PANEL: Pen Visualization ==================== -->
+                    <div class="pen-visualization" id="pen-viz">
+                        <!-- Pen Selector Bar -->
+                        <div class="pen-selector-bar" id="pen-selector-bar">
+                            <!-- Pen cards rendered by livestock.js -->
+                            <div class="pen-selector-card pen-selector-card--empty" style="opacity:0.5;">
+                                <span class="material-symbols-outlined pen-selector-card__icon">hourglass_empty</span>
+                                <span class="pen-selector-card__info">
+                                    <span class="pen-selector-card__code">Đang tải...</span>
+                                </span>
+                            </div>
                         </div>
-                        <button class="btn btn--primary"><span class="material-symbols-outlined icon-sm">add</span>Thêm
-                            chuồng</button>
+
+                        <!-- Canvas Container -->
+                        <div class="pen-canvas-container" id="pen-canvas-container">
+                            <canvas id="pen-canvas"></canvas>
+                        </div>
+
+                        <!-- Canvas Overlays -->
+                        <div class="pen-viz-info" id="pen-viz-info">
+                            <span class="material-symbols-outlined pen-viz-info__icon">visibility</span>
+                            <span id="pen-viz-info-text"></span>
+                        </div>
+
+                        <button class="pen-viz-sound-toggle" id="pen-viz-sound-toggle" title="Bật/Tắt âm thanh">
+                            <span class="material-symbols-outlined" id="pen-viz-sound-icon">volume_off</span>
+                        </button>
+
+                        <div class="pen-viz-legend" id="pen-viz-legend" style="display: none;">
+                            <div class="pen-viz-legend__item">
+                                <span class="pen-viz-legend__dot pen-viz-legend__dot--healthy"></span>
+                                <span>Khỏe mạnh</span>
+                            </div>
+                            <div class="pen-viz-legend__item">
+                                <span class="pen-viz-legend__dot pen-viz-legend__dot--sick"></span>
+                                <span>Ốm</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="livestock-layout">
-                        <!-- Barn Blueprint -->
-                        <div class="card barn-blueprint fade-in">
-                            <div class="barn-blueprint__header">
-                                <div class="barn-blueprint__title"><span
-                                        class="material-symbols-outlined icon-sm">grid_view</span>Bố trí chuồng</div>
-                                <div class="barn-blueprint__legend">
-                                    <div class="barn-legend__item"><span
-                                            class="barn-legend__dot barn-legend__dot--clean"></span><span
-                                            class="barn-legend__label">Sạch</span></div>
-                                    <div class="barn-legend__item"><span
-                                            class="barn-legend__dot barn-legend__dot--dirty"></span><span
-                                            class="barn-legend__label">Cần dọn</span></div>
-                                </div>
+                    <!-- ==================== RIGHT PANEL: Sidebar ==================== -->
+                    <aside class="livestock-sidebar">
+                        <div class="livestock-sidebar__header">
+                            <div class="livestock-sidebar__title">
+                                <span class="material-symbols-outlined livestock-sidebar__title-icon">monitoring</span>
+                                Chi tiết chuồng
                             </div>
-                            <div class="barn-blueprint__grid">
-                                <div class="barn-blueprint__background"></div>
-                                <div class="pen-grid">
-                                    <!-- Pens will be rendered dynamically by livestock.js -->
-                                    <div class="pen-card pen-card--empty" data-pen-id="loading">
-                                        <span class="pen-card__id">...</span>
-                                        <div class="pen-card__content">
-                                            <span
-                                                class="material-symbols-outlined pen-card__icon">hourglass_empty</span>
-                                            <span class="pen-card__label">Đang tải...</span>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div id="pen-status-control" style="display:none;" class="status-control">
+                                <select id="pen-status-select" onchange="handlePenStatusChange(this.value)">
+                                    <option value="CLEAN">Sạch</option>
+                                    <option value="DIRTY">Cần dọn</option>
+                                    <option value="SICK">Ốm</option>
+                                    <option value="EMPTY">Trống</option>
+                                </select>
                             </div>
                         </div>
 
-                        <!-- Animal Detail Panel -->
-                        <div class="card animal-detail fade-in">
-                            <div id="empty-pen-state"
-                                style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; color: var(--text-secondary);">
-                                <span class="material-symbols-outlined"
-                                    style="font-size: 48px; margin-bottom: 1rem; opacity: 0.5;">pets</span>
-                                <p>Chọn một chuồng để xem chi tiết</p>
+                        <div class="livestock-sidebar__content">
+                            <!-- Empty State -->
+                            <div id="empty-pen-state" class="sidebar-empty-state">
+                                <span class="material-symbols-outlined sidebar-empty-state__icon">pets</span>
+                                <p class="sidebar-empty-state__text">Chọn một chuồng để xem<br>chi tiết và quản lý</p>
                             </div>
 
+                            <!-- Detail Content (hidden until pen selected) -->
                             <div id="pen-detail-content" style="display: none;">
-                                <div class="animal-detail__header">
-                                    <div class="animal-detail__title-row">
-                                        <div>
-                                            <p class="animal-detail__breadcrumb">Chuồng đã chọn</p>
-                                            <h3 class="animal-detail__title">--</h3>
-                                        </div>
-                                        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
-                                            <span class="badge" style="display: none;">--</span>
-                                            <div id="pen-status-control"
-                                                style="display:none;align-items:center;gap:8px;">
-                                                <span
-                                                    style="font-size:11px;color:#64748b;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Tình
-                                                    trạng</span>
-                                                <select id="pen-status-select"
-                                                    onchange="handlePenStatusChange(this.value)"
-                                                    style="padding:6px 10px;border-radius:10px;border:1px solid #e2e8f0;background:white;font-size:12px;">
-                                                    <option value="CLEAN">Sạch</option>
-                                                    <option value="DIRTY">Cần dọn</option>
-                                                    <option value="SICK">Ốm</option>
-                                                    <option value="EMPTY">Trống</option>
-                                                </select>
-                                            </div>
-                                        </div>
+                                <!-- Pen Info Card -->
+                                <div class="pen-info-card" id="pen-info-card">
+                                    <div class="pen-info-card__icon-wrap">
+                                        <span class="material-symbols-outlined pen-info-card__icon"
+                                            id="pen-info-icon">pets</span>
                                     </div>
-                                    <div class="animal-detail__stats">
-                                        <div><span class="animal-stat__label">Số lượng</span><span
-                                                class="animal-stat__value">--</span></div>
-                                        <div><span class="animal-stat__label">Loại</span><span
-                                                class="animal-stat__value">--</span></div>
-                                        <div><span class="animal-stat__label">Tuổi TB</span><span
-                                                class="animal-stat__value">--</span></div>
+                                    <div class="pen-info-card__details">
+                                        <div class="pen-info-card__name" id="pen-info-name">--</div>
+                                        <div class="pen-info-card__sub">
+                                            <span id="pen-info-sub">--</span>
+                                            <span class="pen-info-card__badge" id="pen-info-badge">--</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="animal-detail__body">
-                                    <div class="vaccine-section">
-                                        <h4 class="vaccine-section__title"><span
-                                                class="material-symbols-outlined">vaccines</span>Lịch tiêm phòng</h4>
-                                        <div class="vaccine-list">
-                                            <!-- Dynamically populated -->
+
+                                <!-- Quick Stat Cards -->
+                                <div class="stat-cards-grid" id="stat-cards-grid">
+                                    <div class="stat-card stat-card--green">
+                                        <span class="material-symbols-outlined stat-card__bg-icon">restaurant</span>
+                                        <div class="stat-card__label">Cho ăn</div>
+                                        <div class="stat-card__value stat-card__value--green" id="stat-feeding">--</div>
+                                    </div>
+                                    <div class="stat-card stat-card--amber">
+                                        <span class="material-symbols-outlined stat-card__bg-icon">monitor_heart</span>
+                                        <div class="stat-card__label">Sức khỏe</div>
+                                        <div class="stat-card__value stat-card__value--amber" id="stat-health">--</div>
+                                    </div>
+                                    <div class="stat-card stat-card--blue">
+                                        <span class="material-symbols-outlined stat-card__bg-icon">calendar_today</span>
+                                        <div class="stat-card__label">Tuổi nuôi</div>
+                                        <div class="stat-card__value stat-card__value--blue" id="stat-age">--</div>
+                                    </div>
+                                    <div class="stat-card stat-card--purple">
+                                        <span class="material-symbols-outlined stat-card__bg-icon">trending_up</span>
+                                        <div class="stat-card__label">Tiến độ</div>
+                                        <div class="stat-card__value stat-card__value--purple" id="stat-progress">--
                                         </div>
                                     </div>
-                                    <div class="weight-section">
-                                        <h4 class="vaccine-section__title"><span
-                                                class="material-symbols-outlined">monitoring</span>Xu hướng cân nặng
-                                        </h4>
+                                </div>
+
+                                <!-- Management Actions -->
+                                <div class="sidebar-section">
+                                    <div class="sidebar-section__header">
+                                        <div class="sidebar-section__title">
+                                            <span class="material-symbols-outlined">tune</span>
+                                            Quản lý chuồng trại
+                                        </div>
+                                    </div>
+                                    <div class="action-buttons-grid">
+                                        <button class="action-btn" id="btn-select-animal" onclick="openAddCageModal()">
+                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--amber">
+                                                <span class="material-symbols-outlined action-btn__icon">pets</span>
+                                            </div>
+                                            <span class="action-btn__label">Chọn vật nuôi</span>
+                                        </button>
+                                        <button class="action-btn" id="btn-feed" disabled onclick="openFeedingModal()">
+                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--green">
+                                                <span
+                                                    class="material-symbols-outlined action-btn__icon">restaurant</span>
+                                            </div>
+                                            <span class="action-btn__label">Cho ăn</span>
+                                        </button>
+                                        <button class="action-btn" id="btn-clean" disabled onclick="cleanPen()">
+                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--blue">
+                                                <span
+                                                    class="material-symbols-outlined action-btn__icon">cleaning_services</span>
+                                            </div>
+                                            <span class="action-btn__label">Vệ sinh</span>
+                                        </button>
+                                        <button class="action-btn" id="btn-vaccine" disabled
+                                            onclick="openVaccineModal()">
+                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--purple">
+                                                <span class="material-symbols-outlined action-btn__icon">vaccines</span>
+                                            </div>
+                                            <span class="action-btn__label">Tiêm phòng</span>
+                                        </button>
+                                        <button class="action-btn" id="btn-harvest" disabled
+                                            onclick="openHarvestModal()">
+                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--teal">
+                                                <span class="material-symbols-outlined action-btn__icon">payments</span>
+                                            </div>
+                                            <span class="action-btn__label">Thu hoạch</span>
+                                        </button>
+                                        <button class="action-btn" id="btn-delete-pen" disabled
+                                            onclick="confirmDeletePen()">
+                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--red">
+                                                <span class="material-symbols-outlined action-btn__icon">delete</span>
+                                            </div>
+                                            <span class="action-btn__label">Xóa chuồng</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Advanced Features -->
+                                <div class="sidebar-section">
+                                    <div class="sidebar-section__header">
+                                        <div class="sidebar-section__title">
+                                            <span class="material-symbols-outlined">auto_awesome</span>
+                                            Tính năng nâng cao
+                                        </div>
+                                    </div>
+                                    <div class="action-buttons-grid">
+                                        <button class="action-btn" onclick="toggleNotificationPanel()">
+                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--amber">
+                                                <span
+                                                    class="material-symbols-outlined action-btn__icon">notifications</span>
+                                            </div>
+                                            <span class="action-btn__label">Thông báo</span>
+                                        </button>
+                                        <button class="action-btn" onclick="toggleMarketplacePanel()">
+                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--green">
+                                                <span
+                                                    class="material-symbols-outlined action-btn__icon">storefront</span>
+                                            </div>
+                                            <span class="action-btn__label">Thị trường</span>
+                                        </button>
+                                        <button class="action-btn" id="btn-livestock-analysis" disabled
+                                            onclick="openAnalysisModal()">
+                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--blue">
+                                                <span
+                                                    class="material-symbols-outlined action-btn__icon">analytics</span>
+                                            </div>
+                                            <span class="action-btn__label">Phân tích</span>
+                                        </button>
+                                        <button class="action-btn" onclick="openInventoryModal()">
+                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--amber">
+                                                <span
+                                                    class="material-symbols-outlined action-btn__icon">inventory_2</span>
+                                            </div>
+                                            <span class="action-btn__label">Kho vật tư</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Health Records Timeline -->
+                                <div class="sidebar-section">
+                                    <div class="sidebar-section__header">
+                                        <div class="sidebar-section__title">
+                                            <span class="material-symbols-outlined">vaccines</span>
+                                            Lịch sử sức khỏe
+                                        </div>
+                                    </div>
+                                    <div class="health-timeline" id="health-timeline">
+                                        <p class="health-timeline__empty">Chưa có dữ liệu sức khỏe</p>
+                                    </div>
+                                </div>
+
+                                <!-- Weight Chart -->
+                                <div class="sidebar-section">
+                                    <div class="sidebar-section__header">
+                                        <div class="sidebar-section__title">
+                                            <span class="material-symbols-outlined">monitoring</span>
+                                            Xu hướng cân nặng
+                                        </div>
+                                    </div>
+                                    <div class="growth-chart-container">
                                         <div id="weight-chart"></div>
                                     </div>
-
-                                    <!-- FARM MANAGEMENT ACTIONS (Grid) -->
-                                    <div class="field-actions farm-management-section" style="margin-top: 24px;">
-                                        <h4 class="field-actions__title">Quản lý chuồng trại</h4>
-                                        <p class="workflow-stage-text" id="workflow-stage-text"
-                                            style="font-size: 11px; color: #9ca3af; margin-bottom: 12px;">
-                                            Chọn hoạt động quản lý
-                                        </p>
-
-                                        <div class="field-actions__grid">
-                                            <!-- Step 1: Chọn vật nuôi (Select) -->
-                                            <!-- Use field-action-btn--disabled if empty, handled by JS -->
-                                            <button class="field-action-btn" id="btn-select-animal"
-                                                onclick="openAddCageModal()">
-                                                <span
-                                                    class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--amber">pets</span>
-                                                <span class="field-action-btn__label">Chọn vật nuôi</span>
-                                                <span class="workflow-step" id="step-animal">1</span>
-                                            </button>
-
-                                            <!-- Step 2: Cho ăn (Feed) -->
-                                            <button class="field-action-btn field-action-btn--disabled" id="btn-feed"
-                                                disabled onclick="openFeedingModal()">
-                                                <span
-                                                    class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--green">restaurant</span>
-                                                <span class="field-action-btn__label">Cho ăn</span>
-                                            </button>
-
-                                            <!-- Step 3: Vệ sinh (Clean) -->
-                                            <button class="field-action-btn field-action-btn--disabled" id="btn-clean"
-                                                disabled onclick="cleanPen()">
-                                                <span
-                                                    class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--blue">cleaning_services</span>
-                                                <span class="field-action-btn__label">Vệ sinh</span>
-                                            </button>
-
-                                            <!-- Step 4: Tiêm phòng (Vaccine) -->
-                                            <button class="field-action-btn field-action-btn--disabled" id="btn-vaccine"
-                                                disabled onclick="openVaccineModal()">
-                                                <span
-                                                    class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--purple">vaccines</span>
-                                                <span class="field-action-btn__label">Tiêm phòng</span>
-                                            </button>
-
-                                            <!-- Step 5: Thu hoạch (Harvest) -->
-                                            <button class="field-action-btn field-action-btn--disabled" id="btn-harvest"
-                                                disabled onclick="openHarvestModal()">
-                                                <span
-                                                    class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--orange">payments</span>
-                                                <span class="field-action-btn__label">Thu hoạch</span>
-                                            </button>
-
-                                            <!-- Xóa chuồng (Delete) -->
-                                            <button
-                                                class="field-action-btn field-action-btn--disabled field-action-btn--danger"
-                                                id="btn-delete-pen" disabled onclick="confirmDeletePen()">
-                                                <span
-                                                    class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--red">delete</span>
-                                                <span class="field-action-btn__label">Xóa chuồng</span>
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <!-- ADVANCED FEATURES (Grid) -->
-                                    <div class="field-actions">
-                                        <h4 class="field-actions__title">Tính năng nâng cao</h4>
-                                        <div class="field-actions__grid">
-                                            <button class="field-action-btn" onclick="toggleNotificationPanel()">
-                                                <span
-                                                    class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--amber">notifications</span>
-                                                <span class="field-action-btn__label">Thông báo</span>
-                                                <span class="feature-badge" id="notification-badge"></span>
-                                            </button>
-
-                                            <button class="field-action-btn" onclick="openVaccineScheduleModal()">
-                                                <span
-                                                    class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--teal">calendar_month</span>
-                                                <span class="field-action-btn__label">Lịch tiêm</span>
-                                            </button>
-
-                                            <button class="field-action-btn" onclick="toggleMarketplacePanel()">
-                                                <span
-                                                    class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--emerald">storefront</span>
-                                                <span class="field-action-btn__label">Thị trường</span>
-                                            </button>
-
-                                            <button class="field-action-btn field-action-btn--disabled"
-                                                id="btn-livestock-analysis" disabled onclick="openAnalysisModal()">
-                                                <span
-                                                    class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--blue">analytics</span>
-                                                <span class="field-action-btn__label">Phân tích</span>
-                                            </button>
-
-                                            <button class="field-action-btn" onclick="openInventoryModal()">
-                                                <span
-                                                    class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--amber">inventory_2</span>
-                                                <span class="field-action-btn__label">Kho vật tư</span>
-                                            </button>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </aside>
                 </div>
             </main>
         </div>
@@ -337,7 +367,6 @@
                 <div class="form-group">
                     <label class="form-label">Loại thức ăn</label>
                     <div class="feed-selection-grid" id="feed-selection-grid">
-                        <!-- Feed items will be loaded here -->
                         <div class="feed-loading">
                             <span class="material-symbols-outlined rotating">sync</span>
                             Đang tải...
@@ -389,6 +418,7 @@
             </div>
         </div>
     </div>
+
     <!-- Confirmation Modal -->
     <div id="confirm-modal" class="modal">
         <div class="modal__content" style="max-width: 400px;">
@@ -512,18 +542,184 @@
         </div>
     </div>
 
+    <!-- Inventory Modal (Light Theme - Connected to Shop Warehouse) -->
+    <div class="modal" id="inventory-modal">
+        <div class="modal-content inventory-modal-content">
+            <div class="modal-header">
+                <h3><span class="material-symbols-outlined" style="font-size:20px;">warehouse</span> Kho vật tư</h3>
+                <span class="close-modal" onclick="closeInventoryModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Summary Cards -->
+                <div class="inventory-summary" id="inventory-summary"></div>
+
+                <!-- Search & View Toggle -->
+                <div class="inventory-actions" style="margin-bottom: 16px;">
+                    <div style="flex: 1; position: relative;">
+                        <span class="material-symbols-outlined" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#9ca3af; font-size:20px;">search</span>
+                        <input type="text" id="inventory-search" placeholder="Tìm kiếm vật tư..." class="form-input" style="padding-left: 38px;">
+                    </div>
+                    <div style="display:flex; gap:4px; margin-left:8px;">
+                        <button class="inv-view-btn active" data-view="grid" onclick="toggleInventoryView('grid')" title="Dạng lưới" style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:8px; cursor:pointer; color:#059669;">
+                            <span class="material-symbols-outlined" style="font-size:20px;">grid_view</span>
+                        </button>
+                        <button class="inv-view-btn" data-view="table" onclick="toggleInventoryView('table')" title="Dạng bảng" style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:8px; cursor:pointer; color:#6b7280;">
+                            <span class="material-symbols-outlined" style="font-size:20px;">table_rows</span>
+                        </button>
+                    </div>
+                    <button class="btn btn--primary" onclick="showAddInventoryForm()" style="margin-left:8px;">
+                        <span class="material-symbols-outlined">add</span> Nhập kho
+                    </button>
+                </div>
+
+                <!-- Category Tabs -->
+                <div class="inv-category-tabs" id="inventory-category-tabs"></div>
+
+                <!-- Grid View -->
+                <div class="inventory-grid-container">
+                    <div class="inventory-grid" id="inventory-grid-view"></div>
+                </div>
+
+                <!-- Table View (hidden by default) -->
+                <div class="inventory-list-container" style="display:none;">
+                    <table class="inventory-table">
+                        <thead>
+                            <tr>
+                                <th>Tên vật tư</th>
+                                <th>Loại</th>
+                                <th>Tồn kho</th>
+                                <th>Đơn giá</th>
+                                <th>Trạng thái</th>
+                                <th>Giá trị</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventory-table-body"></tbody>
+                    </table>
+                </div>
+
+                <!-- Add/Edit Form Overlay -->
+                <div id="inventory-form-overlay" class="inventory-overlay" style="display: none;">
+                    <div class="inventory-form-card">
+                        <h4 id="inv-form-title"><span class="material-symbols-outlined">add_shopping_cart</span> Nhập kho vật tư mới</h4>
+                        <div class="inv-tabs" style="display: flex; gap: 8px; margin-bottom: 16px;">
+                            <button type="button" id="tab-catalog" class="inv-tab active" onclick="switchInventoryTab('catalog')">
+                                <span class="material-symbols-outlined">storefront</span> Chọn từ Catalog
+                            </button>
+                            <button type="button" id="tab-custom" class="inv-tab" onclick="switchInventoryTab('custom')">
+                                <span class="material-symbols-outlined">edit_note</span> Tự nhập
+                            </button>
+                        </div>
+                        <form id="inventory-form" onsubmit="handleInventorySubmit(event)">
+                            <input type="hidden" id="inv-id">
+                            <div id="catalog-mode">
+                                <div class="form-group">
+                                    <label>Loại vật tư</label>
+                                    <select id="inv-catalog-type" class="form-select" onchange="loadCatalogItems()">
+                                        <option value="FERTILIZER">🌱 Phân bón</option>
+                                        <option value="PESTICIDE">🦟 Thuốc BVTV</option>
+                                        <option value="SEED">🌾 Hạt giống</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Chọn sản phẩm</label>
+                                    <select id="inv-catalog-product" class="form-select" onchange="fillProductInfo()">
+                                        <option value="">-- Đang tải --</option>
+                                    </select>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Số lượng nhập</label>
+                                        <input type="number" id="inv-catalog-quantity" required class="form-input" min="1" step="0.1" value="1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Đơn giá (VNĐ)</label>
+                                        <input type="number" id="inv-catalog-cost" required class="form-input" min="0" readonly>
+                                    </div>
+                                </div>
+                                <div class="inv-product-preview" id="inv-product-preview" style="display: none;">
+                                    <div class="preview-name" id="preview-name"></div>
+                                    <div class="preview-desc" id="preview-desc"></div>
+                                </div>
+                            </div>
+                            <div id="custom-mode" style="display: none;">
+                                <div class="form-group">
+                                    <label>Tên vật tư</label>
+                                    <input type="text" id="inv-name" class="form-input" placeholder="VD: Thức ăn hỗn hợp">
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Loại</label>
+                                        <select id="inv-type" class="form-select">
+                                            <option value="FERTILIZER">Phân bón</option>
+                                            <option value="PESTICIDE">Thuốc BVTV</option>
+                                            <option value="SEED">Hạt giống</option>
+                                            <option value="OTHER">Khác</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Đơn vị tính</label>
+                                        <input type="text" id="inv-unit" class="form-input" placeholder="kg, chai, bao">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Số lượng</label>
+                                        <input type="number" id="inv-quantity" class="form-input" min="0" step="0.1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Đơn giá/đơn vị</label>
+                                        <input type="number" id="inv-cost" class="form-input" min="0">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Ngưỡng cảnh báo (Min)</label>
+                                <input type="number" id="inv-threshold" class="form-input" value="10">
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn--secondary" onclick="hideAddInventoryForm()">Hủy</button>
+                                <button type="submit" class="btn btn--primary">
+                                    <span class="material-symbols-outlined">add_shopping_cart</span> Nhập kho
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Feature Panel Overlay Backdrop -->
     <div class="feature-panel-overlay" id="feature-overlay" onclick="closeAllFeaturePanels()"></div>
 
-    <!-- Notification Panel -->
+    <!-- Notification Panel (Upgraded) -->
     <div class="feature-panel" id="notification-panel">
-        <div class="feature-panel__header">
-            <h4>Thông báo</h4>
-            <button onclick="toggleNotificationPanel()" class="close-btn">
-                <span class="material-symbols-outlined">close</span>
+        <div class="notif-panel-header">
+            <div class="notif-panel-header__left">
+                <span class="material-symbols-outlined notif-panel-header__icon">notifications_active</span>
+                <h4>Thông báo</h4>
+                <span class="notif-panel-header__count" id="notif-header-count"></span>
+            </div>
+            <div class="notif-panel-header__actions">
+                <button class="notif-panel-header__btn" onclick="markAllNotificationsRead()" title="Đánh dấu tất cả đã đọc">
+                    <span class="material-symbols-outlined">done_all</span>
+                </button>
+                <button class="notif-panel-header__btn" onclick="toggleNotificationPanel()" title="Đóng">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+        </div>
+        <div class="notif-panel-tabs">
+            <button class="notif-tab active" data-tab="all" onclick="filterNotifications('all')">
+                Tất cả
+            </button>
+            <button class="notif-tab" data-tab="unread" onclick="filterNotifications('unread')">
+                Chưa đọc
             </button>
         </div>
-        <div class="feature-panel__content" id="notification-list"></div>
+        <div class="notif-panel-body" id="notification-list">
+            <!-- Notifications rendered by JS -->
+        </div>
     </div>
 
     <!-- Marketplace Panel (Redesigned) -->
@@ -531,7 +727,7 @@
         <div class="feature-panel__header">
             <div style="display:flex; align-items:center; gap:8px;">
                 <span class="material-symbols-outlined text-green">candlestick_chart</span>
-                <h4>Sàn Giao Dịch Nông Sản</h4>
+                <h4>Thị trường Vật nuôi</h4>
             </div>
             <button onclick="toggleMarketplacePanel()" class="close-btn" style="color:white; opacity:0.7;">
                 <span class="material-symbols-outlined">close</span>
@@ -542,11 +738,11 @@
                 <!-- Sidebar: Tickers -->
                 <div class="market-sidebar">
                     <div style="padding:12px; border-bottom:1px solid #334155;">
-                        <input type="text" placeholder="Tìm kiếm..."
+                        <input type="text" placeholder="Tìm vật nuôi..."
+                            oninput="filterAnimalTickers(this.value)"
                             style="width:100%; background:#0f172a; border:1px solid #334155; padding:8px; border-radius:4px; color:white;">
                     </div>
                     <div class="market-ticker-list" id="market-ticker-list">
-                        <!-- Items injected by JS -->
                         <div style="padding:20px; text-align:center; color:#64748b;">Đang tải dữ liệu...</div>
                     </div>
                 </div>
@@ -556,27 +752,27 @@
                     <div id="market-detail-container" style="display:none; height:100%; flex-direction:column;">
                         <div class="chart-header">
                             <div class="coin-info">
-                                <div class="coin-icon" id="detail-icon">🌾</div>
+                                <div class="coin-icon" id="detail-icon">🐔</div>
                                 <div class="coin-details">
-                                    <h2 id="detail-name">Lúa nước</h2>
-                                    <span id="detail-category" style="color:#94a3b8; font-size:13px;">GRAIN</span>
+                                    <h2 id="detail-name">Gà</h2>
+                                    <span id="detail-category" style="color:#94a3b8; font-size:13px;">Gia súc/gia cầm</span>
                                 </div>
                             </div>
                             <div class="coin-stats">
                                 <div class="stat-box">
-                                    <div class="stat-label">Giá hiện tại</div>
+                                    <div class="stat-label">Giá bán/con</div>
                                     <div class="stat-value" id="detail-price">---</div>
                                 </div>
                                 <div class="stat-box">
-                                    <div class="stat-label">Biến động (24h)</div>
+                                    <div class="stat-label">Biến động (7 ngày)</div>
                                     <div class="stat-value" id="detail-change">---</div>
                                 </div>
                                 <div class="stat-box">
-                                    <div class="stat-label">Cao nhất (24h)</div>
+                                    <div class="stat-label">Cao nhất (30 ngày)</div>
                                     <div class="stat-value" id="detail-high">---</div>
                                 </div>
                                 <div class="stat-box">
-                                    <div class="stat-label">Thấp nhất (24h)</div>
+                                    <div class="stat-label">Thấp nhất (30 ngày)</div>
                                     <div class="stat-value" id="detail-low">---</div>
                                 </div>
                             </div>
@@ -590,7 +786,7 @@
                         style="display:flex; flex:1; align-items:center; justify-content:center; flex-direction:column; color:#64748b;">
                         <span class="material-symbols-outlined"
                             style="font-size:64px; margin-bottom:16px; opacity:0.5;">monitoring</span>
-                        <p>Chọn một loại nông sản để xem biểu đồ</p>
+                        <p>Chọn một loại vật nuôi để xem biểu đồ giá</p>
                     </div>
                 </div>
             </div>
@@ -606,6 +802,9 @@
     <script src="../js/chatbot.js"></script>
     <script src="../js/smart-advisor.js"></script>
     <script src="../js/ai_analysis.js"></script>
+    <script src="../js/pen-simulation.js"></script>
+    <script src="../js/features.js"></script>
+    <script src="../js/inventory.js"></script>
     <script src="../js/livestock.js"></script>
     <script src="../js/main.js"></script>
 </body>

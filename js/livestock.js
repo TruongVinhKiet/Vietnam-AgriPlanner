@@ -10,6 +10,7 @@ let selectedPen = null;
 let selectedAnimal = null;
 let selectedFarmingType = null;
 let selectedWaterType = null;
+let penSimulation = null; // Canvas simulation instance
 
 // Farm ID - dynamically loaded from user's farms
 let currentFarmId = null;
@@ -24,8 +25,10 @@ async function loadLivestockInventory() {
     try {
         const userEmail = localStorage.getItem('userEmail');
         if (!userEmail) return [];
-
-        const response = await fetch(`${API_BASE_URL}/shop/inventory?userEmail=${encodeURIComponent(userEmail)}`);
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/shop/inventory?userEmail=${encodeURIComponent(userEmail)}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         if (response.ok) {
             const data = await response.json();
             livestockInventoryCache = data.items || [];
@@ -39,8 +42,10 @@ async function loadLivestockInventory() {
 
 function checkLivestockInventory(category, productName, requiredQuantity) {
     const items = livestockInventoryCache.filter(item => {
-        const matchCategory = !category || item.category === category;
-        const matchName = !productName || item.name.toLowerCase().includes(productName.toLowerCase());
+        const itemName = item.effectiveName || item.name || item.itemName || '';
+        const itemCategory = item.category || item.type || '';
+        const matchCategory = !category || itemCategory === category;
+        const matchName = !productName || itemName.toLowerCase().includes(productName.toLowerCase());
         return matchCategory && matchName;
     });
 
@@ -116,6 +121,19 @@ function showLivestockInventoryShortageModal(itemName, available, needed, catego
 document.addEventListener('DOMContentLoaded', async function () {
     console.log('Livestock page initialized');
 
+    // Initialize Canvas simulation
+    penSimulation = new PenSimulation('pen-canvas');
+
+    // Sound toggle button
+    const soundBtn = document.getElementById('pen-viz-sound-toggle');
+    if (soundBtn && penSimulation) {
+        soundBtn.addEventListener('click', () => {
+            const on = penSimulation.toggleSound();
+            const icon = document.getElementById('pen-viz-sound-icon');
+            if (icon) icon.textContent = on ? 'volume_up' : 'volume_off';
+        });
+    }
+
     // Load user's farm first
     await loadCurrentFarm();
 
@@ -127,13 +145,29 @@ document.addEventListener('DOMContentLoaded', async function () {
     // Setup event listeners
     setupEventListeners();
 
-    // Render pen grid
-    renderPenGrid();
+    // Render pen selector bar
+    renderPenSelectorBar();
+
+    // Auto-select first pen if available
+    if (allPens.length > 0) {
+        selectPen(allPens[0].id);
+    }
+
+    // Fetch weather for simulation
+    _fetchWeatherForSim();
 });
 
-/**
- * Load the current user's farm from the backend
- */
+// Fetch weather once for canvas simulation
+async function _fetchWeatherForSim() {
+    try {
+        if (!penSimulation || !CONFIG?.OPENWEATHER_API_KEY) return;
+        const pos = await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 5000 }));
+        const { latitude: lat, longitude: lng } = pos.coords;
+        const r = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&units=metric&appid=${CONFIG.OPENWEATHER_API_KEY}`);
+        if (r.ok) penSimulation.setWeather(await r.json());
+    } catch (e) { /* silent — weather is optional */ }
+}
+
 async function loadCurrentFarm() {
     try {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -167,19 +201,21 @@ async function loadCurrentFarm() {
 }
 
 function setupEventListeners() {
-    // Add cage button
-    const addCageBtn = document.querySelector('.btn--primary');
-    if (addCageBtn) {
-        addCageBtn.addEventListener('click', openAddCageModal);
+    // Pen selector card clicks (delegated)
+    const selectorBar = document.getElementById('pen-selector-bar');
+    if (selectorBar) {
+        selectorBar.addEventListener('click', function (e) {
+            const card = e.target.closest('.pen-selector-card');
+            if (card) {
+                const penId = card.getAttribute('data-pen-id');
+                if (penId === 'new') {
+                    openAddCageModal();
+                } else {
+                    selectPen(parseInt(penId));
+                }
+            }
+        });
     }
-
-    // Pen card clicks
-    document.addEventListener('click', function (e) {
-        const penCard = e.target.closest('.pen-card');
-        if (penCard) {
-            handlePenClick(penCard);
-        }
-    });
 
     // Modal close buttons
     document.querySelectorAll('.modal-close, .modal-cancel').forEach(btn => {
@@ -225,7 +261,10 @@ async function loadPens() {
     }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/livestock/pens?farmId=${currentFarmId}`);
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/livestock/pens?farmId=${currentFarmId}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         if (response.ok) {
             allPens = await response.json();
             console.log('Loaded pens:', allPens.length);
@@ -253,8 +292,10 @@ async function createPen(penData) {
         if (response.ok) {
             showNotification('Đã thêm chuồng mới thành công!', 'success');
             await loadPens();
-            renderPenGrid();
+            renderPenSelectorBar();
             closeModal();
+            // Auto-select the newly created pen
+            if (result && result.id) selectPen(result.id);
             return result;
         } else {
             if (result.warning) {
@@ -291,74 +332,55 @@ async function calculateCapacity(data) {
 
 // ==================== RENDER FUNCTIONS ====================
 
-function renderPenGrid() {
-    const penGrid = document.querySelector('.pen-grid');
-    if (!penGrid) return;
+function renderPenSelectorBar() {
+    const bar = document.getElementById('pen-selector-bar');
+    if (!bar) return;
 
-    // Clear existing cards
-    penGrid.innerHTML = '';
+    bar.innerHTML = '';
 
-    // Render pens from database
     allPens.forEach(pen => {
-        penGrid.appendChild(createPenCard(pen));
+        bar.appendChild(createSelectorCard(pen));
     });
 
-    // Add empty slot for adding new pen
-    const emptyCard = document.createElement('div');
-    emptyCard.className = 'pen-card pen-card--empty';
-    emptyCard.setAttribute('data-pen-id', 'new');
-    emptyCard.innerHTML = `
-        <span class="pen-card__id">Mới</span>
-        <div class="pen-card__content">
-            <span class="material-symbols-outlined pen-card__icon">add</span>
-            <span class="pen-card__label">Thêm chuồng</span>
-        </div>
+    // Add "new pen" card
+    const addCard = document.createElement('div');
+    addCard.className = 'pen-selector-card pen-selector-card--add';
+    addCard.setAttribute('data-pen-id', 'new');
+    addCard.innerHTML = `
+        <span class="material-symbols-outlined pen-selector-card__icon">add_circle</span>
+        <span class="pen-selector-card__info">
+            <span class="pen-selector-card__code">Thêm chuồng</span>
+        </span>
     `;
-    emptyCard.addEventListener('click', openAddCageModal);
-    penGrid.appendChild(emptyCard);
+    bar.appendChild(addCard);
 }
 
-function createPenCard(pen) {
+function createSelectorCard(pen) {
     const card = document.createElement('div');
-    const statusClass = getStatusClass(pen.status);
     const hasAlert = pen.status === 'SICK';
+    const isSelected = selectedPen && selectedPen.id === pen.id;
 
-    card.className = `pen-card ${statusClass}${hasAlert ? ' pen-card--alert' : ''}`;
+    card.className = `pen-selector-card${isSelected ? ' pen-selector-card--active' : ''}${hasAlert ? ' pen-selector-card--alert' : ''}`;
     card.setAttribute('data-pen-id', pen.id);
 
     const animalName = pen.animalDefinition ? pen.animalDefinition.name : 'Trống';
     const animalIcon = getAnimalIcon(pen.animalDefinition);
     const count = pen.animalCount || 0;
-
-    // Feeding status badge
-    let feedingStatusHtml = '';
-    if (count > 0 && pen.feedingStatus) {
-        const feedingStatusClass = getFeedingStatusClass(pen);
-        const feedingStatusIcon = getFeedingStatusIcon(pen);
-        const feedingStatusText = getFeedingStatusText(pen);
-        feedingStatusHtml = `
-            <span class="pen-card__feeding-status ${feedingStatusClass}">
-                <span class="material-symbols-outlined">${feedingStatusIcon}</span>
-                ${feedingStatusText}
-            </span>
-        `;
-    }
+    const statusBadge = getStatusBadge(pen.status);
 
     card.innerHTML = `
-        <span class="pen-card__id">${pen.code}</span>
-        ${hasAlert ? `<span class="pen-card__alert pen-card__alert--pulse">
-            <span class="material-symbols-outlined">warning</span>
-        </span>` : ''}
-        <div class="pen-card__content">
-            <span class="material-symbols-outlined pen-card__icon">${animalIcon}</span>
-            <span class="pen-card__label">${animalName}${count > 0 ? ' • ' + count : ''}</span>
-        </div>
-        ${feedingStatusHtml}
+        <span class="material-symbols-outlined pen-selector-card__icon">${animalIcon}</span>
+        <span class="pen-selector-card__info">
+            <span class="pen-selector-card__code">${pen.code}</span>
+            <span class="pen-selector-card__meta">${animalName}${count > 0 ? ' · ' + count : ''}</span>
+        </span>
+        <span class="pen-selector-card__status pen-selector-card__status--${String(pen.status || 'EMPTY').toLowerCase()}"></span>
     `;
 
     return card;
 }
 
+// Keep old getStatusClass for any legacy use
 function getStatusClass(status) {
     switch (status) {
         case 'CLEAN': return 'pen-card--clean';
@@ -431,31 +453,52 @@ function getAnimalIcon(animalDef) {
     }
 }
 
-// ==================== PEN DETAILS ====================
+// ==================== PEN SELECTION & DETAILS ====================
 
-function handlePenClick(penCard) {
-    const penId = penCard.getAttribute('data-pen-id');
-    if (penId === 'new') {
-        openAddCageModal();
-        return;
-    }
-
-    // Find pen data
+function selectPen(penId) {
     const pen = allPens.find(p => p.id == penId);
     if (!pen) return;
 
     selectedPen = pen;
-    updatePenDetails(pen);
 
-    // Highlight selected card
-    document.querySelectorAll('.pen-card').forEach(c => c.classList.remove('pen-card--selected'));
-    penCard.classList.add('pen-card--selected');
+    // Highlight selected card in selector bar
+    document.querySelectorAll('.pen-selector-card').forEach(c => c.classList.remove('pen-selector-card--active'));
+    const card = document.querySelector(`.pen-selector-card[data-pen-id="${pen.id}"]`);
+    if (card) {
+        card.classList.add('pen-selector-card--active');
+        // Scroll into view
+        card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+
+    // Compute daysOld for growth scaling
+    if (pen.startDate) {
+        const start = new Date(pen.startDate);
+        pen.daysOld = Math.max(0, Math.floor((Date.now() - start) / 86400000));
+    } else { pen.daysOld = 0; }
+
+    // Update Canvas simulation — only reload if pen changed
+    if (penSimulation) {
+        if (!penSimulation.pen || penSimulation.pen.id !== pen.id) {
+            penSimulation.loadPen(pen);
+        }
+    }
+
+    // Update viz info overlay
+    const vizInfoText = document.getElementById('pen-viz-info-text');
+    if (vizInfoText) {
+        const name = pen.animalDefinition ? pen.animalDefinition.name : 'Trống';
+        vizInfoText.textContent = `${pen.code} — ${name} (${pen.animalCount || 0})`;
+    }
+
+    // Show legend if animals exist
+    const legend = document.getElementById('pen-viz-legend');
+    if (legend) legend.style.display = (pen.animalCount > 0) ? 'flex' : 'none';
+
+    // Update sidebar details
+    updatePenDetails(pen);
 }
 
 function updatePenDetails(pen) {
-    const detailPanel = document.querySelector('.animal-detail');
-    if (!detailPanel) return;
-
     // Toggle Empty State / Content
     const emptyState = document.getElementById('empty-pen-state');
     const content = document.getElementById('pen-detail-content');
@@ -465,81 +508,65 @@ function updatePenDetails(pen) {
     const animalName = pen.animalDefinition ? pen.animalDefinition.name : 'Chưa có vật nuôi';
     const statusBadge = getStatusBadge(pen.status);
 
-    // Update header
-    const titleEl = detailPanel.querySelector('.animal-detail__title');
-    if (titleEl) titleEl.textContent = `Chuồng ${pen.code}`;
+    // Update pen info card
+    const penInfoIcon = document.getElementById('pen-info-icon');
+    if (penInfoIcon) penInfoIcon.textContent = getAnimalIcon(pen.animalDefinition);
 
-    const badgeEl = detailPanel.querySelector('.badge');
-    if (badgeEl) {
-        badgeEl.className = `badge ${statusBadge.class}`;
-        badgeEl.textContent = statusBadge.text;
-        badgeEl.style.display = 'inline-flex';
+    const penInfoName = document.getElementById('pen-info-name');
+    if (penInfoName) penInfoName.textContent = `Chuồng ${pen.code} — ${animalName}`;
+
+    const penInfoSub = document.getElementById('pen-info-sub');
+    if (penInfoSub) {
+        const unit = pen.animalDefinition?.unit || 'con';
+        penInfoSub.textContent = `${pen.animalCount || 0} ${unit} · ${getFarmingTypeLabel(pen.farmingType)}`;
     }
 
+    const penInfoBadge = document.getElementById('pen-info-badge');
+    if (penInfoBadge) {
+        const statusKey = String(pen.status || 'EMPTY').toLowerCase();
+        penInfoBadge.className = `pen-info-card__badge pen-info-card__badge--${statusKey}`;
+        penInfoBadge.textContent = statusBadge.text;
+    }
+
+    // Status control
     const statusControl = document.getElementById('pen-status-control');
     if (statusControl) statusControl.style.display = 'flex';
 
     const statusSelect = document.getElementById('pen-status-select');
     if (statusSelect) statusSelect.value = String(pen.status || 'EMPTY').toUpperCase();
 
-    // Update stats
-    const stats = detailPanel.querySelector('.animal-detail__stats');
-    if (stats) {
-        const unit = pen.animalDefinition?.unit || 'con';
-        const typeLabel = getFarmingTypeLabel(pen.farmingType);
-        const waterLabel = pen.waterType ? `(${getWaterTypeLabel(pen.waterType)})` : '';
-        const startDate = formatDate(pen.startDate);
-        const harvestDate = formatDate(pen.expectedHarvestDate);
+    // Update stat cards
+    const statFeeding = document.getElementById('stat-feeding');
+    if (statFeeding) {
+        statFeeding.textContent = getFeedingStatusText(pen) || 'N/A';
+    }
 
-        stats.innerHTML = `
-            <div class="animal-stat-item">
-                <span class="animal-stat__label">
-                    <span class="material-symbols-outlined animal-stat__icon">pets</span>
-                    Loại vật nuôi
-                </span>
-                <span class="animal-stat__value">${animalName}</span>
-            </div>
-            
-            <div class="animal-stat-item">
-                <span class="animal-stat__label">
-                    <span class="material-symbols-outlined animal-stat__icon">tag</span>
-                    Số lượng
-                </span>
-                <span class="animal-stat__value">${pen.animalCount || 0} ${unit}</span>
-            </div>
+    const statHealth = document.getElementById('stat-health');
+    if (statHealth) {
+        const healthMap = { 'CLEAN': 'Tốt', 'DIRTY': 'TB', 'SICK': 'Yếu', 'EMPTY': 'N/A' };
+        statHealth.textContent = healthMap[String(pen.status || 'EMPTY').toUpperCase()] || 'N/A';
+    }
 
-            <div class="animal-stat-item">
-                <span class="animal-stat__label">
-                    <span class="material-symbols-outlined animal-stat__icon">landscape</span>
-                    Môi trường
-                </span>
-                <span class="animal-stat__value">${typeLabel} ${waterLabel}</span>
-            </div>
+    const statAge = document.getElementById('stat-age');
+    if (statAge) {
+        if (pen.startDate) {
+            const days = Math.floor((new Date() - new Date(pen.startDate)) / (1000 * 60 * 60 * 24));
+            statAge.textContent = days > 0 ? `${days} ngày` : 'Mới';
+        } else {
+            statAge.textContent = 'N/A';
+        }
+    }
 
-            <div class="animal-stat-item">
-                <span class="animal-stat__label">
-                    <span class="material-symbols-outlined animal-stat__icon">square_foot</span>
-                    Diện tích
-                </span>
-                <span class="animal-stat__value">${pen.areaSqm || 0} m²</span>
-            </div>
-
-            <div class="animal-stat-item">
-                <span class="animal-stat__label">
-                    <span class="material-symbols-outlined animal-stat__icon">calendar_today</span>
-                    Ngày bắt đầu
-                </span>
-                <span class="animal-stat__value">${startDate}</span>
-            </div>
-
-            <div class="animal-stat-item">
-                <span class="animal-stat__label">
-                    <span class="material-symbols-outlined animal-stat__icon">event</span>
-                    Dự kiến
-                </span>
-                <span class="animal-stat__value">${harvestDate}</span>
-            </div>
-        `;
+    const statProgress = document.getElementById('stat-progress');
+    if (statProgress) {
+        if (pen.startDate && pen.expectedHarvestDate) {
+            const total = new Date(pen.expectedHarvestDate) - new Date(pen.startDate);
+            const elapsed = new Date() - new Date(pen.startDate);
+            const pct = Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+            statProgress.textContent = `${pct}%`;
+        } else {
+            statProgress.textContent = 'N/A';
+        }
     }
 
     // Load Health Records
@@ -555,7 +582,6 @@ function updatePenDetails(pen) {
     const btnAnalysis = document.getElementById('btn-livestock-analysis');
     if (btnAnalysis) {
         btnAnalysis.disabled = false;
-        btnAnalysis.classList.remove('field-action-btn--disabled');
     }
 }
 
@@ -591,9 +617,10 @@ async function handlePenStatusChange(status) {
             const idx = allPens.findIndex(p => p.id === selectedPen.id);
             if (idx !== -1) allPens[idx].status = updatedPen.status;
 
-            renderPenGrid();
-            const selectedCard = document.querySelector(`.pen-card[data-pen-id="${selectedPen.id}"]`);
-            if (selectedCard) selectedCard.classList.add('pen-card--selected');
+            renderPenSelectorBar();
+            // Re-highlight selected card
+            const selectedCard = document.querySelector(`.pen-selector-card[data-pen-id="${selectedPen.id}"]`);
+            if (selectedCard) selectedCard.classList.add('pen-selector-card--active');
 
             updatePenDetails(selectedPen);
             showNotification('Đã cập nhật tình trạng chuồng', 'success');
@@ -690,11 +717,15 @@ async function executeDeletePen(penId) {
             if (emptyState) emptyState.style.display = 'flex';
             if (content) content.style.display = 'none';
 
-            // clear content incase it's shown momentarily
-            if (document.querySelector('.vaccine-list')) document.querySelector('.vaccine-list').innerHTML = '';
+            // clear health timeline content
+            const timeline = document.getElementById('health-timeline');
+            if (timeline) timeline.innerHTML = '';
+
+            // Clear canvas simulation
+            if (penSimulation) penSimulation.stop();
 
             await loadPens();
-            renderPenGrid();
+            renderPenSelectorBar();
         } else {
             showNotification('Không thể xóa chuồng', 'error');
         }
@@ -907,7 +938,7 @@ function setupModalEventListeners(modal) {
     // Quantity input
     const quantityInput = modal.querySelector('#animal-quantity');
     if (quantityInput) {
-        quantityInput.addEventListener('input', validateCapacity);
+        quantityInput.addEventListener('input', () => validateCapacity(false));
     }
 
     // Confirm button
@@ -968,6 +999,9 @@ function resetAddCageForm() {
 
 function selectFarmingType(type) {
     selectedFarmingType = type;
+    selectedAnimal = null; // Reset selection
+    document.getElementById('step-animal').classList.add('hidden');
+    document.getElementById('step-quantity').classList.add('hidden');
 
     // Update UI
     document.querySelectorAll('.farming-type-card').forEach(card => {
@@ -993,6 +1027,9 @@ function selectFarmingType(type) {
 
 function selectWaterType(waterType) {
     selectedWaterType = waterType;
+    selectedAnimal = null; // Reset selection
+    document.getElementById('step-animal').classList.add('hidden');
+    document.getElementById('step-quantity').classList.add('hidden');
 
     // Update UI
     document.querySelectorAll('.water-type-card').forEach(card => {
@@ -1020,17 +1057,17 @@ function updateCalculatedArea() {
 
     // Recalculate capacity if animal is selected
     if (selectedAnimal) {
-        validateCapacity();
+        validateCapacity(true);
     }
 }
 
 // ==================== HEALTH & EVENTS ====================
 
 async function loadHealthRecords(penId) {
-    const container = document.querySelector('.vaccine-list');
+    const container = document.getElementById('health-timeline');
     if (!container) return;
 
-    container.innerHTML = '<div style="padding:10px;text-align:center;color:#666">Đang tải...</div>';
+    container.innerHTML = '<p class="health-timeline__empty">Đang tải...</p>';
 
     try {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -1041,21 +1078,21 @@ async function loadHealthRecords(penId) {
             const records = await response.json();
             renderHealthRecords(records);
         } else {
-            container.innerHTML = '<div style="padding:10px;text-align:center;color:red">Lỗi tải dữ liệu</div>';
+            container.innerHTML = '<p class="health-timeline__empty" style="color:var(--color-error)">Lỗi tải dữ liệu</p>';
         }
     } catch (error) {
         console.error('Error loading health records:', error);
-        container.innerHTML = '<div style="padding:10px;text-align:center;color:red">Lỗi kết nối</div>';
+        container.innerHTML = '<p class="health-timeline__empty" style="color:var(--color-error)">Lỗi kết nối</p>';
     }
 }
 
 function renderHealthRecords(records) {
-    const container = document.querySelector('.vaccine-list');
+    const container = document.getElementById('health-timeline');
     if (!container) return;
     container.innerHTML = '';
 
     if (records.length === 0) {
-        container.innerHTML = '<div style="padding:10px;text-align:center;color:#999">Chưa có sự kiện nào</div>';
+        container.innerHTML = '<p class="health-timeline__empty">Chưa có dữ liệu sức khỏe</p>';
         return;
     }
 
@@ -1064,43 +1101,39 @@ function renderHealthRecords(records) {
 
     records.forEach(record => {
         const item = document.createElement('div');
-        item.className = 'vaccine-item';
+        item.className = 'health-timeline__item';
 
-        let statusClass = 'vaccine-item__dot--upcoming';
+        let dotClass = 'health-timeline__dot--upcoming';
         let statusText = 'Sắp tới';
-        let statusBadgeClass = 'vaccine-item__status--upcoming';
+        let badgeClass = 'health-timeline__badge--upcoming';
 
         const eventDate = new Date(record.eventDate);
         eventDate.setHours(0, 0, 0, 0);
 
         if (record.status === 'COMPLETED') {
-            statusClass = 'vaccine-item__dot--completed';
+            dotClass = 'health-timeline__dot--completed';
             statusText = 'Đã xong';
-            statusBadgeClass = 'vaccine-item__status--completed';
+            badgeClass = 'health-timeline__badge--completed';
         } else if (eventDate < today) {
-            statusClass = 'vaccine-item__dot--overdue'; // Need CSS for this, or reuse Scheduled
+            dotClass = 'health-timeline__dot--overdue';
             statusText = 'Quá hạn';
-            statusBadgeClass = 'vaccine-item__status--scheduled'; // Reuse logic or add CSS
-            // Let's use red color inline if needed or stick to existing classes
+            badgeClass = 'health-timeline__badge--overdue';
         }
 
-        // Format date dd/MM/yyyy
         const dateStr = eventDate.toLocaleDateString('vi-VN');
 
         item.innerHTML = `
-            <div class="vaccine-item__info">
-                <span class="vaccine-item__dot ${statusClass}"></span>
+            <div class="health-timeline__item-info">
+                <span class="health-timeline__dot ${dotClass}"></span>
                 <div>
-                    <p class="vaccine-item__name">${record.name}</p>
-                    <p class="vaccine-item__date">${dateStr}</p>
+                    <p class="health-timeline__item-name">${record.name}</p>
+                    <p class="health-timeline__item-date">${dateStr}</p>
                 </div>
             </div>
-            <span class="vaccine-item__status ${statusBadgeClass}">${statusText}</span>
+            <span class="health-timeline__badge ${badgeClass}">${statusText}</span>
         `;
 
-        // Add click to toggle (simple implementation)
         item.addEventListener('click', () => toggleHealthStatus(record));
-
         container.appendChild(item);
     });
 }
@@ -1110,9 +1143,13 @@ async function toggleHealthStatus(record) {
 
     if (confirm(`Xác nhận đã hoàn thành: ${record.name}?`)) {
         try {
-            const response = await fetch(`http://localhost:8080/api/livestock/health/${record.id}/status`, {
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            const response = await fetch(`${API_BASE_URL}/livestock/health/${record.id}/status`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
                 body: JSON.stringify({ status: 'COMPLETED' })
             });
 
@@ -1132,27 +1169,28 @@ function renderAnimalGrid() {
     if (!grid) return;
 
     grid.innerHTML = '';
+    grid.classList.remove('hidden');
 
-    // Filter animals based on farming type and water type
-    let filteredAnimals = allAnimals.filter(animal => {
-        const types = JSON.parse(animal.farmingTypes || '[]');
-        const matchesFarmingType = types.includes(selectedFarmingType);
+    // Hide selected view if it exists
+    const selectedView = document.getElementById('selected-animal-view');
+    if (selectedView) selectedView.classList.add('hidden');
 
-        if (selectedFarmingType === 'POND' && selectedWaterType) {
-            return matchesFarmingType && animal.waterType === selectedWaterType;
-        }
-
-        return matchesFarmingType;
-    });
-
-    // Also show incompatible animals but greyed out
-    allAnimals.forEach(animal => {
+    // Strict filter: only compatible animals
+    const compatibleAnimals = allAnimals.filter(animal => {
         const types = JSON.parse(animal.farmingTypes || '[]');
         const isCompatible = types.includes(selectedFarmingType);
         const matchesWater = selectedFarmingType !== 'POND' || !selectedWaterType || animal.waterType === selectedWaterType;
+        return isCompatible && matchesWater;
+    });
 
+    if (compatibleAnimals.length === 0) {
+        grid.innerHTML = '<div style="text-align: center; color: var(--color-text-secondary); padding: 20px;">Không có vật nuôi phù hợp với kiểu chuồng này</div>';
+        return;
+    }
+
+    compatibleAnimals.forEach(animal => {
         const card = document.createElement('div');
-        card.className = `animal-card ${(!isCompatible || !matchesWater) ? 'animal-card--disabled' : ''}`;
+        card.className = 'animal-card';
         card.dataset.animalId = animal.id;
 
         const icon = animal.iconName || 'pets';
@@ -1164,10 +1202,7 @@ function renderAnimalGrid() {
             <small class="animal-card__price">${price}/${animal.unit || 'con'}</small>
         `;
 
-        if (isCompatible && matchesWater) {
-            card.addEventListener('click', () => selectAnimal(animal));
-        }
-
+        card.addEventListener('click', () => selectAnimal(animal));
         grid.appendChild(card);
     });
 
@@ -1177,9 +1212,43 @@ function renderAnimalGrid() {
 function selectAnimal(animal) {
     selectedAnimal = animal;
 
-    // Update UI
-    document.querySelectorAll('.animal-card').forEach(card => {
-        card.classList.toggle('selected', card.dataset.animalId == animal.id);
+    // Hide grid
+    const grid = document.getElementById('animal-grid');
+    grid.classList.add('hidden');
+
+    // Show selected view
+    let selectedView = document.getElementById('selected-animal-view');
+    if (!selectedView) {
+        selectedView = document.createElement('div');
+        selectedView.id = 'selected-animal-view';
+        // Add basic styles directly or via class
+        selectedView.style.display = 'flex';
+        selectedView.style.flexDirection = 'column';
+        selectedView.style.gap = '10px';
+        grid.after(selectedView);
+    }
+    selectedView.classList.remove('hidden');
+
+    const icon = animal.iconName || 'pets';
+    const price = formatCurrency(animal.buyPricePerUnit);
+
+    selectedView.innerHTML = `
+        <div class="animal-card selected" style="cursor: default">
+            <span class="material-symbols-outlined animal-card__icon" style="color: var(--color-primary);">${icon}</span>
+            <span class="animal-card__name">${animal.name}</span>
+            <small class="animal-card__price">${price}/${animal.unit || 'con'}</small>
+            <span class="material-symbols-outlined" style="color: var(--color-primary);">check_circle</span>
+        </div>
+        <button class="btn btn--sm btn--secondary" id="reselect-animal-btn" style="align-self: flex-start;">
+            <span class="material-symbols-outlined icon-sm">arrow_back</span> Chọn loài khác
+        </button>
+    `;
+
+    document.getElementById('reselect-animal-btn').addEventListener('click', () => {
+        selectedAnimal = null;
+        document.getElementById('step-quantity').classList.add('hidden');
+        document.getElementById('selected-animal-view').classList.add('hidden');
+        renderAnimalGrid();
     });
 
     // Show quantity section
@@ -1192,7 +1261,7 @@ function selectAnimal(animal) {
     updateExpectedInfo();
 
     // Validate capacity
-    validateCapacity();
+    validateCapacity(true);
 }
 
 function updateSizeInfo(animal) {
@@ -1251,14 +1320,15 @@ function updateExpectedInfo() {
     confirmBtn.disabled = !isValid;
 }
 
-async function validateCapacity() {
+async function validateCapacity(autoFill = false) {
     if (!selectedAnimal) return;
 
     const length = parseFloat(document.getElementById('pen-length').value) || 0;
     const width = parseFloat(document.getElementById('pen-width').value) || 0;
-    const quantity = parseInt(document.getElementById('animal-quantity').value) || 0;
+    // If auto-filling, don't rely on current input for calculation
+    let quantity = parseInt(document.getElementById('animal-quantity').value) || 0;
 
-    if (length <= 0 || width <= 0 || quantity <= 0) return;
+    if (length <= 0 || width <= 0) return;
 
     const result = await calculateCapacity({
         lengthM: length,
@@ -1267,12 +1337,33 @@ async function validateCapacity() {
         animalCount: quantity
     });
 
-    const warning = document.getElementById('capacity-warning');
-    if (result && result.isOverCapacity) {
-        warning.classList.remove('hidden');
-        document.getElementById('capacity-warning-text').textContent = result.warning;
-    } else {
-        warning.classList.add('hidden');
+    if (result) {
+        // Auto-fill quantity if requested
+        if (autoFill && result.maxCapacity > 0) {
+            document.getElementById('animal-quantity').value = result.maxCapacity;
+            quantity = result.maxCapacity; // Update local var for validation
+
+            // Also show info about density
+            const warning = document.getElementById('capacity-warning');
+            warning.classList.remove('hidden');
+            warning.className = 'capacity-warning'; // Reset class (remove error styling)
+            warning.style.background = 'rgba(16, 185, 129, 0.1)';
+            warning.style.border = '1px solid rgba(16, 185, 129, 0.2)';
+            warning.style.color = '#10b981';
+            document.getElementById('capacity-warning-text').textContent = `Mật độ tối đa: ${result.maxCapacity} ${selectedAnimal.unit || 'con'}`;
+        } else {
+            // Validation mode
+            const warning = document.getElementById('capacity-warning');
+            if (result.isOverCapacity) {
+                warning.classList.remove('hidden');
+                warning.className = 'capacity-warning'; // Reset
+                warning.removeAttribute('style'); // Use default error styles
+                document.getElementById('capacity-warning-text').textContent = result.warning;
+            } else {
+                // If valid and not auto-filling, hide warning or show usage
+                warning.classList.add('hidden');
+            }
+        }
     }
 
     updateExpectedInfo();
@@ -1392,6 +1483,10 @@ function closeFeedingModal() {
     const notes = document.getElementById('feed-notes');
     if (notes) notes.value = "";
 
+    // Remove "choose another" button if present
+    const chooseAnotherBtn = document.getElementById('feed-choose-another-btn');
+    if (chooseAnotherBtn) chooseAnotherBtn.remove();
+
     // Reset cost preview
     document.getElementById('feed-unit-price').textContent = '0 ₫/kg';
     document.getElementById('feed-total-cost').textContent = '0 ₫';
@@ -1414,7 +1509,9 @@ async function loadCompatibleFeeds(animalDefinitionId) {
 
     try {
         // Load compatible feeds from new API
-        const response = await fetch(`${API_BASE_URL}/feeding/compatible/${animalDefinitionId}`);
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+        const response = await fetch(`${API_BASE_URL}/feeding/compatible/${animalDefinitionId}`, { headers });
         if (!response.ok) throw new Error("Failed to fetch compatible feeds");
         compatibleFeeds = await response.json();
 
@@ -1424,7 +1521,7 @@ async function loadCompatibleFeeds(animalDefinitionId) {
         }
 
         // Also fetch all feed definitions to show which are incompatible
-        const allFeedsResponse = await fetch(`${API_BASE_URL}/feeding/definitions`);
+        const allFeedsResponse = await fetch(`${API_BASE_URL}/feeding/definitions`, { headers });
         let allFeeds = [];
         if (allFeedsResponse.ok) {
             allFeeds = await allFeedsResponse.json();
@@ -1433,17 +1530,16 @@ async function loadCompatibleFeeds(animalDefinitionId) {
         // Get compatible feed IDs
         const compatibleFeedIds = new Set(compatibleFeeds.map(f => f.feedDefinitionId));
 
-        // Render feed items
+        // Render only compatible feed items (hide incompatible ones)
         grid.innerHTML = '';
 
-        // First render compatible feeds
+        if (compatibleFeeds.length === 0) {
+            grid.innerHTML = '<p style="grid-column: span 2; text-align: center; color: var(--color-text-secondary);">Không có thức ăn phù hợp với loại vật nuôi này</p>';
+            return;
+        }
+
         compatibleFeeds.forEach(feed => {
             grid.appendChild(createFeedItem(feed, true));
-        });
-
-        // Then render incompatible feeds (greyed out)
-        allFeeds.filter(f => !compatibleFeedIds.has(f.id)).slice(0, 6).forEach(feed => {
-            grid.appendChild(createIncompatibleFeedItem(feed));
         });
 
     } catch (e) {
@@ -1549,6 +1645,32 @@ function selectFeed(feed) {
     const pricePerUnit = parseFloat(feed.pricePerUnit) || 0;
     document.getElementById('feed-unit-price').textContent = formatCurrency(pricePerUnit) + '/kg';
 
+    // Show "choose another" button
+    let chooseAnotherBtn = document.getElementById('feed-choose-another-btn');
+    if (!chooseAnotherBtn) {
+        chooseAnotherBtn = document.createElement('button');
+        chooseAnotherBtn.id = 'feed-choose-another-btn';
+        chooseAnotherBtn.type = 'button';
+        chooseAnotherBtn.className = 'btn btn--outline btn--sm feed-choose-another';
+        chooseAnotherBtn.innerHTML = '<span class="material-symbols-outlined">swap_horiz</span> Chọn lại';
+        chooseAnotherBtn.addEventListener('click', () => {
+            // Deselect current feed
+            selectedFeedDefinitionId = null;
+            recommendedAmount = 0;
+            document.querySelectorAll('.feed-item').forEach(item => {
+                item.classList.remove('feed-item--selected');
+                item.style.display = '';
+            });
+            chooseAnotherBtn.remove();
+            document.getElementById('feed-recommended-text').textContent = 'Chọn thức ăn để xem đề xuất';
+            document.getElementById('feed-unit-price').textContent = '0 ₫/kg';
+            document.getElementById('feed-total-cost').textContent = '0 ₫';
+            document.getElementById('feed-amount').value = '';
+        });
+        const grid = document.getElementById('feed-selection-grid');
+        grid.parentElement.insertBefore(chooseAnotherBtn, grid.nextSibling);
+    }
+
     // Update total cost preview
     updateFeedCostPreview();
 }
@@ -1621,7 +1743,7 @@ async function submitFeeding() {
     }
 
     try {
-        const token = localStorage.getItem('authToken');
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
         const userEmail = localStorage.getItem('userEmail');
         const response = await fetch(`${API_BASE_URL}/feeding/feed`, {
             method: 'POST',
@@ -1646,6 +1768,8 @@ async function submitFeeding() {
         const result = await response.json();
         const costText = result.cost ? ` - Chi phí: ${formatCurrency(result.cost)}` : '';
         showNotification(`Đã ghi nhận cho ăn thành công!${costText}`, "success");
+        // Trigger feeding animation on canvas
+        if (penSimulation) penSimulation.triggerFeeding();
         closeFeedingModal();
 
         // Refresh inventory after use
@@ -1653,7 +1777,7 @@ async function submitFeeding() {
 
         // Refresh pen data to update feeding status
         await loadPens();
-        renderPenGrid();
+        renderPenSelectorBar();
 
         // Reload pen details if still viewing
         if (selectedPen && selectedPen.id === currentFeedingPenId) {
@@ -1670,7 +1794,10 @@ async function submitFeeding() {
 // Fallback to old inventory-based system if new system fails
 async function fetchFeedItemsFallback() {
     try {
-        const response = await fetch(`${API_BASE_URL}/feeding/items`);
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/feeding/items`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         if (!response.ok) throw new Error("Failed to fetch feed");
         currentFeedItems = await response.json();
 
@@ -1725,7 +1852,10 @@ async function loadGrowthChart(penId) {
     container.innerHTML = '<div class="loading-spinner"></div>';
 
     try {
-        const response = await fetch(`${API_BASE_URL}/feeding/growth/${penId}`);
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/feeding/growth/${penId}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         if (response.ok) {
             const data = await response.json();
 
@@ -1761,12 +1891,7 @@ async function loadGrowthChart(penId) {
     }
 }
 
-// Make global
-window.openFeedingModal = openFeedingModal;
-window.closeFeedingModal = closeFeedingModal;
-window.submitFeeding = submitFeeding;
-window.confirmDeletePen = confirmDeletePen;
-window.fillRecommendedAmount = fillRecommendedAmount;
+// Window exports consolidated at end of file
 
 // ==================== HARVEST/SELL LOGIC ====================
 
@@ -1882,9 +2007,13 @@ async function submitHarvest() {
     submitBtn.innerHTML = '<span class="material-symbols-outlined icon-sm rotating">sync</span> Đang xử lý...';
 
     try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
         const response = await fetch(`${API_BASE_URL}/livestock/pens/${harvestPenData.id}/harvest`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
             body: JSON.stringify({
                 quantity: quantity,
                 pricePerUnit: price,
@@ -1904,7 +2033,7 @@ async function submitHarvest() {
 
             // Reload pen data
             await loadPens();
-            renderPenGrid();
+            renderPenSelectorBar();
 
             // Update detail panel if still viewing same pen
             if (selectedPen && selectedPen.id === harvestPenData.id) {
@@ -1934,8 +2063,7 @@ async function submitHarvest() {
 }
 
 // Make harvest functions global
-window.closeHarvestModal = closeHarvestModal;
-window.submitHarvest = submitHarvest;
+// Window exports consolidated at end of file
 
 // ==================== WORKFLOW UI LOGIC ====================
 
@@ -1948,10 +2076,6 @@ function updateUIForWorkflow(pen) {
     const btnHarvest = document.getElementById('btn-harvest');
     const btnDelete = document.getElementById('btn-delete-pen');
 
-    // Stage indicators
-    const stepAnimal = document.getElementById('step-animal');
-    const workflowText = document.getElementById('workflow-stage-text');
-
     // Reset default
     [btnFeed, btnClean, btnVaccine, btnHarvest].forEach(btn => disableButton(btn));
     enableButton(btnDelete); // Always allow delete
@@ -1959,43 +2083,35 @@ function updateUIForWorkflow(pen) {
     if (!pen.animalCount || pen.animalCount === 0) {
         // Empty State: Step 1 active
         enableButton(btnSelect);
-        disableButton(btnDelete); // Can't delete empty? actually should be able to delete structure
-        // If "Delete Pen" means delete the structure, it should be enabled.
-        // If it means delete animals, disabled. The button says "Xóa chuồng" (Delete Pen).
-        enableButton(btnDelete); // Allow deleting empty pen structure
-
-        workflowText.textContent = "Bước 1: Chọn vật nuôi để bắt đầu";
+        enableButton(btnDelete);
     } else {
         // Occupied State
-        disableButton(btnSelect); // Can't select new if occupied
+        disableButton(btnSelect);
 
-        // Active steps
-        enableButton(btnFeed);
+        // Feeing button restriction (bees, silkworms)
+        const name = (pen.animalDefinition?.name || '').toLowerCase();
+        if (name.includes('ong') || name.includes('tằm')) {
+            disableButton(btnFeed);
+        } else {
+            enableButton(btnFeed);
+        }
+
         enableButton(btnClean);
         enableButton(btnVaccine);
         enableButton(btnHarvest);
-
-        workflowText.textContent = "Đang nuôi dưỡng - Chăm sóc định kỳ";
-
-        // Check alerts
-        if (pen.status === 'DIRTY') {
-            workflowText.innerHTML = '<span style="color:#f59e0b">⚠️ Cần vệ sinh chuồng!</span>';
-        } else if (pen.status === 'SICK') {
-            workflowText.innerHTML = '<span style="color:#ef4444">⚠️ Vật nuôi đang bị bệnh!</span>';
-        }
     }
 }
 
 function enableButton(btn) {
     if (!btn) return;
     btn.disabled = false;
-    btn.classList.remove('field-action-btn--disabled');
+    btn.classList.remove('action-btn--disabled');
 }
 
 function disableButton(btn) {
     if (!btn) return;
     btn.disabled = true;
-    btn.classList.add('field-action-btn--disabled');
+    btn.classList.add('action-btn--disabled');
 }
 
 // ==================== NEW ACTIONS ====================
@@ -2010,16 +2126,22 @@ async function cleanPen() {
     if (!confirm('Xác nhận vệ sinh chuồng này?')) return;
 
     try {
-        const token = localStorage.getItem('authToken');
-        const response = await fetch(`${API_BASE_URL}/livestock/pens/${selectedPen.id}/clean`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/livestock/pens/${selectedPen.id}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ status: 'CLEAN' })
         });
 
         if (response.ok) {
             showNotification('🧹 Đã vệ sinh chuồng sạch sẽ!', 'success');
+            // Trigger cleaning animation on canvas
+            if (penSimulation) penSimulation.triggerCleaning();
             await loadPens();
-            renderPenGrid();
+            renderPenSelectorBar();
             if (selectedPen) updatePenDetails(allPens.find(p => p.id === selectedPen.id));
         } else {
             showNotification('Lỗi khi vệ sinh', 'error');
@@ -2038,17 +2160,587 @@ function openVaccineScheduleModal() {
     showNotification('Tính năng Lịch tiêm đang phát triển', 'info');
 }
 
+// ==================== NOTIFICATION SYSTEM (Upgraded) ====================
+// Overrides features.js notification functions for livestock page
+
+let currentNotifFilter = 'all';
+let cachedNotifications = [];
+
 function toggleNotificationPanel() {
-    // reusing sidebar.js if available or simple toggle
-    const p = document.getElementById('notification-panel');
-    if (p) p.classList.toggle('open');
-    else showNotification('Panel not found', 'error');
+    const panel = document.getElementById('notification-panel');
+    if (panel) {
+        closeOtherPanels('notification-panel');
+        panel.classList.toggle('open');
+        updateFeatureOverlay();
+        if (panel.classList.contains('open')) {
+            renderNotifications();
+            // Mark that user has seen notifications — clear badge
+            markNotificationsSeen();
+        }
+    }
 }
 
+async function renderNotifications() {
+    const container = document.getElementById('notification-list');
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align:center;padding:32px;color:#9ca3af;"><span class="material-symbols-outlined" style="font-size:28px;animation:spin 1s linear infinite;">progress_activity</span></div>';
+
+    cachedNotifications = await fetchAllNotifications();
+
+    renderNotificationItems();
+}
+
+async function fetchAllNotifications(userId = 1) {
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+        const response = await fetch(`${API_BASE}/notifications/user/${userId}/unread`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) throw new Error('Failed');
+        const notifications = await response.json();
+
+        // Update badge based on truly unread (not seen by user)
+        const readIds = getReadNotificationIds();
+        const unreadCount = notifications.filter(n => !n.isRead && !readIds.includes(n.id)).length;
+        updateNotificationBadgeUpgraded(unreadCount);
+
+        return notifications;
+    } catch (error) {
+        console.error('Error fetching notifications:', error);
+        return [];
+    }
+}
+
+function renderNotificationItems() {
+    const container = document.getElementById('notification-list');
+    if (!container) return;
+
+    const readIds = getReadNotificationIds();
+    let items = cachedNotifications.map(n => ({
+        ...n,
+        _isRead: n.isRead || readIds.includes(n.id)
+    }));
+
+    // Apply filter
+    if (currentNotifFilter === 'unread') {
+        items = items.filter(i => !i._isRead);
+    }
+
+    // Update header count
+    const countEl = document.getElementById('notif-header-count');
+    const totalUnread = cachedNotifications.filter(n => !n.isRead && !readIds.includes(n.id)).length;
+    if (countEl) {
+        countEl.textContent = totalUnread;
+        countEl.classList.toggle('visible', totalUnread > 0);
+    }
+
+    if (items.length === 0) {
+        container.innerHTML = `
+            <div class="notif-empty">
+                <div class="notif-empty__icon">
+                    <span class="material-symbols-outlined" style="font-size:48px">notifications_off</span>
+                </div>
+                <p class="notif-empty__text">${currentNotifFilter === 'unread' ? 'Không có thông báo chưa đọc' : 'Không có thông báo nào'}</p>
+                <p class="notif-empty__sub">Các thông báo mới sẽ xuất hiện ở đây</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = items.map(n => {
+        const iconClass = getNotifIconClass(n.type);
+        const icon = getNotifIcon(n.type);
+        const readClass = n._isRead ? 'read' : 'unread';
+        const timeStr = formatNotifTime(n.createdAt);
+
+        return `
+        <div class="notif-item ${readClass}" onclick="handleNotificationClick(${n.id})">
+            <div class="notif-item__icon ${iconClass}">
+                <span class="material-symbols-outlined">${icon}</span>
+            </div>
+            <div class="notif-item__body">
+                <p class="notif-item__title">${escapeHtml(n.title || '')}</p>
+                <p class="notif-item__message">${escapeHtml(n.message || '')}</p>
+                <span class="notif-item__time">
+                    <span class="material-symbols-outlined">schedule</span>
+                    ${timeStr}
+                </span>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function getNotifIcon(type) {
+    const icons = {
+        'WATER_REMINDER': 'water_drop',
+        'FERTILIZE_REMINDER': 'eco',
+        'HARVEST_READY': 'agriculture',
+        'PEST_ALERT': 'bug_report',
+        'WEATHER_WARNING': 'thunderstorm',
+        'FEEDING_REMINDER': 'restaurant',
+        'VACCINE_REMINDER': 'vaccines',
+        'HEALTH_ALERT': 'health_and_safety',
+        'MARKET_UPDATE': 'trending_up'
+    };
+    return icons[type] || 'notifications';
+}
+
+function getNotifIconClass(type) {
+    const classes = {
+        'WATER_REMINDER': 'icon--blue',
+        'FERTILIZE_REMINDER': 'icon--green',
+        'HARVEST_READY': 'icon--amber',
+        'PEST_ALERT': 'icon--red',
+        'WEATHER_WARNING': 'icon--purple',
+        'FEEDING_REMINDER': 'icon--amber',
+        'VACCINE_REMINDER': 'icon--blue',
+        'HEALTH_ALERT': 'icon--red',
+        'MARKET_UPDATE': 'icon--green'
+    };
+    return classes[type] || 'icon--default';
+}
+
+function formatNotifTime(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHr = Math.floor(diffMs / 3600000);
+    const diffDay = Math.floor(diffMs / 86400000);
+
+    if (diffMin < 1) return 'Vừa xong';
+    if (diffMin < 60) return `${diffMin} phút trước`;
+    if (diffHr < 24) return `${diffHr} giờ trước`;
+    if (diffDay < 7) return `${diffDay} ngày trước`;
+    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ---- Read/Unread Tracking with localStorage ----
+
+function getReadNotificationIds() {
+    try {
+        return JSON.parse(localStorage.getItem('readNotificationIds') || '[]');
+    } catch { return []; }
+}
+
+function saveReadNotificationId(id) {
+    const ids = getReadNotificationIds();
+    if (!ids.includes(id)) {
+        ids.push(id);
+        // Keep only last 200 to avoid bloat
+        if (ids.length > 200) ids.splice(0, ids.length - 200);
+        localStorage.setItem('readNotificationIds', JSON.stringify(ids));
+    }
+}
+
+function markNotificationsSeen() {
+    // When user opens the panel, mark current notifications as "seen"
+    // This clears the badge, but items still show as unread until clicked
+    localStorage.setItem('lastNotifSeenTime', Date.now().toString());
+    updateNotificationBadgeUpgraded(0);
+}
+
+function handleNotificationClick(id) {
+    // Mark as read locally
+    saveReadNotificationId(id);
+
+    // Also tell the server
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+    fetch(`${API_BASE}/notifications/${id}/read`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+    }).catch(e => console.error('Error marking notification read:', e));
+
+    // Re-render immediately
+    renderNotificationItems();
+}
+
+function markAllNotificationsRead() {
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+    cachedNotifications.forEach(n => {
+        saveReadNotificationId(n.id);
+        // Also tell server
+        fetch(`${API_BASE}/notifications/${n.id}/read`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        }).catch(() => {});
+    });
+    renderNotificationItems();
+}
+
+function filterNotifications(tab) {
+    currentNotifFilter = tab;
+    // Update tab UI
+    document.querySelectorAll('.notif-tab').forEach(t => {
+        t.classList.toggle('active', t.dataset.tab === tab);
+    });
+    renderNotificationItems();
+}
+
+function updateNotificationBadgeUpgraded(count) {
+    const badge = document.getElementById('notification-badge');
+    if (badge) {
+        badge.textContent = count > 0 ? count : '';
+        badge.style.display = count > 0 ? 'flex' : 'none';
+    }
+    // Also override the features.js notificationCount
+    if (typeof notificationCount !== 'undefined') {
+        notificationCount = count;
+    }
+}
+
+// Override features.js updateNotificationBadge
+function updateNotificationBadge() {
+    // Delegate to upgraded version — recalculate from cached data
+    const readIds = getReadNotificationIds();
+    const lastSeen = parseInt(localStorage.getItem('lastNotifSeenTime') || '0');
+    const unreadCount = cachedNotifications.filter(n => {
+        if (n.isRead || readIds.includes(n.id)) return false;
+        // Only show badge for notifications newer than last seen time
+        const createdTime = new Date(n.createdAt).getTime();
+        return createdTime > lastSeen;
+    }).length;
+    updateNotificationBadgeUpgraded(unreadCount);
+}
+
+// Periodically check for new notifications (every 30s)
+setInterval(async () => {
+    const oldCount = cachedNotifications.length;
+    cachedNotifications = await fetchAllNotifications();
+    // If new notifications arrived since last seen, show badge
+    const lastSeen = parseInt(localStorage.getItem('lastNotifSeenTime') || '0');
+    const readIds = getReadNotificationIds();
+    const newUnread = cachedNotifications.filter(n => {
+        if (n.isRead || readIds.includes(n.id)) return false;
+        const createdTime = new Date(n.createdAt).getTime();
+        return createdTime > lastSeen;
+    }).length;
+    updateNotificationBadgeUpgraded(newUnread);
+}, 30000);
+
+// openInventoryModal is provided by inventory.js.
+// Marketplace is OVERRIDDEN below for livestock-specific animal prices.
+
+// ==================== LIVESTOCK MARKETPLACE (Animal Prices) ====================
+
+let livestockMarketChart = null;
+let activeAnimalId = null;
+let livestockMarketPollingInterval = null;
+let animalPriceHistory = {}; // { animalId: [{date, price}] }
+
 function toggleMarketplacePanel() {
-    const p = document.getElementById('marketplace-panel');
-    if (p) p.classList.toggle('open');
-    else showNotification('Marketplace panel not found', 'error');
+    const panel = document.getElementById('marketplace-panel');
+    if (panel) {
+        const isOpening = !panel.classList.contains('open');
+        closeOtherPanels('marketplace-panel');
+        panel.classList.toggle('open');
+        updateFeatureOverlay();
+
+        if (isOpening) {
+            renderLivestockMarketList();
+            startLivestockMarketPolling();
+        } else {
+            stopLivestockMarketPolling();
+        }
+    }
+}
+
+function startLivestockMarketPolling() {
+    stopLivestockMarketPolling();
+    livestockMarketPollingInterval = setInterval(() => {
+        if (activeAnimalId) updateLivestockMarketChart(activeAnimalId);
+    }, 6000);
+}
+
+function stopLivestockMarketPolling() {
+    if (livestockMarketPollingInterval) {
+        clearInterval(livestockMarketPollingInterval);
+        livestockMarketPollingInterval = null;
+    }
+}
+// Alias for features.js reference
+window.stopMarketplacePolling = stopLivestockMarketPolling;
+
+function getAnimalMarketIcon(name) {
+    const n = (name || '').toLowerCase();
+    if (n.includes('gà')) return '🐔';
+    if (n.includes('vịt')) return '🦆';
+    if (n.includes('ngan')) return '🦆';
+    if (n.includes('ngỗng')) return '🪿';
+    if (n.includes('cút')) return '🐦';
+    if (n.includes('bò sữa')) return '🐄';
+    if (n.includes('bò')) return '🐂';
+    if (n.includes('trâu')) return '🐃';
+    if (n.includes('lợn') || n.includes('heo')) return '🐷';
+    if (n.includes('dê')) return '🐐';
+    if (n.includes('cừu')) return '🐑';
+    if (n.includes('tôm hùm')) return '🦞';
+    if (n.includes('tôm')) return '🦐';
+    if (n.includes('cua')) return '🦀';
+    if (n.includes('ếch')) return '🐸';
+    if (n.includes('lươn')) return '🐍';
+    if (n.includes('ong')) return '🐝';
+    if (n.includes('tằm')) return '🐛';
+    if (n.includes('ốc')) return '🐌';
+    if (n.includes('hàu')) return '🦪';
+    if (n.includes('nghêu') || n.includes('sò')) return '🐚';
+    if (n.includes('cá')) return '🐟';
+    return '🐾';
+}
+
+function getAnimalCategoryLabel(cat) {
+    const labels = {
+        'LAND': 'Gia súc/gia cầm',
+        'FRESHWATER': 'Nước ngọt',
+        'BRACKISH': 'Nước lợ',
+        'SALTWATER': 'Nước mặn',
+        'SPECIAL': 'Đặc biệt'
+    };
+    return labels[cat] || cat;
+}
+
+function renderLivestockMarketList() {
+    const container = document.getElementById('market-ticker-list');
+    if (!container) return;
+
+    if (!allAnimals || allAnimals.length === 0) {
+        container.innerHTML = '<div style="padding:20px; text-align:center; color:#64748b;">Đang tải dữ liệu...</div>';
+        return;
+    }
+
+    // Sort by category, then name
+    const sorted = [...allAnimals].filter(a => a.sellPricePerUnit > 0).sort((a, b) => {
+        if (a.category !== b.category) return (a.category || '').localeCompare(b.category || '');
+        return (a.name || '').localeCompare(b.name || '');
+    });
+
+    if (!activeAnimalId && sorted.length > 0) {
+        selectAnimalMarketItem(sorted[0]);
+    }
+
+    container.innerHTML = sorted.map(animal => {
+        const isActive = activeAnimalId === animal.id ? 'active' : '';
+        // Simulate small price fluctuation for market feel
+        const change = getAnimalPriceChange(animal.id);
+        const isUp = change > 0;
+        const changeColor = isUp ? 'text-green' : (change < 0 ? 'text-red' : '');
+
+        return `
+        <div class="ticker-item ${isActive}" onclick='selectAnimalMarketItem(${JSON.stringify({ id: animal.id, name: animal.name, category: animal.category, sellPricePerUnit: animal.sellPricePerUnit, buyPricePerUnit: animal.buyPricePerUnit, unit: animal.unit })})'>
+            <div class="ticker-info">
+                <h4>${animal.name}</h4>
+                <span>${getAnimalCategoryLabel(animal.category)}</span>
+            </div>
+            <div class="ticker-price">
+                <span class="current">${formatLivestockPrice(animal.sellPricePerUnit)} đ</span>
+                <span class="change ${changeColor}">
+                    ${isUp ? '▲' : '▼'} ${Math.abs(change).toFixed(2)}%
+                </span>
+            </div>
+        </div>
+        `;
+    }).join('');
+}
+
+// Track simulated price changes
+let animalPriceChanges = {};
+function getAnimalPriceChange(animalId) {
+    if (!animalPriceChanges[animalId]) {
+        animalPriceChanges[animalId] = (Math.random() - 0.45) * 5; // slight upward bias
+    }
+    // Slowly drift
+    animalPriceChanges[animalId] += (Math.random() - 0.5) * 0.3;
+    animalPriceChanges[animalId] = Math.max(-10, Math.min(10, animalPriceChanges[animalId]));
+    return animalPriceChanges[animalId];
+}
+
+function selectAnimalMarketItem(animal) {
+    if (typeof animal === 'string') animal = JSON.parse(animal);
+    activeAnimalId = animal.id;
+
+    // Update active state in list
+    document.querySelectorAll('.ticker-item').forEach(el => el.classList.remove('active'));
+    // Re-render would be cleaner but just toggle for performance
+
+    // Update header
+    const iconEl = document.getElementById('detail-icon');
+    const nameEl = document.getElementById('detail-name');
+    const catEl = document.getElementById('detail-category');
+    const priceEl = document.getElementById('detail-price');
+    const changeEl = document.getElementById('detail-change');
+    const highEl = document.getElementById('detail-high');
+    const lowEl = document.getElementById('detail-low');
+
+    if (iconEl) iconEl.textContent = getAnimalMarketIcon(animal.name);
+    if (nameEl) nameEl.textContent = animal.name;
+    if (catEl) catEl.textContent = getAnimalCategoryLabel(animal.category);
+    if (priceEl) priceEl.textContent = formatLivestockPrice(animal.sellPricePerUnit) + ' đ';
+
+    const change = getAnimalPriceChange(animal.id);
+    const isUp = change > 0;
+    if (changeEl) {
+        changeEl.textContent = `${isUp ? '+' : ''}${change.toFixed(2)}%`;
+        changeEl.className = `stat-value ${isUp ? 'text-green' : 'text-red'}`;
+    }
+
+    // High/Low based on sell price
+    const sellPrice = animal.sellPricePerUnit || 0;
+    if (highEl) highEl.textContent = formatLivestockPrice(sellPrice * (1 + Math.random() * 0.08)) + ' đ';
+    if (lowEl) lowEl.textContent = formatLivestockPrice(sellPrice * (1 - Math.random() * 0.05)) + ' đ';
+
+    // Show chart, hide empty state
+    const emptyState = document.getElementById('market-empty-state');
+    const detailContainer = document.getElementById('market-detail-container');
+    if (emptyState) emptyState.style.display = 'none';
+    if (detailContainer) detailContainer.style.display = 'flex';
+
+    // Update stat labels for livestock context
+    updateLivestockMarketLabels(animal);
+
+    // Init chart
+    initLivestockMarketChart(animal);
+}
+
+function updateLivestockMarketLabels(animal) {
+    // Update the stat box labels for livestock context
+    const statBoxes = document.querySelectorAll('#marketplace-panel .stat-box');
+    if (statBoxes.length >= 4) {
+        statBoxes[0].querySelector('.stat-label').textContent = `Giá bán/${animal.unit || 'con'}`;
+        statBoxes[1].querySelector('.stat-label').textContent = 'Biến động (7 ngày)';
+        statBoxes[2].querySelector('.stat-label').textContent = `Cao nhất (30 ngày)`;
+        statBoxes[3].querySelector('.stat-label').textContent = `Thấp nhất (30 ngày)`;
+    }
+}
+
+function initLivestockMarketChart(animal) {
+    const chartDiv = document.querySelector('#price-chart');
+    if (!chartDiv) return;
+
+    const basePrice = animal.sellPricePerUnit || 0;
+    const history = generateAnimalPriceHistory(animal.id, basePrice);
+
+    const dataSeries = history.map(h => ({
+        x: h.date,
+        y: h.price
+    }));
+
+    const options = {
+        series: [{ name: `Giá ${animal.name} (VNĐ)`, data: dataSeries }],
+        chart: {
+            type: 'area', height: 400, background: 'transparent',
+            animations: { enabled: true, easing: 'easeinout', dynamicAnimation: { speed: 800 } },
+            toolbar: { show: false }
+        },
+        theme: { mode: 'dark' },
+        stroke: { curve: 'smooth', width: 2.5 },
+        fill: {
+            type: 'gradient',
+            gradient: { shadeIntensity: 1, opacityFrom: 0.6, opacityTo: 0.15, stops: [0, 100] }
+        },
+        colors: ['#10b981'],
+        dataLabels: { enabled: false },
+        grid: { borderColor: '#334155', strokeDashArray: 4 },
+        xaxis: {
+            type: 'datetime',
+            tooltip: { enabled: false },
+            axisBorder: { show: false }, axisTicks: { show: false },
+            labels: { datetimeUTC: false, format: 'dd/MM', style: { colors: '#94a3b8' } }
+        },
+        yaxis: {
+            labels: {
+                formatter: (v) => new Intl.NumberFormat('vi-VN', { notation: 'compact' }).format(v),
+                style: { colors: '#94a3b8' }
+            }
+        },
+        tooltip: {
+            theme: 'dark',
+            y: { formatter: (v) => new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ` đ/${animal.unit || 'con'}` },
+            x: { format: 'dd/MM/yyyy' }
+        }
+    };
+
+    if (livestockMarketChart) livestockMarketChart.destroy();
+    livestockMarketChart = new ApexCharts(chartDiv, options);
+    livestockMarketChart.render();
+}
+
+function generateAnimalPriceHistory(animalId, basePrice) {
+    if (animalPriceHistory[animalId] && animalPriceHistory[animalId].length > 5) {
+        // Add a new point
+        const last = animalPriceHistory[animalId];
+        const lastPrice = last[last.length - 1].price;
+        const change = (Math.random() - 0.48) * (basePrice * 0.015);
+        last.push({
+            date: new Date().getTime(),
+            price: Math.max(basePrice * 0.7, lastPrice + change)
+        });
+        // Keep last 40 points
+        if (last.length > 40) last.shift();
+        return last;
+    }
+
+    // Generate initial 30-day history
+    const data = [];
+    let price = basePrice;
+    const now = Date.now();
+    for (let i = 30; i >= 0; i--) {
+        const date = now - i * 86400000; // 1 day intervals
+        const change = (Math.random() - 0.48) * (basePrice * 0.02);
+        price = Math.max(basePrice * 0.7, price + change);
+        data.push({ date, price: Math.round(price) });
+    }
+    animalPriceHistory[animalId] = data;
+    return data;
+}
+
+function updateLivestockMarketChart(animalId) {
+    if (!livestockMarketChart) return;
+    const animal = allAnimals.find(a => a.id === animalId);
+    if (!animal) return;
+
+    const history = generateAnimalPriceHistory(animalId, animal.sellPricePerUnit || 0);
+    const dataSeries = history.map(h => ({ x: h.date, y: h.price }));
+
+    livestockMarketChart.updateSeries([{ data: dataSeries }]);
+
+    // Update current price display
+    const latestPrice = history[history.length - 1]?.price || animal.sellPricePerUnit;
+    const priceEl = document.getElementById('detail-price');
+    if (priceEl) {
+        priceEl.textContent = formatLivestockPrice(latestPrice) + ' đ';
+        priceEl.style.color = '#fff';
+        setTimeout(() => { if (priceEl) priceEl.style.color = '#10b981'; }, 150);
+    }
+
+    // Update change
+    const changeEl = document.getElementById('detail-change');
+    if (changeEl) {
+        const change = getAnimalPriceChange(animalId);
+        const isUp = change > 0;
+        changeEl.textContent = `${isUp ? '+' : ''}${change.toFixed(2)}%`;
+        changeEl.className = `stat-value ${isUp ? 'text-green' : 'text-red'}`;
+    }
+}
+
+function formatLivestockPrice(value) {
+    if (!value) return '0';
+    return new Intl.NumberFormat('vi-VN').format(Math.round(value));
+}
+
+function filterAnimalTickers(query) {
+    const q = (query || '').toLowerCase().trim();
+    const items = document.querySelectorAll('.market-ticker-list .ticker-item');
+    items.forEach(item => {
+        const name = (item.querySelector('.ticker-name')?.textContent || '').toLowerCase();
+        item.style.display = (!q || name.includes(q)) ? '' : 'none';
+    });
 }
 
 function openAnalysisModal() {
@@ -2059,17 +2751,39 @@ function openAnalysisModal() {
     openAnalysisModalGeneric('LIVESTOCK', selectedPen.id, selectedPen.code);
 }
 
-function openInventoryModal() {
-    showNotification('Tính năng Kho vật tư đang phát triển', 'info');
+// openInventoryModal is now provided by inventory.js
+
+function closeAllFeaturePanels() {
+    // Use features.js version if available (it handles all panels)
+    const panels = document.querySelectorAll('.feature-panel');
+    panels.forEach(p => p.classList.remove('open'));
+    const overlay = document.getElementById('feature-overlay');
+    if (overlay) overlay.classList.remove('open');
+    if (typeof stopMarketplacePolling === 'function') stopMarketplacePolling();
 }
 
-// Make global
+// Make global — all functions referenced in HTML onclick handlers
+window.openAddCageModal = openAddCageModal;
+window.openFeedingModal = openFeedingModal;
+window.closeFeedingModal = closeFeedingModal;
+window.submitFeeding = submitFeeding;
+window.confirmDeletePen = confirmDeletePen;
+window.fillRecommendedAmount = fillRecommendedAmount;
+window.closeConfirmModal = closeConfirmModal;
+window.openHarvestModal = openHarvestModal;
+window.closeHarvestModal = closeHarvestModal;
+window.submitHarvest = submitHarvest;
 window.cleanPen = cleanPen;
 window.openVaccineModal = openVaccineModal;
 window.openVaccineScheduleModal = openVaccineScheduleModal;
-window.toggleNotificationPanel = toggleNotificationPanel;
-window.toggleMarketplacePanel = toggleMarketplacePanel;
 window.openAnalysisModal = openAnalysisModal;
-window.openInventoryModal = openInventoryModal;
 window.handlePenStatusChange = handlePenStatusChange;
-
+window.toggleMarketplacePanel = toggleMarketplacePanel;
+window.selectAnimalMarketItem = selectAnimalMarketItem;
+window.filterAnimalTickers = filterAnimalTickers;
+window.toggleNotificationPanel = toggleNotificationPanel;
+window.markAllNotificationsRead = markAllNotificationsRead;
+window.filterNotifications = filterNotifications;
+window.handleNotificationClick = handleNotificationClick;
+// openInventoryModal from inventory.js
+// closeAllFeaturePanels redefined above to also stop market polling
