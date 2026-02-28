@@ -1,6 +1,10 @@
 package com.agriplanner.controller;
 
 import com.agriplanner.dto.AuthResponse;
+import com.agriplanner.model.UnlockRequest;
+import com.agriplanner.model.User;
+import com.agriplanner.repository.UnlockRequestRepository;
+import com.agriplanner.repository.UserRepository;
 import com.agriplanner.service.AuthService;
 import com.agriplanner.service.TwoFactorService;
 import lombok.RequiredArgsConstructor;
@@ -14,11 +18,14 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/security")
 @RequiredArgsConstructor
+@SuppressWarnings("null")
 @CrossOrigin(origins = { "http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:8000" })
 public class SecurityController {
 
     private final AuthService authService;
     private final TwoFactorService twoFactorService;
+    private final UserRepository userRepository;
+    private final UnlockRequestRepository unlockRequestRepository;
 
     // --- Authenticated User Operations ---
 
@@ -93,5 +100,37 @@ public class SecurityController {
             return ResponseEntity.ok(Map.of("message", "Mở khóa tài khoản thành công. Vui lòng đăng nhập lại."));
         }
         return ResponseEntity.badRequest().body(Map.of("message", "Mã OTP không chính xác hoặc đã hết hạn"));
+    }
+
+    @PostMapping("/unlock/submit-request")
+    public ResponseEntity<?> submitUnlockRequest(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        String reason = body.get("reason");
+
+        if (email == null || email.isBlank() || reason == null || reason.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Email và lý do không được để trống"));
+        }
+
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return ResponseEntity.ok(Map.of("message", "Đơn mở khóa đã được gửi (nếu tài khoản tồn tại)"));
+        }
+
+        if (user.getIsActive()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Tài khoản không bị khóa"));
+        }
+
+        if (unlockRequestRepository.existsByUserIdAndStatus(user.getId(), "PENDING")) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Bạn đã có đơn mở khóa đang chờ xử lý"));
+        }
+
+        UnlockRequest request = UnlockRequest.builder()
+                .userId(user.getId())
+                .reason(reason)
+                .status("PENDING")
+                .build();
+        unlockRequestRepository.save(request);
+
+        return ResponseEntity.ok(Map.of("message", "Đơn mở khóa đã được gửi thành công. Vui lòng chờ quản trị viên xử lý."));
     }
 }

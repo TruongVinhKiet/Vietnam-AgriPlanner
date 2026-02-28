@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AuthResponse {
 
+    private Long userId;
     private String token;
     private String email;
     private String fullName;
@@ -25,14 +26,31 @@ public class AuthResponse {
     private boolean requiresVerification;
     private boolean requiresApproval; // For WORKER registration (pending owner approval)
     private boolean accountLocked;
+    private boolean adminLocked; // Locked by admin (not auto-lock)
+    private String lockReason; // Reason for admin lock
+    private String avatarUrl;
 
-    public static AuthResponse success(String token, String email, String fullName, UserRole role) {
+    public static AuthResponse success(String token, String email, String fullName, UserRole role, Long userId) {
         return AuthResponse.builder()
                 .success(true)
+                .userId(userId)
                 .token(token)
                 .email(email)
                 .fullName(fullName)
                 .role(role)
+                .message("Authentication successful")
+                .build();
+    }
+
+    public static AuthResponse successWithAvatar(String token, String email, String fullName, UserRole role, String avatarUrl, Long userId) {
+        return AuthResponse.builder()
+                .success(true)
+                .userId(userId)
+                .token(token)
+                .email(email)
+                .fullName(fullName)
+                .role(role)
+                .avatarUrl(avatarUrl)
                 .message("Authentication successful")
                 .build();
     }
@@ -49,6 +67,16 @@ public class AuthResponse {
         return AuthResponse.builder()
                 .success(false)
                 .accountLocked(true)
+                .message(message)
+                .build();
+    }
+
+    public static AuthResponse adminLocked(String message, String lockReason) {
+        return AuthResponse.builder()
+                .success(false)
+                .adminLocked(true)
+                .accountLocked(true)
+                .lockReason(lockReason)
                 .message(message)
                 .build();
     }

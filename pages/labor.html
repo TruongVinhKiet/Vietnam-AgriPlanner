@@ -466,14 +466,17 @@
     <script src="../js/labor.js"></script>
 
     <script>
-        // Check Auth
+        // Check Auth - Only OWNER can access labor management
         document.addEventListener('DOMContentLoaded', () => {
             const userRole = localStorage.getItem('userRole');
             if (userRole === 'SYSTEM_ADMIN') {
                 window.location.href = 'admin.html';
+                return;
             }
-            // Load user info (assuming utils/sidebar handles this, but calling just in case)
-            // loadUserInfo();
+            if (userRole === 'WORKER') {
+                window.location.href = 'worker_dashboard.html';
+                return;
+            }
         });
 
         // Tab Switching Logic

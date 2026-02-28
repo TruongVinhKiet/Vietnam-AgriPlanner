@@ -10,7 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import java.util.Map;
+import java.util.List;
 
 /**
  * Authentication controller for login and registration endpoints
@@ -76,19 +78,23 @@ public class AuthController {
      * GET /api/auth/me
      */
     @GetMapping("/me")
-    public ResponseEntity<AuthResponse> getCurrentUser(Authentication authentication) {
+    public ResponseEntity<Map<String, Object>> getCurrentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
-            return ResponseEntity.status(401).body(AuthResponse.error("Chưa đăng nhập"));
+            return ResponseEntity.status(401).body(Map.of("error", "Chưa đăng nhập"));
         }
 
         User user = (User) authentication.getPrincipal();
-        return ResponseEntity.ok(AuthResponse.builder()
-                .success(true)
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .role(user.getRole())
-                .message("Authenticated")
-                .build());
+        Map<String, Object> response = new java.util.HashMap<>();
+        response.put("success", true);
+        response.put("userId", user.getId());
+        response.put("email", user.getEmail());
+        response.put("fullName", user.getFullName());
+        response.put("role", user.getRole().name());
+        response.put("avatarUrl", user.getAvatarUrl());
+        response.put("faceEnabled", user.getFaceEnabled());
+        response.put("authProvider", user.getAuthProvider());
+        response.put("message", "Authenticated");
+        return ResponseEntity.ok(response);
     }
 
     /**
@@ -100,18 +106,206 @@ public class AuthController {
     }
 
     /**
-     * Google Login endpoint
+     * Google Login endpoint (server-side code exchange)
      * POST /api/auth/google
      */
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> googleLogin(@RequestBody Map<String, String> body) {
-        String googleId = body.get("googleId");
-        String email = body.get("email");
-        String fullName = body.get("fullName");
-        String avatarUrl = body.get("avatarUrl");
+        String code = body.get("code");
+        String redirectUri = body.get("redirectUri");
 
-        AuthResponse response = authService.loginWithGoogle(googleId, email, fullName, avatarUrl);
+        AuthResponse response = authService.loginWithGoogle(code, redirectUri);
+        if (response.isSuccess()) return ResponseEntity.ok(response);
+        if ("NEEDS_REGISTRATION".equals(response.getMessage())) return ResponseEntity.ok(response);
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * Google Register endpoint (server-side code exchange)
+     * POST /api/auth/google/register
+     */
+    @PostMapping("/google/register")
+    public ResponseEntity<AuthResponse> googleRegister(@RequestBody Map<String, Object> body) {
+        String code = (String) body.get("code");
+        String redirectUri = (String) body.get("redirectUri");
+        String role = (String) body.get("role");
+        String farmName = (String) body.get("farmName");
+        Long farmId = body.get("farmId") != null ? Long.valueOf(body.get("farmId").toString()) : null;
+        String cvProfile = (String) body.get("cvProfile");
+
+        AuthResponse response = authService.registerWithGoogle(code, redirectUri, role, farmName, farmId, cvProfile);
+        if (response.isSuccess() || response.isRequiresApproval()) return ResponseEntity.ok(response);
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * Facebook Login endpoint (server-side code exchange)
+     * POST /api/auth/facebook
+     */
+    @PostMapping("/facebook")
+    public ResponseEntity<AuthResponse> facebookLogin(@RequestBody Map<String, String> body) {
+        String code = body.get("code");
+        String redirectUri = body.get("redirectUri");
+
+        AuthResponse response = authService.loginWithFacebook(code, redirectUri);
+        if (response.isSuccess()) return ResponseEntity.ok(response);
+        if ("NEEDS_REGISTRATION".equals(response.getMessage())) return ResponseEntity.ok(response);
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * Facebook Register endpoint (server-side code exchange)
+     * POST /api/auth/facebook/register
+     */
+    @PostMapping("/facebook/register")
+    public ResponseEntity<AuthResponse> facebookRegister(@RequestBody Map<String, Object> body) {
+        String code = (String) body.get("code");
+        String redirectUri = (String) body.get("redirectUri");
+        String role = (String) body.get("role");
+        String farmName = (String) body.get("farmName");
+        Long farmId = body.get("farmId") != null ? Long.valueOf(body.get("farmId").toString()) : null;
+        String cvProfile = (String) body.get("cvProfile");
+
+        AuthResponse response = authService.registerWithFacebook(code, redirectUri, role, farmName, farmId, cvProfile);
+        if (response.isSuccess() || response.isRequiresApproval()) return ResponseEntity.ok(response);
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * GitHub Login endpoint
+     * POST /api/auth/github
+     */
+    @PostMapping("/github")
+    public ResponseEntity<AuthResponse> githubLogin(@RequestBody Map<String, String> body) {
+        String code = body.get("code");
+        AuthResponse response = authService.loginWithGithub(code);
+        if (response.isSuccess()) return ResponseEntity.ok(response);
+        // Special case: NEEDS_REGISTRATION returns 200 with success=false
+        if ("NEEDS_REGISTRATION".equals(response.getMessage())) return ResponseEntity.ok(response);
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * GitHub Register endpoint
+     * POST /api/auth/github/register
+     */
+    @PostMapping("/github/register")
+    public ResponseEntity<AuthResponse> githubRegister(@RequestBody Map<String, Object> body) {
+        String code = (String) body.get("code");
+        String role = (String) body.get("role");
+        String farmName = (String) body.get("farmName");
+        Long farmId = body.get("farmId") != null ? Long.valueOf(body.get("farmId").toString()) : null;
+        String cvProfile = (String) body.get("cvProfile");
+
+        AuthResponse response = authService.registerWithGithub(code, role, farmName, farmId, cvProfile);
+        if (response.isSuccess() || response.isRequiresApproval()) return ResponseEntity.ok(response);
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * Register face for current user (Settings page)
+     * POST /api/auth/face/register
+     */
+    @PostMapping("/face/register")
+    public ResponseEntity<AuthResponse> registerFace(@RequestBody Map<String, String> body, Authentication authentication) {
+        if (authentication == null) return ResponseEntity.status(401).body(AuthResponse.error("Chưa đăng nhập"));
+        User user = (User) authentication.getPrincipal();
+
+        String faceEncoding = body.get("faceEncoding");
+        String faceImagePath = body.get("faceImagePath");
+
+        AuthResponse response = authService.registerFace(user.getEmail(), faceEncoding, faceImagePath);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Disable face login
+     * POST /api/auth/face/disable
+     */
+    @PostMapping("/face/disable")
+    public ResponseEntity<AuthResponse> disableFace(Authentication authentication) {
+        if (authentication == null) return ResponseEntity.status(401).body(AuthResponse.error("Chưa đăng nhập"));
+        User user = (User) authentication.getPrincipal();
+
+        AuthResponse response = authService.disableFaceLogin(user.getEmail());
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Login with face - receives matched email from face recognition
+     * POST /api/auth/face/login
+     */
+    @PostMapping("/face/login")
+    public ResponseEntity<AuthResponse> faceLogin(@RequestBody Map<String, String> body) {
+        String matchedEmail = body.get("email");
+        AuthResponse response = authService.loginWithFace(matchedEmail);
+        if (response.isSuccess()) return ResponseEntity.ok(response);
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    /**
+     * Get all face-enabled users (for Python face matching)
+     * GET /api/auth/face/users
+     */
+    @GetMapping("/face/users")
+    public ResponseEntity<List<Map<String, String>>> getFaceUsers() {
+        return ResponseEntity.ok(authService.getAllFaceUsers());
+    }
+
+    /**
+     * Upload face image for registration
+     * POST /api/auth/face/upload
+     */
+    @PostMapping("/face/upload")
+    public ResponseEntity<Map<String, Object>> uploadFaceImage(
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
+        if (authentication == null) {
+            return ResponseEntity.status(401).body(Map.of("error", "Chưa đăng nhập"));
+        }
+
+        try {
+            User user = (User) authentication.getPrincipal();
+            String uploadDir = System.getProperty("user.home") + "/agriplanner/faces/";
+            java.io.File dir = new java.io.File(uploadDir);
+            if (!dir.exists()) dir.mkdirs();
+
+            String fileName = "face_" + user.getId() + "_" + System.currentTimeMillis() + ".jpg";
+            String filePath = uploadDir + fileName;
+            file.transferTo(new java.io.File(filePath));
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "filePath", filePath,
+                "fileName", fileName
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Upload failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Upload face image for login (no auth required)
+     * POST /api/auth/face/upload-login
+     */
+    @PostMapping("/face/upload-login")
+    public ResponseEntity<Map<String, Object>> uploadFaceForLogin(@RequestParam("file") MultipartFile file) {
+        try {
+            String uploadDir = System.getProperty("user.home") + "/agriplanner/faces/temp/";
+            java.io.File dir = new java.io.File(uploadDir);
+            if (!dir.exists()) dir.mkdirs();
+
+            String fileName = "login_" + System.currentTimeMillis() + ".jpg";
+            String filePath = uploadDir + fileName;
+            file.transferTo(new java.io.File(filePath));
+
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "filePath", filePath
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Upload failed: " + e.getMessage()));
+        }
     }
 
     /**

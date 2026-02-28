@@ -46,10 +46,11 @@ document.addEventListener('DOMContentLoaded', async function () {
         }
     }
 
-    // Allow SYSTEM_ADMIN and OWNER to access
-    if (role && role !== 'SYSTEM_ADMIN' && role !== 'OWNER') {
-        alert('Bạn không có quyền truy cập trang này');
-        window.location.href = 'login.html';
+    // Only SYSTEM_ADMIN can access admin-advanced page
+    if (role !== 'SYSTEM_ADMIN') {
+        if (role === 'OWNER') { window.location.href = '../index.html'; }
+        else if (role === 'WORKER') { window.location.href = 'worker_dashboard.html'; }
+        else { window.location.href = 'login.html'; }
         return;
     }
 

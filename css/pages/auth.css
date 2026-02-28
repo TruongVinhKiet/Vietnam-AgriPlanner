@@ -333,6 +333,12 @@
 }
 
 /* Social Login */
+.auth-form__social-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+}
+
 .auth-form__social {
     display: flex;
     align-items: center;
@@ -344,11 +350,47 @@
     border: 1px solid var(--color-border-light);
     border-radius: var(--radius-lg);
     transition: all var(--transition-fast);
+    cursor: pointer;
 }
 
 .auth-form__social:hover {
     background-color: #f8fafc;
     border-color: var(--color-text-muted);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.auth-form__social--google:hover {
+    border-color: #4285F4;
+    background-color: #f8f9ff;
+}
+
+.auth-form__social--facebook {
+    border-color: #e3e8f0;
+}
+
+.auth-form__social--facebook:hover {
+    border-color: #1877F2;
+    background-color: #f0f5ff;
+}
+
+.auth-form__social--github {
+    border-color: #e3e8f0;
+}
+
+.auth-form__social--github:hover {
+    border-color: #333;
+    background-color: #f5f5f5;
+}
+
+.auth-form__social--face {
+    border-color: #e3e8f0;
+    position: relative;
+}
+
+.auth-form__social--face:hover {
+    border-color: #8b5cf6;
+    background-color: #faf5ff;
 }
 
 .auth-form__social-icon {
@@ -401,4 +443,163 @@
 
 .auth-form__terms-text a:hover {
     text-decoration: underline;
+}
+
+/* Spinning animation for loading */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.spinning {
+    animation: spin 1s linear infinite;
+}
+
+/* Register page social buttons - horizontal layout */
+[data-page="register"] .auth-form__social-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-2);
+}
+
+[data-page="register"] .auth-form__social {
+    height: 44px;
+    gap: var(--spacing-2);
+}
+
+[data-page="register"] .auth-form__social-text {
+    font-size: var(--font-size-xs);
+}
+
+/* =====================================================
+   Social Login - Role Selection Modal
+   ===================================================== */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: var(--spacing-4);
+}
+
+.modal-content {
+    background: white;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+    animation: modalSlideUp 0.3s ease-out;
+}
+
+@keyframes modalSlideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+    margin: 0 0 6px;
+    font-size: 18px;
+    font-weight: 700;
+    color: #111827;
+}
+
+.modal-header p {
+    margin: 0;
+    font-size: 14px;
+    color: #6b7280;
+}
+
+.modal-body {
+    padding: 20px 24px;
+}
+
+.modal-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #111827;
+    background: white;
+    transition: border-color 0.2s;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.modal-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.modal-footer {
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* =====================================================
+   Testimonials Carousel
+   ===================================================== */
+.auth-testimonials {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+}
+
+.auth-testimonial-slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1), transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+}
+
+.auth-testimonial-slide.active {
+    position: relative;
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.auth-carousel-dots {
+    display: flex;
+    gap: 8px;
+    margin-top: var(--spacing-6);
+}
+
+.auth-carousel-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: all 0.3s ease;
+}
+
+.auth-carousel-dot.active {
+    background: #86efac;
+    width: 24px;
+    border-radius: 4px;
+}
+
+.auth-carousel-dot:hover {
+    background: rgba(255, 255, 255, 0.6);
 }

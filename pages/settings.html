@@ -325,6 +325,73 @@
                                         <label class="toggle"><input type="checkbox" class="toggle__input"
                                                 id="two-factor-toggle"><span class="toggle__slider"></span></label>
                                     </div>
+
+                                    <!-- Face Login Section -->
+                                    <div class="preference-item" style="flex-direction: column; align-items: stretch;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                            <div class="preference-item__content">
+                                                <p class="preference-item__title" style="display: flex; align-items: center; gap: 8px;">
+                                                    <span class="material-symbols-outlined" style="color: #8b5cf6; font-size: 20px;">face</span>
+                                                    Đăng nhập bằng khuôn mặt
+                                                </p>
+                                                <p class="preference-item__description" id="face-status-text">Đang kiểm tra...</p>
+                                            </div>
+                                            <label class="toggle"><input type="checkbox" class="toggle__input"
+                                                    id="face-login-toggle"><span class="toggle__slider"></span></label>
+                                        </div>
+
+                                        <!-- Face Setup Panel (shown when enabling) -->
+                                        <div id="face-setup-panel" style="display:none; margin-top: 16px; padding: 20px; background: linear-gradient(135deg, #f5f3ff, #ede9fe); border-radius: 12px; border: 1px solid #ddd6fe;">
+                                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                                                <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #8b5cf6, #7c3aed); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                                    <span class="material-symbols-outlined" style="color: white; font-size: 24px;">face</span>
+                                                </div>
+                                                <div>
+                                                    <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #5b21b6;">Đăng ký khuôn mặt</h4>
+                                                    <p style="margin: 2px 0 0; font-size: 13px; color: #7c3aed;">Chụp ảnh khuôn mặt để đăng nhập nhanh</p>
+                                                </div>
+                                            </div>
+
+                                            <div id="face-setup-options" style="display: flex; gap: 12px;">
+                                                <button onclick="startFaceSetupCamera()" class="btn btn--primary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; background: #8b5cf6;">
+                                                    <span class="material-symbols-outlined">videocam</span> Camera
+                                                </button>
+                                                <button onclick="uploadFaceSetupPhoto()" class="btn btn--secondary" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px;">
+                                                    <span class="material-symbols-outlined">photo_camera</span> Tải ảnh
+                                                </button>
+                                                <input type="file" id="face-setup-file" accept="image/*" style="display:none;">
+                                            </div>
+
+                                            <div id="face-setup-camera" style="display:none; margin-top: 12px;">
+                                                <video id="face-setup-video" autoplay playsinline style="width:100%; border-radius:8px; background:#000;"></video>
+                                                <canvas id="face-setup-canvas" style="display:none;"></canvas>
+                                                <p id="face-setup-status" style="text-align:center; font-size:13px; color:#6b7280; margin-top:8px;">Đang tải...</p>
+                                                <div style="display:flex; gap:8px; margin-top:8px;">
+                                                    <button onclick="captureFaceSetup()" id="btn-capture-setup" class="btn btn--primary" style="flex:1; background:#8b5cf6;" disabled>
+                                                        <span class="material-symbols-outlined">photo_camera</span> Chụp
+                                                    </button>
+                                                    <button onclick="stopFaceSetupCamera()" class="btn btn--secondary"><span class="material-symbols-outlined">close</span></button>
+                                                </div>
+                                            </div>
+
+                                            <div id="face-setup-processing" style="display:none; text-align:center; padding:20px;">
+                                                <span class="material-symbols-outlined spinning" style="font-size:40px; color:#8b5cf6;">face</span>
+                                                <p style="margin-top:8px; color:#6b7280;">Đang xử lý khuôn mặt...</p>
+                                            </div>
+
+                                            <div id="face-setup-success" style="display:none; text-align:center; padding:20px;">
+                                                <span class="material-symbols-outlined" style="font-size:48px; color:#10b981;">check_circle</span>
+                                                <p style="margin-top:8px; color:#059669; font-weight:600;">Đăng ký khuôn mặt thành công!</p>
+                                            </div>
+
+                                            <div style="margin-top: 12px; padding: 12px; background: white; border-radius: 8px;">
+                                                <p style="font-size: 12px; color: #7c3aed; margin: 0; display: flex; align-items: center; gap: 6px;">
+                                                    <span class="material-symbols-outlined" style="font-size: 16px;">info</span>
+                                                    Mỗi tài khoản chỉ đăng ký được một khuôn mặt duy nhất.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -346,6 +413,9 @@
     <script src="../js/chatbot.js"></script>
     <script src="../js/smart-advisor.js"></script>
     <script src="../js/main.js"></script>
+
+    <!-- face-api.js for face detection -->
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
     <script>
         // Use consistent modal styling
@@ -797,7 +867,7 @@
                     if (emailInput) emailInput.value = profile.email || '';
                     if (phoneInput) phoneInput.value = profile.phone || '';
                     if (roleDisplay) {
-                        const roleLabels = { 'OWNER': 'Chủ trang trại', 'WORKER': 'Nhân công', 'SYSTEM_ADMIN': 'Quản trị hệ thống' };
+                        const roleLabels = { 'OWNER': 'Chủ trang trại', 'WORKER': 'Nhân công', 'SYSTEM_ADMIN': 'Quản trị viên' };
                         roleDisplay.textContent = roleLabels[profile.role] || profile.role;
                     }
                     if (darkModeToggle) {
@@ -818,7 +888,7 @@
             const userRole = localStorage.getItem('userRole') || '';
             const userAvatar = localStorage.getItem('userAvatar');
 
-            const roleLabels = { 'OWNER': 'Chủ trang trại', 'WORKER': 'Nhân công', 'SYSTEM_ADMIN': 'Quản trị hệ thống' };
+            const roleLabels = { 'OWNER': 'Chủ trang trại', 'WORKER': 'Nhân công', 'SYSTEM_ADMIN': 'Quản trị viên' };
 
             document.querySelectorAll('.sidebar__user-name').forEach(el => el.textContent = userName);
             document.querySelectorAll('.sidebar__user-email').forEach(el => el.textContent = userEmail);
@@ -910,13 +980,17 @@
             const userEmail = localStorage.getItem('userEmail');
             if (!userEmail) return;
 
+            // Only run if asset elements exist on this page
+            const balanceEl = document.getElementById('asset-balance');
+            if (!balanceEl) return;
+
             try {
                 // Load balance
                 const balanceRes = await fetch(`${assetApi}/balance?email=${encodeURIComponent(userEmail)}`);
                 if (balanceRes.ok) {
                     const data = await balanceRes.json();
                     const balance = data.balance || 0;
-                    document.getElementById('asset-balance').textContent = balance.toLocaleString('vi-VN') + ' VNĐ';
+                    balanceEl.textContent = balance.toLocaleString('vi-VN') + ' VNĐ';
                 }
 
                 // Load transactions
@@ -932,6 +1006,7 @@
 
         function renderTransactions(transactions) {
             const tbody = document.getElementById('transactions-list');
+            if (!tbody) return;
             if (!transactions || transactions.length === 0) {
                 tbody.innerHTML = `
                     <tr>
@@ -1327,7 +1402,301 @@
         document.addEventListener('DOMContentLoaded', async function () {
             await loadUserAddress();
             setTimeout(initAddressMap, 300);
+            initFaceLoginSetup();
         });
+
+        // ============================================
+        // FACE LOGIN SETUP
+        // ============================================
+        const FACE_SERVICE_URL = 'http://localhost:5001';
+        const FACE_API_URL = 'http://localhost:8080/api/auth/face';
+        let faceSetupStream = null;
+        let faceSetupModelsLoaded = false;
+
+        async function initFaceLoginSetup() {
+            const toggle = document.getElementById('face-login-toggle');
+            const statusText = document.getElementById('face-status-text');
+            const setupPanel = document.getElementById('face-setup-panel');
+
+            // Check current face status
+            try {
+                const token = localStorage.getItem('authToken');
+                const response = await fetch('http://localhost:8080/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const user = await response.json();
+                    if (user.faceEnabled) {
+                        toggle.checked = true;
+                        statusText.textContent = 'Đã đăng ký khuôn mặt ✓';
+                        statusText.style.color = '#10b981';
+                        setupPanel.style.display = 'none';
+                    } else {
+                        toggle.checked = false;
+                        statusText.textContent = 'Chưa kích hoạt';
+                        setupPanel.style.display = 'none';
+                    }
+                }
+            } catch (e) {
+                statusText.textContent = 'Không thể kiểm tra trạng thái';
+            }
+
+            // Toggle handler
+            toggle.addEventListener('change', async function() {
+                if (this.checked) {
+                    setupPanel.style.display = 'block';
+                    // Reset setup UI
+                    document.getElementById('face-setup-options').style.display = 'flex';
+                    document.getElementById('face-setup-camera').style.display = 'none';
+                    document.getElementById('face-setup-processing').style.display = 'none';
+                    document.getElementById('face-setup-success').style.display = 'none';
+
+                    if (typeof gsap !== 'undefined') {
+                        gsap.fromTo(setupPanel, { opacity: 0, height: 0 }, { opacity: 1, height: 'auto', duration: 0.3 });
+                    }
+                } else {
+                    // Disable face login
+                    if (confirm('Bạn có chắc chắn muốn tắt đăng nhập bằng khuôn mặt?')) {
+                        await disableFaceLogin();
+                    } else {
+                        this.checked = true;
+                    }
+                }
+            });
+
+            // File upload handler
+            document.getElementById('face-setup-file').addEventListener('change', handleFaceSetupUpload);
+        }
+
+        async function loadFaceSetupModels() {
+            if (faceSetupModelsLoaded) return true;
+            try {
+                const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+                faceSetupModelsLoaded = true;
+                return true;
+            } catch (error) {
+                console.error('Failed to load face models:', error);
+                return false;
+            }
+        }
+
+        async function startFaceSetupCamera() {
+            const optionsDiv = document.getElementById('face-setup-options');
+            const cameraDiv = document.getElementById('face-setup-camera');
+            const statusDiv = document.getElementById('face-setup-status');
+
+            optionsDiv.style.display = 'none';
+            cameraDiv.style.display = 'block';
+
+            statusDiv.textContent = 'Đang tải mô hình nhận diện...';
+            const loaded = await loadFaceSetupModels();
+            if (!loaded) {
+                statusDiv.textContent = 'Không thể tải mô hình nhận diện. Vui lòng thử tải ảnh lên.';
+                // Allow user to go back to options after a delay
+                setTimeout(() => {
+                    cameraDiv.style.display = 'none';
+                    optionsDiv.style.display = 'flex';
+                }, 3000);
+                return;
+            }
+
+            try {
+                faceSetupStream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
+                });
+                const video = document.getElementById('face-setup-video');
+                video.srcObject = faceSetupStream;
+                statusDiv.textContent = 'Đưa khuôn mặt vào giữa camera...';
+                video.onloadeddata = () => detectFaceSetupLoop();
+            } catch (error) {
+                console.error('Camera error:', error);
+                statusDiv.textContent = 'Không thể truy cập camera.';
+            }
+        }
+
+        async function detectFaceSetupLoop() {
+            const video = document.getElementById('face-setup-video');
+            const statusDiv = document.getElementById('face-setup-status');
+            const captureBtn = document.getElementById('btn-capture-setup');
+
+            if (!video || !faceSetupStream) return;
+
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions());
+
+            if (detection) {
+                statusDiv.innerHTML = '<span style="color:#10b981;">✓ Phát hiện khuôn mặt - Nhấn "Chụp"</span>';
+                captureBtn.disabled = false;
+            } else {
+                statusDiv.textContent = 'Đưa khuôn mặt vào giữa camera...';
+                captureBtn.disabled = true;
+            }
+
+            if (faceSetupStream) {
+                requestAnimationFrame(detectFaceSetupLoop);
+            }
+        }
+
+        async function captureFaceSetup() {
+            const video = document.getElementById('face-setup-video');
+            const canvas = document.getElementById('face-setup-canvas');
+
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+
+            stopFaceSetupCamera();
+
+            document.getElementById('face-setup-camera').style.display = 'none';
+            document.getElementById('face-setup-processing').style.display = 'block';
+
+            canvas.toBlob(async (blob) => {
+                await registerFaceFromImage(blob);
+            }, 'image/jpeg', 0.92);
+        }
+
+        function uploadFaceSetupPhoto() {
+            document.getElementById('face-setup-file').click();
+        }
+
+        async function handleFaceSetupUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('face-setup-options').style.display = 'none';
+            document.getElementById('face-setup-processing').style.display = 'block';
+
+            await registerFaceFromImage(file);
+        }
+
+        async function registerFaceFromImage(imageBlob) {
+            try {
+                const token = localStorage.getItem('authToken');
+                const userEmail = localStorage.getItem('userEmail');
+
+                // Step 1: Encode face via Python service
+                const formData = new FormData();
+                formData.append('file', imageBlob, 'face.jpg');
+
+                const encodeRes = await fetch(`${FACE_SERVICE_URL}/encode`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const encodeData = await encodeRes.json();
+
+                if (!encodeData.success) {
+                    showFaceSetupError(encodeData.error || 'Không thể nhận diện khuôn mặt');
+                    return;
+                }
+
+                // Step 2: Check uniqueness
+                const uniqueRes = await fetch(`${FACE_SERVICE_URL}/check-unique`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        encoding: encodeData.encoding,
+                        excludeEmail: userEmail
+                    })
+                });
+                const uniqueData = await uniqueRes.json();
+
+                if (uniqueData.success && !uniqueData.unique) {
+                    showFaceSetupError(uniqueData.message || 'Khuôn mặt đã được đăng ký cho tài khoản khác');
+                    return;
+                }
+
+                // Step 3: Upload image to backend
+                const uploadFormData = new FormData();
+                uploadFormData.append('file', imageBlob, 'face.jpg');
+
+                const uploadRes = await fetch(`${FACE_API_URL}/upload`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: uploadFormData
+                });
+                const uploadData = await uploadRes.json();
+
+                if (!uploadRes.ok || !uploadData.success) {
+                    showFaceSetupError(uploadData.message || 'Không thể tải ảnh lên. Vui lòng thử lại.');
+                    return;
+                }
+
+                // Step 4: Register face encoding in DB
+                const registerRes = await fetch(`${FACE_API_URL}/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        faceEncoding: JSON.stringify(encodeData.encoding),
+                        faceImagePath: uploadData.filePath || ''
+                    })
+                });
+                const registerData = await registerRes.json();
+
+                if (registerData.success) {
+                    document.getElementById('face-setup-processing').style.display = 'none';
+                    document.getElementById('face-setup-success').style.display = 'block';
+                    document.getElementById('face-status-text').textContent = 'Đã đăng ký khuôn mặt ✓';
+                    document.getElementById('face-status-text').style.color = '#10b981';
+
+                    if (typeof showNotification === 'function') {
+                        showNotification('success', 'Thành công', 'Đã đăng ký khuôn mặt thành công!');
+                    }
+                } else {
+                    showFaceSetupError(registerData.message || 'Đăng ký thất bại');
+                }
+            } catch (error) {
+                console.error('Face registration error:', error);
+                showFaceSetupError('Không thể kết nối đến dịch vụ nhận diện khuôn mặt. Đảm bảo dịch vụ đang chạy (port 5001).');
+            }
+        }
+
+        function showFaceSetupError(message) {
+            document.getElementById('face-setup-processing').style.display = 'none';
+            document.getElementById('face-setup-options').style.display = 'flex';
+
+            if (typeof showNotification === 'function') {
+                showNotification('error', 'Lỗi', message);
+            } else {
+                alert(message);
+            }
+        }
+
+        async function disableFaceLogin() {
+            try {
+                const token = localStorage.getItem('authToken');
+                const res = await fetch(`${FACE_API_URL}/disable`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('face-status-text').textContent = 'Chưa kích hoạt';
+                    document.getElementById('face-status-text').style.color = '';
+                    document.getElementById('face-setup-panel').style.display = 'none';
+
+                    if (typeof showNotification === 'function') {
+                        showNotification('success', 'Đã tắt', 'Đăng nhập bằng khuôn mặt đã được tắt');
+                    }
+                }
+            } catch (e) {
+                console.error('Disable face error:', e);
+            }
+        }
+
+        function stopFaceSetupCamera() {
+            if (faceSetupStream) {
+                faceSetupStream.getTracks().forEach(track => track.stop());
+                faceSetupStream = null;
+            }
+        }
     </script>
 </body>
 

@@ -89,6 +89,39 @@ public class User implements org.springframework.security.core.userdetails.UserD
     @Column(name = "google_id")
     private String googleId;
 
+    // Facebook OAuth
+    @Column(name = "facebook_id")
+    private String facebookId;
+
+    @Column(name = "facebook_name")
+    private String facebookName;
+
+    // GitHub OAuth
+    @Column(name = "github_id")
+    private String githubId;
+
+    @Column(name = "github_username")
+    private String githubUsername;
+
+    // Social login provider tracking
+    @Column(name = "auth_provider")
+    @Builder.Default
+    private String authProvider = "LOCAL";
+
+    // Face Authentication
+    @Column(name = "face_encoding", columnDefinition = "TEXT")
+    private String faceEncoding;
+
+    @Column(name = "face_image_path")
+    private String faceImagePath;
+
+    @Column(name = "face_registered_at")
+    private LocalDateTime faceRegisteredAt;
+
+    @Column(name = "face_enabled")
+    @Builder.Default
+    private Boolean faceEnabled = false;
+
     @Column(name = "map_lat")
     private Double mapLat;
 
@@ -122,6 +155,19 @@ public class User implements org.springframework.security.core.userdetails.UserD
     @Enumerated(EnumType.STRING)
     @Column(name = "approval_status")
     private ApprovalStatus approvalStatus;
+
+    // Lock metadata fields (admin lock tracking)
+    @Column(name = "lock_reason", columnDefinition = "TEXT")
+    private String lockReason;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
+    @Column(name = "locked_by")
+    private Long lockedBy;
+
+    @Column(name = "last_login_at")
+    private LocalDateTime lastLoginAt;
 
     public enum ApprovalStatus {
         PENDING, APPROVED, REJECTED

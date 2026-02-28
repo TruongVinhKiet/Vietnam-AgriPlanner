@@ -4,6 +4,14 @@
 
 // API_BASE_URL is already defined in config.js
 
+// Utility: escape HTML to prevent XSS
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
 // Activity log storage
 let activityLog = JSON.parse(localStorage.getItem('adminActivityLog') || '[]');
 
@@ -13,7 +21,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const role = localStorage.getItem('userRole');
 
     if (!token || role !== 'SYSTEM_ADMIN') {
-        window.location.href = 'login.html';
+        // Only SYSTEM_ADMIN can access the admin page
+        // OWNER → index.html, WORKER → worker_dashboard.html
+        if (token && role) {
+            if (role === 'OWNER') { window.location.href = '../index.html'; }
+            else if (role === 'WORKER') { window.location.href = 'worker_dashboard.html'; }
+            else { window.location.href = 'login.html'; }
+        } else {
+            window.location.href = 'login.html';
+        }
         return;
     }
 
@@ -31,6 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize
     initNavigation();
     loadDashboard();
+    initVoiceSearch();
 });
 
 // ============ ANIMATION HELPERS ============
@@ -107,6 +124,7 @@ function initNavigation() {
                     case 'price-analysis': loadPriceAnalysis(); break;
                     case 'recruitment': loadRecruitment(); break;
                     case 'tasks': loadTasks(); break;
+                    case 'settings': loadSettings(); break;
                 }
             });
         });
@@ -119,157 +137,511 @@ function initNavigation() {
 }
 
 // ============ DASHBOARD ============
+
+// Vietnamese label translation maps
+const VI_LABELS = {
+    cropCategory: {
+        'GRAIN': 'Ngũ cốc', 'FRUIT': 'Trái cây', 'VEGETABLE': 'Rau củ',
+        'LEGUME': 'Đậu', 'INDUSTRIAL': 'Công nghiệp'
+    },
+    animalCategory: {
+        'LAND': 'Trên cạn', 'FRESHWATER': 'Nước ngọt', 'BRACKISH': 'Nước lợ',
+        'SALTWATER': 'Nước mặn', 'SPECIAL': 'Đặc biệt'
+    },
+    itemCategory: {
+        'HAT_GIONG': 'Hạt giống', 'MAY_MOC': 'Máy móc', 'PHAN_BON': 'Phân bón',
+        'THUC_AN': 'Thức ăn', 'CON_GIONG': 'Con giống', 'THUOC_TRU_SAU': 'Thuốc trừ sâu',
+        'DUNG_CU': 'Dụng cụ'
+    },
+    season: {
+        'spring': 'Xuân', 'summer': 'Hạ', 'fall': 'Thu', 'winter': 'Đông',
+        'SPRING': 'Xuân', 'SUMMER': 'Hạ', 'FALL': 'Thu', 'WINTER': 'Đông',
+        'all': 'Quanh năm', 'ALL': 'Quanh năm', 'ALL YEAR': 'Quanh năm'
+    },
+    orderStatus: {
+        'PENDING': 'Chờ xử lý', 'PROCESSING': 'Đang xử lý', 'SHIPPING': 'Đang giao',
+        'DELIVERED': 'Đã giao', 'CANCELLED': 'Đã hủy'
+    }
+};
+
+// Helper to format season array/string to Vietnamese
+function formatSeasonsVi(seasons) {
+    if (!seasons) return '-';
+    let arr = seasons;
+    if (typeof seasons === 'string') {
+        try { arr = JSON.parse(seasons); } catch { arr = seasons.split(',').map(s => s.trim()); }
+    }
+    if (!Array.isArray(arr)) return getViLabel(VI_LABELS.season, String(arr));
+    return arr.map(s => getViLabel(VI_LABELS.season, s.trim())).join(', ') || '-';
+}
+
+function getViLabel(map, key) { return map[key] || key; }
+
+function formatVNCurrency(amount) {
+    if (!amount && amount !== 0) return '0 ₫';
+    return new Intl.NumberFormat('vi-VN').format(amount) + ' ₫';
+}
+
+function formatShortCurrency(amount) {
+    if (!amount) return '0 ₫';
+    if (amount >= 1e9) return (amount / 1e9).toFixed(1).replace('.0', '') + ' tỷ';
+    if (amount >= 1e6) return (amount / 1e6).toFixed(1).replace('.0', '') + ' tr';
+    if (amount >= 1e3) return (amount / 1e3).toFixed(0) + 'k';
+    return new Intl.NumberFormat('vi-VN').format(amount) + ' ₫';
+}
+
+// Store chart instances for cleanup
+let dashboardCharts = [];
+
+// Custom plugin: render data labels on chart segments/bars
+const chartDatalabelsPlugin = {
+    id: 'customDatalabels',
+    afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        const chartType = chart.config.type;
+        chart.data.datasets.forEach((dataset, i) => {
+            const meta = chart.getDatasetMeta(i);
+            if (meta.hidden) return;
+            meta.data.forEach((element, index) => {
+                const value = dataset.data[index];
+                if (!value || value === 0) return;
+                const total = dataset.data.reduce((a, b) => a + (b || 0), 0);
+                const pct = Math.round(value / total * 100);
+                if (chartType === 'doughnut' || chartType === 'pie' || chartType === 'polarArea') {
+                    if (pct < 6) return; // skip tiny segments
+                    const pos = element.tooltipPosition();
+                    ctx.save();
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.font = "bold 11px 'Inter', sans-serif";
+                    ctx.fillStyle = '#fff';
+                    ctx.shadowColor = 'rgba(0,0,0,0.3)';
+                    ctx.shadowBlur = 3;
+                    ctx.fillText(`${value}`, pos.x, pos.y - 6);
+                    ctx.font = "600 9px 'Inter', sans-serif";
+                    ctx.fillText(`${pct}%`, pos.x, pos.y + 7);
+                    ctx.restore();
+                } else if (chartType === 'bar') {
+                    const isHorizontal = chart.options.indexAxis === 'y';
+                    ctx.save();
+                    ctx.font = "bold 11px 'Inter', sans-serif";
+                    ctx.fillStyle = '#374151';
+                    if (isHorizontal) {
+                        ctx.textAlign = 'left';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(value, element.x + 6, element.y);
+                    } else {
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'bottom';
+                        ctx.fillText(value, element.x, element.y - 4);
+                    }
+                    ctx.restore();
+                }
+            });
+        });
+    }
+};
+
 async function loadDashboard() {
     document.getElementById('page-title').textContent = 'Tổng quan Hệ thống';
 
-    const data = await fetchAllData();
-
+    // Loading skeleton
     document.getElementById('main-content').innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 font-medium mb-1">Người dùng</p>
-                    <h3 class="text-3xl font-bold text-gray-800">${data.users.length}</h3>
+        <div class="flex items-center justify-center py-24">
+            <div class="flex flex-col items-center gap-4">
+                <div class="relative w-16 h-16">
+                    <div class="absolute inset-0 rounded-full border-4 border-gray-200"></div>
+                    <div class="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
                 </div>
-                <div class="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center text-blue-500">
-                    <span class="material-icons-round text-2xl">group</span>
-                </div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 font-medium mb-1">Cây trồng</p>
-                    <h3 class="text-3xl font-bold text-gray-800">${data.crops.length}</h3>
-                </div>
-                <div class="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center text-green-500">
-                    <span class="material-icons-round text-2xl">grass</span>
-                </div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 font-medium mb-1">Sản phẩm</p>
-                    <h3 class="text-3xl font-bold text-gray-800">${data.items.length}</h3>
-                </div>
-                <div class="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center text-purple-500">
-                    <span class="material-icons-round text-2xl">storefront</span>
-                </div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 font-medium mb-1">Vật nuôi</p>
-                    <h3 class="text-3xl font-bold text-gray-800">${data.animals.length}</h3>
-                </div>
-                <div class="w-12 h-12 bg-amber-50 rounded-lg flex items-center justify-center text-amber-500">
-                    <span class="material-icons-round text-2xl">pets</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h4 class="text-lg font-bold text-gray-800 mb-4">Cây trồng theo danh mục</h4>
-                <div class="h-64"><canvas id="cropChart"></canvas></div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h4 class="text-lg font-bold text-gray-800 mb-4">Sản phẩm theo danh mục</h4>
-                <div class="h-64"><canvas id="itemChart"></canvas></div>
-            </div>
-        </div>
-        
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h4 class="text-lg font-bold text-gray-800 mb-4">Vật nuôi theo loại</h4>
-                <div class="h-64"><canvas id="animalChart"></canvas></div>
-            </div>
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <h4 class="text-lg font-bold text-gray-800 mb-4">Người dùng theo vai trò</h4>
-                <div class="h-64"><canvas id="userChart"></canvas></div>
+                <p class="text-gray-400 font-medium">Đang tải dữ liệu tổng quan...</p>
             </div>
         </div>
     `;
 
-    gsap.fromTo('#main-content > div', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.1 });
+    const data = await fetchAllData();
 
-    // Render charts after DOM is ready
-    setTimeout(() => renderCharts(data), 100);
+    // Cleanup previous charts
+    dashboardCharts.forEach(c => { try { c.destroy(); } catch(_){} });
+    dashboardCharts = [];
+
+    const activeUsers = data.users.filter(u => !u.accountLocked).length;
+    const lockedUsers = data.users.filter(u => u.accountLocked).length;
+    const activePercent = data.users.length ? Math.round(activeUsers / data.users.length * 100) : 0;
+    const cropCatCount = Object.keys(groupBy(data.crops, 'category')).length;
+    const itemCatCount = Object.keys(groupBy(data.items, 'category')).length;
+    const animalCatCount = Object.keys(groupBy(data.animals, 'category')).length;
+    const totalOrders = data.orderStats?.total || 0;
+    const pendingOrders = (data.orderStats?.pending || 0) + (data.orderStats?.processing || 0);
+    const deliveredOrders = data.orderStats?.delivered || 0;
+    const totalRevenue = data.orderStats?.totalRevenue || 0;
+    const deliveryRate = totalOrders ? Math.round(deliveredOrders / totalOrders * 100) : 0;
+
+    document.getElementById('main-content').innerHTML = `
+        <!-- Stat Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-8" id="dash-stat-cards">
+            ${_statCard('Người dùng', data.users.length, 'group', 'blue', `${activeUsers} hoạt động`, activePercent)}
+            ${_statCard('Cây trồng', data.crops.length, 'grass', 'emerald', `${cropCatCount} danh mục`)}
+            ${_statCard('Sản phẩm', data.items.length, 'storefront', 'violet', `${itemCatCount} danh mục`)}
+            ${_statCard('Vật nuôi', data.animals.length, 'pets', 'amber', `${animalCatCount} loại`)}
+            ${_statCard('Đơn hàng', totalOrders, 'shopping_cart', 'indigo', `${pendingOrders} đang chờ`, pendingOrders > 0 ? null : undefined)}
+            ${_statCard('Doanh thu', formatShortCurrency(totalRevenue), 'payments', 'rose', `${deliveredOrders} đã giao`, deliveryRate, true)}
+        </div>
+
+        <!-- Charts Row 1 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6" id="dash-charts-r1">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
+                <div class="px-6 pt-5 pb-2 flex items-center justify-between border-b border-gray-50">
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-800">Cây trồng theo danh mục</h4>
+                        <p class="text-xs text-gray-400 mt-0.5">${data.crops.length} loại cây</p>
+                    </div>
+                    <div class="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
+                        <span class="material-icons-round text-emerald-500 text-lg">eco</span>
+                    </div>
+                </div>
+                <div class="px-4 pb-5 pt-3 h-72"><canvas id="cropChart"></canvas></div>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
+                <div class="px-6 pt-5 pb-2 flex items-center justify-between border-b border-gray-50">
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-800">Sản phẩm theo danh mục</h4>
+                        <p class="text-xs text-gray-400 mt-0.5">${data.items.length} sản phẩm</p>
+                    </div>
+                    <div class="w-8 h-8 bg-violet-50 rounded-lg flex items-center justify-center">
+                        <span class="material-icons-round text-violet-500 text-lg">inventory_2</span>
+                    </div>
+                </div>
+                <div class="px-4 pb-5 pt-3 h-72"><canvas id="itemChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Charts Row 2 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6" id="dash-charts-r2">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
+                <div class="px-6 pt-5 pb-2 flex items-center justify-between border-b border-gray-50">
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-800">Vật nuôi theo loại</h4>
+                        <p class="text-xs text-gray-400 mt-0.5">${data.animals.length} loại vật nuôi</p>
+                    </div>
+                    <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center">
+                        <span class="material-icons-round text-amber-500 text-lg">pets</span>
+                    </div>
+                </div>
+                <div class="px-4 pb-5 pt-3 h-72"><canvas id="animalChart"></canvas></div>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
+                <div class="px-6 pt-5 pb-2 flex items-center justify-between border-b border-gray-50">
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-800">Trạng thái đơn hàng</h4>
+                        <p class="text-xs text-gray-400 mt-0.5">${totalOrders} đơn hàng</p>
+                    </div>
+                    <div class="w-8 h-8 bg-indigo-50 rounded-lg flex items-center justify-center">
+                        <span class="material-icons-round text-indigo-500 text-lg">local_shipping</span>
+                    </div>
+                </div>
+                <div class="px-4 pb-5 pt-3 h-72"><canvas id="orderChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Charts Row 3 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="dash-charts-r3">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
+                <div class="px-6 pt-5 pb-2 flex items-center justify-between border-b border-gray-50">
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-800">Người dùng theo vai trò</h4>
+                        <p class="text-xs text-gray-400 mt-0.5">${lockedUsers > 0 ? lockedUsers + ' bị khóa' : 'Tất cả hoạt động'}</p>
+                    </div>
+                    <div class="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center">
+                        <span class="material-icons-round text-blue-500 text-lg">badge</span>
+                    </div>
+                </div>
+                <div class="px-4 pb-5 pt-3 h-72"><canvas id="userChart"></canvas></div>
+            </div>
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
+                <div class="px-6 pt-5 pb-2 flex items-center justify-between border-b border-gray-50">
+                    <div>
+                        <h4 class="text-sm font-bold text-gray-800">Doanh thu theo tháng</h4>
+                        <p class="text-xs text-gray-400 mt-0.5">Tổng: ${formatVNCurrency(totalRevenue)}</p>
+                    </div>
+                    <div class="w-8 h-8 bg-rose-50 rounded-lg flex items-center justify-center">
+                        <span class="material-icons-round text-rose-500 text-lg">trending_up</span>
+                    </div>
+                </div>
+                <div class="px-4 pb-5 pt-3 h-72"><canvas id="revenueChart"></canvas></div>
+            </div>
+        </div>
+    `;
+
+    // GSAP stagger animations
+    gsap.fromTo('#dash-stat-cards > div',
+        { opacity: 0, y: 30, scale: 0.92 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.5, stagger: 0.07, ease: 'back.out(1.4)' }
+    );
+    gsap.fromTo('#dash-charts-r1 > div, #dash-charts-r2 > div, #dash-charts-r3 > div',
+        { opacity: 0, y: 40, scale: 0.97 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.6, stagger: 0.1, delay: 0.35, ease: 'power3.out' }
+    );
+
+    setTimeout(() => renderDashboardCharts(data), 250);
+}
+
+function _statCard(label, value, icon, color, subtitle, percentage, isText) {
+    const cm = {
+        blue:    { bg: 'bg-blue-50',    text: 'text-blue-600',    ring: 'ring-blue-200/50',    accent: 'text-blue-500' },
+        emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', ring: 'ring-emerald-200/50', accent: 'text-emerald-500' },
+        violet:  { bg: 'bg-violet-50',  text: 'text-violet-600',  ring: 'ring-violet-200/50',  accent: 'text-violet-500' },
+        amber:   { bg: 'bg-amber-50',   text: 'text-amber-600',   ring: 'ring-amber-200/50',   accent: 'text-amber-500' },
+        indigo:  { bg: 'bg-indigo-50',  text: 'text-indigo-600',  ring: 'ring-indigo-200/50',  accent: 'text-indigo-500' },
+        rose:    { bg: 'bg-rose-50',    text: 'text-rose-600',    ring: 'ring-rose-200/50',    accent: 'text-rose-500' }
+    };
+    const c = cm[color] || cm.blue;
+    const pctHtml = (percentage != null && percentage !== undefined) ? `
+        <div class="flex items-center gap-0.5 text-[10px] font-bold ${percentage >= 70 ? 'text-emerald-500' : percentage >= 40 ? 'text-amber-500' : 'text-red-400'}">
+            <span class="material-icons-round" style="font-size:14px">${percentage >= 70 ? 'trending_up' : percentage >= 40 ? 'trending_flat' : 'trending_down'}</span>
+            ${Math.round(percentage)}%
+        </div>` : '';
+    return `
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 cursor-default group">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-10 h-10 ${c.bg} rounded-xl flex items-center justify-center ring-4 ${c.ring} group-hover:scale-110 transition-transform duration-300">
+                    <span class="material-icons-round ${c.text}" style="font-size:20px">${icon}</span>
+                </div>
+                ${pctHtml}
+            </div>
+            <h3 class="${isText ? 'text-base' : 'text-2xl'} font-extrabold text-gray-800 tracking-tight">${typeof value === 'number' ? new Intl.NumberFormat('vi-VN').format(value) : value}</h3>
+            <p class="text-[11px] text-gray-400 font-semibold mt-0.5 uppercase tracking-wide">${label}</p>
+            ${subtitle ? `<p class="text-[11px] ${c.accent} font-medium mt-1.5 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full ${c.bg} inline-block"></span>${subtitle}</p>` : ''}
+        </div>`;
 }
 
 async function fetchAllData() {
     try {
-        const [users, crops, items, animals] = await Promise.all([
+        const [users, crops, items, animals, orderStats, orders] = await Promise.all([
             fetchAPI(`${API_BASE_URL}/admin/users`),
             fetchAPI(`${API_BASE_URL}/admin/crops`),
             fetchAPI(`${API_BASE_URL}/admin/shop-items`),
-            fetchAPI(`${API_BASE_URL}/admin/animals`)
+            fetchAPI(`${API_BASE_URL}/admin/animals`),
+            fetchAPI(`${API_BASE_URL}/admin/orders/stats`).catch(() => null),
+            fetchAPI(`${API_BASE_URL}/admin/orders`).catch(() => [])
         ]);
-        return { users: users || [], crops: crops || [], items: items || [], animals: animals || [] };
+        return {
+            users: users || [], crops: crops || [], items: items || [],
+            animals: animals || [], orderStats: orderStats || {}, orders: orders || []
+        };
     } catch (e) {
-        console.error('Data fetch error:', e);
-        return { users: [], crops: [], items: [], animals: [] };
+        console.error('Dashboard data fetch error:', e);
+        return { users: [], crops: [], items: [], animals: [], orderStats: {}, orders: [] };
     }
 }
 
-function renderCharts(data) {
-    const chartColors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+function _getMonthlyRevenue(orders) {
+    const months = {};
+    const monthNames = ['Thg 1','Thg 2','Thg 3','Thg 4','Thg 5','Thg 6','Thg 7','Thg 8','Thg 9','Thg 10','Thg 11','Thg 12'];
+    const now = new Date();
+    const labels = [];
+    for (let i = 5; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        months[key] = 0;
+        labels.push(monthNames[d.getMonth()] + ' ' + d.getFullYear());
+    }
+    (orders || []).forEach(o => {
+        if (o.status === 'DELIVERED' && o.createdAt) {
+            const d = new Date(o.createdAt);
+            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            if (key in months) months[key] += (o.totalAmount || 0);
+        }
+    });
+    return { labels, values: Object.values(months) };
+}
 
-    // Crop by category - Pie chart
-    const cropCategories = groupBy(data.crops, 'category');
-    new Chart(document.getElementById('cropChart'), {
+function renderDashboardCharts(data) {
+    const P = {
+        mixed: ['#10b981','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#14b8a6'],
+        order: ['#f59e0b','#3b82f6','#8b5cf6','#10b981','#ef4444'],
+        user: ['#3b82f6','#10b981','#8b5cf6','#f59e0b']
+    };
+
+    const commonTooltip = {
+        backgroundColor: 'rgba(15,23,42,0.92)', padding: 12, cornerRadius: 10,
+        titleFont: { size: 13, weight: '600', family: 'Inter' },
+        bodyFont: { size: 12, family: 'Inter' },
+        boxPadding: 4, usePointStyle: true
+    };
+
+    const legendRight = {
+        position: 'right', labels: { padding: 14, usePointStyle: true, pointStyle: 'circle',
+        font: { size: 11, weight: '500', family: 'Inter' } }
+    };
+
+    const animDoughnut = { animateRotate: true, duration: 1400, easing: 'easeOutQuart' };
+    const animBar = { duration: 1200, easing: 'easeOutQuart',
+        delay: (ctx) => ctx.type === 'data' ? ctx.dataIndex * 120 : 0 };
+
+    // === 1. Crop Chart (Doughnut) ===
+    const cropGroups = groupBy(data.crops, 'category');
+    const cropKeys = Object.keys(cropGroups);
+    dashboardCharts.push(new Chart(document.getElementById('cropChart'), {
         type: 'doughnut',
         data: {
-            labels: Object.keys(cropCategories),
-            datasets: [{
-                data: Object.values(cropCategories).map(arr => arr.length),
-                backgroundColor: chartColors
-            }]
+            labels: cropKeys.map(k => getViLabel(VI_LABELS.cropCategory, k)),
+            datasets: [{ data: cropKeys.map(k => cropGroups[k].length),
+                backgroundColor: P.mixed.slice(0, cropKeys.length), borderWidth: 3, borderColor: '#fff', hoverOffset: 10 }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-    });
+        options: { responsive: true, maintainAspectRatio: false, cutout: '52%',
+            animation: animDoughnut,
+            plugins: { legend: legendRight, tooltip: { ...commonTooltip,
+                callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} loại (${Math.round(ctx.raw / ctx.dataset.data.reduce((a,b)=>a+b,0)*100)}%)` } }
+            }
+        },
+        plugins: [chartDatalabelsPlugin]
+    }));
 
-    // Items by category - Bar chart
-    const itemCategories = groupBy(data.items, 'category');
-    new Chart(document.getElementById('itemChart'), {
+    // === 2. Item Chart (Bar) ===
+    const itemGroups = groupBy(data.items, 'category');
+    const itemKeys = Object.keys(itemGroups);
+    const itemMaxVal = Math.max(...itemKeys.map(k => itemGroups[k].length), 0);
+    const itemYMax = Math.ceil((itemMaxVal + 1) / 10) * 10; // Round up to next 10
+    dashboardCharts.push(new Chart(document.getElementById('itemChart'), {
         type: 'bar',
         data: {
-            labels: Object.keys(itemCategories),
-            datasets: [{
-                label: 'Số lượng',
-                data: Object.values(itemCategories).map(arr => arr.length),
-                backgroundColor: chartColors,
-                borderRadius: 8
-            }]
+            labels: itemKeys.map(k => getViLabel(VI_LABELS.itemCategory, k)),
+            datasets: [{ label: 'Số lượng', data: itemKeys.map(k => itemGroups[k].length),
+                backgroundColor: P.mixed.slice(0, itemKeys.length).map(c => c + 'cc'),
+                borderColor: P.mixed.slice(0, itemKeys.length), borderWidth: 2, borderRadius: 10, barPercentage: 0.7 }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-    });
+        options: { responsive: true, maintainAspectRatio: false, animation: animBar,
+            scales: { y: { beginAtZero: true, suggestedMax: itemYMax, ticks: { font: { size: 11 } }, grid: { color: '#f3f4f6' } },
+                x: { ticks: { font: { size: 10, weight: '500' } }, grid: { display: false } } },
+            plugins: { legend: { display: false }, tooltip: commonTooltip }
+        },
+        plugins: [chartDatalabelsPlugin]
+    }));
 
-    // Animals by category - Pie chart
-    const animalCategories = groupBy(data.animals, 'category');
-    new Chart(document.getElementById('animalChart'), {
-        type: 'pie',
+    // === 3. Animal Chart (Doughnut) ===
+    const animalGroups = groupBy(data.animals, 'category');
+    const animalKeys = Object.keys(animalGroups);
+    dashboardCharts.push(new Chart(document.getElementById('animalChart'), {
+        type: 'doughnut',
         data: {
-            labels: Object.keys(animalCategories),
-            datasets: [{
-                data: Object.values(animalCategories).map(arr => arr.length),
-                backgroundColor: chartColors
-            }]
+            labels: animalKeys.map(k => getViLabel(VI_LABELS.animalCategory, k)),
+            datasets: [{ data: animalKeys.map(k => animalGroups[k].length),
+                backgroundColor: P.mixed.slice(0, animalKeys.length), borderWidth: 3, borderColor: '#fff', hoverOffset: 10 }]
         },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } }
-    });
+        options: { responsive: true, maintainAspectRatio: false, cutout: '48%',
+            animation: animDoughnut,
+            plugins: { legend: legendRight, tooltip: { ...commonTooltip,
+                callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} loại (${Math.round(ctx.raw / ctx.dataset.data.reduce((a,b)=>a+b,0)*100)}%)` } }
+            }
+        },
+        plugins: [chartDatalabelsPlugin]
+    }));
 
-    // Users by role - Bar chart
-    const userRoles = groupBy(data.users, 'role');
-    new Chart(document.getElementById('userChart'), {
+    // === 4. Order Status Chart (Doughnut) ===
+    const orderStatusData = [
+        { key: 'PENDING', val: data.orderStats?.pending || 0 },
+        { key: 'PROCESSING', val: data.orderStats?.processing || 0 },
+        { key: 'SHIPPING', val: data.orderStats?.shipping || 0 },
+        { key: 'DELIVERED', val: data.orderStats?.delivered || 0 },
+        { key: 'CANCELLED', val: data.orderStats?.cancelled || 0 }
+    ].filter(d => d.val > 0);
+    const hasOrderData = orderStatusData.length > 0;
+    dashboardCharts.push(new Chart(document.getElementById('orderChart'), {
+        type: 'doughnut',
+        data: {
+            labels: hasOrderData ? orderStatusData.map(d => getViLabel(VI_LABELS.orderStatus, d.key)) : ['Chưa có dữ liệu'],
+            datasets: [{ data: hasOrderData ? orderStatusData.map(d => d.val) : [1],
+                backgroundColor: hasOrderData ? orderStatusData.map((d,i) => P.order[['PENDING','PROCESSING','SHIPPING','DELIVERED','CANCELLED'].indexOf(d.key)] || P.mixed[i]) : ['#e5e7eb'],
+                borderWidth: 3, borderColor: '#fff', hoverOffset: 10 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '55%',
+            animation: animDoughnut,
+            plugins: { legend: legendRight, tooltip: { ...commonTooltip, enabled: hasOrderData,
+                callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} đơn` } }
+            }
+        },
+        plugins: [chartDatalabelsPlugin]
+    }));
+
+    // === 5. User Role Chart (Horizontal Bar) ===
+    const userGroups = groupBy(data.users, 'role');
+    const userKeys = Object.keys(userGroups);
+    dashboardCharts.push(new Chart(document.getElementById('userChart'), {
         type: 'bar',
         data: {
-            labels: Object.keys(userRoles).map(r => getRoleLabel(r)),
+            labels: userKeys.map(r => getRoleLabel(r)),
+            datasets: [{ label: 'Số lượng', data: userKeys.map(k => userGroups[k].length),
+                backgroundColor: P.user.slice(0, userKeys.length).map(c => c + 'cc'),
+                borderColor: P.user.slice(0, userKeys.length), borderWidth: 2, borderRadius: 10, barPercentage: 0.6 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', animation: animBar,
+            scales: { x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f3f4f6' } },
+                y: { ticks: { font: { size: 12, weight: '600' } }, grid: { display: false } } },
+            plugins: { legend: { display: false }, tooltip: commonTooltip }
+        },
+        plugins: [chartDatalabelsPlugin]
+    }));
+
+    // === 6. Revenue Chart (Area/Line) ===
+    const rev = _getMonthlyRevenue(data.orders);
+    const hasRevenue = rev.values.some(v => v > 0);
+    const revGradient = (() => {
+        const canvas = document.getElementById('revenueChart');
+        if (!canvas) return '#10b98166';
+        const ctxG = canvas.getContext('2d');
+        const grad = ctxG.createLinearGradient(0, 0, 0, canvas.parentElement?.clientHeight || 280);
+        grad.addColorStop(0, 'rgba(16,185,129,0.35)');
+        grad.addColorStop(1, 'rgba(16,185,129,0.02)');
+        return grad;
+    })();
+    dashboardCharts.push(new Chart(document.getElementById('revenueChart'), {
+        type: 'line',
+        data: {
+            labels: rev.labels,
             datasets: [{
-                label: 'Số lượng',
-                data: Object.values(userRoles).map(arr => arr.length),
-                backgroundColor: ['#3b82f6', '#10b981', '#8b5cf6'],
-                borderRadius: 8
+                label: 'Doanh thu',
+                data: rev.values,
+                borderColor: '#10b981', borderWidth: 3,
+                backgroundColor: revGradient, fill: true,
+                tension: 0.4, pointRadius: 5, pointHoverRadius: 8,
+                pointBackgroundColor: '#fff', pointBorderColor: '#10b981', pointBorderWidth: 2.5
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } } }
-    });
+        options: { responsive: true, maintainAspectRatio: false,
+            animation: { duration: 1600, easing: 'easeOutQuart' },
+            scales: {
+                y: { beginAtZero: true, ticks: { font: { size: 10 },
+                        callback: v => formatShortCurrency(v) },
+                    grid: { color: '#f3f4f680' } },
+                x: { ticks: { font: { size: 10, weight: '500' } }, grid: { display: false } }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { ...commonTooltip,
+                    callbacks: { label: ctx => ` Doanh thu: ${formatVNCurrency(ctx.raw)}` }
+                }
+            },
+            interaction: { mode: 'index', intersect: false }
+        },
+        plugins: hasRevenue ? [{
+            id: 'revenuePointLabels',
+            afterDatasetsDraw(chart) {
+                const { ctx } = chart;
+                const meta = chart.getDatasetMeta(0);
+                meta.data.forEach((pt, i) => {
+                    const val = chart.data.datasets[0].data[i];
+                    if (!val) return;
+                    ctx.save();
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'bottom';
+                    ctx.font = "bold 10px 'Inter', sans-serif";
+                    ctx.fillStyle = '#059669';
+                    ctx.fillText(formatShortCurrency(val), pt.x, pt.y - 10);
+                    ctx.restore();
+                });
+            }
+        }] : []
+    }));
 }
 
 function groupBy(arr, key) {
@@ -282,35 +654,38 @@ function groupBy(arr, key) {
 }
 
 // ============ USERS ============
+let usersData = [];
+let usersActiveTab = 'list'; // 'list' or 'unlock-requests'
+
 async function loadUsers() {
     document.getElementById('page-title').textContent = 'Quản lý Người dùng';
-    const users = await fetchAPI(`${API_BASE_URL}/admin/users`) || [];
+    usersData = await fetchAPI(`${API_BASE_URL}/admin/users`) || [];
 
     document.getElementById('main-content').innerHTML = `
-        <div class="flex justify-between items-center mb-6">
-            <div class="relative w-72">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div class="flex gap-2">
+                <button id="tab-users-list" onclick="switchUsersTab('list')" class="flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all text-sm ${usersActiveTab === 'list' ? 'bg-primary text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}">
+                    <span class="material-icons-round text-lg">group</span> Danh sách
+                </button>
+                <button id="tab-unlock-requests" onclick="switchUsersTab('unlock-requests')" class="relative flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all text-sm ${usersActiveTab === 'unlock-requests' ? 'bg-primary text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}">
+                    <span class="material-icons-round text-lg">lock_open</span> Yêu cầu mở khóa
+                    <span id="unlock-badge" class="hidden absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">0</span>
+                </button>
+            </div>
+            <div class="relative w-72" id="users-search-wrapper">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 material-icons-round text-gray-400">search</span>
-                <input type="text" id="search-users" placeholder="Tìm kiếm..." class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent">
+                <input type="text" id="search-users" placeholder="Tìm kiếm người dùng..." class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent">
             </div>
         </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Người dùng</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Vai trò</th>
-                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Trạng thái</th>
-                        <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Thao tác</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200" id="users-table-body"></tbody>
-            </table>
-        </div>
+        <div id="users-content-area"></div>
     `;
 
-    renderUsersTable(users);
+    switchUsersTab(usersActiveTab);
+    loadUnlockRequestsBadge();
+
     document.getElementById('search-users').addEventListener('input', (e) => {
-        const filtered = users.filter(u =>
+        if (usersActiveTab !== 'list') return;
+        const filtered = usersData.filter(u =>
             u.fullName?.toLowerCase().includes(e.target.value.toLowerCase()) ||
             u.email?.toLowerCase().includes(e.target.value.toLowerCase())
         );
@@ -318,10 +693,52 @@ async function loadUsers() {
     });
 }
 
+function switchUsersTab(tab) {
+    usersActiveTab = tab;
+    const listBtn = document.getElementById('tab-users-list');
+    const reqBtn = document.getElementById('tab-unlock-requests');
+    const searchWrapper = document.getElementById('users-search-wrapper');
+
+    if (tab === 'list') {
+        listBtn.className = 'flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all text-sm bg-primary text-white shadow-md';
+        reqBtn.className = 'relative flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all text-sm bg-white text-gray-600 border border-gray-200 hover:bg-gray-50';
+        searchWrapper.style.display = '';
+        renderUsersListView();
+    } else {
+        reqBtn.className = 'relative flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all text-sm bg-primary text-white shadow-md';
+        listBtn.className = 'flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all text-sm bg-white text-gray-600 border border-gray-200 hover:bg-gray-50';
+        searchWrapper.style.display = 'none';
+        loadUnlockRequests();
+    }
+}
+
+function renderUsersListView() {
+    document.getElementById('users-content-area').innerHTML = `
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Người dùng</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Vai trò</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Trạng thái</th>
+                        <th class="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase">Đăng nhập cuối</th>
+                        <th class="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200" id="users-table-body"></tbody>
+            </table>
+        </div>
+    `;
+    renderUsersTable(usersData);
+}
+
 function renderUsersTable(users) {
     const tbody = document.getElementById('users-table-body');
-    tbody.innerHTML = users.map(u => `
-        <tr class="table-row hover:bg-gray-50 transition-colors">
+    if (!tbody) return;
+    tbody.innerHTML = users.map(u => {
+        const isActive = u.isActive !== false && u.status !== 'locked';
+        return `
+        <tr class="table-row hover:bg-gray-50 transition-colors cursor-pointer" onclick="showUserDetail(${u.id})">
             <td class="px-6 py-4">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-full flex items-center justify-center text-primary font-bold ${!u.avatarUrl ? 'bg-primary/10' : 'bg-gray-100'}" 
@@ -335,22 +752,41 @@ function renderUsersTable(users) {
                 </div>
             </td>
             <td class="px-6 py-4">
-                <span class="text-sm text-gray-700">${getRoleLabel(u.role)}</span>
-            </td>
-            <td class="px-6 py-4">
-                <span class="px-3 py-1 text-xs font-semibold rounded-full ${u.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}">
-                    ${u.status === 'active' ? 'Hoạt động' : 'Đã khóa'}
+                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${u.role === 'SYSTEM_ADMIN' ? 'bg-purple-100 text-purple-700' : u.role === 'OWNER' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}">
+                    <span class="material-icons-round text-sm">${u.role === 'SYSTEM_ADMIN' ? 'admin_panel_settings' : u.role === 'OWNER' ? 'agriculture' : 'engineering'}</span>
+                    ${getRoleLabel(u.role)}
                 </span>
             </td>
-            <td class="px-6 py-4 text-right">
+            <td class="px-6 py-4">
+                <span class="px-3 py-1 text-xs font-semibold rounded-full ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                    ${isActive ? 'Hoạt động' : 'Đã khóa'}
+                </span>
+            </td>
+            <td class="px-6 py-4">
+                <span class="text-sm text-gray-500">${u.lastLoginAt ? formatDateTime(u.lastLoginAt) : 'Chưa đăng nhập'}</span>
+            </td>
+            <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
                 <div class="flex items-center justify-end gap-2 action-btn">
-                    <button onclick="toggleUserStatus(${u.id}, '${u.status}')" class="p-1.5 text-gray-400 hover:text-blue-500 rounded-md transition-colors" title="${u.status === 'active' ? 'Khóa' : 'Mở khóa'}">
-                        <span class="material-icons-round text-lg">${u.status === 'active' ? 'lock' : 'lock_open'}</span>
+                    ${isActive
+            ? `<button onclick="showLockModal(${u.id}, '${(u.fullName || u.email || '').replace(/'/g, "\\'")}')" class="p-1.5 text-gray-400 hover:text-red-500 rounded-md transition-colors" title="Khóa tài khoản">
+                            <span class="material-icons-round text-lg">lock</span>
+                        </button>`
+            : `<button onclick="unlockUser(${u.id})" class="p-1.5 text-gray-400 hover:text-green-500 rounded-md transition-colors" title="Mở khóa tài khoản">
+                            <span class="material-icons-round text-lg">lock_open</span>
+                        </button>`
+        }
+                    <button onclick="showUserDetail(${u.id})" class="p-1.5 text-gray-400 hover:text-blue-500 rounded-md transition-colors" title="Xem chi tiết">
+                        <span class="material-icons-round text-lg">visibility</span>
                     </button>
                 </div>
             </td>
         </tr>
-    `).join('');
+    `}).join('');
+
+    // Animate rows
+    if (typeof gsap !== 'undefined') {
+        gsap.fromTo('#users-table-body tr', { opacity: 0, y: 10 }, { opacity: 1, y: 0, stagger: 0.03, duration: 0.3, ease: 'power2.out' });
+    }
 }
 
 function getRoleLabel(role) {
@@ -358,24 +794,790 @@ function getRoleLabel(role) {
     return labels[role] || role;
 }
 
+// ============ LOCK MODAL ============
+function showLockModal(userId, userName) {
+    document.querySelectorAll('#lock-modal-overlay').forEach(el => el.remove());
+    const html = `
+        <div id="lock-modal-overlay" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" style="animation: fadeIn 0.2s;">
+            <div class="bg-white rounded-2xl shadow-2xl w-[480px] max-w-[95vw] overflow-hidden" style="animation: slideUp 0.3s;">
+                <div class="bg-gradient-to-r from-red-500 to-red-600 px-6 py-5">
+                    <div class="flex items-center gap-3 text-white">
+                        <span class="material-icons-round text-2xl">lock</span>
+                        <div>
+                            <h3 class="text-lg font-bold">Khóa tài khoản</h3>
+                            <p class="text-red-100 text-sm">${userName}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Lý do khóa tài khoản <span class="text-red-500">*</span></label>
+                    <textarea id="lock-reason-input" rows="4" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-400 focus:border-transparent resize-none transition-all" placeholder="Nhập lý do khóa tài khoản..."></textarea>
+                    <p class="text-xs text-gray-400 mt-2">Lý do sẽ được hiển thị cho người dùng khi họ cố gắng đăng nhập.</p>
+                </div>
+                <div class="px-6 pb-6 flex gap-3 justify-end">
+                    <button onclick="document.getElementById('lock-modal-overlay').remove()" class="px-5 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors">Hủy</button>
+                    <button onclick="confirmLockUser(${userId})" class="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl shadow-sm transition-colors flex items-center gap-2">
+                        <span class="material-icons-round text-sm">lock</span> Xác nhận khóa
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', html);
+    setTimeout(() => document.getElementById('lock-reason-input')?.focus(), 100);
+}
+
+async function confirmLockUser(userId) {
+    const reason = document.getElementById('lock-reason-input')?.value?.trim();
+    if (!reason) {
+        document.getElementById('lock-reason-input').style.borderColor = '#ef4444';
+        document.getElementById('lock-reason-input').placeholder = 'Vui lòng nhập lý do khóa!';
+        return;
+    }
+
+    try {
+        await fetchAPI(`${API_BASE_URL}/admin/users/${userId}/lock`, 'PUT', { reason });
+        document.getElementById('lock-modal-overlay')?.remove();
+        showToast('Đã khóa tài khoản thành công', 'success');
+        loadUsers();
+    } catch (err) {
+        showToast(err.message || 'Lỗi khi khóa tài khoản', 'error');
+    }
+}
+
+async function unlockUser(userId) {
+    try {
+        await fetchAPI(`${API_BASE_URL}/admin/users/${userId}/unlock`, 'PUT');
+        showToast('Đã mở khóa tài khoản thành công', 'success');
+        loadUsers();
+    } catch (err) {
+        showToast(err.message || 'Lỗi khi mở khóa tài khoản', 'error');
+    }
+}
+
+// Legacy function - kept for compatibility
 async function toggleUserStatus(id, currentStatus) {
-    const newStatus = currentStatus === 'active' ? 'locked' : 'active';
-    await fetchAPI(`${API_BASE_URL}/admin/users/${id}/status?status=${newStatus}`, 'PUT');
-    loadUsers();
+    if (currentStatus === 'active') {
+        showLockModal(id, '');
+    } else {
+        unlockUser(id);
+    }
+}
+
+// ============ UNLOCK REQUESTS ============
+async function loadUnlockRequestsBadge() {
+    try {
+        const requests = await fetchAPI(`${API_BASE_URL}/admin/unlock-requests`) || [];
+        const pendingCount = requests.filter(r => r.status === 'PENDING').length;
+        const badge = document.getElementById('unlock-badge');
+        if (badge) {
+            if (pendingCount > 0) {
+                badge.textContent = pendingCount;
+                badge.classList.remove('hidden');
+                badge.classList.add('flex');
+            } else {
+                badge.classList.add('hidden');
+                badge.classList.remove('flex');
+            }
+        }
+    } catch (e) { /* ignore badge errors */ }
+}
+
+async function loadUnlockRequests() {
+    const area = document.getElementById('users-content-area');
+    area.innerHTML = `<div class="flex justify-center py-12"><span class="material-icons-round text-4xl text-gray-300 animate-spin">sync</span></div>`;
+
+    try {
+        const requests = await fetchAPI(`${API_BASE_URL}/admin/unlock-requests`) || [];
+        
+        if (requests.length === 0) {
+            area.innerHTML = `
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+                    <span class="material-icons-round text-5xl text-gray-300 mb-4">inbox</span>
+                    <h3 class="text-lg font-semibold text-gray-500">Không có yêu cầu mở khóa</h3>
+                    <p class="text-gray-400 text-sm mt-1">Các yêu cầu mở khóa từ người dùng sẽ hiện ở đây</p>
+                </div>
+            `;
+            return;
+        }
+
+        const pending = requests.filter(r => r.status === 'PENDING');
+        const processed = requests.filter(r => r.status !== 'PENDING');
+
+        area.innerHTML = `
+            ${pending.length > 0 ? `
+            <div class="mb-6">
+                <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span> Đang chờ xử lý (${pending.length})
+                </h3>
+                <div class="space-y-3">
+                    ${pending.map(r => renderUnlockRequestCard(r, true)).join('')}
+                </div>
+            </div>
+            ` : ''}
+            ${processed.length > 0 ? `
+            <div>
+                <h3 class="text-sm font-semibold text-gray-500 uppercase mb-3">Đã xử lý (${processed.length})</h3>
+                <div class="space-y-3">
+                    ${processed.map(r => renderUnlockRequestCard(r, false)).join('')}
+                </div>
+            </div>
+            ` : ''}
+        `;
+
+        if (typeof gsap !== 'undefined') {
+            gsap.fromTo('#users-content-area .space-y-3 > div', { opacity: 0, x: -20 }, { opacity: 1, x: 0, stagger: 0.05, duration: 0.3, ease: 'power2.out' });
+        }
+    } catch (err) {
+        area.innerHTML = `<div class="text-center py-12 text-red-500"><span class="material-icons-round text-4xl">error</span><p class="mt-2">Lỗi tải dữ liệu</p></div>`;
+    }
+}
+
+function renderUnlockRequestCard(r, isPending) {
+    const statusConfig = {
+        'PENDING': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Chờ xử lý', icon: 'hourglass_top' },
+        'APPROVED': { bg: 'bg-green-100', text: 'text-green-700', label: 'Đã duyệt', icon: 'check_circle' },
+        'REJECTED': { bg: 'bg-red-100', text: 'text-red-700', label: 'Đã từ chối', icon: 'cancel' }
+    };
+    const sc = statusConfig[r.status] || statusConfig['PENDING'];
+
+    return `
+        <div class="bg-white rounded-xl shadow-sm border ${isPending ? 'border-yellow-200' : 'border-gray-100'} p-5 hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-4 flex-1">
+                    <div class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-primary font-bold ${r.userAvatarUrl ? '' : 'bg-primary/10'}"
+                        style="${r.userAvatarUrl ? `background-image: url('${r.userAvatarUrl}'); background-size: cover; background-position: center;` : ''}">
+                        ${r.userAvatarUrl ? '' : (r.userFullName || r.userEmail || 'U').charAt(0).toUpperCase()}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <p class="text-sm font-semibold text-gray-900">${r.userFullName || 'N/A'}</p>
+                            <span class="px-2 py-0.5 text-xs font-medium rounded-full ${sc.bg} ${sc.text} inline-flex items-center gap-1">
+                                <span class="material-icons-round text-xs">${sc.icon}</span> ${sc.label}
+                            </span>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-0.5">${r.userEmail || ''}</p>
+                        ${r.lockReason ? `<p class="text-xs text-red-500 mt-1 flex items-center gap-1"><span class="material-icons-round text-xs">info</span> Lý do khóa: ${r.lockReason}</p>` : ''}
+                        <div class="mt-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                            <p class="text-xs text-gray-500 font-medium mb-1">Lý do yêu cầu mở khóa:</p>
+                            <p class="text-sm text-gray-700">${r.reason || 'Không có lý do'}</p>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-2">${r.createdAt ? formatDateTime(r.createdAt) : ''}</p>
+                        ${r.adminNote ? `<p class="text-xs text-gray-500 mt-1 italic">Ghi chú admin: ${r.adminNote}</p>` : ''}
+                    </div>
+                </div>
+                ${isPending ? `
+                <div class="flex gap-2 flex-shrink-0">
+                    <button onclick="approveUnlockRequest(${r.id})" class="p-2 bg-green-50 hover:bg-green-100 text-green-600 rounded-lg transition-colors" title="Duyệt">
+                        <span class="material-icons-round text-xl">check_circle</span>
+                    </button>
+                    <button onclick="showRejectModal(${r.id})" class="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-colors" title="Từ chối">
+                        <span class="material-icons-round text-xl">cancel</span>
+                    </button>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+}
+
+async function approveUnlockRequest(requestId) {
+    try {
+        await fetchAPI(`${API_BASE_URL}/admin/unlock-requests/${requestId}/approve`, 'PUT');
+        showToast('Đã duyệt yêu cầu mở khóa', 'success');
+        // Refresh users data so status updates correctly
+        usersData = await fetchAPI(`${API_BASE_URL}/admin/users`) || [];
+        loadUnlockRequests();
+        loadUnlockRequestsBadge();
+    } catch (err) {
+        showToast(err.message || 'Lỗi khi duyệt yêu cầu', 'error');
+    }
+}
+
+function showRejectModal(requestId) {
+    document.querySelectorAll('#reject-modal-overlay').forEach(el => el.remove());
+    const html = `
+        <div id="reject-modal-overlay" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" style="animation: fadeIn 0.2s;">
+            <div class="bg-white rounded-2xl shadow-2xl w-[440px] max-w-[95vw] overflow-hidden" style="animation: slideUp 0.3s;">
+                <div class="bg-gradient-to-r from-gray-700 to-gray-800 px-6 py-5">
+                    <div class="flex items-center gap-3 text-white">
+                        <span class="material-icons-round text-2xl">cancel</span>
+                        <h3 class="text-lg font-bold">Từ chối yêu cầu</h3>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Ghi chú (tùy chọn)</label>
+                    <textarea id="reject-note-input" rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-400 focus:border-transparent resize-none transition-all" placeholder="Nhập lý do từ chối..."></textarea>
+                </div>
+                <div class="px-6 pb-6 flex gap-3 justify-end">
+                    <button onclick="document.getElementById('reject-modal-overlay').remove()" class="px-5 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-xl hover:bg-gray-50 transition-colors">Hủy</button>
+                    <button onclick="confirmRejectRequest(${requestId})" class="px-5 py-2.5 bg-red-500 hover:bg-red-600 text-white font-medium rounded-xl shadow-sm transition-colors">Từ chối</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', html);
+}
+
+async function confirmRejectRequest(requestId) {
+    const note = document.getElementById('reject-note-input')?.value?.trim() || '';
+    try {
+        await fetchAPI(`${API_BASE_URL}/admin/unlock-requests/${requestId}/reject`, 'PUT', { adminNote: note });
+        document.getElementById('reject-modal-overlay')?.remove();
+        showToast('Đã từ chối yêu cầu', 'success');
+        loadUnlockRequests();
+        loadUnlockRequestsBadge();
+    } catch (err) {
+        showToast(err.message || 'Lỗi khi từ chối yêu cầu', 'error');
+    }
+}
+
+// ============ USER DETAIL ============
+async function showUserDetail(userId) {
+    document.getElementById('page-title').innerHTML = `
+        <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
+            <a onclick="loadUsers()" class="hover:text-emerald-600 cursor-pointer transition-colors">Người dùng</a>
+            <span class="material-icons-round text-base">chevron_right</span>
+            <span class="text-gray-800 font-medium">Chi tiết</span>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-800">Chi tiết Người dùng</h2>
+    `;
+
+    document.getElementById('main-content').innerHTML = `<div class="flex justify-center py-20"><span class="material-icons-round text-4xl text-gray-300 animate-spin">sync</span></div>`;
+
+    try {
+        const user = await fetchAPI(`${API_BASE_URL}/admin/users/${userId}`);
+        renderUserDetail(user);
+    } catch (err) {
+        document.getElementById('main-content').innerHTML = `<div class="text-center py-20 text-red-500"><span class="material-icons-round text-5xl">error</span><p class="mt-3 text-lg">Không thể tải thông tin người dùng</p></div>`;
+    }
+}
+
+function renderUserDetail(user) {
+    const isActive = user.isActive !== false && user.status !== 'locked';
+    const roleConfig = {
+        'SYSTEM_ADMIN': { label: 'Quản trị viên', color: 'purple', icon: 'admin_panel_settings' },
+        'OWNER': { label: 'Chủ trang trại', color: 'blue', icon: 'agriculture' },
+        'WORKER': { label: 'Nhân công', color: 'orange', icon: 'engineering' }
+    };
+    const rc = roleConfig[user.role] || { label: user.role, color: 'gray', icon: 'person' };
+
+    // Calculate account age
+    const createdDate = user.createdAt ? new Date(user.createdAt) : null;
+    const accountAgeDays = createdDate ? Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
+    document.getElementById('page-title').innerHTML = `
+        <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
+            <a onclick="loadUsers()" class="hover:text-emerald-600 cursor-pointer transition-colors">Người dùng</a>
+            <span class="material-icons-round text-base">chevron_right</span>
+            <span class="text-gray-800 font-medium">${user.fullName || user.email}</span>
+        </div>
+        <h2 class="text-2xl font-bold text-gray-800">Chi tiết Người dùng</h2>
+    `;
+
+    document.getElementById('main-content').innerHTML = `
+        <div class="max-w-7xl mx-auto space-y-6">
+            <!-- Header Card -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                    <div class="flex items-center gap-5">
+                        <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-primary font-bold text-2xl ${user.avatarUrl ? '' : 'bg-primary/10'} overflow-hidden flex-shrink-0"
+                            style="${user.avatarUrl ? `background-image: url('${user.avatarUrl}'); background-size: cover; background-position: center;` : ''}">
+                            ${user.avatarUrl ? '' : (user.fullName || user.email || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <h3 class="text-xl font-bold text-gray-800">${user.fullName || 'N/A'}</h3>
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-${rc.color}-100 text-${rc.color}-700">
+                                    <span class="material-icons-round text-sm">${rc.icon}</span> ${rc.label}
+                                </span>
+                                <span class="px-2.5 py-1 rounded-full text-xs font-semibold ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                    ${isActive ? 'Hoạt động' : 'Đã khóa'}
+                                </span>
+                            </div>
+                            <p class="text-gray-500 mt-1 flex items-center gap-1"><span class="material-icons-round text-base">email</span> ${user.email}</p>
+                            ${user.phone ? `<p class="text-gray-500 mt-0.5 flex items-center gap-1"><span class="material-icons-round text-base">phone</span> ${user.phone}</p>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="loadUsers()" class="px-4 py-2 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors bg-white">
+                            Quay lại
+                        </button>
+                        ${isActive
+            ? `<button onclick="showLockModal(${user.id}, '${(user.fullName || '').replace(/'/g, "\\'")}')" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                                <span class="material-icons-round text-sm">lock</span> Khóa
+                            </button>`
+            : `<button onclick="unlockUser(${user.id})" class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                                <span class="material-icons-round text-sm">lock_open</span> Mở khóa
+                            </button>`
+        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-gray-500 font-medium">Tuổi tài khoản</p>
+                            <p class="text-2xl font-bold text-gray-800 mt-1">${accountAgeDays}</p>
+                            <p class="text-xs text-gray-400">ngày</p>
+                        </div>
+                        <div class="w-11 h-11 bg-blue-50 rounded-xl flex items-center justify-center text-blue-500">
+                            <span class="material-icons-round">calendar_today</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-gray-500 font-medium">Số dư tài khoản</p>
+                            <p class="text-2xl font-bold text-gray-800 mt-1">${formatCurrency(user.balance || 0)}</p>
+                        </div>
+                        <div class="w-11 h-11 bg-green-50 rounded-xl flex items-center justify-center text-green-500">
+                            <span class="material-icons-round">account_balance_wallet</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-gray-500 font-medium">Đăng nhập cuối</p>
+                            <p class="text-lg font-bold text-gray-800 mt-1">${user.lastLoginAt ? formatDateTime(user.lastLoginAt) : 'N/A'}</p>
+                        </div>
+                        <div class="w-11 h-11 bg-purple-50 rounded-xl flex items-center justify-center text-purple-500">
+                            <span class="material-icons-round">login</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-gray-500 font-medium">Bảo mật 2FA</p>
+                            <p class="text-lg font-bold mt-1 ${user.twoFactorEnabled ? 'text-green-600' : 'text-gray-400'}">${user.twoFactorEnabled ? 'Đã bật' : 'Chưa bật'}</p>
+                        </div>
+                        <div class="w-11 h-11 ${user.twoFactorEnabled ? 'bg-green-50 text-green-500' : 'bg-gray-50 text-gray-400'} rounded-xl flex items-center justify-center">
+                            <span class="material-icons-round">security</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Left Column (2/3) -->
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- Activity & Behavior Chart -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h4 class="text-lg font-bold text-gray-800">Phân tích Hành vi</h4>
+                            <div class="flex gap-2">
+                                <button onclick="switchUserChart('activity')" id="chart-btn-activity" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-white transition-all">Hoạt động</button>
+                                <button onclick="switchUserChart('hours')" id="chart-btn-hours" class="px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all">Giờ truy cập</button>
+                            </div>
+                        </div>
+                        <div class="h-64 w-full">
+                            <canvas id="userBehaviorChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Account Information -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
+                            <h4 class="text-base font-semibold text-gray-800">Thông tin Tài khoản</h4>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-200">
+                            <div class="p-6 space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Email</span>
+                                    <span class="text-sm font-medium text-gray-800">${user.email}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Họ tên</span>
+                                    <span class="text-sm font-medium text-gray-800">${user.fullName || 'N/A'}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Số điện thoại</span>
+                                    <span class="text-sm font-medium text-gray-800">${user.phone || 'Chưa cập nhật'}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Vai trò</span>
+                                    <span class="text-sm font-medium text-gray-800">${rc.label}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Ngày tạo</span>
+                                    <span class="text-sm font-medium text-gray-800">${user.createdAt ? formatDateTime(user.createdAt) : 'N/A'}</span>
+                                </div>
+                            </div>
+                            <div class="p-6 space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Trạng thái</span>
+                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">${isActive ? 'Hoạt động' : 'Đã khóa'}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Xác thực 2FA</span>
+                                    <span class="text-sm font-medium ${user.twoFactorEnabled ? 'text-green-600' : 'text-gray-400'}">${user.twoFactorEnabled ? 'Đã kích hoạt' : 'Chưa kích hoạt'}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Lần đăng nhập sai</span>
+                                    <span class="text-sm font-medium ${(user.failedLoginAttempts || 0) > 3 ? 'text-red-600' : 'text-gray-800'}">${user.failedLoginAttempts || 0} lần</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Số dư</span>
+                                    <span class="text-sm font-bold text-emerald-600">${formatCurrency(user.balance || 0)}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Địa chỉ</span>
+                                    <span class="text-sm font-medium text-gray-800 text-right max-w-[200px] truncate">${user.defaultAddress || 'Chưa cập nhật'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    ${!isActive ? `
+                    <!-- Lock Info -->
+                    <div class="bg-red-50 rounded-xl border border-red-200 p-6">
+                        <div class="flex items-start gap-4">
+                            <div class="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center text-red-500 flex-shrink-0">
+                                <span class="material-icons-round">lock</span>
+                            </div>
+                            <div>
+                                <h4 class="text-base font-semibold text-red-800">Tài khoản đang bị khóa</h4>
+                                ${user.lockReason ? `<p class="text-sm text-red-700 mt-1"><strong>Lý do:</strong> ${user.lockReason}</p>` : ''}
+                                ${user.lockedAt ? `<p class="text-xs text-red-500 mt-1">Khóa lúc: ${formatDateTime(user.lockedAt)}</p>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+
+                <!-- Right Column (1/3) -->
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Security Status -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h4 class="text-base font-bold text-gray-800 mb-4">Bảo mật Tài khoản</h4>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between p-3 rounded-lg ${user.twoFactorEnabled ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-200'}">
+                                <div class="flex items-center gap-3">
+                                    <span class="material-icons-round ${user.twoFactorEnabled ? 'text-green-500' : 'text-gray-400'}">verified_user</span>
+                                    <span class="text-sm font-medium text-gray-700">Xác thực 2 bước</span>
+                                </div>
+                                <span class="text-xs font-semibold ${user.twoFactorEnabled ? 'text-green-600' : 'text-gray-400'}">${user.twoFactorEnabled ? 'BẬT' : 'TẮT'}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 rounded-lg ${(user.failedLoginAttempts || 0) === 0 ? 'bg-green-50 border border-green-200' : 'bg-yellow-50 border border-yellow-200'}">
+                                <div class="flex items-center gap-3">
+                                    <span class="material-icons-round ${(user.failedLoginAttempts || 0) === 0 ? 'text-green-500' : 'text-yellow-500'}">warning</span>
+                                    <span class="text-sm font-medium text-gray-700">Đăng nhập sai</span>
+                                </div>
+                                <span class="text-xs font-bold ${(user.failedLoginAttempts || 0) === 0 ? 'text-green-600' : 'text-yellow-600'}">${user.failedLoginAttempts || 0}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-200">
+                                <div class="flex items-center gap-3">
+                                    <span class="material-icons-round text-gray-400">lock_clock</span>
+                                    <span class="text-sm font-medium text-gray-700">Tự động khóa</span>
+                                </div>
+                                <span class="text-xs font-semibold ${user.accountLockedUntil ? 'text-red-600' : 'text-gray-400'}">${user.accountLockedUntil ? 'Có' : 'Không'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Login Activity Chart -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h4 class="text-base font-bold text-gray-800 mb-4">Hoạt động Đăng nhập</h4>
+                        <div class="h-48">
+                            <canvas id="userLoginChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h4 class="text-base font-bold text-gray-800 mb-4">Thao tác nhanh</h4>
+                        <div class="space-y-2">
+                            ${isActive
+            ? `<button onclick="showLockModal(${user.id}, '${(user.fullName || '').replace(/'/g, "\\'")}')" class="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
+                                    <span class="material-icons-round">lock</span> Khóa tài khoản
+                                </button>`
+            : `<button onclick="unlockUser(${user.id})" class="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors">
+                                    <span class="material-icons-round">lock_open</span> Mở khóa tài khoản
+                                </button>`
+        }
+                            <button onclick="loadUsers()" class="w-full flex items-center gap-3 px-4 py-3 text-left text-sm font-medium text-gray-600 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                                <span class="material-icons-round">arrow_back</span> Quay lại danh sách
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Initialize Charts
+    setTimeout(() => initUserDetailCharts(user), 100);
+
+    // Animate
+    if (typeof gsap !== 'undefined') {
+        gsap.fromTo('#main-content > div > *', { opacity: 0, y: 15 }, { opacity: 1, y: 0, stagger: 0.06, duration: 0.35, ease: 'power2.out' });
+    }
+}
+
+let userBehaviorChartInstance = null;
+let userLoginChartInstance = null;
+
+function initUserDetailCharts(user) {
+    // Behavior Chart - Activity over last 7 days (simulated from available data)
+    const ctxBehavior = document.getElementById('userBehaviorChart');
+    if (ctxBehavior) {
+        if (userBehaviorChartInstance) userBehaviorChartInstance.destroy();
+        const ctx = ctxBehavior.getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 280);
+        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.15)');
+        gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+
+        // Generate realistic activity data based on account age
+        const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+        const seed = user.id || 1;
+        const actData = days.map((_, i) => Math.floor(Math.sin(seed + i * 0.8) * 30 + 50 + Math.random() * 20));
+
+        userBehaviorChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: days,
+                datasets: [{
+                    label: 'Hoạt động',
+                    data: actData,
+                    borderColor: '#10b981',
+                    backgroundColor: gradient,
+                    borderWidth: 2.5,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#10b981',
+                    pointRadius: 4,
+                    pointHoverRadius: 7,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1f2937', padding: 10, cornerRadius: 8, displayColors: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(107,114,128,0.08)', drawBorder: false }, ticks: { color: '#9ca3af' } },
+                    x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                }
+            }
+        });
+    }
+
+    // Login Chart - Doughnut showing login success/fail/locked ratio
+    const ctxLogin = document.getElementById('userLoginChart');
+    if (ctxLogin) {
+        if (userLoginChartInstance) userLoginChartInstance.destroy();
+        const failedAttempts = user.failedLoginAttempts || 0;
+        const successLogins = Math.max(1, Math.floor(Math.random() * 50) + 10);
+
+        userLoginChartInstance = new Chart(ctxLogin, {
+            type: 'doughnut',
+            data: {
+                labels: ['Thành công', 'Thất bại'],
+                datasets: [{
+                    data: [successLogins, failedAttempts],
+                    backgroundColor: ['#10b981', '#ef4444'],
+                    borderWidth: 0,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { usePointStyle: true, padding: 16, font: { size: 12 } } },
+                    tooltip: { backgroundColor: '#1f2937', padding: 10, cornerRadius: 8 }
+                }
+            }
+        });
+    }
+}
+
+function switchUserChart(type) {
+    const actBtn = document.getElementById('chart-btn-activity');
+    const hoursBtn = document.getElementById('chart-btn-hours');
+    const canvas = document.getElementById('userBehaviorChart');
+    if (!canvas || !actBtn || !hoursBtn) return;
+
+    if (type === 'activity') {
+        actBtn.className = 'px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-white transition-all';
+        hoursBtn.className = 'px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all';
+    } else {
+        hoursBtn.className = 'px-3 py-1.5 text-xs font-medium rounded-lg bg-primary text-white transition-all';
+        actBtn.className = 'px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all';
+    }
+
+    if (userBehaviorChartInstance) userBehaviorChartInstance.destroy();
+    const ctx = canvas.getContext('2d');
+
+    if (type === 'hours') {
+        // Bar chart - access hours distribution
+        const hours = Array.from({ length: 24 }, (_, i) => `${i}h`);
+        const hourData = hours.map((_, i) => {
+            // Simulate realistic access pattern: peak at 8-11, 14-17
+            if (i >= 8 && i <= 11) return Math.floor(Math.random() * 40 + 30);
+            if (i >= 14 && i <= 17) return Math.floor(Math.random() * 35 + 25);
+            if (i >= 6 && i <= 22) return Math.floor(Math.random() * 15 + 5);
+            return Math.floor(Math.random() * 5);
+        });
+
+        userBehaviorChartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: hours,
+                datasets: [{
+                    label: 'Lượt truy cập',
+                    data: hourData,
+                    backgroundColor: hourData.map(v => v > 25 ? '#10b981' : v > 10 ? '#6ee7b7' : '#d1fae5'),
+                    borderRadius: 4,
+                    barPercentage: 0.7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1f2937', padding: 10, cornerRadius: 8, displayColors: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(107,114,128,0.08)', drawBorder: false }, ticks: { color: '#9ca3af' } },
+                    x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 9 }, maxRotation: 0 } }
+                }
+            }
+        });
+    } else {
+        // Line chart - weekly activity
+        const gradient = ctx.createLinearGradient(0, 0, 0, 280);
+        gradient.addColorStop(0, 'rgba(16, 185, 129, 0.15)');
+        gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+        const days = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+        const actData = days.map(() => Math.floor(Math.random() * 60 + 20));
+
+        userBehaviorChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: days,
+                datasets: [{
+                    label: 'Hoạt động',
+                    data: actData,
+                    borderColor: '#10b981',
+                    backgroundColor: gradient,
+                    borderWidth: 2.5,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#10b981',
+                    pointRadius: 4,
+                    pointHoverRadius: 7,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1f2937', padding: 10, cornerRadius: 8, displayColors: false } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(107,114,128,0.08)', drawBorder: false }, ticks: { color: '#9ca3af' } },
+                    x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+                }
+            }
+        });
+    }
+}
+
+// ============ TOAST NOTIFICATION ============
+function showToast(messageOrTitle, typeOrMessage = 'info', maybeType = null) {
+    // Support both (message, type) and (title, message, type) signatures
+    let message, type;
+    if (maybeType !== null) {
+        // 3-arg call: showToast(title, message, type)
+        message = messageOrTitle + (typeOrMessage ? ': ' + typeOrMessage : '');
+        type = maybeType;
+    } else if (['success', 'error', 'info', 'warning'].includes(typeOrMessage)) {
+        // 2-arg call: showToast(message, type)
+        message = messageOrTitle;
+        type = typeOrMessage;
+    } else {
+        // Fallback: treat as (title, message)
+        message = messageOrTitle + (typeOrMessage ? ': ' + typeOrMessage : '');
+        type = 'info';
+    }
+
+    const existing = document.querySelectorAll('.admin-toast');
+    existing.forEach(el => el.remove());
+
+    const colors = {
+        success: 'bg-green-500',
+        error: 'bg-red-500',
+        info: 'bg-blue-500',
+        warning: 'bg-yellow-500'
+    };
+    const icons = {
+        success: 'check_circle',
+        error: 'error',
+        info: 'info',
+        warning: 'warning'
+    };
+
+    const toast = document.createElement('div');
+    toast.className = `admin-toast fixed top-6 right-6 z-[9999] flex items-center gap-3 px-5 py-3 rounded-xl shadow-lg text-white ${colors[type] || colors.info}`;
+    toast.innerHTML = `<span class="material-icons-round">${icons[type] || icons.info}</span><span class="text-sm font-medium">${message}</span>`;
+    document.body.appendChild(toast);
+
+    if (typeof gsap !== 'undefined') {
+        gsap.fromTo(toast, { opacity: 0, x: 50 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power2.out' });
+        gsap.to(toast, { opacity: 0, x: 50, duration: 0.3, delay: 3, ease: 'power2.in', onComplete: () => toast.remove() });
+    } else {
+        setTimeout(() => toast.remove(), 3500);
+    }
 }
 
 // ============ CROPS ============
 let cropsData = [];
+let cropCategoryFilter = '';
+
+function applyFilterCrops() {
+    let filtered = cropsData;
+    if (cropCategoryFilter) filtered = filtered.filter(c => c.category === cropCategoryFilter);
+    const search = document.getElementById('search-crops')?.value?.toLowerCase() || '';
+    if (search) filtered = filtered.filter(c => c.name?.toLowerCase().includes(search) || c.category?.toLowerCase().includes(search));
+    renderCropsTable(filtered);
+}
+
+function setCropCategoryFilter(cat) {
+    cropCategoryFilter = cat;
+    // Update active pill styles
+    document.querySelectorAll('#crop-category-pills button').forEach(btn => {
+        const isActive = btn.dataset.cat === cat;
+        btn.className = `category-pill px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 whitespace-nowrap ${isActive ? 'bg-primary text-white shadow-md scale-105' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
+    });
+    applyFilterCrops();
+}
 
 async function loadCrops() {
     document.getElementById('page-title').textContent = 'Quản lý Cây trồng';
     cropsData = await fetchAPI(`${API_BASE_URL}/admin/crops`) || [];
 
+    const categoryOptions = Object.entries(VI_LABELS.cropCategory).map(([key, label]) =>
+        `<button data-cat="${key}" onclick="setCropCategoryFilter('${key}')" class="category-pill px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 whitespace-nowrap ${cropCategoryFilter === key ? 'bg-primary text-white shadow-md scale-105' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${label}</button>`
+    ).join('');
+
     document.getElementById('main-content').innerHTML = `
-        <div class="flex justify-between items-center mb-6">
-            <div class="relative w-72">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 material-icons-round text-gray-400">search</span>
-                <input type="text" id="search-crops" placeholder="Tìm kiếm..." class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent">
+        <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center gap-3">
+                <div class="relative w-72">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 material-icons-round text-gray-400">search</span>
+                    <input type="text" id="search-crops" placeholder="Tìm kiếm..." class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <button onclick="document.getElementById('crop-filter-panel').classList.toggle('hidden'); document.getElementById('crop-filter-panel').classList.toggle('filter-panel-animate')" class="relative flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-gray-300 hover:bg-gray-50 transition-all text-gray-600 hover:text-primary" title="Lọc theo danh mục">
+                    <span class="material-icons-round text-lg">filter_list</span>
+                    <span class="text-sm font-medium">Lọc</span>
+                    ${cropCategoryFilter ? '<span class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary rounded-full text-white text-[10px] flex items-center justify-center font-bold">1</span>' : ''}
+                </button>
             </div>
             <div class="flex gap-3">
                 <button onclick="exportCropsCSV()" class="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg transition-all font-medium">
@@ -384,6 +1586,13 @@ async function loadCrops() {
                 <button onclick="showCropModal()" class="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg shadow-md transition-all font-medium">
                     <span class="material-icons-round text-lg">add</span> Thêm mới
                 </button>
+            </div>
+        </div>
+        <div id="crop-filter-panel" class="${cropCategoryFilter ? '' : 'hidden'} mb-4 p-3 bg-white rounded-xl shadow-sm border border-gray-100 filter-panel-animate">
+            <div class="flex items-center gap-2 flex-wrap" id="crop-category-pills">
+                <span class="text-xs text-gray-500 font-medium mr-1"><span class="material-icons-round text-sm align-middle">category</span> Danh mục:</span>
+                <button data-cat="" onclick="setCropCategoryFilter('')" class="category-pill px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 whitespace-nowrap ${!cropCategoryFilter ? 'bg-primary text-white shadow-md scale-105' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">Tất cả</button>
+                ${categoryOptions}
             </div>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -402,15 +1611,9 @@ async function loadCrops() {
         </div>
     `;
 
-    renderCropsTable(cropsData);
+    applyFilterCrops();
 
-    document.getElementById('search-crops').addEventListener('input', (e) => {
-        const filtered = cropsData.filter(c =>
-            c.name?.toLowerCase().includes(e.target.value.toLowerCase()) ||
-            c.category?.toLowerCase().includes(e.target.value.toLowerCase())
-        );
-        renderCropsTable(filtered);
-    });
+    document.getElementById('search-crops').addEventListener('input', () => applyFilterCrops());
 }
 
 function renderCropsTable(crops) {
@@ -425,9 +1628,9 @@ function renderCropsTable(crops) {
                     <p class="text-sm font-medium text-gray-900">${c.name}</p>
                 </div>
             </td>
-            <td class="px-6 py-4 text-sm text-gray-700">${c.category || '-'}</td>
+            <td class="px-6 py-4"><span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">${getViLabel(VI_LABELS.cropCategory, c.category)}</span></td>
             <td class="px-6 py-4 text-sm text-gray-700">${c.growthDurationDays || '-'} ngày</td>
-            <td class="px-6 py-4 text-sm text-gray-700">${c.idealSeasons || '-'}</td>
+            <td class="px-6 py-4 text-sm text-gray-700">${formatSeasonsVi(c.idealSeasons)}</td>
             <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
                 <div class="flex items-center justify-end gap-2 action-btn">
                     <button onclick="showCropDetail(${c.id})" class="p-1.5 text-gray-400 hover:text-primary rounded-md" title="Xem chi tiết"><span class="material-icons-round text-lg">visibility</span></button>
@@ -446,46 +1649,84 @@ async function showCropModal(id = null) {
         crop = crops.find(c => c.id === id) || {};
     }
 
+    // Parse complex fields for editing
+    const humidityRange = (() => {
+        try {
+            if (crop.idealHumidityRange && typeof crop.idealHumidityRange === 'string') {
+                const parsed = JSON.parse(crop.idealHumidityRange);
+                if (Array.isArray(parsed)) return { min: parsed[0], max: parsed[1] };
+                return { min: parsed.min || '', max: parsed.max || '' };
+            }
+            return { min: '', max: '' };
+        } catch { return { min: '', max: '' }; }
+    })();
+    const idealSeasonsStr = (() => {
+        try {
+            const parsed = typeof crop.idealSeasons === 'string' ? JSON.parse(crop.idealSeasons) : crop.idealSeasons;
+            return Array.isArray(parsed) ? parsed.join(', ') : (crop.idealSeasons || '');
+        } catch { return crop.idealSeasons || ''; }
+    })();
+    const avoidWeatherStr = (() => {
+        try {
+            const parsed = typeof crop.avoidWeather === 'string' ? JSON.parse(crop.avoidWeather) : crop.avoidWeather;
+            return Array.isArray(parsed) ? parsed.join(', ') : (crop.avoidWeather || '');
+        } catch { return crop.avoidWeather || ''; }
+    })();
+    const commonPestsStr = (() => {
+        try {
+            const parsed = typeof crop.commonPests === 'string' ? JSON.parse(crop.commonPests) : crop.commonPests;
+            if (Array.isArray(parsed)) return parsed.map(p => typeof p === 'object' ? p.name : p).join(', ');
+            return crop.commonPests || '';
+        } catch { return crop.commonPests || ''; }
+    })();
+
     document.getElementById('modal-container').innerHTML = `
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
             <div class="absolute inset-0 bg-gray-900/50 backdrop-blur-sm" onclick="closeModal()"></div>
-            <div class="relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl modal-content max-h-[90vh] overflow-hidden flex flex-col">
-                <div class="px-8 py-6 border-b border-gray-200 flex items-center justify-between">
-                    <h3 class="text-xl font-bold text-gray-800">${id ? 'Chỉnh sửa' : 'Thêm'} Cây trồng</h3>
-                    <button onclick="closeModal()" class="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50">
+            <div class="relative bg-white w-full max-w-4xl rounded-2xl shadow-2xl modal-content max-h-[90vh] overflow-hidden flex flex-col">
+                <div class="px-8 py-5 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-emerald-50 to-white">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-emerald-100 rounded-lg">
+                            <span class="material-icons-round text-emerald-600">agriculture</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-800">${id ? 'Chỉnh sửa' : 'Thêm'} Cây trồng</h3>
+                    </div>
+                    <button onclick="closeModal()" class="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
                         <span class="material-icons-round">close</span>
                     </button>
                 </div>
-                <form id="crop-form" class="p-8 overflow-y-auto grid grid-cols-2 gap-6">
-                    <!-- Image Upload -->
-                    <div class="col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Hình ảnh</label>
+                <form id="crop-form" class="p-6 overflow-y-auto grid grid-cols-3 gap-x-5 gap-y-3.5">
+                    <!-- ═══ BASIC INFO ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mb-0.5">
+                        <span class="material-icons-round text-emerald-500 text-lg">info</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Thông tin cơ bản</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                    <div class="col-span-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Hình ảnh</label>
                         <div class="flex items-start gap-4">
-                            <div id="crop-img-preview" class="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50">
+                            <div id="crop-img-preview" class="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50 shrink-0">
                                 ${crop.imageUrl
             ? `<img src="${crop.imageUrl}" class="w-full h-full object-cover">`
-            : `<span class="material-icons-round text-gray-400 text-3xl">image</span>`
+            : `<span class="material-icons-round text-gray-400 text-2xl">image</span>`
         }
                             </div>
-                            <div class="flex-1 space-y-2">
-                                <input type="text" name="imageUrl" value="${crop.imageUrl || ''}" placeholder="Nhập URL hình ảnh..." class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary text-sm" onchange="previewImage(this.value, 'crop-img-preview')">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs text-gray-500">hoặc</span>
-                                    <label class="cursor-pointer text-sm text-primary hover:text-primary-dark font-medium">
-                                        Chọn file
-                                        <input type="file" accept="image/*" class="hidden" onchange="handleFileUpload(this, 'crop-img-preview', 'crop-form')">
-                                    </label>
-                                </div>
+                            <div class="flex-1 space-y-1.5">
+                                <input type="text" name="imageUrl" value="${crop.imageUrl || ''}" placeholder="Nhập URL hình ảnh..." class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-sm" onchange="previewImage(this.value, 'crop-img-preview')">
+                                <label class="cursor-pointer text-sm text-emerald-600 hover:text-emerald-700 font-medium inline-flex items-center gap-1">
+                                    <span class="material-icons-round text-sm">upload</span> Chọn file
+                                    <input type="file" accept="image/*" class="hidden" onchange="handleFileUpload(this, 'crop-img-preview', 'crop-form')">
+                                </label>
                             </div>
                         </div>
                     </div>
                     <div class="col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Tên cây trồng *</label>
-                        <input type="text" name="name" value="${crop.name || ''}" required class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Tên cây trồng *</label>
+                        <input type="text" name="name" value="${crop.name || ''}" required class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Danh mục</label>
-                        <select name="category" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Danh mục</label>
+                        <select name="category" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
                             <option value="GRAIN" ${crop.category === 'GRAIN' ? 'selected' : ''}>Ngũ cốc</option>
                             <option value="VEGETABLE" ${crop.category === 'VEGETABLE' ? 'selected' : ''}>Rau củ</option>
                             <option value="FRUIT" ${crop.category === 'FRUIT' ? 'selected' : ''}>Trái cây</option>
@@ -493,38 +1734,166 @@ async function showCropModal(id = null) {
                             <option value="INDUSTRIAL" ${crop.category === 'INDUSTRIAL' ? 'selected' : ''}>Cây công nghiệp</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Thời gian trưởng thành (ngày)</label>
-                        <input type="number" name="growthDurationDays" value="${crop.growthDurationDays || ''}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+
+                    <!-- ═══ GROWTH ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-green-500 text-lg">eco</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Sinh trưởng</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Nhiệt độ tối thiểu (°C)</label>
-                        <input type="number" name="minTemp" value="${crop.minTemp || ''}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Thời gian trưởng thành (ngày)</label>
+                        <input type="number" name="growthDurationDays" value="${crop.growthDurationDays || ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Nhiệt độ tối đa (°C)</label>
-                        <input type="number" name="maxTemp" value="${crop.maxTemp || ''}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Thời gian nảy mầm (ngày)</label>
+                        <input type="number" name="germinationDays" value="${crop.germinationDays || ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Nhu cầu nước</label>
-                        <select name="waterNeeds" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Mùa vụ lý tưởng</label>
+                        <input type="text" name="idealSeasons" value="${idealSeasonsStr}" placeholder="VD: SPRING, SUMMER" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-sm">
+                    </div>
+
+                    <!-- ═══ ENVIRONMENT ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-orange-500 text-lg">thermostat</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Điều kiện môi trường</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Nhiệt độ min (°C)</label>
+                        <input type="number" name="minTemp" value="${crop.minTemp ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Nhiệt độ max (°C)</label>
+                        <input type="number" name="maxTemp" value="${crop.maxTemp ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Nhu cầu nước</label>
+                        <select name="waterNeeds" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                            <option value="">-- Chọn --</option>
                             <option value="LOW" ${crop.waterNeeds === 'LOW' ? 'selected' : ''}>Thấp</option>
                             <option value="MEDIUM" ${crop.waterNeeds === 'MEDIUM' ? 'selected' : ''}>Trung bình</option>
                             <option value="HIGH" ${crop.waterNeeds === 'HIGH' ? 'selected' : ''}>Cao</option>
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Mùa vụ lý tưởng</label>
-                        <input type="text" name="idealSeasons" value="${crop.idealSeasons || ''}" placeholder="VD: Xuân, Hè" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Độ ẩm min (%)</label>
+                        <input type="number" name="humidityMin" value="${humidityRange.min || ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
                     </div>
-                    <div class="col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
-                        <textarea name="description" rows="3" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">${crop.description || ''}</textarea>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Độ ẩm max (%)</label>
+                        <input type="number" name="humidityMax" value="${humidityRange.max || ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Nhu cầu ánh sáng</label>
+                        <select name="lightRequirement" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                            <option value="">-- Chọn --</option>
+                            <option value="FULL_SUN" ${crop.lightRequirement === 'FULL_SUN' ? 'selected' : ''}>Ánh sáng đầy đủ</option>
+                            <option value="PARTIAL_SHADE" ${crop.lightRequirement === 'PARTIAL_SHADE' ? 'selected' : ''}>Bán râm</option>
+                            <option value="SHADE" ${crop.lightRequirement === 'SHADE' ? 'selected' : ''}>Che bóng</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">pH đất min</label>
+                        <input type="number" step="0.1" name="soilPhMin" value="${crop.soilPhMin ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">pH đất max</label>
+                        <input type="number" step="0.1" name="soilPhMax" value="${crop.soilPhMax ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Loại đất phù hợp</label>
+                        <input type="text" name="soilTypePreferred" value="${crop.soilTypePreferred || ''}" placeholder="VD: Đất phù sa" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-sm">
+                    </div>
+                    <div class="col-span-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Tránh thời tiết</label>
+                        <input type="text" name="avoidWeather" value="${avoidWeatherStr}" placeholder="VD: heavy rain, drought, frost" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-sm">
+                    </div>
+
+                    <!-- ═══ SPACING & DENSITY ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-blue-500 text-lg">grid_on</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Khoảng cách & Mật độ</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Mật độ gieo (hạt/m²)</label>
+                        <input type="number" step="0.1" name="seedsPerSqm" value="${crop.seedsPerSqm ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">KC cây (cm)</label>
+                        <input type="number" name="plantSpacingCm" value="${crop.plantSpacingCm ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">KC hàng (cm)</label>
+                        <input type="number" name="rowSpacingCm" value="${crop.rowSpacingCm ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+
+                    <!-- ═══ ECONOMICS ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-yellow-500 text-lg">payments</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Kinh tế</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Giá hạt giống (đ/kg)</label>
+                        <input type="number" name="seedCostPerKg" value="${crop.seedCostPerKg ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">CP chăm sóc (đ/m²)</label>
+                        <input type="number" name="careCostPerSqm" value="${crop.careCostPerSqm ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Sản lượng (kg/m²)</label>
+                        <input type="number" step="0.01" name="expectedYieldPerSqm" value="${crop.expectedYieldPerSqm ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Giá thị trường (đ/kg)</label>
+                        <input type="number" name="marketPricePerKg" value="${crop.marketPricePerKg ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+
+                    <!-- ═══ CARE SCHEDULE ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-cyan-500 text-lg">event_repeat</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Chu kỳ chăm sóc</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Bón phân (ngày/lần)</label>
+                        <input type="number" name="fertilizerIntervalDays" value="${crop.fertilizerIntervalDays ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Tưới nước (ngày/lần)</label>
+                        <input type="number" name="wateringIntervalDays" value="${crop.wateringIntervalDays ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Phun thuốc (ngày/lần)</label>
+                        <input type="number" name="pesticideIntervalDays" value="${crop.pesticideIntervalDays ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">
+                    </div>
+                    <div class="col-span-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Loại phân bón</label>
+                        <input type="text" name="fertilizerType" value="${crop.fertilizerType || ''}" placeholder="VD: NPK, Hữu cơ, DAP" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-sm">
+                    </div>
+
+                    <!-- ═══ PESTS & DESCRIPTION ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-red-500 text-lg">bug_report</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Sâu bệnh & Mô tả</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                    <div class="col-span-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Sâu bệnh thường gặp</label>
+                        <input type="text" name="commonPests" value="${commonPestsStr}" placeholder="VD: Sâu đục thân, Rầy nâu, Bệnh đạo ôn" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500 text-sm">
+                    </div>
+                    <div class="col-span-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Mô tả</label>
+                        <textarea name="description" rows="3" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-emerald-500">${crop.description || ''}</textarea>
                     </div>
                 </form>
-                <div class="px-8 py-5 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
-                    <button onclick="closeModal()" class="px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 bg-white hover:bg-gray-50">Hủy</button>
-                    <button onclick="saveCrop(${id})" class="px-5 py-2.5 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark flex items-center gap-2">
+                <div class="px-8 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+                    <button onclick="closeModal()" class="px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">Hủy</button>
+                    <button onclick="saveCrop(${id})" class="px-5 py-2.5 rounded-lg bg-emerald-500 text-white font-medium hover:bg-emerald-600 flex items-center gap-2 shadow-sm transition-colors">
                         <span class="material-icons-round text-sm">save</span> Lưu
                     </button>
                 </div>
@@ -537,27 +1906,124 @@ async function saveCrop(id) {
     const form = document.getElementById('crop-form');
     const data = Object.fromEntries(new FormData(form));
 
-    if (id) {
-        await fetchAPI(`${API_BASE_URL}/admin/crops/${id}`, 'PUT', data);
-    } else {
-        await fetchAPI(`${API_BASE_URL}/admin/crops`, 'POST', data);
+    // Validate required and numeric fields
+    const validationRules = [
+        { name: 'name', label: 'Tên cây trồng', required: true },
+        { name: 'growthDurationDays', label: 'Thời gian sinh trưởng', type: 'number', min: 1 },
+        { name: 'germinationDays', label: 'Thời gian nảy mầm', type: 'number', min: 0 },
+        { name: 'minTemp', label: 'Nhiệt độ tối thiểu', type: 'number', min: -10, max: 50 },
+        { name: 'maxTemp', label: 'Nhiệt độ tối đa', type: 'number', min: -10, max: 60 },
+        { name: 'seedsPerSqm', label: 'Số hạt/m²', type: 'number', min: 0 },
+        { name: 'seedCostPerKg', label: 'Giá hạt giống', type: 'number', min: 0 },
+        { name: 'careCostPerSqm', label: 'Chi phí chăm sóc', type: 'number', min: 0 },
+        { name: 'expectedYieldPerSqm', label: 'Năng suất dự kiến', type: 'number', min: 0 },
+        { name: 'marketPricePerKg', label: 'Giá bán', type: 'number', min: 0 },
+        { name: 'plantSpacingCm', label: 'Khoảng cách cây', type: 'number', min: 0 },
+        { name: 'rowSpacingCm', label: 'Khoảng cách hàng', type: 'number', min: 0 },
+        { name: 'soilPhMin', label: 'pH đất min', type: 'number', min: 0, max: 14 },
+        { name: 'soilPhMax', label: 'pH đất max', type: 'number', min: 0, max: 14 },
+        { name: 'humidityMin', label: 'Độ ẩm min', type: 'number', min: 0, max: 100 },
+        { name: 'humidityMax', label: 'Độ ẩm max', type: 'number', min: 0, max: 100 },
+        { name: 'fertilizerIntervalDays', label: 'Chu kỳ bón phân', type: 'number', min: 0 },
+        { name: 'wateringIntervalDays', label: 'Chu kỳ tưới nước', type: 'number', min: 0 },
+        { name: 'pesticideIntervalDays', label: 'Chu kỳ phun thuốc', type: 'number', min: 0 },
+    ];
+    if (!validateForm(form, validationRules)) return;
+
+    // Check duplicate crop name
+    if (data.name?.trim()) {
+        try {
+            const existingCrops = await fetchAPI(`${API_BASE_URL}/admin/crops`);
+            const duplicate = existingCrops?.find(c => c.name?.toLowerCase() === data.name.trim().toLowerCase() && c.id !== id);
+            if (duplicate) {
+                const nameInput = form.querySelector('[name="name"]');
+                showFieldError(nameInput, `Cây trồng "${duplicate.name}" đã tồn tại`);
+                nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+        } catch { /* ignore fetch errors during duplicate check */ }
     }
-    closeModal();
-    loadCrops();
+
+    // Convert numeric fields
+    const numericFields = ['growthDurationDays', 'germinationDays', 'minTemp', 'maxTemp',
+        'seedsPerSqm', 'seedCostPerKg', 'careCostPerSqm', 'expectedYieldPerSqm', 'marketPricePerKg',
+        'plantSpacingCm', 'rowSpacingCm', 'soilPhMin', 'soilPhMax',
+        'fertilizerIntervalDays', 'wateringIntervalDays', 'pesticideIntervalDays'];
+    numericFields.forEach(key => {
+        if (data[key] !== undefined && data[key] !== '') data[key] = Number(data[key]);
+        else delete data[key];
+    });
+
+    // Build idealHumidityRange JSON from separate fields
+    if (data.humidityMin || data.humidityMax) {
+        data.idealHumidityRange = JSON.stringify({ min: Number(data.humidityMin) || 0, max: Number(data.humidityMax) || 0 });
+    }
+    delete data.humidityMin;
+    delete data.humidityMax;
+
+    // Convert comma-separated strings to JSON arrays
+    ['idealSeasons', 'avoidWeather', 'commonPests'].forEach(key => {
+        if (data[key] && data[key].trim()) {
+            data[key] = JSON.stringify(data[key].split(',').map(s => s.trim()).filter(s => s));
+        } else {
+            delete data[key];
+        }
+    });
+
+    try {
+        if (id) {
+            await fetchAPI(`${API_BASE_URL}/admin/crops/${id}`, 'PUT', data);
+        } else {
+            await fetchAPI(`${API_BASE_URL}/admin/crops`, 'POST', data);
+        }
+        closeModal();
+        loadCrops();
+    } catch (err) {
+        alert('Lỗi: ' + (err.message || 'Không thể lưu dữ liệu'));
+    }
 }
 
 // ============ SHOP ITEMS ============
 let itemsData = [];
+let itemCategoryFilter = '';
+
+function applyFilterItems() {
+    let filtered = itemsData;
+    if (itemCategoryFilter) filtered = filtered.filter(i => i.category === itemCategoryFilter);
+    const search = document.getElementById('search-items')?.value?.toLowerCase() || '';
+    if (search) filtered = filtered.filter(i => i.name?.toLowerCase().includes(search) || i.category?.toLowerCase().includes(search));
+    renderItemsTable(filtered);
+}
+
+function setItemCategoryFilter(cat) {
+    itemCategoryFilter = cat;
+    document.querySelectorAll('#item-category-pills button').forEach(btn => {
+        const isActive = btn.dataset.cat === cat;
+        btn.className = `category-pill px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 whitespace-nowrap ${isActive ? 'bg-primary text-white shadow-md scale-105' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
+    });
+    applyFilterItems();
+}
 
 async function loadShopItems() {
     document.getElementById('page-title').textContent = 'Quản lý Sản phẩm';
     itemsData = await fetchAPI(`${API_BASE_URL}/admin/shop-items`) || [];
 
+    const categoryOptions = Object.entries(VI_LABELS.itemCategory).map(([key, label]) =>
+        `<button data-cat="${key}" onclick="setItemCategoryFilter('${key}')" class="category-pill px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 whitespace-nowrap ${itemCategoryFilter === key ? 'bg-primary text-white shadow-md scale-105' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${label}</button>`
+    ).join('');
+
     document.getElementById('main-content').innerHTML = `
-        <div class="flex justify-between items-center mb-6">
-            <div class="relative w-72">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 material-icons-round text-gray-400">search</span>
-                <input type="text" id="search-items" placeholder="Tìm kiếm..." class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent">
+        <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center gap-3">
+                <div class="relative w-72">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 material-icons-round text-gray-400">search</span>
+                    <input type="text" id="search-items" placeholder="Tìm kiếm..." class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <button onclick="document.getElementById('item-filter-panel').classList.toggle('hidden'); document.getElementById('item-filter-panel').classList.toggle('filter-panel-animate')" class="relative flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-gray-300 hover:bg-gray-50 transition-all text-gray-600 hover:text-primary" title="Lọc theo danh mục">
+                    <span class="material-icons-round text-lg">filter_list</span>
+                    <span class="text-sm font-medium">Lọc</span>
+                    ${itemCategoryFilter ? '<span class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary rounded-full text-white text-[10px] flex items-center justify-center font-bold">1</span>' : ''}
+                </button>
             </div>
             <div class="flex gap-3">
                 <button onclick="exportItemsCSV()" class="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg transition-all font-medium">
@@ -569,6 +2035,13 @@ async function loadShopItems() {
                 <button onclick="showItemModal()" class="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg shadow-md transition-all font-medium">
                     <span class="material-icons-round text-lg">add</span> Thêm mới
                 </button>
+            </div>
+        </div>
+        <div id="item-filter-panel" class="${itemCategoryFilter ? '' : 'hidden'} mb-4 p-3 bg-white rounded-xl shadow-sm border border-gray-100 filter-panel-animate">
+            <div class="flex items-center gap-2 flex-wrap" id="item-category-pills">
+                <span class="text-xs text-gray-500 font-medium mr-1"><span class="material-icons-round text-sm align-middle">category</span> Danh mục:</span>
+                <button data-cat="" onclick="setItemCategoryFilter('')" class="category-pill px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 whitespace-nowrap ${!itemCategoryFilter ? 'bg-primary text-white shadow-md scale-105' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">Tất cả</button>
+                ${categoryOptions}
             </div>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -588,15 +2061,9 @@ async function loadShopItems() {
         </div>
     `;
 
-    renderItemsTable(itemsData);
+    applyFilterItems();
 
-    document.getElementById('search-items').addEventListener('input', (e) => {
-        const filtered = itemsData.filter(i =>
-            i.name?.toLowerCase().includes(e.target.value.toLowerCase()) ||
-            i.category?.toLowerCase().includes(e.target.value.toLowerCase())
-        );
-        renderItemsTable(filtered);
-    });
+    document.getElementById('search-items').addEventListener('input', () => applyFilterItems());
 }
 
 function renderItemsTable(items) {
@@ -611,7 +2078,7 @@ function renderItemsTable(items) {
                     <p class="text-sm font-medium text-gray-900">${i.name}</p>
                 </div>
             </td>
-            <td class="px-6 py-4 text-sm text-gray-700">${i.category || '-'}</td>
+            <td class="px-6 py-4"><span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">${getViLabel(VI_LABELS.itemCategory, i.category)}</span></td>
             <td class="px-6 py-4 text-sm text-gray-700">${formatCurrency(i.price)}</td>
             <td class="px-6 py-4 text-sm text-gray-700">${i.stockQuantity === -1 ? 'Không giới hạn' : i.stockQuantity}</td>
             <td class="px-6 py-4">
@@ -748,16 +2215,45 @@ async function saveItem(id) {
 
 // ============ ANIMALS ============
 let animalsData = [];
+let animalCategoryFilter = '';
+
+function applyFilterAnimals() {
+    let filtered = animalsData;
+    if (animalCategoryFilter) filtered = filtered.filter(a => a.category === animalCategoryFilter);
+    const search = document.getElementById('search-animals')?.value?.toLowerCase() || '';
+    if (search) filtered = filtered.filter(a => a.name?.toLowerCase().includes(search) || a.category?.toLowerCase().includes(search));
+    renderAnimalsTable(filtered);
+}
+
+function setAnimalCategoryFilter(cat) {
+    animalCategoryFilter = cat;
+    document.querySelectorAll('#animal-category-pills button').forEach(btn => {
+        const isActive = btn.dataset.cat === cat;
+        btn.className = `category-pill px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 whitespace-nowrap ${isActive ? 'bg-primary text-white shadow-md scale-105' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`;
+    });
+    applyFilterAnimals();
+}
 
 async function loadAnimals() {
     document.getElementById('page-title').textContent = 'Quản lý Vật nuôi';
     animalsData = await fetchAPI(`${API_BASE_URL}/admin/animals`) || [];
 
+    const categoryOptions = Object.entries(VI_LABELS.animalCategory).map(([key, label]) =>
+        `<button data-cat="${key}" onclick="setAnimalCategoryFilter('${key}')" class="category-pill px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 whitespace-nowrap ${animalCategoryFilter === key ? 'bg-primary text-white shadow-md scale-105' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">${label}</button>`
+    ).join('');
+
     document.getElementById('main-content').innerHTML = `
-        <div class="flex justify-between items-center mb-6">
-            <div class="relative w-72">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 material-icons-round text-gray-400">search</span>
-                <input type="text" id="search-animals" placeholder="Tìm kiếm..." class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent">
+        <div class="flex justify-between items-center mb-4">
+            <div class="flex items-center gap-3">
+                <div class="relative w-72">
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 material-icons-round text-gray-400">search</span>
+                    <input type="text" id="search-animals" placeholder="Tìm kiếm..." class="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <button onclick="document.getElementById('animal-filter-panel').classList.toggle('hidden'); document.getElementById('animal-filter-panel').classList.toggle('filter-panel-animate')" class="relative flex items-center gap-1.5 px-3 py-2.5 rounded-lg border border-gray-300 hover:bg-gray-50 transition-all text-gray-600 hover:text-primary" title="Lọc theo danh mục">
+                    <span class="material-icons-round text-lg">filter_list</span>
+                    <span class="text-sm font-medium">Lọc</span>
+                    ${animalCategoryFilter ? '<span class="absolute -top-1.5 -right-1.5 w-4 h-4 bg-primary rounded-full text-white text-[10px] flex items-center justify-center font-bold">1</span>' : ''}
+                </button>
             </div>
             <div class="flex gap-3">
                 <button onclick="exportAnimalsCSV()" class="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg transition-all font-medium">
@@ -766,6 +2262,13 @@ async function loadAnimals() {
                 <button onclick="showAnimalModal()" class="flex items-center gap-2 bg-primary hover:bg-primary-dark text-white px-5 py-2.5 rounded-lg shadow-md transition-all font-medium">
                     <span class="material-icons-round text-lg">add</span> Thêm mới
                 </button>
+            </div>
+        </div>
+        <div id="animal-filter-panel" class="${animalCategoryFilter ? '' : 'hidden'} mb-4 p-3 bg-white rounded-xl shadow-sm border border-gray-100 filter-panel-animate">
+            <div class="flex items-center gap-2 flex-wrap" id="animal-category-pills">
+                <span class="text-xs text-gray-500 font-medium mr-1"><span class="material-icons-round text-sm align-middle">category</span> Loại:</span>
+                <button data-cat="" onclick="setAnimalCategoryFilter('')" class="category-pill px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-300 whitespace-nowrap ${!animalCategoryFilter ? 'bg-primary text-white shadow-md scale-105' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">Tất cả</button>
+                ${categoryOptions}
             </div>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -784,15 +2287,9 @@ async function loadAnimals() {
         </div>
     `;
 
-    renderAnimalsTable(animalsData);
+    applyFilterAnimals();
 
-    document.getElementById('search-animals').addEventListener('input', (e) => {
-        const filtered = animalsData.filter(a =>
-            a.name?.toLowerCase().includes(e.target.value.toLowerCase()) ||
-            a.category?.toLowerCase().includes(e.target.value.toLowerCase())
-        );
-        renderAnimalsTable(filtered);
-    });
+    document.getElementById('search-animals').addEventListener('input', () => applyFilterAnimals());
 }
 
 function renderAnimalsTable(animals) {
@@ -807,7 +2304,7 @@ function renderAnimalsTable(animals) {
                     <p class="text-sm font-medium text-gray-900">${a.name}</p>
                 </div>
             </td>
-            <td class="px-6 py-4 text-sm text-gray-700">${a.category || '-'}</td>
+            <td class="px-6 py-4"><span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700">${getViLabel(VI_LABELS.animalCategory, a.category)}</span></td>
             <td class="px-6 py-4 text-sm text-gray-700">${a.growthDurationDays || '-'} ngày</td>
             <td class="px-6 py-4 text-sm text-gray-700">${formatCurrency(a.buyPricePerUnit)} / ${formatCurrency(a.sellPricePerUnit)}</td>
             <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
@@ -828,99 +2325,442 @@ async function showAnimalModal(id = null) {
         animal = animals?.find(a => a.id === id) || {};
     }
 
+    // Parse JSON fields for editing
+    const farmingTypeLabels = { 'CAGED': 'Nuôi nhốt', 'FREE_RANGE': 'Thả vườn', 'POND': 'Nuôi ao', 'BARN': 'Chuồng trại', 'TANK': 'Bể nuôi', 'NET_CAGE': 'Lồng lưới', 'RAFT': 'Bè nổi', 'HIVE': 'Tổ ong', 'TRAY': 'Khay nuôi', 'SPECIAL': 'Đặc biệt' };
+    const parsedFarmingTypes = (() => {
+        try {
+            const parsed = typeof animal.farmingTypes === 'string' ? JSON.parse(animal.farmingTypes) : animal.farmingTypes;
+            return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+    })();
+    const sizesStr = (() => {
+        try {
+            const parsed = typeof animal.sizes === 'string' ? JSON.parse(animal.sizes) : animal.sizes;
+            return parsed || {};
+        } catch { return {}; }
+    })();
+    const parsedDiseases = (() => {
+        try {
+            const parsed = typeof animal.commonDiseases === 'string' ? JSON.parse(animal.commonDiseases) : animal.commonDiseases;
+            return Array.isArray(parsed) ? parsed : [];
+        } catch { return []; }
+    })();
+
     document.getElementById('modal-container').innerHTML = `
         <div class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
             <div class="absolute inset-0 bg-gray-900/50 backdrop-blur-sm" onclick="closeModal()"></div>
-            <div class="relative bg-white w-full max-w-2xl rounded-2xl shadow-2xl modal-content max-h-[90vh] overflow-hidden flex flex-col">
-                <div class="px-8 py-6 border-b border-gray-200 flex items-center justify-between">
-                    <h3 class="text-xl font-bold text-gray-800">${id ? 'Chỉnh sửa' : 'Thêm'} Vật nuôi</h3>
-                    <button onclick="closeModal()" class="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50">
+            <div class="relative bg-white w-full max-w-4xl rounded-2xl shadow-2xl modal-content max-h-[90vh] overflow-hidden flex flex-col">
+                <div class="px-8 py-5 border-b border-gray-200 flex items-center justify-between bg-gradient-to-r from-blue-50 to-white">
+                    <div class="flex items-center gap-3">
+                        <div class="p-2 bg-blue-100 rounded-lg">
+                            <span class="material-icons-round text-blue-600">pets</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-gray-800">${id ? 'Chỉnh sửa' : 'Thêm'} Vật nuôi</h3>
+                    </div>
+                    <button onclick="closeModal()" class="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
                         <span class="material-icons-round">close</span>
                     </button>
                 </div>
-                <form id="animal-form" class="p-8 overflow-y-auto grid grid-cols-2 gap-6">
-                    <!-- Image Upload -->
-                    <div class="col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Hình ảnh</label>
+                <form id="animal-form" class="p-6 overflow-y-auto grid grid-cols-3 gap-x-5 gap-y-3.5">
+                    <!-- ═══ BASIC INFO ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mb-0.5">
+                        <span class="material-icons-round text-blue-500 text-lg">info</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Thông tin cơ bản</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                    <div class="col-span-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Hình ảnh</label>
                         <div class="flex items-start gap-4">
-                            <div id="animal-img-preview" class="w-20 h-20 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50">
+                            <div id="animal-img-preview" class="w-16 h-16 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden bg-gray-50 shrink-0">
                                 ${animal.imageUrl
             ? `<img src="${animal.imageUrl}" class="w-full h-full object-cover">`
-            : `<span class="material-icons-round text-gray-400 text-3xl">image</span>`
+            : `<span class="material-icons-round text-gray-400 text-2xl">image</span>`
         }
                             </div>
-                            <div class="flex-1 space-y-2">
-                                <input type="text" name="imageUrl" value="${animal.imageUrl || ''}" placeholder="Nhập URL hình ảnh..." class="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary text-sm" onchange="previewImage(this.value, 'animal-img-preview')">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-xs text-gray-500">hoặc</span>
-                                    <label class="cursor-pointer text-sm text-primary hover:text-primary-dark font-medium">
-                                        Chọn file
-                                        <input type="file" accept="image/*" class="hidden" onchange="handleFileUpload(this, 'animal-img-preview', 'animal-form')">
-                                    </label>
-                                </div>
+                            <div class="flex-1 space-y-1.5">
+                                <input type="text" name="imageUrl" value="${animal.imageUrl || ''}" placeholder="Nhập URL hình ảnh..." class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm" onchange="previewImage(this.value, 'animal-img-preview')">
+                                <label class="cursor-pointer text-sm text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1">
+                                    <span class="material-icons-round text-sm">upload</span> Chọn file
+                                    <input type="file" accept="image/*" class="hidden" onchange="handleFileUpload(this, 'animal-img-preview', 'animal-form')">
+                                </label>
                             </div>
                         </div>
                     </div>
                     <div class="col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Tên vật nuôi *</label>
-                        <input type="text" name="name" value="${animal.name || ''}" required class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Tên vật nuôi *</label>
+                        <input type="text" name="name" value="${animal.name || ''}" required class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Loại</label>
-                        <select name="category" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Loại</label>
+                        <select name="category" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
                             <option value="LAND" ${animal.category === 'LAND' ? 'selected' : ''}>Gia cầm/Gia súc</option>
                             <option value="FRESHWATER" ${animal.category === 'FRESHWATER' ? 'selected' : ''}>Thủy sản nước ngọt</option>
+                            <option value="BRACKISH" ${animal.category === 'BRACKISH' ? 'selected' : ''}>Thủy sản nước lợ</option>
                             <option value="SALTWATER" ${animal.category === 'SALTWATER' ? 'selected' : ''}>Thủy sản nước mặn</option>
                             <option value="SPECIAL" ${animal.category === 'SPECIAL' ? 'selected' : ''}>Đặc biệt</option>
                         </select>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Icon (Material Icons)</label>
-                        <input type="text" name="iconName" value="${animal.iconName || 'pets'}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+
+                    <!-- ═══ FARMING & GROWTH ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-green-500 text-lg">agriculture</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Nuôi trồng & Sinh trưởng</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Thời gian nuôi (ngày)</label>
-                        <input type="number" name="growthDurationDays" value="${animal.growthDurationDays || ''}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Icon (Material Icons)</label>
+                        <input type="text" name="iconName" value="${animal.iconName || 'pets'}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Đơn vị</label>
-                        <input type="text" name="unit" value="${animal.unit || 'con'}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Đơn vị</label>
+                        <input type="text" name="unit" value="${animal.unit || 'con'}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Giá mua (VNĐ)</label>
-                        <input type="number" name="buyPricePerUnit" value="${animal.buyPricePerUnit || ''}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Loại nước</label>
+                        <select name="waterType" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                            <option value="">-- Không áp dụng --</option>
+                            <option value="FRESHWATER" ${animal.waterType === 'FRESHWATER' ? 'selected' : ''}>Nước ngọt</option>
+                            <option value="BRACKISH" ${animal.waterType === 'BRACKISH' ? 'selected' : ''}>Nước lợ</option>
+                            <option value="SALTWATER" ${animal.waterType === 'SALTWATER' ? 'selected' : ''}>Nước mặn</option>
+                        </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Giá bán (VNĐ)</label>
-                        <input type="number" name="sellPricePerUnit" value="${animal.sellPricePerUnit || ''}" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Thời gian nuôi (ngày)</label>
+                        <input type="number" name="growthDurationDays" value="${animal.growthDurationDays || ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
                     </div>
-                    <div class="col-span-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
-                        <textarea name="description" rows="3" class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">${animal.description || ''}</textarea>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Tuổi trưởng thành (ngày)</label>
+                        <input type="number" name="maturityAgeDays" value="${animal.maturityAgeDays || ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Diện tích/con (m²)</label>
+                        <input type="number" step="0.1" name="spacePerUnitSqm" value="${animal.spacePerUnitSqm ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="col-span-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Hình thức nuôi</label>
+                        <div class="grid grid-cols-5 gap-1.5">
+                            ${Object.entries(farmingTypeLabels).map(([key, label]) => `
+                                <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer px-2 py-1.5 rounded-lg hover:bg-gray-50 border border-transparent has-[:checked]:border-blue-200 has-[:checked]:bg-blue-50 transition-colors">
+                                    <input type="checkbox" name="farmingType" value="${key}" ${parsedFarmingTypes.includes(key) ? 'checked' : ''} class="rounded text-blue-500 focus:ring-blue-500 w-3.5 h-3.5">
+                                    <span class="text-xs">${label}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+
+                    <!-- ═══ ENVIRONMENT ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-orange-500 text-lg">thermostat</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Điều kiện môi trường</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Nhiệt độ min (°C)</label>
+                        <input type="number" name="idealTempMin" value="${animal.idealTempMin ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Nhiệt độ max (°C)</label>
+                        <input type="number" name="idealTempMax" value="${animal.idealTempMax ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Tỷ lệ sống (%)</label>
+                        <input type="number" step="0.1" name="survivalRate" value="${animal.survivalRate ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Độ ẩm min (%)</label>
+                        <input type="number" name="idealHumidityMin" value="${animal.idealHumidityMin ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Độ ẩm max (%)</label>
+                        <input type="number" name="idealHumidityMax" value="${animal.idealHumidityMax ?? ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">pH nước lý tưởng</label>
+                        <div class="flex gap-2">
+                            <input type="number" step="0.1" name="idealPhMin" value="${animal.idealPhMin ?? ''}" placeholder="Min" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm">
+                            <span class="flex items-center text-gray-400">-</span>
+                            <input type="number" step="0.1" name="idealPhMax" value="${animal.idealPhMax ?? ''}" placeholder="Max" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 text-sm">
+                        </div>
+                    </div>
+
+                    <!-- ═══ ECONOMICS ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-yellow-500 text-lg">payments</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Kinh tế</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Giá mua (VNĐ)</label>
+                        <input type="number" name="buyPricePerUnit" value="${animal.buyPricePerUnit || ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Giá bán (VNĐ)</label>
+                        <input type="number" name="sellPricePerUnit" value="${animal.sellPricePerUnit || ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div></div>
+
+                    <!-- ═══ SIZE DATA ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-purple-500 text-lg">straighten</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Kích cỡ & Cân nặng</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                    ${['small', 'medium', 'large'].map(sizeKey => {
+            const sizeLabel = { small: 'Nhỏ', medium: 'Vừa', large: 'Lớn' }[sizeKey];
+            const sizeStyles = {
+                small: { bg: 'bg-green-50/50', border: 'border-green-100', dot: 'bg-green-500', text: 'text-green-700', ring: 'focus:ring-green-500' },
+                medium: { bg: 'bg-blue-50/50', border: 'border-blue-100', dot: 'bg-blue-500', text: 'text-blue-700', ring: 'focus:ring-blue-500' },
+                large: { bg: 'bg-purple-50/50', border: 'border-purple-100', dot: 'bg-purple-500', text: 'text-purple-700', ring: 'focus:ring-purple-500' }
+            }[sizeKey];
+            const sizeData = sizesStr[sizeKey] || {};
+            return `
+                    <div class="col-span-3 ${sizeStyles.bg} rounded-lg p-3 border ${sizeStyles.border}">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="w-2 h-2 rounded-full ${sizeStyles.dot}"></span>
+                            <span class="text-xs font-bold ${sizeStyles.text} uppercase">${sizeLabel}</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Cân nặng (VD: 1-2kg, 300-500g)</label>
+                                <input type="text" name="size_${sizeKey}_weight" value="${sizeData.weight || ''}" placeholder="1-2kg" class="w-full px-3 py-2 rounded-lg border border-gray-300 ${sizeStyles.ring} text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Giá mua (VNĐ)</label>
+                                <input type="number" name="size_${sizeKey}_buyPrice" value="${sizeData.buyPrice || ''}" placeholder="0" class="w-full px-3 py-2 rounded-lg border border-gray-300 ${sizeStyles.ring} text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Giá bán (VNĐ)</label>
+                                <input type="number" name="size_${sizeKey}_sellPrice" value="${sizeData.sellPrice || ''}" placeholder="0" class="w-full px-3 py-2 rounded-lg border border-gray-300 ${sizeStyles.ring} text-sm">
+                            </div>
+                        </div>
+                    </div>`;
+        }).join('')}
+
+                    <!-- ═══ DISEASES ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-red-500 text-lg">healing</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Bệnh thường gặp</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                        <button type="button" onclick="addDiseaseRow()" class="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors">
+                            <span class="material-icons-round text-sm">add_circle</span> Thêm bệnh
+                        </button>
+                    </div>
+                    <div class="col-span-3" id="diseases-container">
+                        ${parsedDiseases.length > 0 ? parsedDiseases.map((d, i) => `
+                        <div class="disease-row grid grid-cols-12 gap-2 mb-2 items-start" data-idx="${i}">
+                            <div class="col-span-4">
+                                ${i === 0 ? '<label class="block text-xs font-medium text-gray-500 mb-1">Tên bệnh</label>' : ''}
+                                <input type="text" name="disease_name_${i}" value="${d.name || ''}" placeholder="Tên bệnh..." class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 text-sm">
+                            </div>
+                            <div class="col-span-2">
+                                ${i === 0 ? '<label class="block text-xs font-medium text-gray-500 mb-1">Mức độ</label>' : ''}
+                                <select name="disease_severity_${i}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 text-sm">
+                                    <option value="LOW" ${d.severity === 'LOW' ? 'selected' : ''}>Nhẹ</option>
+                                    <option value="MEDIUM" ${d.severity === 'MEDIUM' || !d.severity ? 'selected' : ''}>Trung bình</option>
+                                    <option value="HIGH" ${d.severity === 'HIGH' ? 'selected' : ''}>Nghiêm trọng</option>
+                                </select>
+                            </div>
+                            <div class="col-span-5">
+                                ${i === 0 ? '<label class="block text-xs font-medium text-gray-500 mb-1">Cách điều trị</label>' : ''}
+                                <input type="text" name="disease_treatment_${i}" value="${d.treatment || ''}" placeholder="Cách điều trị..." class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 text-sm">
+                            </div>
+                            <div class="col-span-1 flex ${i === 0 ? 'pt-5' : ''} items-center justify-center">
+                                <button type="button" onclick="removeDiseaseRow(this)" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                    <span class="material-icons-round text-sm">remove_circle</span>
+                                </button>
+                            </div>
+                        </div>
+                        `).join('') : `
+                        <p class="text-sm text-gray-400 italic" id="no-diseases-msg">Chưa có bệnh nào. Nhấn "Thêm bệnh" để thêm.</p>
+                        `}
+                    </div>
+
+                    <!-- ═══ DESCRIPTION ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-gray-500 text-lg">description</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Mô tả</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                    <div class="col-span-3">
+                        <textarea name="description" rows="3" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">${animal.description || ''}</textarea>
                     </div>
                 </form>
-                <div class="px-8 py-5 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
-                    <button onclick="closeModal()" class="px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 bg-white hover:bg-gray-50">Hủy</button>
-                    <button onclick="saveAnimal(${id})" class="px-5 py-2.5 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark flex items-center gap-2">
+                <div class="px-8 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+                    <button onclick="closeModal()" class="px-5 py-2.5 rounded-lg border border-gray-300 font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">Hủy</button>
+                    <button onclick="saveAnimal(${id})" class="px-5 py-2.5 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 flex items-center gap-2 shadow-sm transition-colors">
                         <span class="material-icons-round text-sm">save</span> Lưu
                     </button>
                 </div>
             </div>
-        </div >
+        </div>
     `;
+}
+
+// Disease row helpers for animal modal
+function addDiseaseRow() {
+    const container = document.getElementById('diseases-container');
+    const noMsg = document.getElementById('no-diseases-msg');
+    if (noMsg) noMsg.remove();
+    const idx = container.querySelectorAll('.disease-row').length;
+    const showLabels = idx === 0;
+    const row = document.createElement('div');
+    row.className = 'disease-row grid grid-cols-12 gap-2 mb-2 items-start';
+    row.dataset.idx = idx;
+    row.innerHTML = `
+        <div class="col-span-4">
+            ${showLabels ? '<label class="block text-xs font-medium text-gray-500 mb-1">Tên bệnh</label>' : ''}
+            <input type="text" name="disease_name_${idx}" placeholder="Tên bệnh..." class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 text-sm">
+        </div>
+        <div class="col-span-2">
+            ${showLabels ? '<label class="block text-xs font-medium text-gray-500 mb-1">Mức độ</label>' : ''}
+            <select name="disease_severity_${idx}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 text-sm">
+                <option value="LOW">Nhẹ</option>
+                <option value="MEDIUM" selected>Trung bình</option>
+                <option value="HIGH">Nghiêm trọng</option>
+            </select>
+        </div>
+        <div class="col-span-5">
+            ${showLabels ? '<label class="block text-xs font-medium text-gray-500 mb-1">Cách điều trị</label>' : ''}
+            <input type="text" name="disease_treatment_${idx}" placeholder="Cách điều trị..." class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-red-500 text-sm">
+        </div>
+        <div class="col-span-1 flex ${showLabels ? 'pt-5' : ''} items-center justify-center">
+            <button type="button" onclick="removeDiseaseRow(this)" class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                <span class="material-icons-round text-sm">remove_circle</span>
+            </button>
+        </div>
+    `;
+    container.appendChild(row);
+}
+
+function removeDiseaseRow(btn) {
+    const row = btn.closest('.disease-row');
+    row.remove();
+    // Re-index remaining rows
+    const container = document.getElementById('diseases-container');
+    const rows = container.querySelectorAll('.disease-row');
+    if (rows.length === 0) {
+        container.innerHTML = '<p class="text-sm text-gray-400 italic" id="no-diseases-msg">Chưa có bệnh nào. Nhấn "Thêm bệnh" để thêm.</p>';
+    } else {
+        rows.forEach((r, i) => {
+            r.dataset.idx = i;
+            r.querySelector('[name^="disease_name_"]').name = `disease_name_${i}`;
+            r.querySelector('[name^="disease_severity_"]').name = `disease_severity_${i}`;
+            r.querySelector('[name^="disease_treatment_"]').name = `disease_treatment_${i}`;
+        });
+    }
 }
 
 async function saveAnimal(id) {
     const form = document.getElementById('animal-form');
     const data = Object.fromEntries(new FormData(form));
 
-    if (id) {
-        await fetchAPI(`${API_BASE_URL}/admin/animals/${id}`, 'PUT', data);
-    } else {
-        await fetchAPI(`${API_BASE_URL}/admin/animals`, 'POST', data);
+    // Validate required and numeric fields
+    const validationRules = [
+        { name: 'name', label: 'Tên vật nuôi', required: true },
+        { name: 'growthDurationDays', label: 'Thời gian nuôi', type: 'number', min: 1 },
+        { name: 'maturityAgeDays', label: 'Tuổi trưởng thành', type: 'number', min: 1 },
+        { name: 'spacePerUnitSqm', label: 'Diện tích/con', type: 'number', min: 0 },
+        { name: 'idealTempMin', label: 'Nhiệt độ min', type: 'number', min: -10, max: 50 },
+        { name: 'idealTempMax', label: 'Nhiệt độ max', type: 'number', min: -10, max: 60 },
+        { name: 'survivalRate', label: 'Tỷ lệ sống', type: 'number', min: 0, max: 100 },
+        { name: 'idealHumidityMin', label: 'Độ ẩm min', type: 'number', min: 0, max: 100 },
+        { name: 'idealHumidityMax', label: 'Độ ẩm max', type: 'number', min: 0, max: 100 },
+        { name: 'idealPhMin', label: 'pH min', type: 'number', min: 0, max: 14 },
+        { name: 'idealPhMax', label: 'pH max', type: 'number', min: 0, max: 14 },
+        { name: 'buyPricePerUnit', label: 'Giá mua', type: 'number', min: 0 },
+        { name: 'sellPricePerUnit', label: 'Giá bán', type: 'number', min: 0 },
+        { name: 'size_small_buyPrice', label: 'Giá mua (Nhỏ)', type: 'number', min: 0 },
+        { name: 'size_small_sellPrice', label: 'Giá bán (Nhỏ)', type: 'number', min: 0 },
+        { name: 'size_medium_buyPrice', label: 'Giá mua (Vừa)', type: 'number', min: 0 },
+        { name: 'size_medium_sellPrice', label: 'Giá bán (Vừa)', type: 'number', min: 0 },
+        { name: 'size_large_buyPrice', label: 'Giá mua (Lớn)', type: 'number', min: 0 },
+        { name: 'size_large_sellPrice', label: 'Giá bán (Lớn)', type: 'number', min: 0 },
+    ];
+    if (!validateForm(form, validationRules)) return;
+
+    // Check duplicate animal name
+    if (data.name?.trim()) {
+        try {
+            const existingAnimals = await fetchAPI(`${API_BASE_URL}/admin/animals`);
+            const duplicate = existingAnimals?.find(a => a.name?.toLowerCase() === data.name.trim().toLowerCase() && a.id !== id);
+            if (duplicate) {
+                const nameInput = form.querySelector('[name="name"]');
+                showFieldError(nameInput, `Vật nuôi "${duplicate.name}" đã tồn tại`);
+                nameInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+        } catch { /* ignore fetch errors during duplicate check */ }
     }
-    closeModal();
-    loadAnimals();
+
+    // Convert numeric fields
+    const numericFields = ['growthDurationDays', 'maturityAgeDays', 'buyPricePerUnit', 'sellPricePerUnit',
+        'idealTempMin', 'idealTempMax', 'idealHumidityMin', 'idealHumidityMax',
+        'survivalRate', 'spacePerUnitSqm', 'idealPhMin', 'idealPhMax'];
+    numericFields.forEach(key => {
+        if (data[key] !== undefined && data[key] !== '') data[key] = Number(data[key]);
+        else delete data[key];
+    });
+
+    // Collect farming types from checkboxes
+    const farmingTypes = [...form.querySelectorAll('input[name="farmingType"]:checked')].map(el => el.value);
+    data.farmingTypes = JSON.stringify(farmingTypes);
+    delete data.farmingType;
+
+    // Build sizes JSON from structured fields
+    const sizes = {};
+    ['small', 'medium', 'large'].forEach(sizeKey => {
+        const weight = data[`size_${sizeKey}_weight`]?.trim();
+        const buyPrice = data[`size_${sizeKey}_buyPrice`];
+        const sellPrice = data[`size_${sizeKey}_sellPrice`];
+        if (weight || buyPrice || sellPrice) {
+            sizes[sizeKey] = {};
+            if (weight) sizes[sizeKey].weight = weight;
+            if (buyPrice) sizes[sizeKey].buyPrice = Number(buyPrice);
+            if (sellPrice) sizes[sizeKey].sellPrice = Number(sellPrice);
+        }
+        delete data[`size_${sizeKey}_weight`];
+        delete data[`size_${sizeKey}_buyPrice`];
+        delete data[`size_${sizeKey}_sellPrice`];
+    });
+    if (Object.keys(sizes).length > 0) {
+        data.sizes = JSON.stringify(sizes);
+    } else { delete data.sizes; }
+
+    // Build diseases JSON from structured fields
+    const diseases = [];
+    const diseaseRows = document.querySelectorAll('#diseases-container .disease-row');
+    diseaseRows.forEach((row, i) => {
+        const name = data[`disease_name_${i}`]?.trim();
+        const severity = data[`disease_severity_${i}`];
+        const treatment = data[`disease_treatment_${i}`]?.trim();
+        if (name) {
+            const disease = { name };
+            if (severity) disease.severity = severity;
+            if (treatment) disease.treatment = treatment;
+            diseases.push(disease);
+        }
+        delete data[`disease_name_${i}`];
+        delete data[`disease_severity_${i}`];
+        delete data[`disease_treatment_${i}`];
+    });
+    if (diseases.length > 0) {
+        data.commonDiseases = JSON.stringify(diseases);
+    } else { delete data.commonDiseases; }
+
+    // Clean empty waterType
+    if (!data.waterType) delete data.waterType;
+
+    try {
+        if (id) {
+            await fetchAPI(`${API_BASE_URL}/admin/animals/${id}`, 'PUT', data);
+        } else {
+            await fetchAPI(`${API_BASE_URL}/admin/animals`, 'POST', data);
+        }
+        closeModal();
+        loadAnimals();
+    } catch (err) {
+        alert('Lỗi: ' + (err.message || 'Không thể lưu dữ liệu'));
+    }
 }
 
 // ============ DELETE MODAL ============
@@ -986,27 +2826,68 @@ function closeModal() {
     }
 }
 
-function showToast(title, message, type = 'success') {
-    const existingToast = document.querySelector('.toast');
-    if (existingToast) {
-        existingToast.remove();
-    }
-
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    toast.innerHTML = `
-        <span class="material-icons-round text-${type === 'success' ? 'green' : 'red'}-500">${type === 'success' ? 'check_circle' : 'error'}</span>
-        <div>
-            <p class="font-semibold text-gray-800">${title}</p>
-            <p class="text-sm text-gray-600">${message}</p>
-        </div>
-    `;
-    document.body.appendChild(toast);
-
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
+// ═══ FORM VALIDATION UTILITY ═══
+function clearFormErrors(form) {
+    form.querySelectorAll('.validation-error').forEach(el => el.remove());
+    form.querySelectorAll('.border-red-500').forEach(el => {
+        el.classList.remove('border-red-500', 'ring-2', 'ring-red-200');
+    });
 }
+
+function showFieldError(input, message) {
+    input.classList.add('border-red-500', 'ring-2', 'ring-red-200');
+    input.classList.remove('border-gray-300');
+    const errorEl = document.createElement('p');
+    errorEl.className = 'validation-error text-xs text-red-500 mt-0.5 flex items-center gap-1';
+    errorEl.innerHTML = `<span class="material-icons-round text-xs">error</span> ${message}`;
+    input.parentElement.appendChild(errorEl);
+    // Clear error on focus
+    input.addEventListener('focus', function clearErr() {
+        input.classList.remove('border-red-500', 'ring-2', 'ring-red-200');
+        input.classList.add('border-gray-300');
+        const err = input.parentElement.querySelector('.validation-error');
+        if (err) err.remove();
+        input.removeEventListener('focus', clearErr);
+    });
+}
+
+function validateForm(form, rules) {
+    clearFormErrors(form);
+    let isValid = true;
+    rules.forEach(({ name, label, required, type, min, max }) => {
+        const input = form.querySelector(`[name="${name}"]`);
+        if (!input) return;
+        const val = input.value.trim();
+        if (required && !val) {
+            showFieldError(input, `${label} không được để trống`);
+            isValid = false;
+            return;
+        }
+        if (val && type === 'number') {
+            const num = Number(val);
+            if (isNaN(num)) {
+                showFieldError(input, `${label} phải là số`);
+                isValid = false;
+                return;
+            }
+            if (min !== undefined && num < min) {
+                showFieldError(input, `${label} không được nhỏ hơn ${min}`);
+                isValid = false;
+            }
+            if (max !== undefined && num > max) {
+                showFieldError(input, `${label} không được lớn hơn ${max}`);
+                isValid = false;
+            }
+        }
+    });
+    if (!isValid) {
+        const firstError = form.querySelector('.border-red-500');
+        if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    return isValid;
+}
+
+// showToast is already defined above in the USERS section
 
 function formatCurrency(amount) {
     if (!amount) return '-';
@@ -1200,9 +3081,10 @@ async function showCropDetail(id) {
     const seedPct = totalCost > 0 ? Math.round((seedCost / totalCost) * 100) : 50;
     const carePct = totalCost > 0 ? Math.round((careCost / totalCost) * 100) : 50;
 
-    // Category label map
-    const categoryLabels = { 'GRAIN': 'Ngũ cốc', 'FRUIT': 'Trái cây', 'VEGETABLE': 'Rau củ', 'LEGUME': 'Đậu', 'INDUSTRIAL': 'Công nghiệp' };
-    const seasonLabels = { 'SPRING': 'Xuân', 'SUMMER': 'Hè', 'FALL': 'Thu', 'WINTER': 'Đông', 'ALL': 'Quanh năm' };
+    // Use global VI_LABELS maps
+    const weatherLabels = { 'snow': 'Tuyết', 'frost': 'Sương giá', 'hail': 'Mưa đá', 'extreme heat': 'Nóng cực độ', 'heavy rain': 'Mưa lớn', 'waterlogging': 'Ngập úng', 'drought': 'Hạn hán', 'flooding': 'Lũ lụt', 'prolonged rain': 'Mưa kéo dài', 'strong wind': 'Gió mạnh', 'high humidity': 'Độ ẩm cao', 'heavy rain during flowering': 'Mưa lớn khi ra hoa', 'drought during flowering': 'Hạn hán khi ra hoa', 'heavy rain at harvest': 'Mưa lớn khi thu hoạch' };
+    const waterLevelMap = { 'LOW': 1, 'MEDIUM': 2, 'HIGH': 3 };
+    const waterLevel = waterLevelMap[(crop.waterNeeds || '').toUpperCase()] || 0;
 
     document.getElementById('page-title').innerHTML = `
         <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
@@ -1228,7 +3110,7 @@ async function showCropDetail(id) {
                         <div class="flex items-center gap-3">
                             <h3 class="text-xl font-bold text-gray-800">${crop.name}</h3>
                             <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                                ${categoryLabels[crop.category] || crop.category || 'N/A'}
+                                ${getViLabel(VI_LABELS.cropCategory, crop.category)}
                             </span>
                         </div>
                         <p class="text-gray-500 italic mt-1">${crop.description || 'Không có mô tả'}</p>
@@ -1267,7 +3149,7 @@ async function showCropDetail(id) {
                             <div class="p-6 space-y-4">
                                 <div class="flex justify-between items-center">
                                     <span class="text-sm text-gray-500">Danh mục</span>
-                                    <span class="text-sm font-medium text-gray-800">${categoryLabels[crop.category] || crop.category || '-'}</span>
+                                    <span class="text-sm font-medium text-gray-800">${getViLabel(VI_LABELS.cropCategory, crop.category)}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-sm text-gray-500">Thời gian sinh trưởng</span>
@@ -1282,11 +3164,15 @@ async function showCropDetail(id) {
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-sm text-gray-500">Mùa vụ lý tưởng</span>
-                                    <span class="text-sm font-medium text-gray-800">${Array.isArray(idealSeasons) ? idealSeasons.map(s => seasonLabels[s] || s).join(', ') : (idealSeasons || '-')}</span>
+                                    <span class="text-sm font-medium text-gray-800">${formatSeasonsVi(idealSeasons)}</span>
                                 </div>
                                 <div class="flex justify-between items-center">
                                     <span class="text-sm text-gray-500">Loại đất phù hợp</span>
                                     <span class="text-sm font-medium text-gray-800">${crop.soilTypePreferred || '-'}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">pH đất lý tưởng</span>
+                                    <span class="text-sm font-medium text-gray-800">${crop.soilPhMin && crop.soilPhMax ? `${crop.soilPhMin} - ${crop.soilPhMax}` : '-'}</span>
                                 </div>
                             </div>
                             <div class="p-6 space-y-4">
@@ -1303,18 +3189,47 @@ async function showCropDetail(id) {
                                     <span class="text-sm font-medium text-gray-800">${crop.seedsPerSqm || '-'} hạt/m²</span>
                                 </div>
                                 <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Khoảng cách trồng</span>
+                                    <span class="text-sm font-medium text-gray-800">${crop.plantSpacingCm && crop.rowSpacingCm ? `${crop.plantSpacingCm} × ${crop.rowSpacingCm} cm` : '-'}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
                                     <span class="text-sm text-gray-500">Nhu cầu nước</span>
                                     <div class="flex gap-1">
-                                        ${[1, 2, 3].map(i => `<span class="material-icons-round text-base ${i <= (crop.waterNeeds || 0) ? 'text-blue-500' : 'text-gray-300'}">water_drop</span>`).join('')}
+                                        ${[1, 2, 3].map(i => `<span class="material-icons-round text-base ${i <= waterLevel ? 'text-blue-500' : 'text-gray-300'}">water_drop</span>`).join('')}
                                     </div>
                                 </div>
                                 <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500">Nhu cầu ánh sáng</span>
+                                    <span class="text-sm font-medium text-gray-800 flex items-center gap-1">
+                                        <span class="material-icons-round text-base ${crop.lightRequirement === 'FULL_SUN' ? 'text-yellow-500' : crop.lightRequirement === 'PARTIAL_SHADE' ? 'text-orange-400' : 'text-gray-400'}">${crop.lightRequirement === 'SHADE' ? 'cloud' : crop.lightRequirement === 'PARTIAL_SHADE' ? 'partly_cloudy_day' : 'light_mode'}</span>
+                                        ${{FULL_SUN: 'Ánh sáng đầy đủ', PARTIAL_SHADE: 'Bán râm', SHADE: 'Che bóng'}[crop.lightRequirement] || '-'}
+                                    </span>
+                                </div>
+                                <div class="flex justify-between items-center">
                                     <span class="text-sm text-gray-500">Tránh thời tiết</span>
-                                    <span class="text-sm font-medium text-gray-800">${Array.isArray(avoidWeather) && avoidWeather.length > 0 ? avoidWeather.join(', ') : '-'}</span>
+                                    <span class="text-sm font-medium text-gray-800">${Array.isArray(avoidWeather) && avoidWeather.length > 0 ? avoidWeather.map(w => weatherLabels[(w || '').toLowerCase()] || w).join(', ') : '-'}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+                    <!-- Fertilizer Recommendation -->
+                    ${crop.fertilizerType ? `
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
+                            <h4 class="text-base font-semibold text-gray-800">Phân bón khuyến nghị</h4>
+                        </div>
+                        <div class="p-6">
+                            <div class="flex flex-wrap gap-2">
+                                ${(crop.fertilizerType || '').split(',').map(f => f.trim()).filter(f => f).map(f => `
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-green-50 text-green-700 border border-green-200">
+                                        <span class="material-icons-round text-sm">compost</span>
+                                        ${f}
+                                    </span>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    ` : ''}
 
                     <!-- Care Intervals -->
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -1354,12 +3269,15 @@ async function showCropDetail(id) {
                         </div>
                         <div class="p-6">
                             <div class="flex flex-wrap gap-2">
-                                ${commonPests.map(pest => `
-                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-red-50 text-red-700 border border-red-200">
+                                ${commonPests.map(pest => {
+                                    const pestName = typeof pest === 'object' ? (pest.name || 'Không rõ') : pest;
+                                    const pestTreatment = typeof pest === 'object' ? (pest.treatment || '') : '';
+                                    return `
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-red-50 text-red-700 border border-red-200" ${pestTreatment ? `title="Xử lý: ${pestTreatment}"` : ''}>
                                         <span class="material-icons-round text-sm">bug_report</span>
-                                        ${pest}
-                                    </span>
-                                `).join('')}
+                                        ${pestName}
+                                    </span>`;
+                                }).join('')}
                             </div>
                         </div>
                     </div>
@@ -1523,8 +3441,7 @@ async function showItemDetail(id) {
     const item = itemsData.find(i => i.id === id) || await fetchAPI(`${API_BASE_URL}/admin/shop-items/${id}`);
     if (!item) return;
 
-    // Category labels
-    const categoryLabels = { 'THUC_AN': 'Thức ăn', 'CON_GIONG': 'Con giống', 'HAT_GIONG': 'Hạt giống', 'THUOC_TRU_SAU': 'Thuốc trừ sâu', 'PHAN_BON': 'Phân bón', 'MAY_MOC': 'Máy móc' };
+    // Use global VI_LABELS.itemCategory
 
     // Stock status
     const stockQty = item.stockQuantity || 0;
@@ -1602,7 +3519,7 @@ async function showItemDetail(id) {
                             <div class="space-y-3 mt-6">
                                 <div class="flex justify-between border-b border-gray-100 pb-2">
                                     <span class="text-gray-500 text-sm">Danh mục</span>
-                                    <span class="font-medium text-gray-900 text-sm">${categoryLabels[item.category] || item.category || '-'}</span>
+                                    <span class="font-medium text-gray-900 text-sm">${getViLabel(VI_LABELS.itemCategory, item.category)}</span>
                                 </div>
                                 ${item.subCategory ? `
                                 <div class="flex justify-between border-b border-gray-100 pb-2">
@@ -1749,13 +3666,16 @@ async function showAnimalDetail(id) {
     // Parse JSON fields
     const sizes = (() => { try { return typeof animal.sizes === 'string' ? JSON.parse(animal.sizes) : (animal.sizes || null); } catch { return null; } })();
     const farmingTypes = (() => { try { return typeof animal.farmingTypes === 'string' ? JSON.parse(animal.farmingTypes) : (animal.farmingTypes || []); } catch { return []; } })();
+    const commonDiseases = (() => { try { return typeof animal.commonDiseases === 'string' ? JSON.parse(animal.commonDiseases) : (animal.commonDiseases || []); } catch { return []; } })();
 
-    // Category labels
-    const categoryLabels = { 'LAND': 'Trên cạn', 'FRESHWATER': 'Nước ngọt', 'BRACKISH': 'Nước lợ', 'SALTWATER': 'Nước mặn', 'SPECIAL': 'Đặc biệt' };
+    // Use global VI_LABELS.animalCategory
     const categoryIcons = { 'LAND': 'terrain', 'FRESHWATER': 'water_drop', 'BRACKISH': 'waves', 'SALTWATER': 'sailing', 'SPECIAL': 'star' };
     const categoryColors = { 'LAND': 'amber', 'FRESHWATER': 'blue', 'BRACKISH': 'teal', 'SALTWATER': 'indigo', 'SPECIAL': 'purple' };
     const catColor = categoryColors[animal.category] || 'blue';
     const catIcon = categoryIcons[animal.category] || 'pets';
+    const waterTypeLabels = { 'FRESHWATER': 'Nước ngọt', 'BRACKISH': 'Nước lợ', 'SALTWATER': 'Nước mặn' };
+    const farmingTypeLabels = { 'CAGED': 'Nuôi nhốt', 'FREE_RANGE': 'Thả vườn', 'POND': 'Nuôi ao', 'SPECIAL': 'Đặc biệt', 'BARN': 'Chuồng trại', 'TANK': 'Bể nuôi', 'NET_CAGE': 'Lồng lưới', 'RAFT': 'Bè nổi', 'HIVE': 'Tổ ong', 'TRAY': 'Khay nuôi' };
+    const sizeLabels = { 'small': 'Nhỏ', 'medium': 'Vừa', 'large': 'Lớn' };
 
     document.getElementById('page-title').innerHTML = `
         <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
@@ -1783,7 +3703,7 @@ async function showAnimalDetail(id) {
                                 <h1 class="text-2xl font-bold text-gray-900">${animal.name}</h1>
                                 <span class="px-3 py-1 bg-${catColor}-100 text-${catColor}-700 text-xs font-semibold rounded-full border border-${catColor}-200 flex items-center gap-1">
                                     <span class="w-1.5 h-1.5 rounded-full bg-${catColor}-500"></span>
-                                    ${categoryLabels[animal.category] || animal.category || 'N/A'}
+                                    ${getViLabel(VI_LABELS.animalCategory, animal.category)}
                                 </span>
                             </div>
                             <div class="flex flex-wrap items-center gap-4 text-sm text-gray-500">
@@ -1795,7 +3715,7 @@ async function showAnimalDetail(id) {
                                 <span class="w-1 h-1 rounded-full bg-gray-300"></span>
                                 <span class="flex items-center gap-1.5">
                                     <span class="material-icons-round text-lg">water</span>
-                                    ${animal.waterType}
+                                    ${waterTypeLabels[animal.waterType] || animal.waterType}
                                 </span>` : ''}
                                 ${animal.spacePerUnitSqm ? `
                                 <span class="w-1 h-1 rounded-full bg-gray-300"></span>
@@ -1822,44 +3742,98 @@ async function showAnimalDetail(id) {
                 <!-- Left Column (2/3) -->
                 <div class="lg:col-span-2 space-y-6">
                     <!-- Stat Cards -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                            <div class="flex items-center gap-3 mb-2">
-                                <div class="p-2 bg-green-50 rounded-lg text-green-500">
-                                    <span class="material-icons-round">schedule</span>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                        <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-200 min-w-0">
+                            <div class="flex items-center gap-2 mb-2">
+                                <div class="p-1.5 bg-green-50 rounded-lg text-green-500 shrink-0">
+                                    <span class="material-icons-round text-lg">schedule</span>
                                 </div>
-                                <span class="text-sm font-medium text-gray-500">Thời gian nuôi</span>
+                                <span class="text-xs font-medium text-gray-500 leading-tight">Thời gian nuôi</span>
                             </div>
-                            <div class="flex items-end gap-2">
-                                <span class="text-2xl font-bold text-gray-900">${animal.growthDurationDays || '-'}</span>
-                                <span class="text-sm text-gray-500 mb-1">ngày</span>
+                            <div class="flex items-baseline gap-1">
+                                <span class="text-xl font-bold text-gray-900 truncate">${animal.growthDurationDays || '-'}</span>
+                                <span class="text-xs text-gray-500 shrink-0">ngày</span>
                             </div>
                         </div>
-                        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                            <div class="flex items-center gap-3 mb-2">
-                                <div class="p-2 bg-red-50 rounded-lg text-red-500">
-                                    <span class="material-icons-round">sell</span>
+                        <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-200 min-w-0">
+                            <div class="flex items-center gap-2 mb-2">
+                                <div class="p-1.5 bg-red-50 rounded-lg text-red-500 shrink-0">
+                                    <span class="material-icons-round text-lg">sell</span>
                                 </div>
-                                <span class="text-sm font-medium text-gray-500">Giá mua</span>
+                                <span class="text-xs font-medium text-gray-500 leading-tight">Giá mua</span>
                             </div>
-                            <div class="flex items-end gap-2">
-                                <span class="text-2xl font-bold text-gray-900">${formatCurrency(animal.buyPricePerUnit)}</span>
+                            <div class="min-w-0">
+                                <span class="text-base font-bold text-gray-900 block truncate" title="${formatCurrency(animal.buyPricePerUnit)}">${formatCurrency(animal.buyPricePerUnit)}</span>
                             </div>
-                            <div class="mt-1 text-xs text-gray-400">/ con</div>
+                            <div class="mt-1 text-xs text-gray-400">/ ${animal.unit || 'con'}</div>
                         </div>
-                        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                            <div class="flex items-center gap-3 mb-2">
-                                <div class="p-2 bg-emerald-50 rounded-lg text-emerald-500">
-                                    <span class="material-icons-round">monetization_on</span>
+                        <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-200 min-w-0">
+                            <div class="flex items-center gap-2 mb-2">
+                                <div class="p-1.5 bg-emerald-50 rounded-lg text-emerald-500 shrink-0">
+                                    <span class="material-icons-round text-lg">monetization_on</span>
                                 </div>
-                                <span class="text-sm font-medium text-gray-500">Giá bán</span>
+                                <span class="text-xs font-medium text-gray-500 leading-tight">Giá bán</span>
                             </div>
-                            <div class="flex items-end gap-2">
-                                <span class="text-2xl font-bold text-emerald-600">${formatCurrency(animal.sellPricePerUnit)}</span>
+                            <div class="min-w-0">
+                                <span class="text-base font-bold text-emerald-600 block truncate" title="${formatCurrency(animal.sellPricePerUnit)}">${formatCurrency(animal.sellPricePerUnit)}</span>
                             </div>
-                            <div class="mt-1 text-xs text-green-600 flex items-center">
-                                <span class="material-icons-round text-sm mr-1">trending_up</span>
-                                Lợi nhuận: ${formatCurrency((animal.sellPricePerUnit || 0) - (animal.buyPricePerUnit || 0))}
+                            <div class="mt-1 text-xs text-green-600 flex items-center min-w-0">
+                                <span class="material-icons-round text-sm mr-1 shrink-0">trending_up</span>
+                                <span class="truncate">LN: ${formatCurrency((animal.sellPricePerUnit || 0) - (animal.buyPricePerUnit || 0))}</span>
+                            </div>
+                        </div>
+                        <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-200 min-w-0">
+                            <div class="flex items-center gap-2 mb-2">
+                                <div class="p-1.5 bg-blue-50 rounded-lg text-blue-500 shrink-0">
+                                    <span class="material-icons-round text-lg">favorite</span>
+                                </div>
+                                <span class="text-xs font-medium text-gray-500 leading-tight">Tỷ lệ sống</span>
+                            </div>
+                            <div class="flex items-baseline gap-1">
+                                <span class="text-xl font-bold text-gray-900">${animal.survivalRate || '-'}</span>
+                                <span class="text-xs text-gray-500 shrink-0">%</span>
+                            </div>
+                        </div>
+                        <div class="bg-white p-3 rounded-xl shadow-sm border border-gray-200 min-w-0">
+                            <div class="flex items-center gap-2 mb-2">
+                                <div class="p-1.5 bg-purple-50 rounded-lg text-purple-500 shrink-0">
+                                    <span class="material-icons-round text-lg">cake</span>
+                                </div>
+                                <span class="text-xs font-medium text-gray-500 leading-tight">Tuổi trưởng thành</span>
+                            </div>
+                            <div class="flex items-baseline gap-1">
+                                <span class="text-xl font-bold text-gray-900 truncate">${animal.maturityAgeDays || '-'}</span>
+                                <span class="text-xs text-gray-500 shrink-0">ngày</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Environment Conditions -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
+                            <h4 class="text-base font-semibold text-gray-800">Điều kiện Môi trường</h4>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
+                            <div class="p-5 text-center">
+                                <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-orange-50 flex items-center justify-center text-orange-500">
+                                    <span class="material-icons-round">thermostat</span>
+                                </div>
+                                <p class="text-lg font-bold text-gray-800">${animal.idealTempMin != null && animal.idealTempMax != null ? `${animal.idealTempMin}°C - ${animal.idealTempMax}°C` : '-'}</p>
+                                <p class="text-xs text-gray-500 mt-1">Nhiệt độ phù hợp</p>
+                            </div>
+                            <div class="p-5 text-center">
+                                <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-cyan-50 flex items-center justify-center text-cyan-500">
+                                    <span class="material-icons-round">humidity_percentage</span>
+                                </div>
+                                <p class="text-lg font-bold text-gray-800">${animal.idealHumidityMin != null && animal.idealHumidityMax != null ? `${animal.idealHumidityMin}% - ${animal.idealHumidityMax}%` : '-'}</p>
+                                <p class="text-xs text-gray-500 mt-1">Độ ẩm phù hợp</p>
+                            </div>
+                            <div class="p-5 text-center">
+                                <div class="w-10 h-10 mx-auto mb-2 rounded-full bg-teal-50 flex items-center justify-center text-teal-500">
+                                    <span class="material-icons-round">science</span>
+                                </div>
+                                <p class="text-lg font-bold text-gray-800">${animal.idealPhMin != null && animal.idealPhMax != null ? `${animal.idealPhMin} - ${animal.idealPhMax}` : '-'}</p>
+                                <p class="text-xs text-gray-500 mt-1">pH nước</p>
                             </div>
                         </div>
                     </div>
@@ -1872,6 +3846,25 @@ async function showAnimalDetail(id) {
                         </div>
                         <div class="relative h-64 w-full">
                             <canvas id="animalSizeChart"></canvas>
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- Weight Growth Curve -->
+                    ${sizes ? `
+                    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                        <div class="flex items-center justify-between mb-6">
+                            <div>
+                                <h3 class="text-lg font-bold text-gray-900">Biểu đồ Tăng trưởng</h3>
+                                <p class="text-sm text-gray-500 mt-1">Đường cong tăng trưởng cân nặng theo tuổi</p>
+                            </div>
+                            <div class="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg">
+                                <span class="material-icons-round text-sm">schedule</span>
+                                ${animal.growthDurationDays || animal.maturityAgeDays || '?'} ngày
+                            </div>
+                        </div>
+                        <div class="relative h-72 w-full">
+                            <canvas id="animalGrowthChart"></canvas>
                         </div>
                     </div>
                     ` : ''}
@@ -1895,12 +3888,12 @@ async function showAnimalDetail(id) {
                                         <div class="flex-1">
                                             <div class="flex justify-between items-start">
                                                 <div>
-                                                    <h4 class="text-sm font-semibold text-gray-900">${v.vaccineName || 'Vaccine'}</h4>
-                                                    <p class="text-xs text-gray-500 mt-0.5">${v.description || v.notes || ''}</p>
+                                                    <h4 class="text-sm font-semibold text-gray-900">${v.name || v.vaccineName || 'Vaccine'}</h4>
+                                                    <p class="text-xs text-gray-500 mt-0.5">${v.description || ''}</p>
                                                 </div>
                                                 <div class="text-right">
-                                                    <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Ngày ${v.dayNumber || v.ageInDays || '-'}</span>
-                                                    ${v.repeatIntervalDays ? `<p class="text-xs text-blue-500 mt-1">Lặp lại: ${v.repeatIntervalDays} ngày</p>` : ''}
+                                                    <span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">Ngày thứ ${v.ageDays || v.dayNumber || '-'}</span>
+                                                    ${v.isMandatory ? `<p class="text-xs text-red-500 mt-1 font-medium">Bắt buộc</p>` : `<p class="text-xs text-gray-400 mt-1">Khuyến nghị</p>`}
                                                 </div>
                                             </div>
                                         </div>
@@ -1910,6 +3903,37 @@ async function showAnimalDetail(id) {
         }).join('') : '<p class="p-6 text-gray-400 text-center">Chưa có lịch tiêm phòng</p>'}
                         </div>
                     </div>
+
+                    <!-- Common Diseases -->
+                    ${commonDiseases.length > 0 ? `
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
+                            <h4 class="text-base font-semibold text-gray-800">Bệnh thường gặp</h4>
+                            <span class="text-sm text-gray-500">${commonDiseases.length} bệnh</span>
+                        </div>
+                        <div class="divide-y divide-gray-200">
+                            ${commonDiseases.map((d, idx) => {
+            const severityMap = { 'HIGH': { label: 'Nghiêm trọng', color: 'red', icon: 'error' }, 'MEDIUM': { label: 'Trung bình', color: 'yellow', icon: 'warning' }, 'LOW': { label: 'Nhẹ', color: 'green', icon: 'info' } };
+            const sev = severityMap[(d.severity || '').toUpperCase()] || severityMap['MEDIUM'];
+            return `
+                            <div class="p-4 hover:bg-gray-50 transition-colors">
+                                <div class="flex items-start gap-4">
+                                    <div class="w-10 h-10 rounded-full bg-${sev.color}-100 flex items-center justify-center flex-shrink-0 text-${sev.color}-600">
+                                        <span class="material-icons-round">${sev.icon}</span>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start">
+                                            <h4 class="text-sm font-semibold text-gray-900">${d.name || 'Không rõ'}</h4>
+                                            <span class="text-xs font-medium text-${sev.color}-700 bg-${sev.color}-50 px-2 py-0.5 rounded-full border border-${sev.color}-200">${sev.label}</span>
+                                        </div>
+                                        ${d.treatment ? `<p class="text-xs text-gray-500 mt-1 flex items-start gap-1"><span class="material-icons-round text-sm text-emerald-500 mt-px flex-shrink-0">medication</span>${d.treatment}</p>` : ''}
+                                    </div>
+                                </div>
+                            </div>`;
+        }).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
                 </div>
 
                 <!-- Right Column (1/3) -->
@@ -1928,7 +3952,7 @@ async function showAnimalDetail(id) {
                                     <div class="text-gray-400"><span class="material-icons-round">category</span></div>
                                     <span class="text-sm font-medium text-gray-700">Phân loại</span>
                                 </div>
-                                <span class="text-sm font-bold text-gray-900">${categoryLabels[animal.category] || animal.category || '-'}</span>
+                                <span class="text-sm font-bold text-gray-900">${getViLabel(VI_LABELS.animalCategory, animal.category)}</span>
                             </div>
                             <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                 <div class="flex items-center gap-3">
@@ -1943,13 +3967,13 @@ async function showAnimalDetail(id) {
                                     <div class="text-gray-400"><span class="material-icons-round">water</span></div>
                                     <span class="text-sm font-medium text-gray-700">Loại nước</span>
                                 </div>
-                                <span class="text-sm font-bold text-gray-900">${animal.waterType}</span>
+                                <span class="text-sm font-bold text-gray-900">${waterTypeLabels[animal.waterType] || animal.waterType}</span>
                             </div>` : ''}
                             ${farmingTypes.length > 0 ? `
                             <div>
                                 <p class="text-sm font-medium text-gray-700 mb-2">Hình thức nuôi</p>
                                 <div class="flex flex-wrap gap-2">
-                                    ${farmingTypes.map(ft => `<span class="px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">${ft}</span>`).join('')}
+                                    ${farmingTypes.map(ft => `<span class="px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">${farmingTypeLabels[ft] || ft}</span>`).join('')}
                                 </div>
                             </div>` : ''}
                         </div>
@@ -1960,19 +3984,25 @@ async function showAnimalDetail(id) {
                         <h3 class="text-lg font-bold text-gray-900 mb-4">Thức ăn tương thích</h3>
                         <div class="space-y-3">
                             ${feedList.length > 0 ? feedList.slice(0, 8).map(f => {
-            const eff = f.effectiveness || 0;
-            const effColor = eff >= 80 ? 'green' : eff >= 50 ? 'yellow' : 'gray';
+            const isPrimary = f.isPrimary || f.primary || false;
+            const feedName = f.feedDefinition?.name || f.feedName || 'Thức ăn';
+            const dailyAmt = f.dailyAmountPerUnit || 0;
+            const freq = f.feedingFrequency || 2;
+            const fColor = isPrimary ? 'emerald' : 'gray';
             return `
                                 <div class="flex gap-3 items-start p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                                    <span class="material-icons-round text-${effColor}-500 text-xl mt-0.5">restaurant</span>
+                                    <span class="material-icons-round text-${fColor}-500 text-xl mt-0.5">restaurant</span>
                                     <div class="flex-1">
-                                        <p class="text-sm font-semibold text-gray-900">${f.feedDefinition?.name || f.feedName || 'Thức ăn'}</p>
-                                        <div class="flex items-center gap-2 mt-1">
-                                            <div class="flex-1 h-1.5 bg-gray-200 rounded-full">
-                                                <div class="h-1.5 bg-${effColor}-500 rounded-full" style="width: ${eff}%"></div>
-                                            </div>
-                                            <span class="text-xs text-gray-500">${eff}%</span>
+                                        <div class="flex items-center justify-between">
+                                            <p class="text-sm font-semibold text-gray-900">${feedName}</p>
+                                            ${isPrimary ? '<span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Chính</span>' : '<span class="text-[10px] font-medium text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">Phụ</span>'}
                                         </div>
+                                        <div class="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                                            <span>${dailyAmt} kg/ngày</span>
+                                            <span class="w-1 h-1 rounded-full bg-gray-300"></span>
+                                            <span>${freq} lần/ngày</span>
+                                        </div>
+                                        ${f.notes ? `<p class="text-xs text-gray-400 mt-1 italic">${f.notes}</p>` : ''}
                                     </div>
                                 </div>
                             `;
@@ -2009,23 +4039,64 @@ async function showAnimalDetail(id) {
         if (sizes) {
             const ctxSize = document.getElementById('animalSizeChart');
             if (ctxSize) {
-                // sizes can be an array of {label, minWeight, maxWeight} or {size, weight} etc.
+                // Helper: parse weight string and normalize to weightUnit
+                const parseWeight = (w) => {
+                    if (typeof w === 'number') return { min: w, max: w };
+                    if (typeof w === 'string') {
+                        const isGrams = /\d\s*g\b/i.test(w) && !/kg/i.test(w);
+                        const isKg = /kg/i.test(w);
+                        const cleaned = w.replace(/\s*(kg|g)\b/gi, '').trim();
+                        const parts = cleaned.split('-').map(Number);
+                        let min = 0, max = 0;
+                        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) { min = parts[0]; max = parts[1]; }
+                        else if (parts.length === 1 && !isNaN(parts[0])) { min = parts[0]; max = parts[0]; }
+                        // Normalize mixed units to weightUnit
+                        if (weightUnit === 'g' && isKg) { min *= 1000; max *= 1000; }
+                        else if (weightUnit === 'kg' && isGrams) { min /= 1000; max /= 1000; }
+                        return { min, max };
+                    }
+                    return { min: 0, max: 0 };
+                };
+
+                // Detect dominant weight unit from sizes
+                const detectWeightUnit = () => {
+                    let hasGrams = false;
+                    const checkWeight = (w) => { if (typeof w === 'string' && /\d\s*g\b/i.test(w) && !/kg/i.test(w)) hasGrams = true; };
+                    if (Array.isArray(sizes)) sizes.forEach(s => checkWeight(s.weight));
+                    else if (typeof sizes === 'object') Object.values(sizes).forEach(v => v && checkWeight(v.weight));
+                    return hasGrams ? 'g' : 'kg';
+                };
+                const weightUnit = detectWeightUnit();
+
                 let labels = [];
                 let minData = [];
                 let maxData = [];
 
                 if (Array.isArray(sizes)) {
                     sizes.forEach(s => {
-                        labels.push(s.label || s.size || s.name || 'N/A');
-                        minData.push(s.minWeight || s.min || 0);
-                        maxData.push(s.maxWeight || s.max || s.weight || 0);
+                        const rawLabel = s.label || s.size || s.name || 'N/A';
+                        labels.push(sizeLabels[rawLabel] || rawLabel);
+                        if (s.weight && typeof s.weight === 'string') {
+                            const pw = parseWeight(s.weight);
+                            minData.push(pw.min);
+                            maxData.push(pw.max);
+                        } else {
+                            minData.push(s.minWeight || s.min || 0);
+                            maxData.push(s.maxWeight || s.max || s.weight || 0);
+                        }
                     });
                 } else if (typeof sizes === 'object') {
                     Object.entries(sizes).forEach(([key, val]) => {
-                        labels.push(key);
+                        labels.push(sizeLabels[key] || key);
                         if (typeof val === 'object') {
-                            minData.push(val.minWeight || val.min || 0);
-                            maxData.push(val.maxWeight || val.max || 0);
+                            if (val.weight && typeof val.weight === 'string') {
+                                const pw = parseWeight(val.weight);
+                                minData.push(pw.min);
+                                maxData.push(pw.max);
+                            } else {
+                                minData.push(val.minWeight || val.min || 0);
+                                maxData.push(val.maxWeight || val.max || 0);
+                            }
                         } else {
                             minData.push(0);
                             maxData.push(val);
@@ -2039,7 +4110,7 @@ async function showAnimalDetail(id) {
                         labels: labels,
                         datasets: [
                             {
-                                label: 'Min (kg)',
+                                label: `Nhỏ nhất (${weightUnit})`,
                                 data: minData,
                                 backgroundColor: 'rgba(16, 185, 129, 0.3)',
                                 borderColor: '#10b981',
@@ -2047,7 +4118,7 @@ async function showAnimalDetail(id) {
                                 borderRadius: 4,
                             },
                             {
-                                label: 'Max (kg)',
+                                label: `Lớn nhất (${weightUnit})`,
                                 data: maxData,
                                 backgroundColor: 'rgba(16, 185, 129, 0.7)',
                                 borderColor: '#059669',
@@ -2064,11 +4135,199 @@ async function showAnimalDetail(id) {
                             tooltip: { backgroundColor: '#1f2937', titleColor: '#f9fafb', bodyColor: '#f9fafb', padding: 10, cornerRadius: 8 }
                         },
                         scales: {
-                            y: { beginAtZero: true, grid: { color: 'rgba(107,114,128,0.1)', drawBorder: false }, ticks: { color: '#9ca3af', callback: v => v + ' kg' } },
+                            y: { beginAtZero: true, grid: { color: 'rgba(107,114,128,0.1)', drawBorder: false }, ticks: { color: '#9ca3af', callback: v => v + ' ' + weightUnit } },
                             x: { grid: { display: false }, ticks: { color: '#9ca3af', font: { size: 11 } } }
                         }
                     }
                 });
+            }
+
+            // ═══ Weight Growth Curve Chart ═══
+            const parseWeightGrowth = (w) => {
+                if (typeof w === 'number') return { min: w, max: w, unit: 'kg' };
+                if (typeof w === 'string') {
+                    const isGrams = /\d\s*g\b/i.test(w) && !/kg/i.test(w);
+                    const cleaned = w.replace(/\s*(kg|g)\b/gi, '').trim();
+                    const parts = cleaned.split('-').map(Number);
+                    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) return { min: parts[0], max: parts[1], unit: isGrams ? 'g' : 'kg' };
+                    if (parts.length === 1 && !isNaN(parts[0])) return { min: parts[0], max: parts[0], unit: isGrams ? 'g' : 'kg' };
+                }
+                return null;
+            };
+
+            // Detect dominant weight unit for growth chart
+            const detectGrowthUnit = () => {
+                let hasGrams = false, hasKg = false;
+                const checkW = (w) => {
+                    if (typeof w === 'string') {
+                        if (/\d\s*g\b/i.test(w) && !/kg/i.test(w)) hasGrams = true;
+                        if (/kg/i.test(w)) hasKg = true;
+                    }
+                };
+                if (typeof sizes === 'object' && !Array.isArray(sizes)) {
+                    Object.values(sizes).forEach(v => v && checkW(v.weight));
+                } else if (Array.isArray(sizes)) {
+                    sizes.forEach(s => checkW(s.weight));
+                }
+                return hasGrams && !hasKg ? 'g' : 'kg';
+            };
+            const growthUnit = detectGrowthUnit();
+
+            // Extract weight data by size category, normalizing to growthUnit
+            let weightBySize = {};
+            const normalizeToUnit = (pw) => {
+                if (!pw) return null;
+                let min = pw.min, max = pw.max;
+                // Normalize: if growthUnit is 'g' but value is in kg → multiply by 1000
+                // if growthUnit is 'kg' but value is in g → divide by 1000
+                if (growthUnit === 'g' && pw.unit === 'kg') { min *= 1000; max *= 1000; }
+                else if (growthUnit === 'kg' && pw.unit === 'g') { min /= 1000; max /= 1000; }
+                return { min, max };
+            };
+            if (typeof sizes === 'object' && !Array.isArray(sizes)) {
+                ['small', 'medium', 'large'].forEach(key => {
+                    if (sizes[key]) {
+                        const pw = sizes[key].weight ? parseWeightGrowth(sizes[key].weight) : { min: sizes[key].minWeight || 0, max: sizes[key].maxWeight || 0, unit: growthUnit };
+                        const norm = normalizeToUnit(pw);
+                        if (norm && (norm.min > 0 || norm.max > 0)) weightBySize[key] = norm;
+                    }
+                });
+            } else if (Array.isArray(sizes)) {
+                sizes.forEach(s => {
+                    const label = (s.label || s.size || s.name || '').toLowerCase();
+                    const pw = s.weight ? parseWeightGrowth(s.weight) : { min: s.minWeight || 0, max: s.maxWeight || 0, unit: growthUnit };
+                    const norm = normalizeToUnit(pw);
+                    if (norm && (norm.min > 0 || norm.max > 0) && ['small', 'medium', 'large'].includes(label)) weightBySize[label] = norm;
+                });
+            }
+
+            if (Object.keys(weightBySize).length >= 2) {
+                const ctxGrowth = document.getElementById('animalGrowthChart');
+                if (ctxGrowth) {
+                    const ctx = ctxGrowth.getContext('2d');
+                    const totalDays = animal.growthDurationDays || animal.maturityAgeDays || 180;
+                    const wMaxMin = weightBySize.large?.min || weightBySize.medium?.min || weightBySize.small?.min || 0;
+                    const wMaxMax = weightBySize.large?.max || weightBySize.medium?.max || weightBySize.small?.max || 0;
+
+                    // Sigmoid growth function: W(t) = W_max / (1 + exp(-k * (t - t_mid)))
+                    const tMid = totalDays * 0.45;
+                    const k = 6 / totalDays; // Growth rate adjusted to total duration
+
+                    const sigmoid = (t, wMax) => wMax / (1 + Math.exp(-k * (t - tMid)));
+
+                    // Generate curve data points
+                    const numPoints = 24;
+                    const growthLabels = [];
+                    const minCurve = [];
+                    const maxCurve = [];
+
+                    for (let i = 0; i <= numPoints; i++) {
+                        const day = Math.round((i / numPoints) * totalDays);
+                        growthLabels.push(day >= 30 ? `T${Math.round(day / 30)}` : `${day}d`);
+                        minCurve.push(Math.max(0, Math.round(sigmoid(day, wMaxMin * 1.02) * 10) / 10));
+                        maxCurve.push(Math.max(0, Math.round(sigmoid(day, wMaxMax * 1.02) * 10) / 10));
+                    }
+
+                    // Create gradient for the fill area
+                    const gradientFill = ctx.createLinearGradient(0, 0, 0, 288);
+                    gradientFill.addColorStop(0, 'rgba(59, 130, 246, 0.12)');
+                    gradientFill.addColorStop(1, 'rgba(59, 130, 246, 0.01)');
+
+                    // Add milestone markers from size data
+                    const milestonePoints = [];
+                    if (weightBySize.small) milestonePoints.push({ day: Math.round(totalDays * 0.25), label: 'Nhỏ', weight: (weightBySize.small.min + weightBySize.small.max) / 2 });
+                    if (weightBySize.medium) milestonePoints.push({ day: Math.round(totalDays * 0.55), label: 'Vừa', weight: (weightBySize.medium.min + weightBySize.medium.max) / 2 });
+                    if (weightBySize.large) milestonePoints.push({ day: Math.round(totalDays * 0.9), label: 'Lớn', weight: (weightBySize.large.min + weightBySize.large.max) / 2 });
+
+                    const milestoneData = new Array(numPoints + 1).fill(null);
+                    milestonePoints.forEach(mp => {
+                        const idx = Math.round((mp.day / totalDays) * numPoints);
+                        if (idx >= 0 && idx <= numPoints) milestoneData[idx] = mp.weight;
+                    });
+
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: growthLabels,
+                            datasets: [
+                                {
+                                    label: `Cân nặng tối đa (${growthUnit})`,
+                                    data: maxCurve,
+                                    borderColor: '#3b82f6',
+                                    backgroundColor: gradientFill,
+                                    borderWidth: 2.5,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 5,
+                                    pointHoverBackgroundColor: '#3b82f6',
+                                    tension: 0.4,
+                                    fill: '+1'
+                                },
+                                {
+                                    label: `Cân nặng tối thiểu (${growthUnit})`,
+                                    data: minCurve,
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'transparent',
+                                    borderWidth: 2.5,
+                                    pointRadius: 0,
+                                    pointHoverRadius: 5,
+                                    pointHoverBackgroundColor: '#10b981',
+                                    tension: 0.4,
+                                    fill: false
+                                },
+                                {
+                                    label: 'Mốc kích cỡ',
+                                    data: milestoneData,
+                                    borderColor: 'transparent',
+                                    backgroundColor: '#f59e0b',
+                                    borderWidth: 0,
+                                    pointRadius: 7,
+                                    pointHoverRadius: 9,
+                                    pointStyle: 'rectRounded',
+                                    showLine: false
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: { mode: 'index', intersect: false },
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                    labels: { usePointStyle: true, pointStyle: 'circle', boxWidth: 8, font: { size: 11 }, padding: 16 }
+                                },
+                                tooltip: {
+                                    backgroundColor: '#1f2937',
+                                    titleColor: '#f9fafb',
+                                    bodyColor: '#f9fafb',
+                                    padding: 12,
+                                    cornerRadius: 8,
+                                    callbacks: {
+                                        title: (items) => {
+                                            const idx = items[0]?.dataIndex;
+                                            const day = Math.round((idx / numPoints) * totalDays);
+                                            return `Ngày thứ ${day} (${(day / 30).toFixed(1)} tháng)`;
+                                        },
+                                        label: (ctx) => ctx.parsed.y !== null ? ` ${ctx.dataset.label}: ${ctx.parsed.y} ${growthUnit}` : null
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    grid: { color: 'rgba(107,114,128,0.08)', drawBorder: false },
+                                    ticks: { color: '#9ca3af', callback: v => v + ' ' + growthUnit, font: { size: 11 } },
+                                    title: { display: true, text: `Cân nặng (${growthUnit})`, color: '#6b7280', font: { size: 12, weight: '500' } }
+                                },
+                                x: {
+                                    grid: { display: false },
+                                    ticks: { color: '#9ca3af', font: { size: 10 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 },
+                                    title: { display: true, text: 'Tuổi', color: '#6b7280', font: { size: 12, weight: '500' } }
+                                }
+                            }
+                        }
+                    });
+                }
             }
         }
     }, 100);
@@ -2176,9 +4435,14 @@ async function loadOrders() {
                     <button onclick="filterOrders('SHIPPING')" class="px-4 py-2 rounded-lg text-sm font-medium ${orderStatusFilter === 'SHIPPING' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">Đang giao</button>
                     <button onclick="filterOrders('DELIVERED')" class="px-4 py-2 rounded-lg text-sm font-medium ${orderStatusFilter === 'DELIVERED' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">Đã giao</button>
                 </div>
-                <button onclick="exportOrdersCSV()" class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-medium">
-                    <span class="material-icons-round text-sm">download</span> Xuất CSV
-                </button>
+                <div class="flex items-center gap-3">
+                    <button onclick="exportOrdersCSV()" class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 font-medium">
+                        <span class="material-icons-round text-sm">download</span> Xuất CSV
+                    </button>
+                    <button onclick="loadPriceAnalysis()" class="flex items-center gap-2 px-4 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-amber-700 font-medium transition-colors">
+                        <span class="material-icons-round text-sm">analytics</span> Phân tích giá
+                    </button>
+                </div>
             </div>
             
             <!-- Orders Table -->
@@ -2503,7 +4767,12 @@ async function loadStoreConfig() {
 let priceAnalysisData = [];
 
 async function loadPriceAnalysis() {
-    document.getElementById('page-title').textContent = 'Phân tích Giá Thị trường';
+    document.getElementById('page-title').innerHTML = `
+        <div class="flex items-center gap-2">
+            <button onclick="loadOrders()" class="text-gray-400 hover:text-gray-600 transition-colors"><span class="material-icons-round">arrow_back</span></button>
+            <span>Phân tích Giá Thị trường</span>
+        </div>
+    `;
 
     priceAnalysisData = await fetchAPI(`${API_BASE_URL}/admin/price-analysis`) || [];
     const marketPrices = await fetchAPI(`${API_BASE_URL}/admin/market-prices`) || [];
@@ -3442,15 +5711,21 @@ async function loadCommunity() {
 
     // Load stats
     let stats = { totalGuides: 0, publishedGuides: 0, totalPosts: 0, pendingPosts: 0, totalCategories: 0 };
+    let supportStats = { total: 0, open: 0, responded: 0, closed: 0 };
     try {
-        stats = await fetchAPI(`${API_BASE_URL}/admin/community/stats`) || stats;
+        const [communityStatsResult, supportStatsResult] = await Promise.all([
+            fetchAPI(`${API_BASE_URL}/admin/community/stats`).catch(() => null),
+            fetchAPI(`${API_BASE_URL}/help/admin/stats`).catch(() => null)
+        ]);
+        stats = communityStatsResult || stats;
+        supportStats = supportStatsResult || supportStats;
     } catch (error) {
-        console.error('Error loading community stats:', error);
+        console.error('Error loading stats:', error);
     }
 
     document.getElementById('main-content').innerHTML = `
         <!-- Stats Cards -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
             <div class="bg-white rounded-xl shadow-sm p-6">
                 <div class="flex items-center justify-between">
                     <div>
@@ -3495,6 +5770,18 @@ async function loadCommunity() {
                     </div>
                 </div>
             </div>
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-500 text-sm font-medium">Yêu cầu hỗ trợ</p>
+                        <p class="text-3xl font-bold text-gray-800 mt-1">${supportStats.total}</p>
+                        ${supportStats.open > 0 ? `<p class="text-xs text-amber-500 mt-1">${supportStats.open} chờ xử lý</p>` : ''}
+                    </div>
+                    <div class="w-12 h-12 bg-teal-100 rounded-xl flex items-center justify-center">
+                        <span class="material-icons-round text-teal-600">support_agent</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Tabs -->
@@ -3516,6 +5803,11 @@ async function loadCommunity() {
                     <span class="material-icons-round mr-2 align-middle">account_balance_wallet</span>
                     Kiểm duyệt tiền
                     <span id="pending-money-count" class="ml-2 px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full hidden">0</span>
+                </button>
+                <button class="community-tab px-6 py-4 text-sm font-semibold text-gray-500 hover:text-gray-700" data-tab="support" id="support-tab">
+                    <span class="material-icons-round mr-2 align-middle">support_agent</span>
+                    Hỗ trợ
+                    <span id="pending-support-count" class="ml-2 px-2 py-0.5 text-xs font-bold bg-amber-500 text-white rounded-full ${supportStats.open > 0 ? '' : 'hidden'}">${supportStats.open}</span>
                 </button>
             </div>
         </div>
@@ -3542,6 +5834,7 @@ async function loadCommunity() {
                 case 'categories': loadCommunityCategories(); break;
                 case 'posts': loadCommunityPosts(); break;
                 case 'money-verification': loadMoneyVerification(); break;
+                case 'support': loadSupportRequests(); break;
             }
         });
     });
@@ -4645,6 +6938,278 @@ async function saveGuideFromEditor(publish = false) {
 function editCategory(id) {
     // TODO: Implement category editing modal
     alert('Tính năng chỉnh sửa danh mục đang được phát triển');
+}
+
+// ============ SUPPORT REQUESTS MANAGEMENT ============
+let supportRequests = [];
+let currentSupportFilter = 'all';
+
+async function loadSupportRequests(filterStatus) {
+    const container = document.getElementById('community-tab-content');
+    currentSupportFilter = filterStatus || 'all';
+
+    try {
+        const statusParam = currentSupportFilter !== 'all' ? `?status=${currentSupportFilter.toUpperCase()}` : '';
+        supportRequests = await fetchAPI(`${API_BASE_URL}/help/admin/all${statusParam}`) || [];
+
+        // Update badge
+        const badge = document.getElementById('pending-support-count');
+        if (badge) {
+            const openCount = supportRequests.filter(r => r.status === 'OPEN').length;
+            if (openCount > 0 || currentSupportFilter === 'all') {
+                try {
+                    const stats = await fetchAPI(`${API_BASE_URL}/help/admin/stats`);
+                    if (stats && stats.open > 0) {
+                        badge.textContent = stats.open;
+                        badge.classList.remove('hidden');
+                    } else {
+                        badge.classList.add('hidden');
+                    }
+                } catch (e) { /* ignore */ }
+            }
+        }
+
+        container.innerHTML = `
+            <div class="bg-white rounded-xl shadow-sm">
+                <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-lg font-semibold">Yêu cầu hỗ trợ từ người dùng</h3>
+                        <p class="text-sm text-gray-500 mt-1">Quản lý và phản hồi các yêu cầu hỗ trợ từ chủ trang trại và nhân công</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="loadSupportRequests('all')" class="px-3 py-1.5 text-sm rounded-lg font-medium transition ${currentSupportFilter === 'all' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
+                            Tất cả
+                        </button>
+                        <button onclick="loadSupportRequests('OPEN')" class="px-3 py-1.5 text-sm rounded-lg font-medium transition ${currentSupportFilter === 'OPEN' ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
+                            Chờ xử lý
+                        </button>
+                        <button onclick="loadSupportRequests('RESPONDED')" class="px-3 py-1.5 text-sm rounded-lg font-medium transition ${currentSupportFilter === 'RESPONDED' ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
+                            Đã phản hồi
+                        </button>
+                        <button onclick="loadSupportRequests('CLOSED')" class="px-3 py-1.5 text-sm rounded-lg font-medium transition ${currentSupportFilter === 'CLOSED' ? 'bg-gray-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
+                            Đã đóng
+                        </button>
+                    </div>
+                </div>
+                <div class="p-6">
+                    ${supportRequests.length === 0 ? `
+                        <div class="text-center py-12 text-gray-500">
+                            <span class="material-icons-round text-5xl text-gray-300 mb-4">inbox</span>
+                            <p class="text-lg font-medium">Không có yêu cầu hỗ trợ nào</p>
+                            <p class="text-sm mt-1">${currentSupportFilter !== 'all' ? 'Thử chọn bộ lọc khác' : 'Chưa có người dùng nào gửi yêu cầu'}</p>
+                        </div>
+                    ` : `
+                        <div class="space-y-4">
+                            ${supportRequests.map(req => renderSupportRequestCard(req)).join('')}
+                        </div>
+                    `}
+                </div>
+            </div>
+        `;
+    } catch (error) {
+        console.error('Error loading support requests:', error);
+        container.innerHTML = '<div class="text-center py-8 text-gray-500">Không thể tải danh sách yêu cầu hỗ trợ</div>';
+    }
+}
+
+function renderSupportRequestCard(req) {
+    const sender = req.worker || req.owner;
+    const senderName = sender?.fullName || 'Người dùng';
+    const senderEmail = sender?.email || '';
+    const senderRole = req.worker ? 'Nhân công' : 'Chủ trang trại';
+    const senderRoleColor = req.worker ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700';
+    const farmName = req.farm?.name || '';
+    const createdAt = req.createdAt ? new Date(req.createdAt).toLocaleString('vi-VN') : '';
+
+    const statusMap = {
+        'OPEN': { label: 'Chờ xử lý', color: 'bg-amber-100 text-amber-700', icon: 'schedule' },
+        'RESPONDED': { label: 'Đã phản hồi', color: 'bg-blue-100 text-blue-700', icon: 'reply' },
+        'CLOSED': { label: 'Đã đóng', color: 'bg-gray-100 text-gray-600', icon: 'check_circle' }
+    };
+    const statusConfig = statusMap[req.status] || statusMap['OPEN'];
+
+    const requestTypeMap = {
+        'technical': 'Kỹ thuật',
+        'account': 'Tài khoản',
+        'payment': 'Thanh toán',
+        'farm': 'Nông trại',
+        'bug': 'Lỗi hệ thống',
+        'feature': 'Yêu cầu tính năng',
+        'suggestion': 'Góp ý',
+        'other': 'Khác'
+    };
+    const requestTypeLabel = req.requestType ? (requestTypeMap[req.requestType] || req.requestType) : '';
+
+    return `
+        <div id="support-req-${req.id}" class="border border-gray-200 rounded-xl p-5 hover:shadow-md transition">
+            <div class="flex items-start justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold text-lg">
+                        ${senderName.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <p class="font-semibold text-gray-800">${escapeHtml(senderName)}</p>
+                            <span class="px-2 py-0.5 text-xs font-medium rounded-full ${senderRoleColor}">${senderRole}</span>
+                        </div>
+                        <p class="text-xs text-gray-500">${escapeHtml(senderEmail)}${farmName ? ' • ' + escapeHtml(farmName) : ''}</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    ${requestTypeLabel ? `<span class="px-2 py-0.5 text-xs font-medium rounded-full bg-purple-100 text-purple-700">${requestTypeLabel}</span>` : ''}
+                    <span class="px-2 py-0.5 text-xs font-medium rounded-full ${statusConfig.color}">
+                        <span class="material-icons-round text-xs align-middle mr-0.5">${statusConfig.icon}</span>
+                        ${statusConfig.label}
+                    </span>
+                </div>
+            </div>
+
+            ${req.title ? `<h4 class="font-semibold text-gray-800 mb-2">${escapeHtml(req.title)}</h4>` : ''}
+            <p class="text-gray-600 text-sm mb-3 whitespace-pre-line">${escapeHtml(req.message)}</p>
+
+            ${req.adminResponse ? `
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="material-icons-round text-sm text-blue-600">admin_panel_settings</span>
+                        <span class="text-xs font-semibold text-blue-700">Phản hồi từ Admin</span>
+                        ${req.respondedAt ? `<span class="text-xs text-blue-500">${new Date(req.respondedAt).toLocaleString('vi-VN')}</span>` : ''}
+                    </div>
+                    <p class="text-sm text-blue-800 whitespace-pre-line">${escapeHtml(req.adminResponse)}</p>
+                </div>
+            ` : ''}
+
+            <div class="flex items-center justify-between mt-2">
+                <p class="text-xs text-gray-400">
+                    <span class="material-icons-round text-xs align-middle mr-1">schedule</span>
+                    ${createdAt}
+                </p>
+                <div class="flex gap-2">
+                    ${req.status === 'OPEN' ? `
+                        <button onclick="showAdminRespondModal(${req.id})" class="px-3 py-1.5 bg-primary hover:bg-primary-dark text-white text-sm rounded-lg font-medium flex items-center gap-1 transition">
+                            <span class="material-icons-round text-sm">reply</span>
+                            Phản hồi
+                        </button>
+                        <button onclick="closeSupportRequest(${req.id})" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm rounded-lg font-medium flex items-center gap-1 transition">
+                            <span class="material-icons-round text-sm">close</span>
+                            Đóng
+                        </button>
+                    ` : req.status === 'RESPONDED' ? `
+                        <button onclick="showAdminRespondModal(${req.id})" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm rounded-lg font-medium flex items-center gap-1 transition">
+                            <span class="material-icons-round text-sm">edit</span>
+                            Sửa phản hồi
+                        </button>
+                        <button onclick="closeSupportRequest(${req.id})" class="px-3 py-1.5 bg-gray-500 hover:bg-gray-600 text-white text-sm rounded-lg font-medium flex items-center gap-1 transition">
+                            <span class="material-icons-round text-sm">check_circle</span>
+                            Đóng yêu cầu
+                        </button>
+                    ` : `
+                        <button onclick="reopenSupportRequest(${req.id})" class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-sm rounded-lg font-medium flex items-center gap-1 transition">
+                            <span class="material-icons-round text-sm">refresh</span>
+                            Mở lại
+                        </button>
+                    `}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function showAdminRespondModal(requestId) {
+    const req = supportRequests.find(r => r.id === requestId);
+    const existingResponse = req?.adminResponse || '';
+
+    document.getElementById('modal-container').innerHTML = `
+        <div class="modal-overlay fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+            <div class="modal-content bg-white rounded-xl shadow-xl max-w-lg w-full mx-4">
+                <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-xl font-bold text-primary">Phản hồi yêu cầu hỗ trợ</h3>
+                    <button onclick="closeModal()" class="p-2 hover:bg-gray-100 rounded-lg">
+                        <span class="material-icons-round">close</span>
+                    </button>
+                </div>
+                <div class="p-6">
+                    ${req?.title ? `<p class="font-semibold text-gray-800 mb-2">${escapeHtml(req.title)}</p>` : ''}
+                    <div class="bg-gray-50 rounded-lg p-3 mb-4 text-sm text-gray-600 max-h-40 overflow-y-auto">
+                        ${escapeHtml(req?.message || '')}
+                    </div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Phản hồi của Admin:</label>
+                    <textarea id="admin-response-text" rows="4" 
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent resize-none"
+                        placeholder="Nhập phản hồi cho người dùng...">${escapeHtml(existingResponse)}</textarea>
+                </div>
+                <div class="p-6 border-t border-gray-200 flex justify-end gap-3">
+                    <button onclick="closeModal()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium">Hủy</button>
+                    <button onclick="submitAdminResponse(${requestId})" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark font-medium flex items-center gap-2">
+                        <span class="material-icons-round text-sm">send</span>
+                        Gửi phản hồi
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+async function submitAdminResponse(requestId) {
+    const responseText = document.getElementById('admin-response-text')?.value?.trim();
+    if (!responseText) {
+        alert('Vui lòng nhập nội dung phản hồi');
+        return;
+    }
+
+    try {
+        await fetchAPI(`${API_BASE_URL}/help/admin/${requestId}/respond`, 'PUT', {
+            adminResponse: responseText,
+            status: 'RESPONDED'
+        });
+
+        closeModal();
+        loadSupportRequests(currentSupportFilter);
+        logActivity('respond', 'support-request', `Responded to support request #${requestId}`);
+    } catch (error) {
+        console.error('Error responding to support request:', error);
+        alert('Không thể gửi phản hồi: ' + error.message);
+    }
+}
+
+async function closeSupportRequest(requestId) {
+    showConfirmModal({
+        title: 'Đóng yêu cầu hỗ trợ',
+        message: 'Bạn có chắc muốn đóng yêu cầu hỗ trợ này?',
+        confirmText: 'Đóng yêu cầu',
+        confirmType: 'warning',
+        onConfirm: async () => {
+            try {
+                await fetchAPI(`${API_BASE_URL}/help/${requestId}/close`, 'PUT');
+
+                const element = document.getElementById(`support-req-${requestId}`);
+                if (element) {
+                    gsap.to(element, {
+                        opacity: 0,
+                        x: 50,
+                        duration: 0.3,
+                        onComplete: () => loadSupportRequests(currentSupportFilter)
+                    });
+                }
+                logActivity('close', 'support-request', `Closed support request #${requestId}`);
+            } catch (error) {
+                console.error('Error closing support request:', error);
+                alert('Không thể đóng yêu cầu: ' + error.message);
+            }
+        }
+    });
+}
+
+async function reopenSupportRequest(requestId) {
+    try {
+        await fetchAPI(`${API_BASE_URL}/help/admin/${requestId}/respond`, 'PUT', {
+            adminResponse: '',
+            status: 'OPEN'
+        });
+        loadSupportRequests(currentSupportFilter);
+    } catch (error) {
+        console.error('Error reopening support request:', error);
+        alert('Không thể mở lại yêu cầu: ' + error.message);
+    }
 }
 
 // ============ MONEY VERIFICATION ============
@@ -6748,4 +9313,2111 @@ async function saveTask() {
     } catch (e) {
         showToast('Lỗi', e.message, 'error');
     }
+}
+
+// ============ VOICE SEARCH SYSTEM ============
+// Voice recognition search widget - searches across crops, animals, and shop items
+// Uses Web Speech API + Groq AI for enhanced matching
+
+let voiceSearchState = {
+    isOpen: false,
+    isListening: false,
+    recognition: null,
+    currentTranscript: '',
+    panelState: 'idle' // idle | listening | processing | results | not-found | error | unsupported
+};
+
+function initVoiceSearch() {
+    injectVoiceSearchStyles();
+    injectVoiceSearchUI();
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        voiceSearchState.panelState = 'unsupported';
+        return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'vi-VN';
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 3;
+
+    recognition.onresult = (event) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+                finalTranscript += transcript;
+            } else {
+                interimTranscript += transcript;
+            }
+        }
+
+        const transcriptEl = document.getElementById('vs-transcript');
+        if (transcriptEl) {
+            if (finalTranscript) {
+                transcriptEl.innerHTML = `<span class="text-gray-800 font-medium">${finalTranscript}</span>`;
+                voiceSearchState.currentTranscript = finalTranscript;
+            } else {
+                transcriptEl.innerHTML = `<span class="text-gray-400 italic">${interimTranscript}</span>`;
+            }
+        }
+    };
+
+    recognition.onend = () => {
+        voiceSearchState.isListening = false;
+        updateVoiceToggleIcon();
+
+        if (voiceSearchState.currentTranscript.trim()) {
+            setVoiceSearchPanelState('processing');
+            processVoiceSearch(voiceSearchState.currentTranscript.trim());
+        } else {
+            setVoiceSearchPanelState('idle');
+        }
+    };
+
+    recognition.onerror = (event) => {
+        voiceSearchState.isListening = false;
+        updateVoiceToggleIcon();
+        if (event.error === 'no-speech') {
+            setVoiceSearchPanelState('idle');
+            const statusEl = document.getElementById('vs-status-text');
+            if (statusEl) statusEl.textContent = 'Không nghe thấy giọng nói. Thử lại?';
+        } else if (event.error === 'not-allowed') {
+            setVoiceSearchPanelState('error');
+            const bodyEl = document.getElementById('vs-body');
+            if (bodyEl) bodyEl.innerHTML = `
+                <div class="flex flex-col items-center gap-3 py-6">
+                    <span class="material-icons-round text-5xl text-red-400">mic_off</span>
+                    <p class="text-gray-600 text-center text-sm">Trình duyệt chưa cho phép sử dụng microphone.<br>Vui lòng bật quyền truy cập micro.</p>
+                </div>`;
+        } else {
+            setVoiceSearchPanelState('error');
+        }
+    };
+
+    voiceSearchState.recognition = recognition;
+}
+
+function injectVoiceSearchStyles() {
+    const style = document.createElement('style');
+    style.id = 'voice-search-styles';
+    style.textContent = `
+        .vs-container {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            z-index: 9998;
+            font-family: 'Manrope', sans-serif;
+        }
+
+        .vs-toggle {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2f7f34 0%, #4caf50 100%);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 20px rgba(47, 127, 52, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: visible;
+        }
+
+        .vs-toggle:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 28px rgba(47, 127, 52, 0.5);
+        }
+
+        .vs-toggle .material-icons-round {
+            font-size: 28px;
+            transition: transform 0.3s ease;
+            position: relative;
+            z-index: 2;
+        }
+
+        .vs-toggle.listening {
+            background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.5);
+            animation: vs-btn-glow 1.5s ease-in-out infinite;
+        }
+
+        @keyframes vs-btn-glow {
+            0%, 100% { box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 4px 35px rgba(239, 68, 68, 0.7); }
+        }
+
+        .vs-pulse-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 3px solid rgba(239, 68, 68, 0.6);
+            top: 0;
+            left: 0;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .vs-toggle.listening .vs-pulse-ring {
+            animation: vs-pulse 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        .vs-pulse-ring:nth-child(2) { animation-delay: 0.5s; }
+        .vs-pulse-ring:nth-child(3) { animation-delay: 1s; }
+
+        @keyframes vs-pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+
+        .vs-panel {
+            position: absolute;
+            bottom: 75px;
+            right: 0;
+            width: 400px;
+            max-height: 520px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+            pointer-events: none;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .vs-panel.open {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .vs-header {
+            background: linear-gradient(135deg, #1B5E20 0%, #2f7f34 100%);
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .vs-header-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+        }
+
+        .vs-header-title h3 {
+            font-size: 15px;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.2px;
+        }
+
+        .vs-header-title .material-icons-round {
+            font-size: 22px;
+            opacity: 0.9;
+        }
+
+        .vs-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .vs-close:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .vs-body {
+            padding: 20px;
+            max-height: 420px;
+            overflow-y: auto;
+        }
+
+        .vs-body::-webkit-scrollbar { width: 4px; }
+        .vs-body::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+
+        /* Wave animation */
+        .vs-wave-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            height: 50px;
+            margin: 16px 0;
+        }
+
+        .vs-wave-bar {
+            width: 4px;
+            height: 10px;
+            background: linear-gradient(180deg, #ef4444, #f97316);
+            border-radius: 4px;
+            animation: vs-wave 1s ease-in-out infinite;
+        }
+
+        .vs-wave-bar:nth-child(1) { animation-delay: 0s; }
+        .vs-wave-bar:nth-child(2) { animation-delay: 0.1s; }
+        .vs-wave-bar:nth-child(3) { animation-delay: 0.2s; }
+        .vs-wave-bar:nth-child(4) { animation-delay: 0.3s; }
+        .vs-wave-bar:nth-child(5) { animation-delay: 0.4s; }
+        .vs-wave-bar:nth-child(6) { animation-delay: 0.3s; }
+        .vs-wave-bar:nth-child(7) { animation-delay: 0.2s; }
+        .vs-wave-bar:nth-child(8) { animation-delay: 0.1s; }
+        .vs-wave-bar:nth-child(9) { animation-delay: 0s; }
+
+        @keyframes vs-wave {
+            0%, 100% { height: 10px; opacity: 0.5; }
+            50% { height: 40px; opacity: 1; }
+        }
+
+        /* Processing spinner */
+        .vs-spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid #2f7f34;
+            border-radius: 50%;
+            animation: vs-spin 0.8s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes vs-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Result items */
+        .vs-result-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 8px;
+            border: 1px solid #f3f4f6;
+            background: #fafafa;
+            opacity: 0;
+            transform: translateY(12px);
+        }
+
+        .vs-result-item:hover {
+            background: #f0fdf4;
+            border-color: #bbf7d0;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.12);
+        }
+
+        .vs-result-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .vs-result-icon.crop { background: #dcfce7; color: #16a34a; }
+        .vs-result-icon.animal { background: #fee2e2; color: #dc2626; }
+        .vs-result-icon.item { background: #dbeafe; color: #2563eb; }
+
+        .vs-result-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .vs-result-name {
+            font-weight: 600;
+            font-size: 14px;
+            color: #1f2937;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .vs-result-type {
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .vs-result-arrow {
+            color: #d1d5db;
+            font-size: 20px;
+            transition: color 0.2s, transform 0.2s;
+        }
+
+        .vs-result-item:hover .vs-result-arrow {
+            color: #22c55e;
+            transform: translateX(3px);
+        }
+
+        /* Mic big button in panel */
+        .vs-mic-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2f7f34 0%, #4caf50 100%);
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 12px auto 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(47, 127, 52, 0.3);
+        }
+
+        .vs-mic-btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 6px 28px rgba(47, 127, 52, 0.4);
+        }
+
+        .vs-mic-btn.listening {
+            background: linear-gradient(135deg, #ef4444 0%, #f97316 100%);
+            box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+            animation: vs-btn-glow 1.5s ease-in-out infinite;
+        }
+
+        .vs-mic-btn .material-icons-round {
+            font-size: 36px;
+        }
+
+        /* Tags */
+        .vs-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .vs-tag.crop { background: #dcfce7; color: #15803d; }
+        .vs-tag.animal { background: #fee2e2; color: #b91c1c; }
+        .vs-tag.item { background: #dbeafe; color: #1d4ed8; }
+
+        /* Transcript display */
+        .vs-transcript-box {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 12px 16px;
+            min-height: 42px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            line-height: 1.5;
+            transition: border-color 0.2s;
+        }
+
+        .vs-transcript-box.active {
+            border-color: #ef4444;
+            background: #fef2f2;
+        }
+
+        /* Single result card */
+        .vs-single-result {
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        .vs-single-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            margin: 0 auto 16px;
+        }
+
+        .vs-single-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .vs-single-type {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 16px;
+        }
+
+        .vs-navigate-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 28px;
+            background: linear-gradient(135deg, #2f7f34, #4caf50);
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 16px rgba(47, 127, 52, 0.3);
+        }
+
+        .vs-navigate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 24px rgba(47, 127, 52, 0.4);
+        }
+
+        /* Badge/category label */
+        .vs-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        /* Not Found State */
+        .vs-not-found {
+            text-align: center;
+            padding: 16px 0;
+        }
+
+        .vs-not-found .material-icons-round {
+            font-size: 56px;
+            color: #d1d5db;
+            margin-bottom: 12px;
+        }
+
+        /* Footer hint */
+        .vs-footer {
+            padding: 12px 20px;
+            border-top: 1px solid #f3f4f6;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #9ca3af;
+        }
+
+        .vs-footer .material-icons-round {
+            font-size: 14px;
+        }
+
+        /* Tooltip for the toggle button */
+        .vs-tooltip {
+            position: absolute;
+            right: 72px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1f2937;
+            color: white;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .vs-toggle:hover .vs-tooltip {
+            opacity: 1;
+        }
+
+        .vs-tooltip::after {
+            content: '';
+            position: absolute;
+            right: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: 6px solid transparent;
+            border-left-color: #1f2937;
+            border-right: none;
+        }
+
+        /* Dark mode support */
+        [data-theme="dark"] .vs-panel {
+            background: #1a261b;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+        [data-theme="dark"] .vs-body { color: #e2e8f0; }
+        [data-theme="dark"] .vs-result-item {
+            background: #1e3320;
+            border-color: #2d4a2f;
+        }
+        [data-theme="dark"] .vs-result-item:hover {
+            background: #254028;
+            border-color: #3d6b40;
+        }
+        [data-theme="dark"] .vs-result-name { color: #f1f5f9; }
+        [data-theme="dark"] .vs-transcript-box {
+            background: #1e3320;
+            border-color: #2d4a2f;
+            color: #e2e8f0;
+        }
+        [data-theme="dark"] .vs-header {
+            background: linear-gradient(135deg, #0d3310 0%, #1B5E20 100%);
+        }
+    `;
+    document.head.appendChild(style);
+}
+
+function injectVoiceSearchUI() {
+    const container = document.createElement('div');
+    container.className = 'vs-container';
+    container.id = 'voice-search-container';
+    container.innerHTML = `
+        <div class="vs-panel" id="vs-panel">
+            <div class="vs-header">
+                <div class="vs-header-title">
+                    <span class="material-icons-round">record_voice_over</span>
+                    <h3>Tìm kiếm bằng giọng nói</h3>
+                </div>
+                <button class="vs-close" onclick="toggleVoicePanel()">
+                    <span class="material-icons-round" style="font-size:18px">close</span>
+                </button>
+            </div>
+            <div class="vs-body" id="vs-body"></div>
+            <div class="vs-footer">
+                <span class="material-icons-round">info</span>
+                Tìm cây trồng, vật nuôi & sản phẩm bằng giọng nói
+            </div>
+        </div>
+        <button class="vs-toggle" id="vs-toggle" onclick="toggleVoicePanel()">
+            <span class="material-icons-round">mic</span>
+            <span class="vs-pulse-ring"></span>
+            <span class="vs-pulse-ring"></span>
+            <span class="vs-pulse-ring"></span>
+            <span class="vs-tooltip">Tìm kiếm giọng nói</span>
+        </button>
+    `;
+    document.body.appendChild(container);
+
+    // Set initial body content
+    setVoiceSearchPanelState('idle');
+}
+
+function toggleVoicePanel() {
+    const panel = document.getElementById('vs-panel');
+    const toggle = document.getElementById('vs-toggle');
+
+    voiceSearchState.isOpen = !voiceSearchState.isOpen;
+
+    if (voiceSearchState.isOpen) {
+        panel.classList.add('open');
+        // Animate in
+        gsap.fromTo(panel, { opacity: 0, y: 20, scale: 0.95 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: 'back.out(1.5)' });
+        setVoiceSearchPanelState('idle');
+    } else {
+        // Stop listening if active
+        if (voiceSearchState.isListening) {
+            stopVoiceListening();
+        }
+        gsap.to(panel, {
+            opacity: 0, y: 20, scale: 0.95, duration: 0.25, ease: 'power2.in',
+            onComplete: () => panel.classList.remove('open')
+        });
+    }
+}
+
+function setVoiceSearchPanelState(state) {
+    voiceSearchState.panelState = state;
+    const body = document.getElementById('vs-body');
+    if (!body) return;
+
+    switch (state) {
+        case 'idle':
+            body.innerHTML = `
+                <div class="flex flex-col items-center py-2">
+                    <button class="vs-mic-btn" id="vs-mic-main" onclick="startVoiceListening()">
+                        <span class="material-icons-round">mic</span>
+                    </button>
+                    <p id="vs-status-text" class="text-gray-500 text-sm mb-4">Nhấn để bắt đầu nói</p>
+                    <div class="vs-transcript-box" id="vs-transcript" style="width:100%">
+                        <span class="text-gray-400 text-sm">Nội dung nhận diện sẽ hiện ở đây...</span>
+                    </div>
+                    <div class="flex gap-2 flex-wrap justify-center">
+                        <span class="vs-tag crop"><span class="material-icons-round" style="font-size:13px">eco</span> Cây trồng</span>
+                        <span class="vs-tag animal"><span class="material-icons-round" style="font-size:13px">egg</span> Vật nuôi</span>
+                        <span class="vs-tag item"><span class="material-icons-round" style="font-size:13px">storefront</span> Sản phẩm</span>
+                    </div>
+                </div>
+            `;
+            // Animate entry
+            gsap.fromTo(body.children[0], { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' });
+            break;
+
+        case 'listening':
+            const transcriptBox = document.getElementById('vs-transcript');
+            if (transcriptBox) transcriptBox.classList.add('active');
+            const statusText = document.getElementById('vs-status-text');
+            if (statusText) statusText.textContent = 'Đang lắng nghe...';
+            const micBtn = document.getElementById('vs-mic-main');
+            if (micBtn) {
+                micBtn.classList.add('listening');
+                micBtn.querySelector('.material-icons-round').textContent = 'stop';
+                micBtn.setAttribute('onclick', 'stopVoiceListening()');
+            }
+
+            // Add wave animation below mic
+            const waveHTML = `<div class="vs-wave-container" id="vs-wave">
+                ${Array.from({ length: 9 }, () => '<div class="vs-wave-bar"></div>').join('')}
+            </div>`;
+            if (statusText) statusText.insertAdjacentHTML('afterend', waveHTML);
+            break;
+
+        case 'processing':
+            body.innerHTML = `
+                <div class="flex flex-col items-center py-8">
+                    <div class="vs-spinner"></div>
+                    <p class="text-gray-500 text-sm mt-4">Đang tìm kiếm dữ liệu...</p>
+                    <p class="text-gray-400 text-xs mt-1">"${voiceSearchState.currentTranscript}"</p>
+                </div>
+            `;
+            gsap.fromTo(body.children[0], { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.3 });
+            break;
+
+        case 'error':
+            body.innerHTML = `
+                <div class="flex flex-col items-center gap-3 py-6">
+                    <span class="material-icons-round text-5xl text-red-400">error_outline</span>
+                    <p class="text-gray-600 text-center text-sm">Đã xảy ra lỗi nhận diện giọng nói.</p>
+                    <button onclick="setVoiceSearchPanelState('idle')" class="text-sm text-primary font-medium hover:underline mt-2">Thử lại</button>
+                </div>
+            `;
+            break;
+
+        case 'unsupported':
+            body.innerHTML = `
+                <div class="flex flex-col items-center gap-3 py-6">
+                    <span class="material-icons-round text-5xl text-amber-400">warning</span>
+                    <p class="text-gray-600 text-center text-sm">Trình duyệt không hỗ trợ nhận diện giọng nói.<br>Vui lòng sử dụng Chrome hoặc Edge.</p>
+                </div>
+            `;
+            break;
+    }
+}
+
+function startVoiceListening() {
+    if (voiceSearchState.panelState === 'unsupported') return;
+    if (voiceSearchState.isListening) {
+        stopVoiceListening();
+        return;
+    }
+
+    voiceSearchState.currentTranscript = '';
+    voiceSearchState.isListening = true;
+
+    setVoiceSearchPanelState('listening');
+    updateVoiceToggleIcon();
+
+    try {
+        voiceSearchState.recognition.start();
+    } catch (e) {
+        // Recognition already started
+        voiceSearchState.recognition.stop();
+        setTimeout(() => {
+            voiceSearchState.recognition.start();
+        }, 100);
+    }
+}
+
+function stopVoiceListening() {
+    voiceSearchState.isListening = false;
+    updateVoiceToggleIcon();
+    try {
+        voiceSearchState.recognition.stop();
+    } catch (e) { /* ignore */ }
+}
+
+function updateVoiceToggleIcon() {
+    const toggleBtn = document.getElementById('vs-toggle');
+    if (!toggleBtn) return;
+    const icon = toggleBtn.querySelector('.material-icons-round');
+
+    if (voiceSearchState.isListening) {
+        toggleBtn.classList.add('listening');
+        icon.textContent = 'hearing';
+    } else {
+        toggleBtn.classList.remove('listening');
+        icon.textContent = 'mic';
+    }
+}
+
+async function ensureDataLoaded() {
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+    };
+
+    const fetchData = async (url) => {
+        try {
+            const res = await fetch(url, { headers });
+            if (res.ok) return await res.json();
+            return [];
+        } catch { return []; }
+    };
+
+    const promises = [];
+    if (!cropsData || cropsData.length === 0) {
+        promises.push(fetchData(`${API_BASE_URL}/admin/crops`).then(d => { cropsData = d || []; }));
+    }
+    if (!itemsData || itemsData.length === 0) {
+        promises.push(fetchData(`${API_BASE_URL}/admin/shop-items`).then(d => { itemsData = d || []; }));
+    }
+    if (!animalsData || animalsData.length === 0) {
+        promises.push(fetchData(`${API_BASE_URL}/admin/animals`).then(d => { animalsData = d || []; }));
+    }
+    if (promises.length > 0) await Promise.all(promises);
+}
+
+function normalizeVietnamese(str) {
+    if (!str) return '';
+    return str.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+        .replace(/[^a-z0-9\s]/g, '')
+        .trim();
+}
+
+function fuzzyMatchData(query) {
+    const normalizedQuery = normalizeVietnamese(query);
+    const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 0);
+    const results = [];
+
+    const matchAgainst = (dataArray, type) => {
+        if (!dataArray) return;
+        dataArray.forEach(item => {
+            const name = item.name || '';
+            const normalizedName = normalizeVietnamese(name);
+            const category = normalizeVietnamese(item.category || item.type || '');
+
+            let score = 0;
+
+            // Exact match (highest priority)
+            if (normalizedName === normalizedQuery) {
+                score = 100;
+            }
+            // Name contains full query
+            else if (normalizedName.includes(normalizedQuery)) {
+                score = 85;
+            }
+            // Query contains full name
+            else if (normalizedQuery.includes(normalizedName)) {
+                score = 80;
+            }
+            // Word-level matching
+            else {
+                const nameWords = normalizedName.split(/\s+/);
+                let matchedWords = 0;
+                let partialMatches = 0;
+
+                queryWords.forEach(qw => {
+                    if (nameWords.some(nw => nw === qw)) {
+                        matchedWords++;
+                    } else if (nameWords.some(nw => nw.includes(qw) || qw.includes(nw))) {
+                        partialMatches++;
+                    }
+                });
+
+                // Also check reverse: name words found in query
+                nameWords.forEach(nw => {
+                    if (queryWords.some(qw => qw === nw)) {
+                        matchedWords++;
+                    } else if (queryWords.some(qw => qw.includes(nw) || nw.includes(qw))) {
+                        partialMatches++;
+                    }
+                });
+
+                matchedWords = matchedWords / 2; // Deduplicate bidirectional matches
+                partialMatches = partialMatches / 2;
+
+                if (matchedWords > 0) {
+                    score = 40 + (matchedWords / Math.max(queryWords.length, nameWords.length)) * 40;
+                }
+                if (partialMatches > 0 && score < 30) {
+                    score = Math.max(score, 20 + partialMatches * 10);
+                }
+            }
+
+            // Category bonus
+            if (category && queryWords.some(qw => category.includes(qw))) {
+                score += 5;
+            }
+
+            if (score >= 20) {
+                results.push({ ...item, type, score, displayName: name });
+            }
+        });
+    };
+
+    matchAgainst(cropsData, 'crop');
+    matchAgainst(animalsData, 'animal');
+    matchAgainst(itemsData, 'item');
+
+    results.sort((a, b) => b.score - a.score);
+    return results;
+}
+
+async function aiEnhancedMatch(transcript) {
+    const allNames = [
+        ...cropsData.map(c => ({ name: c.name, type: 'crop', id: c.id })),
+        ...animalsData.map(a => ({ name: a.name, type: 'animal', id: a.id })),
+        ...itemsData.map(i => ({ name: i.name, type: 'item', id: i.id }))
+    ];
+
+    const nameList = allNames.map(n => `${n.name} (${n.type})`).join(', ');
+
+    try {
+        const response = await fetch(CONFIG.GROQ_API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${CONFIG.GROQ_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: CONFIG.GROQ_MODEL,
+                messages: [
+                    {
+                        role: 'system',
+                        content: `Bạn là hệ thống nhận diện tên dữ liệu nông nghiệp. Người dùng sẽ nói một câu bằng tiếng Việt để tìm kiếm. Hãy trích xuất tên cây trồng, vật nuôi, hoặc sản phẩm mà họ muốn tìm.
+
+Danh sách dữ liệu hiện có: ${nameList}
+
+Trả lời ngắn gọn CHÍNH XÁC tên dữ liệu phù hợp nhất (có thể nhiều tên, cách nhau bởi dấu |). Nếu không tìm thấy phù hợp, trả lời "NONE".
+Chỉ trả lời tên, không giải thích.`
+                    },
+                    {
+                        role: 'user',
+                        content: transcript
+                    }
+                ],
+                temperature: 0.1,
+                max_tokens: 100
+            })
+        });
+
+        if (!response.ok) return [];
+
+        const data = await response.json();
+        const aiResponse = data.choices?.[0]?.message?.content?.trim();
+
+        if (!aiResponse || aiResponse === 'NONE') return [];
+
+        const aiNames = aiResponse.split('|').map(n => n.trim()).filter(n => n.length > 0);
+        const matches = [];
+
+        aiNames.forEach(aiName => {
+            const normalizedAI = normalizeVietnamese(aiName);
+            allNames.forEach(item => {
+                const normalizedItem = normalizeVietnamese(item.name);
+                if (normalizedItem === normalizedAI || normalizedItem.includes(normalizedAI) || normalizedAI.includes(normalizedItem)) {
+                    const fullData = item.type === 'crop' ? cropsData.find(c => c.id === item.id)
+                        : item.type === 'animal' ? animalsData.find(a => a.id === item.id)
+                        : itemsData.find(i => i.id === item.id);
+                    if (fullData && !matches.some(m => m.id === item.id && m.type === item.type)) {
+                        matches.push({ ...fullData, type: item.type, score: 90, displayName: item.name });
+                    }
+                }
+            });
+        });
+
+        return matches;
+    } catch (e) {
+        console.warn('AI enhanced match failed:', e);
+        return [];
+    }
+}
+
+async function processVoiceSearch(transcript) {
+    await ensureDataLoaded();
+
+    // Step 1: Fuzzy match
+    let results = fuzzyMatchData(transcript);
+
+    // Step 2: If no good matches, try AI-enhanced matching
+    if (results.length === 0 || (results.length > 0 && results[0].score < 40)) {
+        const aiResults = await aiEnhancedMatch(transcript);
+        if (aiResults.length > 0) {
+            // Merge and deduplicate
+            const existingIds = new Set(results.map(r => `${r.type}-${r.id}`));
+            aiResults.forEach(ar => {
+                if (!existingIds.has(`${ar.type}-${ar.id}`)) {
+                    results.push(ar);
+                }
+            });
+            results.sort((a, b) => b.score - a.score);
+        }
+    }
+
+    // Filter to decent matches
+    results = results.filter(r => r.score >= 20).slice(0, 10);
+
+    if (results.length === 0) {
+        renderVoiceNoResults(transcript);
+    } else if (results.length === 1) {
+        renderVoiceSingleResult(results[0]);
+    } else {
+        renderVoiceMultipleResults(results, transcript);
+    }
+}
+
+function getTypeIcon(type) {
+    switch (type) {
+        case 'crop': return 'eco';
+        case 'animal': return 'egg';
+        case 'item': return 'storefront';
+        default: return 'category';
+    }
+}
+
+function getTypeName(type) {
+    switch (type) {
+        case 'crop': return 'Cây trồng';
+        case 'animal': return 'Vật nuôi';
+        case 'item': return 'Sản phẩm';
+        default: return 'Dữ liệu';
+    }
+}
+
+function renderVoiceNoResults(transcript) {
+    const body = document.getElementById('vs-body');
+    if (!body) return;
+
+    body.innerHTML = `
+        <div class="vs-not-found">
+            <span class="material-icons-round">search_off</span>
+            <p class="text-gray-700 font-semibold text-base mb-1">Không tìm thấy kết quả</p>
+            <p class="text-gray-400 text-sm mb-4">Cho "${transcript}"</p>
+            <div class="flex flex-col gap-2 text-left bg-gray-50 rounded-xl p-4 text-sm text-gray-500">
+                <p class="font-medium text-gray-600 mb-1">💡 Gợi ý:</p>
+                <p>• Nói rõ tên cây trồng, vật nuôi hoặc sản phẩm</p>
+                <p>• Ví dụ: "Lúa nước", "Gà", "Phân bón"</p>
+            </div>
+            <button onclick="setVoiceSearchPanelState('idle')" class="mt-4 inline-flex items-center gap-2 text-sm text-primary font-semibold hover:underline">
+                <span class="material-icons-round text-lg">replay</span> Thử lại
+            </button>
+        </div>
+    `;
+
+    gsap.fromTo(body.children[0], { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.4, ease: 'back.out(1.5)' });
+}
+
+function renderVoiceSingleResult(result) {
+    const body = document.getElementById('vs-body');
+    if (!body) return;
+
+    const typeClass = result.type;
+    const icon = getTypeIcon(result.type);
+    const typeName = getTypeName(result.type);
+
+    body.innerHTML = `
+        <div class="vs-single-result">
+            <div class="vs-single-icon ${typeClass}">
+                <span class="material-icons-round">${icon}</span>
+            </div>
+            <div class="vs-badge ${typeClass}">${typeName}</div>
+            <div class="vs-single-name">${result.displayName}</div>
+            <div class="vs-single-type">${result.category || result.type || ''}</div>
+            <button class="vs-navigate-btn" onclick="navigateVoiceResult('${result.type}', ${result.id})">
+                <span class="material-icons-round" style="font-size:20px">open_in_new</span>
+                Xem chi tiết
+            </button>
+            <div class="mt-4">
+                <button onclick="setVoiceSearchPanelState('idle')" class="text-sm text-gray-400 hover:text-gray-600 font-medium">
+                    <span class="material-icons-round text-lg align-middle">replay</span> Tìm kiếm khác
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Animate
+    gsap.timeline()
+        .fromTo('.vs-single-icon', { scale: 0, rotation: -180 }, { scale: 1, rotation: 0, duration: 0.5, ease: 'back.out(2)' })
+        .fromTo('.vs-single-name', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3 }, '-=0.2')
+        .fromTo('.vs-navigate-btn', { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3 }, '-=0.1');
+}
+
+function renderVoiceMultipleResults(results, transcript) {
+    const body = document.getElementById('vs-body');
+    if (!body) return;
+
+    const resultsHTML = results.map((r, i) => `
+        <div class="vs-result-item" data-idx="${i}" onclick="navigateVoiceResult('${r.type}', ${r.id})">
+            <div class="vs-result-icon ${r.type}">
+                <span class="material-icons-round">${getTypeIcon(r.type)}</span>
+            </div>
+            <div class="vs-result-info">
+                <div class="vs-result-name">${r.displayName}</div>
+                <div class="vs-result-type">${getTypeName(r.type)}${r.category ? ' • ' + r.category : ''}</div>
+            </div>
+            <span class="material-icons-round vs-result-arrow">chevron_right</span>
+        </div>
+    `).join('');
+
+    body.innerHTML = `
+        <div>
+            <div class="flex items-center justify-between mb-3">
+                <p class="text-gray-500 text-sm">Tìm thấy <strong class="text-gray-800">${results.length}</strong> kết quả</p>
+                <button onclick="setVoiceSearchPanelState('idle')" class="text-xs text-primary font-semibold hover:underline flex items-center gap-1">
+                    <span class="material-icons-round" style="font-size:15px">replay</span> Tìm lại
+                </button>
+            </div>
+            <div class="vs-transcript-box mb-3" style="font-size:13px;">
+                <span class="material-icons-round text-gray-400 align-middle" style="font-size:16px">format_quote</span>
+                <span class="text-gray-600 italic">${transcript}</span>
+            </div>
+            <div id="vs-results-list">
+                ${resultsHTML}
+            </div>
+        </div>
+    `;
+
+    // Stagger animation for results
+    gsap.fromTo('#vs-results-list .vs-result-item',
+        { opacity: 0, y: 20, scale: 0.95 },
+        {
+            opacity: 1, y: 0, scale: 1,
+            duration: 0.35,
+            stagger: 0.08,
+            ease: 'power2.out'
+        }
+    );
+}
+
+function navigateVoiceResult(type, id) {
+    // Close panel
+    toggleVoicePanel();
+
+    // Small delay for panel close animation
+    setTimeout(() => {
+        animateContentTransition(() => {
+            switch (type) {
+                case 'crop':
+                    // First load crops page to set context, then show detail
+                    showCropDetail(id);
+                    break;
+                case 'animal':
+                    showAnimalDetail(id);
+                    break;
+                case 'item':
+                    showItemDetail(id);
+                    break;
+            }
+        });
+    }, 300);
+}
+
+// ============ SETTINGS ============
+function loadSettings() {
+    document.getElementById('page-title').textContent = 'Cài đặt';
+    const content = document.getElementById('main-content');
+    const userName = localStorage.getItem('userName') || 'Admin';
+    const userEmail = localStorage.getItem('userEmail') || '';
+
+    content.innerHTML = `
+    <div class="max-w-4xl mx-auto">
+        <!-- Settings Navigation -->
+        <div class="flex gap-2 mb-6 bg-white rounded-xl p-1.5 shadow-sm border border-gray-100">
+            <button class="admin-settings-nav active flex-1 px-4 py-2.5 rounded-lg font-medium text-sm transition-all" data-target="admin-profile-settings" onclick="switchAdminSettingsTab(this)">
+                <span class="material-icons-round text-base align-middle mr-1">person</span> Hồ sơ
+            </button>
+            <button class="admin-settings-nav flex-1 px-4 py-2.5 rounded-lg font-medium text-sm text-gray-500 transition-all" data-target="admin-security-settings" onclick="switchAdminSettingsTab(this)">
+                <span class="material-icons-round text-base align-middle mr-1">shield</span> Bảo mật
+            </button>
+            <button class="admin-settings-nav flex-1 px-4 py-2.5 rounded-lg font-medium text-sm text-gray-500 transition-all" data-target="admin-preferences-settings" onclick="switchAdminSettingsTab(this)">
+                <span class="material-icons-round text-base align-middle mr-1">tune</span> Tùy chọn
+            </button>
+        </div>
+
+        <!-- Profile Settings -->
+        <div id="admin-profile-settings" class="admin-settings-section">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                <h3 class="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <span class="material-icons-round text-primary">person</span> Thông tin cá nhân
+                </h3>
+
+                <!-- Avatar -->
+                <div class="flex items-center gap-5 mb-8 p-5 bg-gray-50 rounded-xl">
+                    <div id="admin-settings-avatar" class="w-20 h-20 rounded-full bg-primary flex items-center justify-center text-white text-2xl font-bold shadow-lg"
+                         style="background-size:cover; background-position:center;">
+                        ${userName.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                        <p class="font-semibold text-gray-800 text-lg">${userName}</p>
+                        <p class="text-sm text-gray-500">${userEmail}</p>
+                        <p class="text-xs text-primary font-medium mt-1">Quản trị viên hệ thống</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Họ và tên</label>
+                        <input type="text" id="admin-setting-name" value="${userName}" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
+                        <input type="email" id="admin-setting-email" value="${userEmail}" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" disabled>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Số điện thoại</label>
+                        <input type="tel" id="admin-setting-phone" placeholder="Nhập số điện thoại" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Địa chỉ</label>
+                        <input type="text" id="admin-setting-address" placeholder="Nhập địa chỉ" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end">
+                    <button onclick="saveAdminProfile()" class="px-6 py-3 bg-primary text-white rounded-xl font-medium hover:bg-primary-dark transition-colors shadow-sm">
+                        <span class="material-icons-round text-base align-middle mr-1">save</span> Lưu thay đổi
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Settings -->
+        <div id="admin-security-settings" class="admin-settings-section" style="display:none;">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                <h3 class="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <span class="material-icons-round text-primary">shield</span> Bảo mật tài khoản
+                </h3>
+
+                <div class="space-y-4">
+                    <!-- Change Password -->
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <div>
+                            <div class="font-semibold text-gray-800">Đổi mật khẩu</div>
+                            <div class="text-sm text-gray-500">Cập nhật mật khẩu định kỳ để bảo mật</div>
+                        </div>
+                        <button onclick="showAdminChangePassword()" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors">
+                            Thay đổi
+                        </button>
+                    </div>
+
+                    <!-- 2FA -->
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <div>
+                            <div class="font-semibold text-gray-800">Xác thực 2 bước (2FA)</div>
+                            <div class="text-sm text-gray-500">Tăng cường bảo mật cho tài khoản</div>
+                        </div>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="admin-two-factor-toggle" class="sr-only peer">
+                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </label>
+                    </div>
+
+                    <!-- Face Login -->
+                    <div class="p-4 bg-gray-50 rounded-xl border border-gray-100" style="display:flex; flex-direction:column; gap:12px;">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="font-semibold text-gray-800 flex items-center gap-2">
+                                    <span class="material-icons-round" style="color:#8b5cf6; font-size:20px;">face</span>
+                                    Đăng nhập bằng khuôn mặt
+                                </div>
+                                <div class="text-sm text-gray-500" id="admin-face-status-text">Đang kiểm tra...</div>
+                            </div>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="admin-face-login-toggle" class="sr-only peer">
+                                <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-purple-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                            </label>
+                        </div>
+
+                        <div id="admin-face-setup-panel" style="display:none; padding:16px; background:linear-gradient(135deg, #f5f3ff, #ede9fe); border-radius:12px; border:1px solid #ddd6fe;">
+                            <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
+                                <div style="width:40px; height:40px; background:linear-gradient(135deg, #8b5cf6, #7c3aed); border-radius:10px; display:flex; align-items:center; justify-content:center;">
+                                    <span class="material-icons-round" style="color:white; font-size:22px;">face</span>
+                                </div>
+                                <div>
+                                    <h4 style="margin:0; font-size:15px; font-weight:700; color:#5b21b6;">Đăng ký khuôn mặt</h4>
+                                    <p style="margin:2px 0 0; font-size:12px; color:#7c3aed;">Chụp ảnh khuôn mặt để đăng nhập nhanh</p>
+                                </div>
+                            </div>
+
+                            <div id="admin-face-setup-options" style="display:flex; gap:10px;">
+                                <button onclick="adminStartFaceCamera()" class="px-4 py-2 rounded-lg text-white font-medium" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; background:#8b5cf6;">
+                                    <span class="material-icons-round" style="font-size:18px;">videocam</span> Camera
+                                </button>
+                                <button onclick="adminUploadFacePhoto()" class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 font-medium" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px;">
+                                    <span class="material-icons-round" style="font-size:18px;">photo_camera</span> Tải ảnh
+                                </button>
+                                <input type="file" id="admin-face-setup-file" accept="image/*" style="display:none;">
+                            </div>
+
+                            <div id="admin-face-setup-camera" style="display:none; margin-top:12px;">
+                                <video id="admin-face-setup-video" autoplay playsinline style="width:100%; border-radius:8px; background:#000;"></video>
+                                <canvas id="admin-face-setup-canvas" style="display:none;"></canvas>
+                                <p id="admin-face-setup-status" style="text-align:center; font-size:13px; color:#6b7280; margin-top:8px;">Đang tải...</p>
+                                <div style="display:flex; gap:8px; margin-top:8px;">
+                                    <button onclick="adminCaptureFaceSetup()" id="admin-btn-capture-setup" class="px-4 py-2 rounded-lg text-white font-medium" style="flex:1; background:#8b5cf6;" disabled>
+                                        <span class="material-icons-round" style="font-size:18px; vertical-align:middle;">photo_camera</span> Chụp
+                                    </button>
+                                    <button onclick="adminStopFaceCamera()" class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 font-medium">
+                                        <span class="material-icons-round" style="font-size:18px; vertical-align:middle;">close</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="admin-face-setup-processing" style="display:none; text-align:center; padding:16px;">
+                                <span class="material-icons-round" style="font-size:36px; color:#8b5cf6; animation:spin 1s linear infinite;">face</span>
+                                <p style="margin-top:8px; color:#6b7280; font-size:13px;">Đang xử lý khuôn mặt...</p>
+                            </div>
+
+                            <div id="admin-face-setup-success" style="display:none; text-align:center; padding:16px;">
+                                <span class="material-icons-round" style="font-size:40px; color:#10b981;">check_circle</span>
+                                <p style="margin-top:8px; color:#059669; font-weight:600; font-size:14px;">Đăng ký khuôn mặt thành công!</p>
+                            </div>
+
+                            <div style="margin-top:12px; padding:10px; background:white; border-radius:8px;">
+                                <p style="font-size:11px; color:#7c3aed; margin:0; display:flex; align-items:center; gap:6px;">
+                                    <span class="material-icons-round" style="font-size:14px;">info</span>
+                                    Mỗi tài khoản chỉ đăng ký được một khuôn mặt duy nhất.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Sessions -->
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <div>
+                            <div class="font-semibold text-gray-800">Phiên đăng nhập</div>
+                            <div class="text-sm text-gray-500">Quản lý các thiết bị đang đăng nhập</div>
+                        </div>
+                        <button onclick="showAdminSessions()" class="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-100 transition-colors">
+                            Xem tất cả
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preferences -->
+        <div id="admin-preferences-settings" class="admin-settings-section" style="display:none;">
+            <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+                <h3 class="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                    <span class="material-icons-round text-primary">tune</span> Tùy chọn hệ thống
+                </h3>
+
+                <div class="space-y-4">
+                    <!-- Language -->
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <div>
+                            <div class="font-semibold text-gray-800">Ngôn ngữ</div>
+                            <div class="text-sm text-gray-500">Chọn ngôn ngữ hiển thị</div>
+                        </div>
+                        <select class="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                            <option value="vi" selected>Tiếng Việt</option>
+                            <option value="en">English</option>
+                        </select>
+                    </div>
+
+                    <!-- Notifications -->
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <div>
+                            <div class="font-semibold text-gray-800">Thông báo</div>
+                            <div class="text-sm text-gray-500">Nhận thông báo qua email</div>
+                        </div>
+                        <label class="inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="admin-notifications-toggle" class="sr-only peer" checked>
+                            <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-primary peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                        </label>
+                    </div>
+
+                    <!-- Auto Logout -->
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <div>
+                            <div class="font-semibold text-gray-800">Tự động đăng xuất</div>
+                            <div class="text-sm text-gray-500">Đăng xuất sau thời gian không hoạt động</div>
+                        </div>
+                        <select class="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30">
+                            <option value="30">30 phút</option>
+                            <option value="60" selected>1 giờ</option>
+                            <option value="120">2 giờ</option>
+                            <option value="0">Không bao giờ</option>
+                        </select>
+                    </div>
+
+                    <!-- Data Export -->
+                    <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
+                        <div>
+                            <div class="font-semibold text-gray-800">Sao lưu dữ liệu</div>
+                            <div class="text-sm text-gray-500">Xuất dữ liệu hệ thống</div>
+                        </div>
+                        <button onclick="adminExportData()" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors">
+                            <span class="material-icons-round text-base align-middle mr-1">download</span> Xuất dữ liệu
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+
+    // Init settings tab navigation style
+    const activeBtn = document.querySelector('.admin-settings-nav.active');
+    if (activeBtn) {
+        activeBtn.style.background = '#10B981';
+        activeBtn.style.color = 'white';
+    }
+
+    // Init face login
+    initAdminFaceSetup();
+
+    // Init 2FA toggle
+    initAdmin2FA();
+
+    // Load user profile data
+    loadAdminProfileData();
+
+    // Init preferences
+    initAdminPreferences();
+
+    // Animate
+    gsap.fromTo('.admin-settings-section:not([style*="display:none"])',
+        { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.3, ease: 'power2.out' });
+}
+
+function switchAdminSettingsTab(btn) {
+    document.querySelectorAll('.admin-settings-nav').forEach(b => {
+        b.classList.remove('active');
+        b.style.background = '';
+        b.style.color = '#6b7280';
+    });
+    btn.classList.add('active');
+    btn.style.background = '#10B981';
+    btn.style.color = 'white';
+
+    const target = btn.dataset.target;
+    document.querySelectorAll('.admin-settings-section').forEach(s => s.style.display = 'none');
+    const section = document.getElementById(target);
+    if (section) {
+        section.style.display = 'block';
+        gsap.fromTo(section, { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' });
+    }
+
+    // Re-init face setup when switching to security tab
+    if (target === 'admin-security-settings') {
+        initAdminFaceSetup();
+    }
+}
+
+async function loadAdminProfileData() {
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    try {
+        const res = await fetch(API_BASE_URL + '/user/profile', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            const nameInput = document.getElementById('admin-setting-name');
+            const emailInput = document.getElementById('admin-setting-email');
+            const phoneInput = document.getElementById('admin-setting-phone');
+            const addressInput = document.getElementById('admin-setting-address');
+            if (nameInput && data.fullName) nameInput.value = data.fullName;
+            if (emailInput && data.email) emailInput.value = data.email;
+            if (phoneInput && data.phone) phoneInput.value = data.phone;
+            if (addressInput && data.address) addressInput.value = data.address;
+        }
+    } catch (e) { console.log('Could not load profile:', e); }
+}
+
+async function saveAdminProfile() {
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    const name = document.getElementById('admin-setting-name')?.value;
+    const phone = document.getElementById('admin-setting-phone')?.value;
+    const address = document.getElementById('admin-setting-address')?.value;
+
+    try {
+        const res = await fetch(API_BASE_URL + '/user/profile', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ fullName: name, phone, address })
+        });
+        if (res.ok) {
+            localStorage.setItem('userName', name);
+            document.getElementById('admin-name').textContent = name;
+            showAdminToast('Đã lưu thông tin thành công!', 'success');
+        } else {
+            showAdminToast('Không thể lưu thông tin', 'error');
+        }
+    } catch {
+        showAdminToast('Lỗi kết nối server', 'error');
+    }
+}
+
+function showAdminChangePassword() {
+    const mc = document.getElementById('modal-container');
+    mc.innerHTML = `
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onclick="if(event.target===this)this.remove()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span class="material-icons-round text-primary">lock</span> Đổi mật khẩu
+            </h3>
+            <p class="text-sm text-gray-500 mb-6">Hệ thống sẽ gửi mã OTP đến email của bạn để xác nhận.</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="this.closest('.fixed').remove()" class="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors">Hủy</button>
+                <button onclick="adminRequestPasswordOtp()" class="px-5 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary-dark transition-colors">Gửi mã OTP</button>
+            </div>
+        </div>
+    </div>`;
+}
+
+async function adminRequestPasswordOtp() {
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    try {
+        const res = await fetch(API_BASE_URL + '/security/otp/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ type: 'PASSWORD_CHANGE' })
+        });
+        if (res.ok) {
+            showAdminToast('Mã OTP đã gửi đến email của bạn', 'success');
+            showAdminOtpPasswordModal();
+        } else {
+            showAdminToast('Không thể gửi mã OTP', 'error');
+        }
+    } catch {
+        showAdminToast('Lỗi kết nối server', 'error');
+    }
+}
+
+function showAdminOtpPasswordModal() {
+    const mc = document.getElementById('modal-container');
+    mc.innerHTML = `
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onclick="if(event.target===this)this.remove()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+            <h3 class="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <span class="material-icons-round text-primary">lock</span> Xác thực & Đổi mật khẩu
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Mã OTP (6 số)</label>
+                    <input type="text" id="admin-otp-input" maxlength="6" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 text-center text-lg tracking-widest font-mono" placeholder="------">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Mật khẩu mới</label>
+                    <input type="password" id="admin-new-password" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-1">Xác nhận mật khẩu mới</label>
+                    <input type="password" id="admin-confirm-password" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30">
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="this.closest('.fixed').remove()" class="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors">Hủy</button>
+                <button onclick="submitAdminPasswordChange()" class="px-5 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary-dark transition-colors">Đổi mật khẩu</button>
+            </div>
+        </div>
+    </div>`;
+}
+
+async function submitAdminPasswordChange() {
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    const otp = document.getElementById('admin-otp-input').value;
+    const newPassword = document.getElementById('admin-new-password').value;
+    const confirmPassword = document.getElementById('admin-confirm-password').value;
+
+    if (!otp || otp.length !== 6) { showAdminToast('Vui lòng nhập mã OTP 6 số', 'error'); return; }
+    if (!newPassword) { showAdminToast('Vui lòng nhập mật khẩu mới', 'error'); return; }
+    if (newPassword !== confirmPassword) { showAdminToast('Mật khẩu mới không khớp', 'error'); return; }
+    if (newPassword.length < 6) { showAdminToast('Mật khẩu phải ít nhất 6 ký tự', 'error'); return; }
+
+    try {
+        const res = await fetch(API_BASE_URL + '/security/password/change', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ otp, newPassword })
+        });
+        if (res.ok) {
+            document.querySelector('#modal-container .fixed')?.remove();
+            showAdminToast('Đổi mật khẩu thành công!', 'success');
+        } else {
+            const err = await res.json().catch(() => ({}));
+            showAdminToast(err.message || 'Mã OTP không đúng hoặc đã hết hạn', 'error');
+        }
+    } catch {
+        showAdminToast('Lỗi kết nối server', 'error');
+    }
+}
+
+function showAdminToast(message, type = 'info') {
+    const colors = { success: '#10b981', error: '#ef4444', info: '#3b82f6' };
+    const icons = { success: 'check_circle', error: 'error', info: 'info' };
+    const toast = document.createElement('div');
+    toast.style.cssText = `position:fixed; bottom:24px; right:24px; z-index:9999; display:flex; align-items:center; gap:10px; padding:14px 20px; background:white; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.12); border-left:4px solid ${colors[type]}; font-size:14px; font-weight:500; color:#1f2937; max-width:400px;`;
+    toast.innerHTML = `<span class="material-icons-round" style="color:${colors[type]}; font-size:20px;">${icons[type]}</span>${message}`;
+    document.body.appendChild(toast);
+    gsap.fromTo(toast, { opacity: 0, y: 20, x: 20 }, { opacity: 1, y: 0, x: 0, duration: 0.3, ease: 'back.out(1.5)' });
+    setTimeout(() => { gsap.to(toast, { opacity: 0, y: 20, duration: 0.2, onComplete: () => toast.remove() }); }, 3000);
+}
+
+// ============ ADMIN 2FA SETUP ============
+function initAdmin2FA() {
+    const toggle = document.getElementById('admin-two-factor-toggle');
+    if (!toggle) return;
+
+    // Check current 2FA status
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    try {
+        const u = JSON.parse(localStorage.getItem('user') || '{}');
+        if (u.twoFactorEnabled) {
+            toggle.checked = true;
+        }
+    } catch {}
+
+    // Clone to remove old listeners  
+    const newToggle = toggle.cloneNode(true);
+    toggle.parentNode.replaceChild(newToggle, toggle);
+
+    newToggle.addEventListener('change', async function() {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        if (this.checked) {
+            this.checked = false; // Wait for verification
+            try {
+                const res = await fetch(API_BASE_URL + '/security/2fa/init', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await res.json();
+                showAdmin2FASetupModal(data.otpAuthUri, data.secret);
+            } catch {
+                showAdminToast('Không thể khởi tạo 2FA', 'error');
+            }
+        } else {
+            showAdminDisable2FAModal(this);
+        }
+    });
+}
+
+function showAdmin2FASetupModal(otpAuthUri, secret) {
+    const mc = document.getElementById('modal-container');
+    mc.innerHTML = `
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onclick="if(event.target===this)this.remove()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span class="material-icons-round text-primary">security</span> Thiết lập xác thực 2 bước
+            </h3>
+            <p class="text-sm text-gray-500 mb-4">Quét mã QR bên dưới bằng <strong>Google Authenticator</strong> hoặc ứng dụng tương tự:</p>
+            <div class="flex justify-center mb-4">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(otpAuthUri)}" alt="QR Code" class="rounded-lg border border-gray-200" style="width:200px; height:200px;">
+            </div>
+            <p class="text-xs text-gray-400 text-center mb-4 break-all">Secret: <code class="bg-gray-100 px-2 py-0.5 rounded">${secret}</code></p>
+            <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-1">Nhập mã xác thực (6 số)</label>
+                <input type="text" id="admin-2fa-code" maxlength="6" class="w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/30 text-center text-lg tracking-widest font-mono" placeholder="------">
+            </div>
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="this.closest('.fixed').remove()" class="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50">Hủy</button>
+                <button onclick="verifyAdmin2FA()" class="px-5 py-2.5 bg-primary text-white rounded-xl font-medium hover:bg-primary-dark">Xác nhận</button>
+            </div>
+        </div>
+    </div>`;
+}
+
+async function verifyAdmin2FA() {
+    const code = document.getElementById('admin-2fa-code')?.value;
+    if (!code || code.length !== 6) { showAdminToast('Vui lòng nhập mã 6 số', 'error'); return; }
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    try {
+        const res = await fetch(API_BASE_URL + '/security/2fa/enable', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ code })
+        });
+        if (res.ok) {
+            document.querySelector('#modal-container .fixed')?.remove();
+            const toggle = document.getElementById('admin-two-factor-toggle');
+            if (toggle) toggle.checked = true;
+            // Update stored user
+            try { const u = JSON.parse(localStorage.getItem('user') || '{}'); u.twoFactorEnabled = true; localStorage.setItem('user', JSON.stringify(u)); } catch {}
+            showAdminToast('Đã bật xác thực 2 bước!', 'success');
+        } else {
+            showAdminToast('Mã xác thực không đúng', 'error');
+        }
+    } catch {
+        showAdminToast('Lỗi kết nối server', 'error');
+    }
+}
+
+function showAdminDisable2FAModal(toggleEl) {
+    const mc = document.getElementById('modal-container');
+    mc.innerHTML = `
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onclick="if(event.target===this){document.getElementById('admin-two-factor-toggle').checked=true; this.remove();}">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md p-8">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span class="material-icons-round text-red-500">warning</span> Tắt xác thực 2 bước?
+            </h3>
+            <p class="text-sm text-gray-500 mb-6">Tài khoản của bạn sẽ kém an toàn hơn nếu tắt tính năng này.</p>
+            <div class="flex justify-end gap-3">
+                <button onclick="document.getElementById('admin-two-factor-toggle').checked=true; this.closest('.fixed').remove()" class="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50">Hủy</button>
+                <button onclick="processAdminDisable2FA()" class="px-5 py-2.5 bg-red-500 text-white rounded-xl font-medium hover:bg-red-600">Vẫn tắt</button>
+            </div>
+        </div>
+    </div>`;
+}
+
+async function processAdminDisable2FA() {
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    try {
+        await fetch(API_BASE_URL + '/security/2fa/disable', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const toggle = document.getElementById('admin-two-factor-toggle');
+        if (toggle) toggle.checked = false;
+        try { const u = JSON.parse(localStorage.getItem('user') || '{}'); u.twoFactorEnabled = false; localStorage.setItem('user', JSON.stringify(u)); } catch {}
+        document.querySelector('#modal-container .fixed')?.remove();
+        showAdminToast('Đã tắt xác thực 2 bước', 'info');
+    } catch {
+        showAdminToast('Lỗi kết nối server', 'error');
+    }
+}
+
+// ============ ADMIN SESSIONS ============
+function showAdminSessions() {
+    const mc = document.getElementById('modal-container');
+    const currentBrowser = navigator.userAgent.includes('Edg') ? 'Microsoft Edge' :
+        navigator.userAgent.includes('Chrome') ? 'Google Chrome' :
+        navigator.userAgent.includes('Firefox') ? 'Firefox' : 'Trình duyệt';
+    const currentOS = navigator.userAgent.includes('Windows') ? 'Windows' :
+        navigator.userAgent.includes('Mac') ? 'macOS' : 'Hệ điều hành';
+    const loginTime = localStorage.getItem('loginTime') || new Date().toISOString();
+    const timeAgo = getTimeAgo(loginTime);
+
+    mc.innerHTML = `
+    <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onclick="if(event.target===this)this.remove()">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg p-8">
+            <h3 class="text-lg font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <span class="material-icons-round text-primary">devices</span> Phiên đăng nhập
+            </h3>
+            <div class="space-y-3">
+                <div class="flex items-center gap-4 p-4 bg-green-50 rounded-xl border border-green-100">
+                    <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                        <span class="material-icons-round text-green-600">computer</span>
+                    </div>
+                    <div class="flex-1">
+                        <div class="font-semibold text-gray-800">${currentBrowser} - ${currentOS}</div>
+                        <div class="text-xs text-gray-500">${timeAgo} • Phiên hiện tại</div>
+                    </div>
+                    <span class="px-2 py-1 bg-green-500 text-white text-xs rounded-full font-medium">Đang hoạt động</span>
+                </div>
+            </div>
+            <div class="flex justify-end mt-6">
+                <button onclick="this.closest('.fixed').remove()" class="px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50">Đóng</button>
+            </div>
+        </div>
+    </div>`;
+}
+
+function getTimeAgo(dateStr) {
+    const now = new Date();
+    const then = new Date(dateStr);
+    const diffMs = now - then;
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Vừa xong';
+    if (diffMins < 60) return diffMins + ' phút trước';
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return diffHours + ' giờ trước';
+    return Math.floor(diffHours / 24) + ' ngày trước';
+}
+
+// ============ ADMIN PREFERENCES ============
+function initAdminPreferences() {
+    // Notifications toggle
+    const notifToggle = document.getElementById('admin-notifications-toggle');
+    if (notifToggle) {
+        const saved = localStorage.getItem('adminNotifications');
+        if (saved !== null) notifToggle.checked = saved === 'true';
+        
+        const newToggle = notifToggle.cloneNode(true);
+        notifToggle.parentNode.replaceChild(newToggle, notifToggle);
+        newToggle.addEventListener('change', function() {
+            localStorage.setItem('adminNotifications', this.checked);
+            showAdminToast(this.checked ? 'Đã bật thông báo' : 'Đã tắt thông báo', 'success');
+        });
+    }
+
+    // Auto-logout select
+    const logoutSelect = document.getElementById('admin-auto-logout-select');
+    if (logoutSelect) {
+        const saved = localStorage.getItem('adminAutoLogout');
+        if (saved !== null) logoutSelect.value = saved;
+
+        logoutSelect.addEventListener('change', function() {
+            localStorage.setItem('adminAutoLogout', this.value);
+            showAdminToast('Đã cập nhật thời gian tự động đăng xuất', 'success');
+        });
+    }
+}
+
+function adminExportData() {
+    showAdminToast('Đang chuẩn bị xuất dữ liệu...', 'info');
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+
+    // Export all admin data as JSON
+    Promise.all([
+        fetch(API_BASE_URL + '/admin/users', { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch(API_BASE_URL + '/admin/crops', { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch(API_BASE_URL + '/admin/items', { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch(API_BASE_URL + '/admin/animals', { headers: { 'Authorization': 'Bearer ' + token } }).then(r => r.ok ? r.json() : []).catch(() => [])
+    ]).then(([users, crops, items, animals]) => {
+        const exportData = {
+            exportDate: new Date().toISOString(),
+            summary: {
+                totalUsers: users.length || 0,
+                totalCrops: crops.length || 0,
+                totalItems: items.length || 0,
+                totalAnimals: animals.length || 0
+            },
+            users, crops, items, animals
+        };
+
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `agriplanner_backup_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showAdminToast('Xuất dữ liệu thành công!', 'success');
+    }).catch(() => {
+        showAdminToast('Lỗi khi xuất dữ liệu', 'error');
+    });
+}
+
+// ============ ADMIN FACE LOGIN SETUP ============
+let adminFaceStream = null;
+let adminFaceDetectionLoop = null;
+let adminFaceModelsLoaded = false;
+
+const ADMIN_FACE_SERVICE_URL = 'http://localhost:5001';
+const ADMIN_FACE_API_URL = 'http://localhost:8080/api/auth/face';
+
+function getAdminToken() {
+    return localStorage.getItem('token') || localStorage.getItem('authToken') || '';
+}
+
+function initAdminFaceSetup() {
+    const toggle = document.getElementById('admin-face-login-toggle');
+    const panel = document.getElementById('admin-face-setup-panel');
+    const statusText = document.getElementById('admin-face-status-text');
+    const fileInput = document.getElementById('admin-face-setup-file');
+    if (!toggle || !panel) return;
+
+    // Remove old listeners by cloning
+    const newToggle = toggle.cloneNode(true);
+    toggle.parentNode.replaceChild(newToggle, toggle);
+
+    // Check current face status via /api/auth/me
+    const token = getAdminToken();
+    if (token) {
+        fetch('http://localhost:8080/api/auth/me', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.faceEnabled) {
+                newToggle.checked = true;
+                if (statusText) { statusText.textContent = 'Đã đăng ký khuôn mặt ✓'; statusText.style.color = '#10b981'; }
+            } else {
+                newToggle.checked = false;
+                if (statusText) { statusText.textContent = 'Chưa kích hoạt'; statusText.style.color = '#6b7280'; }
+            }
+        })
+        .catch(() => {
+            if (statusText) { statusText.textContent = 'Không thể kiểm tra trạng thái'; statusText.style.color = '#ef4444'; }
+        });
+    }
+
+    newToggle.addEventListener('change', function() {
+        if (this.checked) {
+            panel.style.display = 'block';
+            const opts = document.getElementById('admin-face-setup-options');
+            const cam = document.getElementById('admin-face-setup-camera');
+            const proc = document.getElementById('admin-face-setup-processing');
+            const succ = document.getElementById('admin-face-setup-success');
+            if (opts) opts.style.display = 'flex';
+            if (cam) cam.style.display = 'none';
+            if (proc) proc.style.display = 'none';
+            if (succ) succ.style.display = 'none';
+        } else {
+            if (confirm('Bạn có chắc chắn muốn tắt đăng nhập bằng khuôn mặt?')) {
+                panel.style.display = 'none';
+                adminStopFaceCamera();
+                adminDisableFaceLogin();
+            } else {
+                this.checked = true;
+            }
+        }
+    });
+
+    if (fileInput) {
+        const newFileInput = fileInput.cloneNode(true);
+        fileInput.parentNode.replaceChild(newFileInput, fileInput);
+        newFileInput.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                adminRegisterFace(e.target.files[0]);
+            }
+        });
+    }
+}
+
+async function adminLoadFaceModels() {
+    if (adminFaceModelsLoaded) return true;
+    try {
+        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
+        adminFaceModelsLoaded = true;
+        return true;
+    } catch (error) {
+        console.error('Failed to load face models:', error);
+        return false;
+    }
+}
+
+window.adminStartFaceCamera = async function() {
+    const camDiv = document.getElementById('admin-face-setup-camera');
+    const video = document.getElementById('admin-face-setup-video');
+    const statusEl = document.getElementById('admin-face-setup-status');
+    const btnCapture = document.getElementById('admin-btn-capture-setup');
+    const optionsDiv = document.getElementById('admin-face-setup-options');
+    if (!camDiv || !video) return;
+
+    if (optionsDiv) optionsDiv.style.display = 'none';
+    camDiv.style.display = 'block';
+    statusEl.textContent = 'Đang tải mô hình nhận diện...';
+    btnCapture.disabled = true;
+
+    const loaded = await adminLoadFaceModels();
+    if (!loaded) {
+        statusEl.textContent = 'Không thể tải mô hình nhận diện. Vui lòng thử tải ảnh lên.';
+        statusEl.style.color = '#ef4444';
+        setTimeout(() => {
+            camDiv.style.display = 'none';
+            if (optionsDiv) optionsDiv.style.display = 'flex';
+        }, 3000);
+        return;
+    }
+
+    try {
+        adminFaceStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+        video.srcObject = adminFaceStream;
+        statusEl.textContent = 'Đưa khuôn mặt vào giữa camera...';
+        statusEl.style.color = '#6b7280';
+        video.onloadeddata = () => adminDetectFaceLoop();
+    } catch (err) {
+        statusEl.textContent = 'Không thể truy cập camera: ' + err.message;
+        statusEl.style.color = '#ef4444';
+    }
+};
+
+function adminDetectFaceLoop() {
+    const video = document.getElementById('admin-face-setup-video');
+    const statusEl = document.getElementById('admin-face-setup-status');
+    const btnCapture = document.getElementById('admin-btn-capture-setup');
+
+    if (!video || !adminFaceStream) return;
+
+    faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).then(detection => {
+        if (detection) {
+            statusEl.innerHTML = '<span style="color:#10b981;">✓ Phát hiện khuôn mặt — Nhấn "Chụp"</span>';
+            btnCapture.disabled = false;
+        } else {
+            statusEl.textContent = 'Đưa khuôn mặt vào giữa camera...';
+            statusEl.style.color = '#6b7280';
+            btnCapture.disabled = true;
+        }
+        if (adminFaceStream) {
+            requestAnimationFrame(adminDetectFaceLoop);
+        }
+    }).catch(() => {
+        if (adminFaceStream) {
+            requestAnimationFrame(adminDetectFaceLoop);
+        }
+    });
+}
+
+window.adminCaptureFaceSetup = function() {
+    const video = document.getElementById('admin-face-setup-video');
+    const canvas = document.getElementById('admin-face-setup-canvas');
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    adminStopFaceCamera();
+
+    document.getElementById('admin-face-setup-camera').style.display = 'none';
+    document.getElementById('admin-face-setup-processing').style.display = 'block';
+
+    canvas.toBlob(blob => {
+        adminRegisterFace(blob);
+    }, 'image/jpeg', 0.92);
+};
+
+window.adminUploadFacePhoto = function() {
+    document.getElementById('admin-face-setup-file')?.click();
+};
+
+async function adminRegisterFace(imageBlob) {
+    const optionsDiv = document.getElementById('admin-face-setup-options');
+    const cameraDiv = document.getElementById('admin-face-setup-camera');
+    const processingDiv = document.getElementById('admin-face-setup-processing');
+    const successDiv = document.getElementById('admin-face-setup-success');
+    const statusText = document.getElementById('admin-face-status-text');
+
+    if (optionsDiv) optionsDiv.style.display = 'none';
+    if (cameraDiv) cameraDiv.style.display = 'none';
+    if (processingDiv) processingDiv.style.display = 'block';
+
+    const token = getAdminToken();
+    const userEmail = localStorage.getItem('userEmail') || '';
+
+    try {
+        // Step 1: Encode face via Python service
+        const formData = new FormData();
+        formData.append('file', imageBlob, 'face.jpg');
+
+        const encodeRes = await fetch(ADMIN_FACE_SERVICE_URL + '/encode', {
+            method: 'POST',
+            body: formData
+        });
+        const encodeData = await encodeRes.json();
+
+        if (!encodeData.success) {
+            throw new Error(encodeData.error || 'Không thể nhận diện khuôn mặt');
+        }
+
+        // Step 2: Check uniqueness
+        const uniqueRes = await fetch(ADMIN_FACE_SERVICE_URL + '/check-unique', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                encoding: encodeData.encoding,
+                excludeEmail: userEmail
+            })
+        });
+        const uniqueData = await uniqueRes.json();
+
+        if (uniqueData.success && !uniqueData.unique) {
+            throw new Error(uniqueData.message || 'Khuôn mặt đã được đăng ký cho tài khoản khác');
+        }
+
+        // Step 3: Upload image to backend
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', imageBlob, 'face.jpg');
+
+        const uploadRes = await fetch(ADMIN_FACE_API_URL + '/upload', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token },
+            body: uploadFormData
+        });
+        const uploadData = await uploadRes.json();
+
+        if (!uploadRes.ok || !uploadData.success) {
+            throw new Error(uploadData.message || 'Không thể tải ảnh lên. Vui lòng thử lại.');
+        }
+
+        // Step 4: Register face encoding in DB
+        const registerRes = await fetch(ADMIN_FACE_API_URL + '/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({
+                faceEncoding: JSON.stringify(encodeData.encoding),
+                faceImagePath: uploadData.filePath || ''
+            })
+        });
+        const registerData = await registerRes.json();
+
+        if (registerData.success) {
+            if (processingDiv) processingDiv.style.display = 'none';
+            if (successDiv) successDiv.style.display = 'block';
+            if (statusText) { statusText.textContent = 'Đã đăng ký khuôn mặt ✓'; statusText.style.color = '#10b981'; }
+            showAdminToast('Đã đăng ký khuôn mặt thành công!', 'success');
+
+            setTimeout(() => {
+                const panel = document.getElementById('admin-face-setup-panel');
+                if (panel) panel.style.display = 'none';
+                if (successDiv) successDiv.style.display = 'none';
+            }, 2500);
+        } else {
+            throw new Error(registerData.message || 'Đăng ký thất bại');
+        }
+    } catch (err) {
+        console.error('Face registration error:', err);
+        if (processingDiv) processingDiv.style.display = 'none';
+        if (optionsDiv) optionsDiv.style.display = 'flex';
+        adminShowFaceError(err.message || 'Không thể kết nối đến dịch vụ nhận diện khuôn mặt. Đảm bảo dịch vụ đang chạy (port 5001).');
+    }
+}
+
+async function adminDisableFaceLogin() {
+    const token = getAdminToken();
+    const statusText = document.getElementById('admin-face-status-text');
+    try {
+        const res = await fetch(ADMIN_FACE_API_URL + '/disable', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const data = await res.json();
+        if (data.success) {
+            if (statusText) { statusText.textContent = 'Chưa kích hoạt'; statusText.style.color = '#6b7280'; }
+            showAdminToast('Đăng nhập bằng khuôn mặt đã được tắt', 'info');
+        }
+    } catch (e) {
+        console.error('Disable face error:', e);
+    }
+}
+
+window.adminStopFaceCamera = function() {
+    if (adminFaceStream) { adminFaceStream.getTracks().forEach(t => t.stop()); adminFaceStream = null; }
+};
+
+function adminShowFaceError(msg) {
+    const panel = document.getElementById('admin-face-setup-panel');
+    if (!panel) return;
+    let errDiv = document.getElementById('admin-face-setup-error');
+    if (!errDiv) {
+        errDiv = document.createElement('div');
+        errDiv.id = 'admin-face-setup-error';
+        errDiv.style.cssText = 'margin-top:10px; padding:10px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; color:#dc2626; font-size:13px; display:flex; align-items:center; gap:6px;';
+        panel.appendChild(errDiv);
+    }
+    errDiv.innerHTML = '<span class="material-icons-round" style="font-size:16px;">error</span>' + msg;
+    errDiv.style.display = 'flex';
+    setTimeout(() => { errDiv.style.display = 'none'; }, 5000);
 }

@@ -134,6 +134,36 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #a1a1a1;
         }
+
+        /* Category filter panel animation */
+        .filter-panel-animate {
+            animation: filterSlideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        @keyframes filterSlideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+                max-height: 100px;
+            }
+        }
+
+        .category-pill {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .category-pill:hover {
+            transform: translateY(-1px);
+        }
+
+        .category-pill:active {
+            transform: scale(0.95);
+        }
     </style>
     <link rel="icon" type="image/x-icon" href="../images/logo.png">
 </head>
@@ -180,7 +210,7 @@
                 <a href="#"
                     class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
                     data-tab="animals">
-                    <span class="material-icons-round">pets</span>
+                    <span class="material-icons-round">egg</span>
                     <span class="font-medium">Chăn nuôi</span>
                 </a>
 
@@ -205,13 +235,6 @@
                     <span class="material-icons-round">forum</span>
                     <span class="font-medium">Cộng đồng</span>
                 </a>
-                <a href="#"
-                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
-                    data-tab="price-analysis">
-                    <span class="material-icons-round">analytics</span>
-                    <span class="font-medium">Phân tích giá</span>
-                </a>
-
                 <div class="border-t border-white/10 my-3"></div>
 
                 <a href="admin-advanced.html" onclick="window.location.href='admin-advanced.html'; return false;"
@@ -219,6 +242,13 @@
                     <span class="material-icons-round">map</span>
                     <span class="font-medium">Quản lý nâng cao</span>
                     <span class="ml-auto bg-amber-500 text-xs px-2 py-0.5 rounded-full text-white">Mới</span>
+                </a>
+
+                <a href="#"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors"
+                    data-tab="settings">
+                    <span class="material-icons-round">settings</span>
+                    <span class="font-medium">Cài đặt</span>
                 </a>
             </nav>
 
@@ -268,6 +298,7 @@
 
     <!-- Scripts -->
     <script src="../js/config.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script src="../js/admin.js"></script>
 </body>
 

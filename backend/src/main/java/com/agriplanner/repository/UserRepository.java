@@ -21,4 +21,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByRole(UserRole role);
 
     List<User> findByRoleAndFarmIdAndApprovalStatus(UserRole role, Long farmId, User.ApprovalStatus approvalStatus);
+
+    Optional<User> findByFacebookId(String facebookId);
+
+    Optional<User> findByGithubId(String githubId);
+
+    Optional<User> findByGoogleId(String googleId);
+
+    Optional<User> findByFaceEnabledTrue();
+
+    java.util.List<User> findAllByFaceEnabledTrue();
 }

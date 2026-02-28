@@ -174,7 +174,7 @@ function switchTab(tab) {
     if (tab === 'tasks') loadTasksList();
     if (tab === 'assets') loadAssets();
     if (tab === 'settings') initSettings();
-    if (tab === 'help') loadHelpRequests();
+    if (tab === 'help') { loadHelpRequests(); loadAdminHelpRequests(); }
 }
 
 // View Transition Animation

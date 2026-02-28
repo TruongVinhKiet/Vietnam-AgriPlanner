@@ -27,12 +27,12 @@ public class HelpRequest {
     private Farm farm;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_id", nullable = false)
+    @JoinColumn(name = "owner_id")
     @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler", "passwordHash" })
     private User owner;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "worker_id", nullable = false)
+    @JoinColumn(name = "worker_id")
     @JsonIgnoreProperties({ "hibernateLazyInitializer", "handler", "passwordHash" })
     private User worker;
 
@@ -47,6 +47,15 @@ public class HelpRequest {
 
     @Column(name = "owner_response", columnDefinition = "TEXT")
     private String ownerResponse;
+
+    @Column(name = "admin_response", columnDefinition = "TEXT")
+    private String adminResponse;
+
+    @Column(name = "target_type", length = 20)
+    private String targetType;
+
+    @Column(name = "request_type", length = 50)
+    private String requestType;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

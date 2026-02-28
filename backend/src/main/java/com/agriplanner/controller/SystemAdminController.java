@@ -5,8 +5,11 @@ import com.agriplanner.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +33,7 @@ public class SystemAdminController {
     private final AnimalFeedCompatibilityRepository animalFeedCompatibilityRepository;
     private final FeedDefinitionRepository feedDefinitionRepository;
     private final PestDefinitionRepository pestDefinitionRepository;
+    private final UnlockRequestRepository unlockRequestRepository;
 
     // =============================================
     // USER MANAGEMENT
@@ -40,13 +44,149 @@ public class SystemAdminController {
         return ResponseEntity.ok(userRepository.findAll());
     }
 
+    @GetMapping("/users/{id}")
+    public ResponseEntity<?> getUserById(@PathVariable Long id) {
+        return userRepository.findById(id).map(user -> {
+            Map<String, Object> detail = new HashMap<>();
+            detail.put("id", user.getId());
+            detail.put("fullName", user.getFullName());
+            detail.put("email", user.getEmail());
+            detail.put("phone", user.getPhone());
+            detail.put("role", user.getRole());
+            detail.put("isActive", user.getIsActive());
+            detail.put("createdAt", user.getCreatedAt());
+            detail.put("lastLoginAt", user.getLastLoginAt());
+            detail.put("avatarUrl", user.getAvatarUrl());
+            detail.put("darkMode", user.getDarkMode());
+            detail.put("twoFactorEnabled", user.getTwoFactorEnabled());
+            detail.put("balance", user.getBalance());
+            detail.put("defaultAddress", user.getDefaultAddress());
+            detail.put("lockReason", user.getLockReason());
+            detail.put("lockedAt", user.getLockedAt());
+            detail.put("lockedBy", user.getLockedBy());
+            detail.put("failedLoginAttempts", user.getFailedLoginAttempts());
+            detail.put("accountLockedUntil", user.getAccountLockedUntil());
+            detail.put("farmId", user.getFarmId());
+            detail.put("approvalStatus", user.getApprovalStatus());
+            detail.put("googleId", user.getGoogleId() != null ? "Linked" : null);
+            return ResponseEntity.ok(detail);
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
     @PutMapping("/users/{id}/status")
-    public ResponseEntity<?> updateUserStatus(@PathVariable Long id, @RequestBody Map<String, Boolean> body) {
-        Boolean isActive = body.get("isActive");
+    public ResponseEntity<?> updateUserStatus(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        Boolean isActive = (Boolean) body.get("isActive");
+        String lockReason = (String) body.get("lockReason");
         return userRepository.findById(id).map(user -> {
             user.setIsActive(isActive);
+            if (Boolean.FALSE.equals(isActive)) {
+                user.setLockReason(lockReason);
+                user.setLockedAt(LocalDateTime.now());
+                // Get admin ID from context if possible
+            } else {
+                user.setLockReason(null);
+                user.setLockedAt(null);
+                user.setLockedBy(null);
+            }
             userRepository.save(user);
-            return ResponseEntity.ok(user);
+            return ResponseEntity.ok(Map.of("success", true, "message", isActive ? "Đã mở khóa tài khoản" : "Đã khóa tài khoản"));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/users/{id}/lock")
+    public ResponseEntity<?> lockUser(@PathVariable Long id, @RequestBody Map<String, String> body, Authentication auth) {
+        String reason = body.get("reason");
+        if (reason == null || reason.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Lý do khóa không được để trống"));
+        }
+        return userRepository.findById(id).map(user -> {
+            user.setIsActive(false);
+            user.setLockReason(reason);
+            user.setLockedAt(LocalDateTime.now());
+            // Get admin id
+            if (auth != null && auth.getPrincipal() instanceof User) {
+                user.setLockedBy(((User) auth.getPrincipal()).getId());
+            }
+            userRepository.save(user);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Đã khóa tài khoản " + user.getFullName()));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/users/{id}/unlock")
+    public ResponseEntity<?> unlockUser(@PathVariable Long id) {
+        return userRepository.findById(id).map(user -> {
+            user.setIsActive(true);
+            user.setLockReason(null);
+            user.setLockedAt(null);
+            user.setLockedBy(null);
+            user.setAccountLockedUntil(null);
+            user.setFailedLoginAttempts(0);
+            userRepository.save(user);
+
+            // Also approve any pending unlock requests for this user
+            List<UnlockRequest> pendingRequests = unlockRequestRepository.findByUserIdOrderByCreatedAtDesc(user.getId());
+            pendingRequests.stream()
+                .filter(r -> "PENDING".equals(r.getStatus()))
+                .forEach(r -> {
+                    r.setStatus("APPROVED");
+                    r.setReviewedAt(LocalDateTime.now());
+                    unlockRequestRepository.save(r);
+                });
+
+            return ResponseEntity.ok(Map.of("success", true, "message", "Đã mở khóa tài khoản " + user.getFullName()));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    // =============================================
+    // UNLOCK REQUESTS MANAGEMENT
+    // =============================================
+
+    @GetMapping("/unlock-requests")
+    public ResponseEntity<?> getUnlockRequests() {
+        List<UnlockRequest> requests = unlockRequestRepository.findAllByOrderByCreatedAtDesc();
+        // Enrich with user info
+        requests.forEach(req -> {
+            userRepository.findById(req.getUserId()).ifPresent(user -> {
+                req.setUserFullName(user.getFullName());
+                req.setUserEmail(user.getEmail());
+                req.setUserAvatarUrl(user.getAvatarUrl());
+                req.setLockReason(user.getLockReason());
+            });
+        });
+        return ResponseEntity.ok(requests);
+    }
+
+    @PutMapping("/unlock-requests/{id}/approve")
+    public ResponseEntity<?> approveUnlockRequest(@PathVariable Long id) {
+        return unlockRequestRepository.findById(id).map(req -> {
+            req.setStatus("APPROVED");
+            req.setReviewedAt(LocalDateTime.now());
+            unlockRequestRepository.save(req);
+
+            // Unlock user
+            userRepository.findById(req.getUserId()).ifPresent(user -> {
+                user.setIsActive(true);
+                user.setLockReason(null);
+                user.setLockedAt(null);
+                user.setLockedBy(null);
+                user.setAccountLockedUntil(null);
+                user.setFailedLoginAttempts(0);
+                userRepository.save(user);
+            });
+
+            return ResponseEntity.ok(Map.of("success", true, "message", "Đã duyệt và mở khóa tài khoản"));
+        }).orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/unlock-requests/{id}/reject")
+    public ResponseEntity<?> rejectUnlockRequest(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return unlockRequestRepository.findById(id).map(req -> {
+            req.setStatus("REJECTED");
+            String note = body.get("adminNote") != null ? body.get("adminNote") : body.get("note");
+            req.setAdminNote(note);
+            req.setReviewedAt(LocalDateTime.now());
+            unlockRequestRepository.save(req);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Đã từ chối yêu cầu mở khóa"));
         }).orElse(ResponseEntity.notFound().build());
     }
 

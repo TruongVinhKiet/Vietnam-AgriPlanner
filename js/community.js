@@ -33,7 +33,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     initializeFriendRequestPanel();
     // Attach reaction picker handlers early
     attachReactionPickerHandlers();
-    loadFeed();
+
+    // Check URL params for tab switching (e.g. ?tab=guides)
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && ['feed', 'guides', 'friends'].includes(tabParam)) {
+        switchTab(tabParam);
+    } else {
+        loadFeed();
+    }
+
     loadFriendSuggestions();
     loadOnlineFriends();
     loadChatRooms();

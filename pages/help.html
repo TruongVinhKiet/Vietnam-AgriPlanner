@@ -98,138 +98,255 @@
             <main class="main-content" style="padding: 0;">
                 <!-- Help Hero -->
                 <div class="help-hero">
-                    <h1 class="help-hero__title fade-in">Chúng tôi có thể giúp gì cho bạn?</h1>
+                    <h1 class="help-hero__title fade-in">Trung tâm trợ giúp</h1>
+                    <p class="fade-in" style="color: var(--color-text-secondary); font-size: 16px; margin-bottom: 24px;">Tìm câu trả lời nhanh chóng hoặc liên hệ đội ngũ hỗ trợ</p>
                     <div class="help-search fade-in">
                         <span class="material-symbols-outlined help-search__icon">search</span>
-                        <input type="text" class="help-search__input"
-                            placeholder="Tìm kiếm hướng dẫn, câu hỏi thường gặp...">
+                        <input type="text" class="help-search__input" id="help-search-input"
+                            placeholder="Tìm kiếm câu hỏi, hướng dẫn...">
                     </div>
                 </div>
 
                 <div class="help-content">
                     <!-- Help Categories -->
                     <div class="help-categories">
-                        <div class="card help-category-card fade-in">
+                        <a href="community.html?tab=guides" class="card help-category-card fade-in" style="text-decoration: none; color: inherit;">
                             <div class="help-category-card__icon help-category-card__icon--blue"><span
                                     class="material-symbols-outlined">description</span></div>
                             <h3 class="help-category-card__title">Tài liệu</h3>
-                            <p class="help-category-card__description">Hướng dẫn sử dụng chi tiết và tài liệu API</p>
-                        </div>
-                        <div class="card help-category-card fade-in">
+                            <p class="help-category-card__description">Hướng dẫn sử dụng chi tiết từ cộng đồng</p>
+                        </a>
+                        <a href="community.html?tab=guides" class="card help-category-card fade-in" style="text-decoration: none; color: inherit;">
                             <div class="help-category-card__icon help-category-card__icon--purple"><span
                                     class="material-symbols-outlined">play_circle</span></div>
                             <h3 class="help-category-card__title">Video hướng dẫn</h3>
                             <p class="help-category-card__description">Xem các video hướng dẫn từng bước</p>
-                        </div>
-                        <div class="card help-category-card fade-in">
+                        </a>
+                        <div class="card help-category-card fade-in" id="btn-contact-support" style="cursor: pointer;">
                             <div class="help-category-card__icon help-category-card__icon--green"><span
                                     class="material-symbols-outlined">support_agent</span></div>
                             <h3 class="help-category-card__title">Liên hệ hỗ trợ</h3>
-                            <p class="help-category-card__description">Nói chuyện trực tiếp với đội ngũ hỗ trợ</p>
+                            <p class="help-category-card__description">Gửi yêu cầu hỗ trợ tới quản trị viên hệ thống</p>
                         </div>
                     </div>
 
-                    <!-- Chat with Admin Section -->
-                    <div class="admin-chat-section fade-in" style="margin-bottom: 32px;">
-                        <div class="card" style="overflow: hidden;">
-                            <div class="admin-chat-header"
-                                style="background: linear-gradient(135deg, var(--color-primary), #45a049); color: white; padding: 16px 20px; display: flex; align-items: center; gap: 12px;">
-                                <div
-                                    style="width: 44px; height: 44px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                                    <span class="material-symbols-outlined">support_agent</span>
+                    <!-- Admin Support Request Section (HIDDEN by default) -->
+                    <div id="admin-support-section" class="fade-in" style="display: none; max-width: 960px; margin: 0 auto; width: 100%;">
+                        <!-- Support Form Card -->
+                        <div style="background: #fff; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                            <div style="padding: 24px;">
+                                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                                    <div style="width: 40px; height: 40px; background: #ecfdf5; color: #059669; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                        <span class="material-symbols-outlined">support_agent</span>
+                                    </div>
+                                    <div>
+                                        <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #1f2937;">Yêu cầu hỗ trợ từ Quản trị viên</h3>
+                                        <p style="margin: 4px 0 0; font-size: 14px; color: #6b7280;">Gửi yêu cầu tới quản trị viên hệ thống (lỗi kỹ thuật, tài khoản...)</p>
+                                    </div>
                                 </div>
-                                <div style="flex: 1;">
-                                    <h3 style="margin: 0; font-size: 16px; font-weight: 600;">Chat với Quản trị viên
-                                    </h3>
-                                    <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.85;">Nhận hỗ trợ trực tiếp và
-                                        thông báo hệ thống</p>
-                                </div>
-                                <span id="admin-online-status"
-                                    style="display: flex; align-items: center; gap: 6px; font-size: 12px;">
-                                    <span
-                                        style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></span>
-                                    Trực tuyến
-                                </span>
+
+                                <form id="owner-help-admin-form" style="display: flex; flex-direction: column; gap: 16px;">
+                                    <div>
+                                        <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">Loại vấn đề</label>
+                                        <select id="owner-help-type" style="width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; background: #fff; transition: border-color 0.2s, box-shadow 0.2s;"
+                                            onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px rgba(16,185,129,0.1)'"
+                                            onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                                            <option value="technical">Lỗi kỹ thuật</option>
+                                            <option value="account">Vấn đề tài khoản</option>
+                                            <option value="farm">Quản lý nông trại</option>
+                                            <option value="payment">Thanh toán / Tài chính</option>
+                                            <option value="suggestion">Góp ý / Đề xuất</option>
+                                            <option value="other">Khác</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">Tiêu đề</label>
+                                        <input id="owner-help-title" type="text" placeholder="Mô tả ngắn gọn vấn đề"
+                                            style="width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; box-sizing: border-box; transition: border-color 0.2s, box-shadow 0.2s;"
+                                            onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px rgba(16,185,129,0.1)'"
+                                            onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'">
+                                    </div>
+                                    <div>
+                                        <label style="display: block; font-size: 14px; font-weight: 500; color: #374151; margin-bottom: 8px;">Nội dung chi tiết</label>
+                                        <textarea id="owner-help-message" rows="4" placeholder="Mô tả chi tiết vấn đề bạn đang gặp phải..."
+                                            style="width: 100%; padding: 10px 14px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; resize: vertical; box-sizing: border-box; min-height: 120px; transition: border-color 0.2s, box-shadow 0.2s;"
+                                            onfocus="this.style.borderColor='var(--color-primary)'; this.style.boxShadow='0 0 0 3px rgba(16,185,129,0.1)'"
+                                            onblur="this.style.borderColor='#d1d5db'; this.style.boxShadow='none'"></textarea>
+                                    </div>
+                                    <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: flex-end;">
+                                        <button type="button" onclick="loadOwnerHelpRequests()"
+                                            style="padding: 10px 20px; border: 1px solid #e5e7eb; border-radius: 8px; background: white; color: #374151; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s;"
+                                            onmouseover="this.style.background='#f9fafb'"
+                                            onmouseout="this.style.background='white'">
+                                            Tải lại
+                                        </button>
+                                        <button type="submit"
+                                            style="padding: 10px 20px; border: none; border-radius: 8px; background: var(--color-primary); color: white; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s;"
+                                            onmouseover="this.style.background='#059669'"
+                                            onmouseout="this.style.background='var(--color-primary)'">
+                                            Gửi yêu cầu
+                                        </button>
+                                    </div>
+                                    <div id="owner-help-status" style="display: none; padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;"></div>
+                                </form>
                             </div>
-                            <div id="admin-chat-messages"
-                                style="height: 300px; overflow-y: auto; padding: 16px; background: #f9fafb;">
-                                <!-- Messages will be loaded here -->
-                                <div style="text-align: center; color: #9ca3af; padding: 60px 20px;">
-                                    <span class="material-symbols-outlined"
-                                        style="font-size: 48px; margin-bottom: 8px;">chat</span>
-                                    <p>Chưa có tin nhắn nào</p>
-                                    <p style="font-size: 12px;">Gửi tin nhắn để bắt đầu cuộc trò chuyện</p>
-                                </div>
+                        </div>
+
+                        <!-- History Card -->
+                        <div style="background: #fff; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-top: 24px;">
+                            <div style="padding: 20px 24px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between;">
+                                <h4 style="margin: 0; font-size: 16px; font-weight: 700; color: #1f2937;">Lịch sử yêu cầu</h4>
+                                <span id="owner-help-count" style="background: #ecfdf5; color: #059669; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">0</span>
                             </div>
-                            <div
-                                style="padding: 12px 16px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; align-items: center;">
-                                <input type="text" id="admin-chat-input" placeholder="Nhập tin nhắn..."
-                                    style="flex: 1; padding: 12px 16px; border: 1px solid #e5e7eb; border-radius: 24px; font-size: 14px; outline: none; transition: border-color 0.2s;"
-                                    onfocus="this.style.borderColor='var(--color-primary)'"
-                                    onblur="this.style.borderColor='#e5e7eb'"
-                                    onkeypress="if(event.key==='Enter') sendAdminMessage()">
-                                <button onclick="sendAdminMessage()"
-                                    style="width: 44px; height: 44px; background: var(--color-primary); color: white; border: none; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s, background 0.2s;"
-                                    onmouseover="this.style.background='#45a049'"
-                                    onmouseout="this.style.background='var(--color-primary)'">
-                                    <span class="material-symbols-outlined">send</span>
-                                </button>
+                            <div id="owner-help-requests-list" style="max-height: 420px; overflow-y: auto;">
+                                <div style="text-align: center; color: #9ca3af; padding: 48px 20px;">
+                                    <span class="material-symbols-outlined" style="font-size: 44px; margin-bottom: 10px; display: block;">inbox</span>
+                                    <p style="margin: 0; font-size: 14px;">Chưa có yêu cầu nào</p>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- FAQ Section -->
-                    <div class="faq-section">
-                        <h2 class="faq-section__title fade-in">Câu hỏi thường gặp</h2>
-                        <div class="faq-list">
-                            <details class="card faq-item fade-in">
-                                <summary class="faq-item__summary">Làm thế nào để thêm cánh đồng mới?<span
-                                        class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
-                                <div class="faq-item__content">Để thêm cánh đồng mới, vào mục <strong>Trồng
-                                        trọt</strong> từ thanh bên, sau đó nhấp vào nút <strong>Thêm khu vực</strong>.
-                                    Nhập thông tin như tên, diện tích, loại đất và tọa độ. Hệ thống sẽ tự động tích hợp
-                                    dữ liệu cảm biến nếu có thiết bị được kết nối.</div>
-                            </details>
-                            <details class="card faq-item fade-in">
-                                <summary class="faq-item__summary">Làm sao để theo dõi lịch tiêm phòng vật nuôi?<span
-                                        class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
-                                <div class="faq-item__content">Vào mục <strong>Chăn nuôi</strong>, chọn chuồng cần theo
-                                    dõi. Trong bảng chi tiết bên phải, bạn sẽ thấy phần <strong>Lịch tiêm phòng</strong>
-                                    với trạng thái từng vaccine. Bạn có thể thêm lịch mới hoặc đánh dấu đã tiêm.</div>
-                            </details>
-                            <details class="card faq-item fade-in">
-                                <summary class="faq-item__summary">Dữ liệu cảm biến được cập nhật như thế nào?<span
-                                        class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
-                                <div class="faq-item__content">Dữ liệu cảm biến được cập nhật theo thời gian thực thông
-                                    qua kết nối IoT. Các cảm biến gửi dữ liệu mỗi 15 phút. Bạn có thể xem lịch sử dữ
-                                    liệu và thiết lập cảnh báo khi giá trị vượt ngưỡng trong phần <strong>Cài đặt >
-                                        Thông báo</strong>.</div>
-                            </details>
-                            <details class="card faq-item fade-in">
-                                <summary class="faq-item__summary">Tôi có thể xuất báo cáo tài chính không?<span
-                                        class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
-                                <div class="faq-item__content">Có, bạn có thể xuất báo cáo tài chính ở định dạng PDF
-                                    hoặc Excel. Vào mục <strong>Thống kê</strong>, chọn khoảng thời gian cần báo cáo,
-                                    sau đó nhấp nút <strong>Xuất báo cáo</strong>. Báo cáo sẽ bao gồm doanh thu, chi
-                                    phí, và lợi nhuận chi tiết.</div>
-                            </details>
-                            <details class="card faq-item fade-in">
-                                <summary class="faq-item__summary">Làm thế nào để mời thêm thành viên vào nông
-                                    trại?<span class="material-symbols-outlined faq-item__icon">expand_more</span>
-                                </summary>
-                                <div class="faq-item__content">Vào <strong>Cài đặt > Hồ sơ</strong>, cuộn xuống phần
-                                    <strong>Quản lý đội ngũ</strong>. Nhấp <strong>Mời thành viên</strong>, nhập email
-                                    và chọn vai trò (Admin, Manager, Staff). Người được mời sẽ nhận email với link đăng
-                                    ký.
-                                </div>
-                            </details>
+                    <div class="faq-section" style="max-width: 860px; margin: 0 auto;">
+                        <h2 class="faq-section__title fade-in">
+                            <span class="material-symbols-outlined" style="vertical-align: middle; color: var(--color-primary); margin-right: 8px;">quiz</span>
+                            Câu hỏi thường gặp
+                        </h2>
+
+                        <!-- Category: Quản lý nông trại -->
+                        <div class="faq-category fade-in" style="margin-bottom: 28px;">
+                            <h3 style="font-size: 15px; font-weight: 700; color: var(--color-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                                <span class="material-symbols-outlined" style="font-size: 20px;">agriculture</span>
+                                Quản lý nông trại
+                            </h3>
+                            <div class="faq-list">
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Làm thế nào để thêm khu vực trồng trọt mới?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Vào mục <strong>Trồng trọt</strong> từ thanh bên, nhấp nút <strong>Thêm khu vực</strong>. Nhập tên, diện tích, loại đất, và tọa độ vị trí. Hệ thống sẽ tự động hiển thị khu vực trên bản đồ và tích hợp dữ liệu thời tiết tương ứng.</div>
+                                </details>
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Làm thế nào để quản lý vụ mùa và lịch canh tác?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Trong mục <strong>Trồng trọt</strong>, chọn khu vực cần quản lý, sau đó nhấp <strong>Thêm vụ mùa</strong>. Bạn có thể đặt lịch gieo trồng, bón phân, tưới nước, thu hoạch. Hệ thống sẽ nhắc nhở bạn theo lịch trình đã thiết lập.</div>
+                                </details>
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Làm sao để theo dõi lịch tiêm phòng vật nuôi?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Vào mục <strong>Chăn nuôi</strong>, chọn chuồng cần theo dõi. Trong bảng chi tiết bên phải, bạn sẽ thấy phần <strong>Lịch tiêm phòng</strong> với trạng thái từng vaccine. Bạn có thể thêm lịch mới hoặc đánh dấu đã tiêm.</div>
+                                </details>
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Dữ liệu thời tiết được cập nhật như thế nào?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Dữ liệu thời tiết được cập nhật tự động từ dịch vụ OpenWeather theo thời gian thực. Bạn có thể xem dự báo 7 ngày tới và lịch sử thời tiết trên trang chủ. Hệ thống cũng cảnh báo khi có thời tiết bất thường ảnh hưởng đến cây trồng.</div>
+                                </details>
+                            </div>
+                        </div>
+
+                        <!-- Category: Nhân sự & Tuyển dụng -->
+                        <div class="faq-category fade-in" style="margin-bottom: 28px;">
+                            <h3 style="font-size: 15px; font-weight: 700; color: #3b82f6; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                                <span class="material-symbols-outlined" style="font-size: 20px;">engineering</span>
+                                Nhân sự & Tuyển dụng
+                            </h3>
+                            <div class="faq-list">
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Làm thế nào để tuyển thêm nhân công?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Vào <strong>Nhân công</strong>, mở tab <strong>Tuyển dụng</strong>. Thiết lập số lượng tuyển dụng trong phần <strong>Quota tuyển dụng</strong>. Khi nhân công đăng ký và chọn nông trại của bạn, yêu cầu sẽ hiện trong danh sách chờ duyệt.</div>
+                                </details>
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Làm sao để phân công công việc cho nhân công?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Trong mục <strong>Nhân công</strong>, chọn nhân công cần phân công, nhấp <strong>Giao việc</strong>. Chọn loại công việc, khu vực, thời gian, và mô tả chi tiết. Nhân công sẽ nhận thông báo trên trang cá nhân của họ.</div>
+                                </details>
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Nhân công có thể tự đăng ký vào nông trại không?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Có. Nhân công đăng ký tài khoản với vai trò <strong>Nhân công</strong>, chọn nông trại đang tuyển. Đơn đăng ký sẽ ở trạng thái <strong>Chờ duyệt</strong> cho đến khi chủ trang trại phê duyệt trong mục Nhân công.</div>
+                                </details>
+                            </div>
+                        </div>
+
+                        <!-- Category: Tài chính & Báo cáo -->
+                        <div class="faq-category fade-in" style="margin-bottom: 28px;">
+                            <h3 style="font-size: 15px; font-weight: 700; color: #f59e0b; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                                <span class="material-symbols-outlined" style="font-size: 20px;">account_balance_wallet</span>
+                                Tài chính & Báo cáo
+                            </h3>
+                            <div class="faq-list">
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Tôi có thể xuất báo cáo tài chính không?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Có, vào mục <strong>Tài sản</strong>, chọn khoảng thời gian cần báo cáo, sau đó nhấp nút <strong>Xuất báo cáo</strong>. Báo cáo bao gồm doanh thu, chi phí, lợi nhuận và có thể tải về dạng PDF hoặc Excel.</div>
+                                </details>
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Làm sao để quản lý thu chi của nông trại?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Vào <strong>Tài sản</strong>, bạn có thể xem tổng quan thu chi. Nhấp <strong>Thêm giao dịch</strong> để ghi nhận khoản thu/chi mới. Hệ thống tự động phân loại và tạo biểu đồ phân tích tài chính theo tháng/quý/năm.</div>
+                                </details>
+                            </div>
+                        </div>
+
+                        <!-- Category: Cửa hàng & Thương mại -->
+                        <div class="faq-category fade-in" style="margin-bottom: 28px;">
+                            <h3 style="font-size: 15px; font-weight: 700; color: #8b5cf6; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                                <span class="material-symbols-outlined" style="font-size: 20px;">store</span>
+                                Cửa hàng & Hợp tác xã
+                            </h3>
+                            <div class="faq-list">
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Làm thế nào để đăng bán sản phẩm trên cửa hàng?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Vào <strong>Cửa hàng</strong>, nhấp <strong>Thêm sản phẩm</strong>. Nhập tên, mô tả, giá, số lượng, ảnh sản phẩm. Sản phẩm sẽ hiển thị trên cửa hàng để người mua có thể đặt hàng. Bạn quản lý đơn hàng trong tab <strong>Đơn hàng</strong>.</div>
+                                </details>
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Hợp tác xã hoạt động như thế nào?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Vào <strong>Hợp tác xã</strong>, bạn có thể tạo hoặc tham gia hợp tác xã. Thành viên có thể trao đổi hàng hóa, chia sẻ tài nguyên, và tham gia các phiên giao dịch chung. Quản trị viên HTX quản lý thành viên và phiên giao dịch.</div>
+                                </details>
+                            </div>
+                        </div>
+
+                        <!-- Category: Tài khoản & Bảo mật -->
+                        <div class="faq-category fade-in" style="margin-bottom: 28px;">
+                            <h3 style="font-size: 15px; font-weight: 700; color: #ef4444; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                                <span class="material-symbols-outlined" style="font-size: 20px;">security</span>
+                                Tài khoản & Bảo mật
+                            </h3>
+                            <div class="faq-list">
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Làm thế nào để đổi mật khẩu tài khoản?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Vào <strong>Cài đặt → Bảo mật</strong>, nhấp <strong>Đổi mật khẩu</strong>. Hệ thống sẽ gửi mã OTP đến email đăng ký. Nhập mã OTP và mật khẩu mới để hoàn tất. Mật khẩu cần ít nhất 8 ký tự bao gồm chữ hoa, chữ thường và số.</div>
+                                </details>
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Đăng nhập bằng khuôn mặt hoạt động ra sao?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Vào <strong>Cài đặt → Bảo mật</strong>, bật <strong>Đăng nhập khuôn mặt</strong>. Chụp ảnh khuôn mặt bằng camera hoặc tải ảnh lên. Hệ thống sẽ mã hóa và lưu trữ đặc điểm khuôn mặt. Khi đăng nhập, chọn <strong>Đăng nhập bằng khuôn mặt</strong> trên trang đăng nhập.</div>
+                                </details>
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Làm sao để bật xác thực hai lớp (2FA)?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Vào <strong>Cài đặt → Bảo mật</strong>, bật <strong>Xác thực hai lớp</strong>. Quét mã QR bằng ứng dụng Google Authenticator hoặc Authy, nhập mã 6 số để xác nhận. Mỗi lần đăng nhập sau đó sẽ yêu cầu mã xác thực từ ứng dụng.</div>
+                                </details>
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Tôi có thể đăng nhập bằng Google, Facebook, GitHub không?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Có. Trên trang đăng nhập hoặc đăng ký, nhấp vào biểu tượng <strong>Google</strong>, <strong>Facebook</strong> hoặc <strong>GitHub</strong>. Nếu lần đầu, hệ thống sẽ yêu cầu bạn chọn vai trò và thông tin nông trại. Sau đó có thể đăng nhập trực tiếp bằng tài khoản mạng xã hội.</div>
+                                </details>
+                            </div>
+                        </div>
+
+                        <!-- Category: Cộng đồng -->
+                        <div class="faq-category fade-in" style="margin-bottom: 28px;">
+                            <h3 style="font-size: 15px; font-weight: 700; color: #06b6d4; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                                <span class="material-symbols-outlined" style="font-size: 20px;">forum</span>
+                                Cộng đồng
+                            </h3>
+                            <div class="faq-list">
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Làm thế nào để đăng bài viết trên cộng đồng?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Vào <strong>Cộng đồng</strong>, chọn tab <strong>Bài viết</strong>, nhấp <strong>Viết bài mới</strong>. Bạn có thể viết nội dung dạng văn bản phong phú, thêm hình ảnh, chọn chuyên mục (Trồng trọt, Chăn nuôi, Kỹ thuật, Thị trường). Bài viết sẽ hiển thị cho toàn bộ cộng đồng.</div>
+                                </details>
+                                <details class="card faq-item">
+                                    <summary class="faq-item__summary">Tôi có thể kết bạn với người dùng khác không?<span class="material-symbols-outlined faq-item__icon">expand_more</span></summary>
+                                    <div class="faq-item__content">Có. Vào <strong>Cộng đồng → Bạn bè</strong>. Hệ thống gợi ý người dùng, nhấp biểu tượng <strong>Kết bạn</strong> để gửi lời mời. Khi được chấp nhận, bạn có thể nhắn tin trực tiếp và xem bài viết của nhau dễ dàng hơn.</div>
+                                </details>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Help Footer -->
                     <div class="help-footer fade-in">
                         <p class="help-footer__text">Không tìm thấy câu trả lời?</p>
-                        <a href="#" class="help-footer__link">Liên hệ đội ngũ hỗ trợ →</a>
+                        <a href="#" class="help-footer__link" id="btn-footer-contact">Liên hệ đội ngũ hỗ trợ →</a>
                     </div>
                 </div>
             </main>
@@ -247,6 +364,54 @@
     <script src="../js/help.js"></script>
     <script src="../js/smart-advisor.js"></script>
     <script src="../js/main.js"></script>
+
+    <script>
+        // Toggle admin support form when clicking "Liên hệ hỗ trợ"
+        function toggleSupportSection() {
+            const section = document.getElementById('admin-support-section');
+            if (section) {
+                if (section.style.display === 'block') {
+                    section.style.display = 'none';
+                } else {
+                    section.style.display = 'block';
+                    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    loadOwnerHelpRequests();
+                }
+            }
+        }
+
+        document.getElementById('btn-contact-support')?.addEventListener('click', toggleSupportSection);
+
+        document.getElementById('btn-footer-contact')?.addEventListener('click', function (e) {
+            e.preventDefault();
+            toggleSupportSection();
+        });
+
+        // FAQ search filter
+        document.getElementById('help-search-input')?.addEventListener('input', function () {
+            const query = this.value.toLowerCase().trim();
+            const faqItems = document.querySelectorAll('.faq-item');
+            const faqCategories = document.querySelectorAll('.faq-category');
+
+            if (!query) {
+                faqItems.forEach(item => item.style.display = '');
+                faqCategories.forEach(cat => cat.style.display = '');
+                return;
+            }
+
+            faqItems.forEach(item => {
+                const summary = item.querySelector('.faq-item__summary')?.textContent.toLowerCase() || '';
+                const content = item.querySelector('.faq-item__content')?.textContent.toLowerCase() || '';
+                item.style.display = (summary.includes(query) || content.includes(query)) ? '' : 'none';
+            });
+
+            // Hide categories if all their items are hidden
+            faqCategories.forEach(cat => {
+                const visibleItems = cat.querySelectorAll('.faq-item:not([style*="display: none"])');
+                cat.style.display = visibleItems.length > 0 ? '' : 'none';
+            });
+        });
+    </script>
 </body>
 
 </html>

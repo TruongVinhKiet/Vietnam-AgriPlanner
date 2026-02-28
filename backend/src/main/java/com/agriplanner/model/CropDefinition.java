@@ -88,4 +88,24 @@ public class CropDefinition {
 
     @Column(name = "pesticide_interval_days")
     private Integer pesticideIntervalDays; // Days between pesticide application
+
+    // ====== SOIL & PLANTING PARAMETERS ======
+
+    @Column(name = "soil_ph_min")
+    private java.math.BigDecimal soilPhMin; // Minimum ideal soil pH
+
+    @Column(name = "soil_ph_max")
+    private java.math.BigDecimal soilPhMax; // Maximum ideal soil pH
+
+    @Column(name = "plant_spacing_cm")
+    private Integer plantSpacingCm; // Plant spacing in cm
+
+    @Column(name = "row_spacing_cm")
+    private Integer rowSpacingCm; // Row spacing in cm
+
+    @Column(name = "light_requirement")
+    private String lightRequirement; // FULL_SUN, PARTIAL_SHADE, SHADE
+
+    @Column(name = "fertilizer_type")
+    private String fertilizerType; // Recommended fertilizer types
 }

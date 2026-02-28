@@ -12,16 +12,16 @@ const CONFIG = {
     API_BASE_URL: 'http://localhost:8080/api',
 
     // OpenWeather API
-    OPENWEATHER_API_KEY: 'b8af10f307905b21faeab50e5e2de08b',
+    OPENWEATHER_API_KEY: 'YOUR_OPENWEATHER_API_KEY',
 
     // OpenRouter API (for AI Chatbot with Gemini)
-    OPENROUTER_API_KEY: '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',
+    OPENROUTER_API_KEY: 'YOUR_OPENROUTER_API_KEY',
 
     // OpenRouter Backup API (for Gemma 3 27B free model)
-    OPENROUTER_BACKUP_API_KEY: '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',
+    OPENROUTER_BACKUP_API_KEY: 'YOUR_OPENROUTER_BACKUP_API_KEY',
 
     // Google Gemini API (direct)
-    GEMINI_API_KEY: 'AIzaSyDLeX_tpJbj5Qh25b7-8zwRgCrbfMU32W0',
+    GEMINI_API_KEY: 'YOUR_GEMINI_API_KEY',
 
     // Default farm location (Vietnam - Mekong Delta)
     DEFAULT_LOCATION: {
@@ -54,6 +54,11 @@ const CONFIG = {
         BACKUP_MODEL: 'google/gemma-3-27b-it:free',
         MAX_TOKENS: 1000
     },
+
+    // Groq AI for Voice Search
+    GROQ_API_KEY: 'YOUR_GROQ_API_KEY',
+    GROQ_API_URL: 'https://api.groq.com/openai/v1/chat/completions',
+    GROQ_MODEL: 'llama-3.3-70b-versatile',
 
     // Feature flags
     FEATURES: {

@@ -16,6 +16,7 @@ const AUTH_CONFIG = {
     AVATAR_KEY: 'userAvatar',
     LOGIN_PAGE: '/pages/login.html',
     ADMIN_PAGE: '/pages/admin.html',
+    WORKER_PAGE: '/pages/worker_dashboard.html',
     DASHBOARD_PAGE: '/index.html'
 };
 
@@ -95,17 +96,46 @@ function requireAuth() {
 
 /**
  * Redirect based on role
- * SYSTEM_ADMIN goes to admin page, others to dashboard
+ * SYSTEM_ADMIN → admin page, OWNER → dashboard, WORKER → worker dashboard
  */
 function redirectByRole() {
     const role = getUserRole();
-    if (role === 'SYSTEM_ADMIN' || role === 'OWNER') {
+    if (role === 'SYSTEM_ADMIN') {
         window.location.href = AUTH_CONFIG.ADMIN_PAGE;
     } else if (role === 'WORKER') {
-        window.location.href = '/pages/worker_dashboard.html';
+        window.location.href = AUTH_CONFIG.WORKER_PAGE;
     } else {
+        // OWNER and any other role → main dashboard
         window.location.href = AUTH_CONFIG.DASHBOARD_PAGE;
     }
+}
+
+/**
+ * Get the home page URL for a given role
+ * @param {string} role
+ * @returns {string}
+ */
+function getHomePageForRole(role) {
+    if (role === 'SYSTEM_ADMIN') return AUTH_CONFIG.ADMIN_PAGE;
+    if (role === 'WORKER') return AUTH_CONFIG.WORKER_PAGE;
+    return AUTH_CONFIG.DASHBOARD_PAGE;
+}
+
+/**
+ * Guard a page to only allow specific roles.
+ * If the current user's role is not in the allowed list,
+ * they are redirected to their correct home page.
+ * @param {string[]} allowedRoles - Array of role strings allowed on this page
+ * @returns {boolean} true if user is allowed, false if redirected
+ */
+function requireRole(allowedRoles) {
+    const role = getUserRole();
+    if (!role || !allowedRoles.includes(role)) {
+        const homePage = getHomePageForRole(role);
+        window.location.href = homePage;
+        return false;
+    }
+    return true;
 }
 
 /**
@@ -224,6 +254,43 @@ function updateHeaderDisplay() {
     }
 }
 
+/**
+ * Page-to-role mapping for access control.
+ * Pages listed here are restricted to the specified roles.
+ * Pages NOT listed allow all authenticated users.
+ * admin.html and worker_dashboard.html handle their own guards (don't include auth.js).
+ */
+const PAGE_ROLE_GUARDS = {
+    'cultivation.html': ['OWNER'],
+    'livestock.html': ['OWNER'],
+    'labor.html': ['OWNER'],
+    'analytics.html': ['OWNER'],
+    'worker_detail.html': ['OWNER'],
+    'index.html': ['OWNER']
+    // settings.html, community.html, shop.html, cooperative.html, help.html, guide.html → all roles
+};
+
+/**
+ * Check if current page has role restrictions and enforce them.
+ * Returns true if user is allowed, false if redirected.
+ */
+function checkPageRoleGuard() {
+    const currentPage = window.location.pathname;
+    const role = getUserRole();
+
+    for (const [page, allowedRoles] of Object.entries(PAGE_ROLE_GUARDS)) {
+        if (currentPage.includes(page)) {
+            if (!role || !allowedRoles.includes(role)) {
+                // Redirect to the user's correct home page
+                window.location.href = getHomePageForRole(role);
+                return false;
+            }
+            break;
+        }
+    }
+    return true;
+}
+
 // Auto-check authentication on page load for protected pages
 document.addEventListener('DOMContentLoaded', async () => {
     const currentPage = window.location.pathname;
@@ -243,6 +310,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // For all other pages, require authentication
     if (!currentPage.includes('login.html') && !currentPage.includes('register.html')) {
         if (requireAuth()) {
+            // Check role-based page access control
+            if (!checkPageRoleGuard()) return;
+
             // Sync user profile from API to ensure avatar is up-to-date
             await syncUserProfile();
             // Update user display after successful auth check
