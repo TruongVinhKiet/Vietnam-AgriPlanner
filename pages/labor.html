@@ -123,6 +123,301 @@
             border-color: var(--color-primary);
             box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
         }
+
+        /* ===== Quick Add Modal ===== */
+        .quick-add-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            display: none;
+            align-items: flex-end;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity .3s ease;
+        }
+
+        .quick-add-overlay.open {
+            display: flex;
+            opacity: 1;
+        }
+
+        .quick-add-panel {
+            background: #fff;
+            width: 100%;
+            max-width: 720px;
+            max-height: 85vh;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            flex-direction: column;
+            transform: translateY(100%);
+            transition: transform .35s cubic-bezier(.4, 0, .2, 1);
+            box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .quick-add-overlay.open .quick-add-panel {
+            transform: translateY(0);
+        }
+
+        .quick-add-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px 12px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .quick-add-header h3 {
+            font-size: 18px;
+            font-weight: 700;
+            color: #111827;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .quick-add-header .close-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: #f3f4f6;
+            color: #6b7280;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all .2s;
+        }
+
+        .quick-add-header .close-btn:hover {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .quick-add-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 24px;
+        }
+
+        .qa-category {
+            margin-bottom: 20px;
+        }
+
+        .qa-category-title {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #6b7280;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .qa-category-title .cat-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .cat-icon.inspect {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+
+        .cat-icon.water {
+            background: #d1fae5;
+            color: #059669;
+        }
+
+        .cat-icon.feed {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .qa-task-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #f9fafb;
+            margin-bottom: 6px;
+            transition: all .2s;
+            animation: qaSlideIn .3s ease forwards;
+            opacity: 0;
+        }
+
+        .qa-task-row:hover {
+            background: #f3f4f6;
+        }
+
+        @keyframes qaSlideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .qa-task-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #10b981;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .qa-task-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .qa-task-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1f2937;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .qa-task-desc {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-top: 2px;
+        }
+
+        .qa-task-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .qa-task-controls select,
+        .qa-task-controls input[type="time"] {
+            padding: 6px 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 12px;
+            background: #fff;
+            color: #374151;
+            max-width: 140px;
+        }
+
+        .qa-task-controls select:focus,
+        .qa-task-controls input[type="time"]:focus {
+            outline: none;
+            border-color: #10b981;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+        }
+
+        .qa-time-badge {
+            padding: 4px 10px;
+            border-radius: 6px;
+            background: #f0fdf4;
+            color: #15803d;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .quick-add-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #f3f4f6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .qa-selected-count {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .qa-selected-count strong {
+            color: #10b981;
+        }
+
+        .qa-submit-btn {
+            padding: 10px 24px;
+            border-radius: 10px;
+            border: none;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all .2s;
+        }
+
+        .qa-submit-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .qa-submit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .qa-skeleton {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px 0;
+        }
+
+        .qa-skeleton-row {
+            height: 48px;
+            background: #f3f4f6;
+            border-radius: 10px;
+            animation: pulse 1.5s infinite;
+        }
+
+        .qa-empty {
+            text-align: center;
+            padding: 32px 16px;
+            color: #9ca3af;
+        }
+
+        .qa-empty .material-symbols-outlined {
+            font-size: 48px;
+            margin-bottom: 8px;
+            opacity: 0.4;
+        }
+
+        .qa-select-all {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #6b7280;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+
+        .qa-select-all input {
+            accent-color: #10b981;
+        }
     </style>
 </head>
 
@@ -311,11 +606,19 @@
                     <!-- Tab Content: Tasks -->
                     <div id="tasks-tab" class="tab-content">
                         <div class="card">
-                            <div class="card__header" style="display: flex; justify-content: space-between;">
+                            <div class="card__header"
+                                style="display: flex; justify-content: space-between; align-items: center;">
                                 <h3 class="card__title">Danh sách công việc</h3>
-                                <button class="btn btn--primary" onclick="openAssignTaskModal()">
-                                    <span class="material-symbols-outlined">add_task</span> Giao việc mới
-                                </button>
+                                <div style="display: flex; gap: 8px;">
+                                    <button class="btn btn--secondary" onclick="openQuickAddModal()"
+                                        style="display:flex; align-items:center; gap:4px;">
+                                        <span class="material-symbols-outlined" style="font-size:18px;">bolt</span> Thêm
+                                        nhanh
+                                    </button>
+                                    <button class="btn btn--primary" onclick="openAssignTaskModal()">
+                                        <span class="material-symbols-outlined">add_task</span> Giao việc mới
+                                    </button>
+                                </div>
                             </div>
                             <div class="card__body">
                                 <p style="text-align: center; padding: 2rem; color: #6b7280;">Danh sách công việc đã
@@ -437,11 +740,24 @@
                                 <input type="number" id="task-quantity" class="modal-input text-sm" placeholder="0">
                             </div>
                         </div>
-                        <div class="form-group mt-2">
-                            <label class="block text-xs text-gray-600 mb-1">Thù lao (tùy chọn)</label>
-                            <input type="number" id="task-salary" class="modal-input text-sm"
-                                placeholder="Nhập số tiền thưởng riêng cho task này">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+                            <div class="form-group">
+                                <label class="block text-xs text-gray-600 mb-1">Thù lao (tùy chọn)</label>
+                                <input type="number" id="task-salary" class="modal-input text-sm"
+                                    placeholder="Nhập số tiền thưởng riêng cho task này">
+                            </div>
+                            <div class="form-group">
+                                <label class="block text-xs text-gray-600 mb-1">Ngày bắt đầu (tùy chọn)</label>
+                                <input type="datetime-local" id="task-start-date" class="modal-input text-sm">
+                            </div>
                         </div>
+                    </div>
+
+                    <div class="form-group mt-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Ghi chú cho nhân công (tùy
+                            chọn)</label>
+                        <textarea id="task-notes" class="modal-input" rows="2"
+                            placeholder="Hướng dẫn thêm, lưu ý đặc biệt..."></textarea>
                     </div>
 
                 </div>
@@ -512,6 +828,28 @@
             alert('Tính năng Đăng tin tuyển dụng đang phát triển');
         }
     </script>
+
+    <!-- Quick Add Modal -->
+    <div id="quick-add-overlay" class="quick-add-overlay" onclick="if(event.target===this)closeQuickAddModal()">
+        <div class="quick-add-panel">
+            <div class="quick-add-header">
+                <h3><span class="material-symbols-outlined" style="color:#10b981;">bolt</span> Thêm nhanh công việc hôm
+                    nay</h3>
+                <button class="close-btn" onclick="closeQuickAddModal()">
+                    <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+                </button>
+            </div>
+            <div class="quick-add-body" id="quick-add-body">
+                <!-- Content loaded dynamically -->
+            </div>
+            <div class="quick-add-footer">
+                <div class="qa-selected-count">Đã chọn: <strong id="qa-count">0</strong> công việc</div>
+                <button class="qa-submit-btn" id="qa-submit-btn" onclick="submitQuickAddTasks()" disabled>
+                    <span class="material-symbols-outlined" style="font-size:18px;">send</span> Giao tất cả
+                </button>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>

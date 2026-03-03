@@ -12,7 +12,7 @@ const CONFIG = {
     API_BASE_URL: 'http://localhost:8080/api',
 
     // OpenWeather API
-    OPENWEATHER_API_KEY: 'YOUR_OPENWEATHER_API_KEY',
+    OPENWEATHER_API_KEY: 'b8af10f307905b21faeab50e5e2de08b',
 
     // OpenRouter API (for AI Chatbot with Gemini)
     OPENROUTER_API_KEY: 'YOUR_OPENROUTER_API_KEY',

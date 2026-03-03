@@ -8,13 +8,35 @@ let payrollModalWorkerId = null;
 let workerDetailWorkerId = null;
 let workerDetailDailyChart = null;
 let workerDetailMonthlyChart = null;
+let ownerTasksById = {}; // Map for task detail lookup
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const page = document && document.body && document.body.dataset ? document.body.dataset.page : null;
     if (page !== 'labor') return;
-    loadTasks();
+
+    // Handle #tasks hash — auto-switch to Giao việc tab
+    if (window.location.hash === '#tasks') {
+        setTimeout(() => { if (typeof switchTab === 'function') switchTab('tasks'); }, 100);
+    }
+
+    await loadTasks();
     loadRecruitmentInfo();
     initializeFarmId();
+
+    // Handle ?taskDetail={id} deep-link from homepage
+    const params = new URLSearchParams(window.location.search);
+    const taskDetailId = params.get('taskDetail');
+    if (taskDetailId) {
+        // Switch to Giao việc tab and open detail
+        if (typeof switchTab === 'function') switchTab('tasks');
+        setTimeout(() => {
+            if (typeof openOwnerTaskDetail === 'function' && ownerTasksById[Number(taskDetailId)]) {
+                openOwnerTaskDetail(Number(taskDetailId));
+            }
+        }, 300);
+        // Clean URL
+        window.history.replaceState({}, '', window.location.pathname);
+    }
 });
 
 // ==================== Toast Notification ====================
@@ -254,6 +276,9 @@ async function loadTasks() {
             return created === today || active || completedToday;
         });
 
+        // Store tasks by ID for detail view
+        ownerTasksById = {};
+        todaysTasks.forEach(t => { if (t && t.id != null) ownerTasksById[t.id] = t; });
         renderTasks(todaysTasks);
     } catch (e) {
         console.error('Error loading tasks:', e);
@@ -267,64 +292,62 @@ function renderTasks(tasks) {
     if (!container) return;
 
     if (!tasks || tasks.length === 0) {
-        container.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem; color: #6b7280;"><span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 12px; opacity: 0.5;">assignment_turned_in</span><p>Không có công việc nào trong hôm nay.</p></div>';
+        container.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem; color: #6b7280;"><span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 12px; opacity: 0.5;">assignment_turned_in</span><p>Danh sách công việc đã giao sẽ hiển thị ở đây.</p></div>';
         return;
     }
 
-    let html = `
-    <table class="w-full text-left border-collapse">
-        <thead>
-            <tr class="text-sm text-gray-500 border-b border-gray-200">
-                <th class="py-3 font-medium">Tên công việc</th>
-                <th class="py-3 font-medium">Người thực hiện</th>
-                <th class="py-3 font-medium">Loại</th>
-                <th class="py-3 font-medium">Hạn</th>
-                <th class="py-3 font-medium">Trạng thái</th>
-                <th class="py-3 font-medium">Hoàn thành lúc</th>
-                <th class="py-3 font-medium">Phân công</th>
-            </tr>
-        </thead>
-        <tbody class="text-sm text-gray-800 divide-y divide-gray-100">
-    `;
+    let html = '<div id="owner-tasks-list" style="display: flex; flex-direction: column; gap: 12px;">';
 
     tasks.forEach(task => {
-        let completedTime = '--';
         let statusBadge = getStatusBadge(task.status);
 
         const dueText = task.dueDate
-            ? new Date(task.dueDate).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
-            : '--';
+            ? new Date(task.dueDate).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })
+            : 'Chưa đặt hạn';
 
         const isAutoCreated = task.isAutoCreated === true;
-        const workerId = task.worker && task.worker.id != null ? Number(task.worker.id) : null;
-        const ownerId = task.owner && task.owner.id != null ? Number(task.owner.id) : null;
-        const isSelf = workerId != null && ownerId != null && workerId === ownerId;
+        const wId = task.worker && task.worker.id != null ? Number(task.worker.id) : null;
+        const oId = task.owner && task.owner.id != null ? Number(task.owner.id) : null;
+        const isSelf = wId != null && oId != null && wId === oId;
         const displayWorkerName = task.worker
             ? (task.worker.fullName || task.worker.email || 'Nhân công')
             : (isAutoCreated ? 'Chưa phân công' : 'Tôi (Tự làm)');
 
+        // Avatar — use real avatar URL if available
+        const workerAvatarUrl = task.worker && task.worker.avatarUrl ? task.worker.avatarUrl : null;
         const avatarChar = task.worker
-            ? (displayWorkerName || 'N').charAt(0)
+            ? (displayWorkerName || 'N').charAt(0).toUpperCase()
             : (isAutoCreated ? '?' : 'T');
+        const avatarColor = task.worker ? 'background:#dbeafe; color:#2563eb;' : 'background:#f3f4f6; color:#6b7280;';
+        const avatarHtml = workerAvatarUrl
+            ? `<img src="${workerAvatarUrl}" alt="" style="width:28px; height:28px; border-radius:50%; object-fit:cover; flex-shrink:0;">`
+            : `<div style="width:28px; height:28px; border-radius:50%; ${avatarColor} display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0;">${escapeHtml(avatarChar)}</div>`;
 
-        if (task.status === 'COMPLETED') {
-            statusBadge = `<div class="flex items-center gap-1 text-green-600 font-bold"><span class="material-symbols-outlined">check_circle</span> Hoàn thành</div>`;
-            if (task.completedAt) {
-                const date = new Date(task.completedAt);
-                completedTime = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-            }
+        let completedTime = '';
+        if (task.status === 'COMPLETED' && task.completedAt) {
+            const date = new Date(task.completedAt);
+            completedTime = date.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
         }
 
-        let assignBlock = '--';
+        const typeLabel = getTaskTypeLabel(task.taskType);
+
+        const priority = (task.priority || 'NORMAL').toUpperCase();
+        let priorityStyle = 'background:#f3f4f6; color:#6b7280;';
+        let priorityLabel = 'Bình thường';
+        if (priority === 'HIGH' || priority === 'URGENT') {
+            priorityStyle = 'background:#fef2f2; color:#dc2626;';
+            priorityLabel = priority === 'URGENT' ? 'Khẩn cấp' : 'Cao';
+        } else if (priority === 'LOW') {
+            priorityStyle = 'background:#f0fdf4; color:#16a34a;';
+            priorityLabel = 'Thấp';
+        }
+
+        let assignBlock = '';
         if (task.status !== 'COMPLETED' && task.status !== 'CANCELLED') {
             let selected = '';
-            if (isSelf) {
-                selected = 'SELF';
-            } else if (workerId != null) {
-                selected = String(workerId);
-            } else {
-                selected = isAutoCreated ? '' : 'SELF';
-            }
+            if (isSelf) selected = 'SELF';
+            else if (wId != null) selected = String(wId);
+            else selected = isAutoCreated ? '' : 'SELF';
 
             let options = '';
             options += `<option value="" ${selected === '' ? 'selected' : ''}>-- Chưa phân công --</option>`;
@@ -340,54 +363,287 @@ function renderTasks(tasks) {
             }
 
             assignBlock = `
-                <div style="display:flex; gap:8px; align-items:center;">
-                    <select id="assign-worker-${task.id}" class="modal-input" style="padding: 6px 10px; margin-top: 0; font-size: 12px; min-width: 170px;">
+                <div style="display:flex; gap:8px; align-items:center; margin-top:10px; padding-top:10px; border-top:1px solid #f3f4f6;" onclick="event.stopPropagation()">
+                    <span class="material-symbols-outlined" style="font-size:18px; color:#9ca3af;">person_add</span>
+                    <select id="assign-worker-${task.id}" class="modal-input" style="padding:6px 10px; margin:0; font-size:13px; flex:1; min-width:0; border-radius:8px;">
                         ${options}
                     </select>
-                    <button class="btn btn--secondary" style="padding: 6px 12px; font-size: 12px;" onclick="quickAssignTask(${task.id})">
-                        Lưu
+                    <button class="btn btn--secondary" style="padding:6px 16px; font-size:13px; white-space:nowrap; border-radius:8px;" onclick="quickAssignTask(${task.id})">
+                        <span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">save</span> Lưu
                     </button>
                 </div>
             `;
         }
 
         html += `
-            <tr>
-                <td class="py-3">
-                    <p class="font-semibold" style="color: var(--color-text-primary);">${task.name}</p>
-                    <p class="text-xs text-gray-500 truncate" style="max-width: 200px;">${task.description || ''}</p>
-                </td>
-                <td class="py-3">
-                    <div class="flex items-center gap-2">
-                        <div class="w-8 h-8 rounded-full ${task.worker ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'} flex items-center justify-center text-xs font-bold ring-2 ring-white">
-                            ${escapeHtml(avatarChar)}
+            <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:16px; transition:box-shadow 0.2s, transform 0.2s; cursor:pointer;"
+                 onmouseenter="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'; this.style.transform='translateY(-1px)'"
+                 onmouseleave="this.style.boxShadow='none'; this.style.transform='translateY(0)'"
+                 onclick="openOwnerTaskDetail(${task.id})">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-weight:700; color:#111827; font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:300px;">${escapeHtml(task.name)}</span>
+                            <span style="font-size:12px; font-weight:600; padding:2px 10px; border-radius:999px; ${priorityStyle}; white-space:nowrap;">${priorityLabel}</span>
+                            <span style="font-size:12px; font-weight:500; padding:2px 10px; border-radius:999px; background:#f3f4f6; color:#6b7280; white-space:nowrap;">${typeLabel}</span>
                         </div>
-                        <span class="font-medium text-sm">${escapeHtml(displayWorkerName)}</span>
+                        ${task.description ? `<p style="margin:6px 0 0; font-size:13px; color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:400px;">${escapeHtml(task.description)}</p>` : ''}
                     </div>
-                </td>
-                 <td class="py-3">
-                    <span class="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-600">
-                        ${getTaskTypeLabel(task.taskType)}
-                    </span>
-                </td>
-                <td class="py-3 text-gray-500 text-sm font-medium">
-                    ${escapeHtml(dueText)}
-                </td>
-                <td class="py-3">
-                    ${statusBadge}
-                </td>
-                <td class="py-3 text-gray-500 text-sm font-medium">
-                    ${completedTime}
-                </td>
-                <td class="py-3">
-                    ${assignBlock}
-                </td>
-            </tr>
+                    <div style="flex-shrink:0;">
+                        ${statusBadge}
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:20px; margin-top:12px; flex-wrap:wrap; font-size:13px; color:#6b7280;">
+                    <div style="display:flex; align-items:center; gap:6px; white-space:nowrap;">
+                        ${avatarHtml}
+                        <span style="font-weight:500; color:#374151; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:150px;">${escapeHtml(displayWorkerName)}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:4px; white-space:nowrap;">
+                        <span class="material-symbols-outlined" style="font-size:16px;">schedule</span>
+                        <span>Hạn: ${escapeHtml(dueText)}</span>
+                    </div>
+                    ${completedTime ? `
+                    <div style="display:flex; align-items:center; gap:4px; white-space:nowrap; color:#16a34a;">
+                        <span class="material-symbols-outlined" style="font-size:16px;">check_circle</span>
+                        <span>Xong: ${escapeHtml(completedTime)}</span>
+                    </div>
+                    ` : ''}
+                </div>
+
+                ${assignBlock}
+            </div>
         `;
     });
 
-    html += '</tbody></table>';
+    html += '</div>';
     container.innerHTML = html;
+}
+
+// ============ OWNER TASK DETAIL VIEW ============
+function getTaskIconOwner(taskType) {
+    const icons = { 'FEED': 'restaurant', 'CLEAN': 'cleaning_services', 'HARVEST': 'agriculture', 'BUY_SUPPLIES': 'shopping_cart', 'PLANT': 'park', 'SEED': 'grass', 'FERTILIZE': 'science', 'WATER': 'water_drop', 'PEST_CONTROL': 'bug_report', 'VACCINATE': 'vaccines', 'SELL': 'store', 'OTHER': 'task' };
+    return icons[taskType] || 'task';
+}
+
+function openOwnerTaskDetail(taskId) {
+    const task = ownerTasksById && ownerTasksById[taskId] ? ownerTasksById[taskId] : null;
+    if (!task) return;
+
+    const container = document.querySelector('#tasks-tab .card__body');
+    if (!container) return;
+
+    const taskName = task.name || '';
+    const taskDesc = task.description || '';
+    const status = task.status ? String(task.status).toUpperCase() : 'PENDING';
+    const priority = task.priority ? String(task.priority).toUpperCase() : 'NORMAL';
+
+    const createdAt = task.createdAt ? new Date(task.createdAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+    const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Chưa đặt hạn';
+    const completedAt = task.completedAt ? new Date(task.completedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
+
+    // Worker info
+    const workerName = task.worker ? (task.worker.fullName || task.worker.email || 'Nhân công') : (task.isAutoCreated ? 'Chưa phân công' : 'Tôi (Tự làm)');
+    const workerEmail = task.worker ? (task.worker.email || '') : '';
+    const workerAvatar = task.worker && task.worker.avatarUrl ? task.worker.avatarUrl : null;
+    const workerAvatarHtml = workerAvatar
+        ? `<img src="${workerAvatar}" alt="" style="width:48px; height:48px; border-radius:50%; object-fit:cover; border:2px solid #e5e7eb;">`
+        : `<div style="width:48px; height:48px; border-radius:50%; background:#dbeafe; color:#2563eb; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:18px; border:2px solid #e5e7eb;">${escapeHtml((workerName || 'W').charAt(0).toUpperCase())}</div>`;
+
+    // Location
+    const locationLabel = task.field ? (task.field.name || 'Ruộng') : (task.pen ? (task.pen.name || task.pen.code || 'Chuồng') : null);
+    const locationType = task.field ? 'Ruộng' : (task.pen ? 'Chuồng' : null);
+    const locationIcon = task.field ? 'grass' : (task.pen ? 'pets' : 'location_on');
+
+    const salaryLabel = task.salary ? (new Intl.NumberFormat('vi-VN').format(Number(task.salary)) + ' VNĐ') : null;
+    const relatedItemName = task.relatedItem ? (task.relatedItem.name || '') : null;
+    const quantityLabel = task.quantityRequired ? String(task.quantityRequired) : null;
+    const typeLabel = getTaskTypeLabel(task.taskType);
+
+    // Status config
+    const statusCfg = {
+        'COMPLETED': { icon: 'check_circle', label: 'Hoàn thành', color: '#16a34a', bg: '#f0fdf4' },
+        'IN_PROGRESS': { icon: 'autorenew', label: 'Đang thực hiện', color: '#2563eb', bg: '#eff6ff' },
+        'CANCELLED': { icon: 'cancel', label: 'Đã hủy', color: '#dc2626', bg: '#fef2f2' },
+        'PENDING': { icon: 'pending', label: 'Chờ xử lý', color: '#d97706', bg: '#fffbeb' }
+    };
+    const sc = statusCfg[status] || statusCfg['PENDING'];
+
+    const priCfg = {
+        'HIGH': { icon: 'priority_high', label: 'Cao', color: '#dc2626' },
+        'URGENT': { icon: 'warning', label: 'Khẩn cấp', color: '#dc2626' },
+        'LOW': { icon: 'low_priority', label: 'Thấp', color: '#16a34a' },
+        'NORMAL': { icon: 'drag_handle', label: 'Bình thường', color: '#6b7280' }
+    };
+    const pc = priCfg[priority] || priCfg['NORMAL'];
+
+    // Countdown
+    let countdownHtml = '';
+    if (task.dueDate && status !== 'COMPLETED') {
+        const remaining = new Date(task.dueDate).getTime() - Date.now();
+        const isOverdue = remaining < 0;
+        const cdColor = isOverdue ? '#dc2626' : '#2563eb';
+        const cdBg = isOverdue ? '#fef2f2' : '#eff6ff';
+        const abs = Math.abs(remaining);
+        const h = Math.floor(abs / 3600000);
+        const m = Math.floor((abs % 3600000) / 60000);
+        const cdText = h > 0 ? `${h} giờ ${m} phút` : `${m} phút`;
+        countdownHtml = `
+            <div style="background:${cdBg}; border-radius:16px; padding:20px; margin-bottom:16px; border:1px solid ${cdColor}22;">
+                <div style="display:flex; align-items:center; gap:8px; color:${cdColor}; font-weight:600; font-size:14px;">
+                    <span class="material-symbols-outlined" style="font-size:20px;">timer</span>
+                    ${isOverdue ? 'Đã quá hạn' : 'Thời gian còn lại'}
+                </div>
+                <div style="font-size:28px; font-weight:800; color:${cdColor}; margin-top:4px;">${cdText}</div>
+            </div>
+        `;
+    }
+
+    container.innerHTML = `
+        <div style="max-width:900px; margin:0 auto;">
+            <!-- Breadcrumb -->
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:20px; font-size:14px; color:#6b7280;">
+                <button onclick="closeOwnerTaskDetail()" style="display:flex; align-items:center; gap:4px; background:none; border:none; cursor:pointer; color:#6b7280; font-size:14px; padding:0; transition:color 0.2s;"
+                        onmouseenter="this.style.color='#059669'" onmouseleave="this.style.color='#6b7280'">
+                    <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span> Giao việc
+                </button>
+                <span style="color:#d1d5db;">›</span>
+                <span style="color:#111827; font-weight:600;">${escapeHtml(taskName)}</span>
+            </div>
+
+            <!-- Header Card -->
+            <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:24px; margin-bottom:16px;">
+                <div style="display:flex; align-items:flex-start; gap:16px;">
+                    <div style="width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg, #ecfdf5, #d1fae5); color:#059669; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <span class="material-symbols-outlined" style="font-size:28px;">${getTaskIconOwner(task.taskType)}</span>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <h2 style="margin:0 0 4px; font-size:22px; font-weight:800; color:#111827;">${escapeHtml(taskName)}</h2>
+                        <span style="font-size:13px; color:#6b7280;">${typeLabel}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stat Cards Row -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:16px;">
+                <div style="background:white; border-radius:12px; border:1px solid #e5e7eb; padding:16px; text-align:center;">
+                    <span class="material-symbols-outlined" style="font-size:24px; color:${sc.color};">${sc.icon}</span>
+                    <div style="font-size:16px; font-weight:700; color:${sc.color}; margin-top:4px;">${sc.label}</div>
+                    <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Trạng thái</div>
+                </div>
+                <div style="background:white; border-radius:12px; border:1px solid #e5e7eb; padding:16px; text-align:center;">
+                    <span class="material-symbols-outlined" style="font-size:24px; color:${pc.color};">${pc.icon}</span>
+                    <div style="font-size:16px; font-weight:700; color:${pc.color}; margin-top:4px;">${pc.label}</div>
+                    <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Ưu tiên</div>
+                </div>
+                <div style="background:white; border-radius:12px; border:1px solid #e5e7eb; padding:16px; text-align:center;">
+                    <span class="material-symbols-outlined" style="font-size:24px; color:#d97706;">schedule</span>
+                    <div style="font-size:14px; font-weight:700; color:#111827; margin-top:4px;">${dueDate}</div>
+                    <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Hạn hoàn thành</div>
+                </div>
+                ${salaryLabel ? `
+                <div style="background:white; border-radius:12px; border:1px solid #e5e7eb; padding:16px; text-align:center;">
+                    <span class="material-symbols-outlined" style="font-size:24px; color:#059669;">payments</span>
+                    <div style="font-size:16px; font-weight:700; color:#059669; margin-top:4px;">${salaryLabel}</div>
+                    <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Thù lao</div>
+                </div>
+                ` : ''}
+                ${completedAt ? `
+                <div style="background:white; border-radius:12px; border:1px solid #e5e7eb; padding:16px; text-align:center;">
+                    <span class="material-symbols-outlined" style="font-size:24px; color:#16a34a;">verified</span>
+                    <div style="font-size:14px; font-weight:700; color:#16a34a; margin-top:4px;">${completedAt}</div>
+                    <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Hoàn thành lúc</div>
+                </div>
+                ` : ''}
+            </div>
+
+            <!-- Info Grid -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                <!-- Người thực hiện -->
+                <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px;">
+                    <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Người thực hiện</div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        ${workerAvatarHtml}
+                        <div>
+                            <div style="font-weight:700; color:#111827; font-size:15px;">${escapeHtml(workerName)}</div>
+                            ${workerEmail ? `<div style="font-size:13px; color:#6b7280;">${escapeHtml(workerEmail)}</div>` : ''}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Khu vực -->
+                <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px;">
+                    <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Khu vực thực hiện</div>
+                    ${locationLabel ? `
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="width:44px; height:44px; border-radius:12px; background:#f5f3ff; color:#7c3aed; display:flex; align-items:center; justify-content:center;">
+                            <span class="material-symbols-outlined" style="font-size:22px;">${locationIcon}</span>
+                        </div>
+                        <div>
+                            <div style="font-weight:700; color:#111827; font-size:15px;">${escapeHtml(locationLabel)}</div>
+                            <div style="font-size:13px; color:#6b7280;">${locationType}</div>
+                        </div>
+                    </div>
+                    ` : `<div style="color:#9ca3af; font-size:14px;">Không chỉ định</div>`}
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                <!-- Ngày tạo -->
+                <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px;">
+                    <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Thông tin giao việc</div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="width:44px; height:44px; border-radius:12px; background:#ecfdf5; color:#059669; display:flex; align-items:center; justify-content:center;">
+                            <span class="material-symbols-outlined" style="font-size:22px;">event_available</span>
+                        </div>
+                        <div>
+                            <div style="font-weight:700; color:#111827; font-size:15px;">${createdAt}</div>
+                            <div style="font-size:13px; color:#6b7280;">Ngày tạo công việc</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vật tư -->
+                <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px;">
+                    <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Vật tư liên quan</div>
+                    ${relatedItemName ? `
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="width:44px; height:44px; border-radius:12px; background:#fefce8; color:#ca8a04; display:flex; align-items:center; justify-content:center;">
+                            <span class="material-symbols-outlined" style="font-size:22px;">inventory_2</span>
+                        </div>
+                        <div>
+                            <div style="font-weight:700; color:#111827; font-size:15px;">${escapeHtml(relatedItemName)}</div>
+                            ${quantityLabel ? `<div style="font-size:13px; color:#6b7280;">Số lượng: ${quantityLabel}</div>` : ''}
+                        </div>
+                    </div>
+                    ` : `<div style="color:#9ca3af; font-size:14px;">Không có</div>`}
+                </div>
+            </div>
+
+            <!-- Description -->
+            ${taskDesc ? `
+            <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
+                <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Mô tả công việc</div>
+                <p style="margin:0; color:#374151; line-height:1.7; white-space:pre-wrap;">${escapeHtml(taskDesc)}</p>
+            </div>
+            ` : ''}
+
+            ${countdownHtml}
+
+            <!-- Completion / Status Banner -->
+            ${status === 'COMPLETED' ? `
+            <div style="background:#f0fdf4; border-radius:16px; border:1px solid #bbf7d0; padding:20px; margin-bottom:16px; text-align:center;">
+                <span class="material-symbols-outlined" style="font-size:48px; color:#16a34a;">task_alt</span>
+                <div style="font-size:18px; font-weight:700; color:#16a34a; margin-top:8px;">Công việc đã hoàn thành</div>
+                ${completedAt ? `<div style="font-size:14px; color:#15803d; margin-top:4px;">Lúc ${completedAt}</div>` : ''}
+            </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+function closeOwnerTaskDetail() {
+    loadTasks();
 }
 
 // ... (Recruitment Logic omitted for brevity, keeping existing) ...
@@ -523,12 +779,17 @@ async function submitAssignTask(e) {
         if (type === 'PEN') penId = parseInt(id);
     }
 
+    const rawDesc = document.getElementById('task-desc').value || '';
+    const notesEl = document.getElementById('task-notes');
+    const notes = notesEl ? notesEl.value.trim() : '';
+    const fullDescription = notes ? (rawDesc ? rawDesc + '\n\n📝 Ghi chú: ' + notes : '📝 Ghi chú: ' + notes) : rawDesc;
+
     const payload = {
         farmId: myFarmId || 1,
         ownerId: ownerId,
         workerId: workerId === 'SELF' ? null : workerId,
         name: document.getElementById('task-name').value,
-        description: document.getElementById('task-desc').value,
+        description: fullDescription,
         priority: document.getElementById('task-priority').value,
         taskType: document.getElementById('task-type').value,
         relatedShopItemId: document.getElementById('task-related-item').value || null,
@@ -551,6 +812,371 @@ async function submitAssignTask(e) {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span class="material-symbols-outlined">check</span> Giao việc';
     }
+}
+
+
+// ============ QUICK ADD TASKS ============
+
+let quickAddTasksData = []; // Holds generated task objects
+
+function openQuickAddModal() {
+    const overlay = document.getElementById('quick-add-overlay');
+    if (!overlay) return;
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    loadQuickAddData();
+}
+
+function closeQuickAddModal() {
+    const overlay = document.getElementById('quick-add-overlay');
+    if (overlay) overlay.classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+async function loadQuickAddData() {
+    const body = document.getElementById('quick-add-body');
+    if (!body) return;
+
+    // Show loading skeleton
+    body.innerHTML = `<div class="qa-skeleton">
+        <div class="qa-skeleton-row"></div>
+        <div class="qa-skeleton-row" style="animation-delay:.15s"></div>
+        <div class="qa-skeleton-row" style="animation-delay:.3s"></div>
+        <div class="qa-skeleton-row" style="animation-delay:.45s"></div>
+    </div>`;
+
+    try {
+        await ensureFarmId();
+        await ensureApprovedWorkersForAssignment();
+        const farmId = myFarmId || 1;
+
+        // Fetch fields and pens in parallel using fetchAPI (proper auth)
+        const [fieldsRes, pensRes] = await Promise.allSettled([
+            fetchAPI(`${LABOR_API_BASE}/fields?farmId=${farmId}`).catch(() => []),
+            fetchAPI(`${LABOR_API_BASE}/livestock/pens?farmId=${farmId}`).catch(() => [])
+        ]);
+
+        const fields = fieldsRes.status === 'fulfilled' ? (Array.isArray(fieldsRes.value) ? fieldsRes.value : []) : [];
+        const pens = pensRes.status === 'fulfilled' ? (Array.isArray(pensRes.value) ? pensRes.value : []) : [];
+
+        // Fetch irrigation schedules for each field using fetchAPI
+        const irrigationPromises = fields.map(f =>
+            fetchAPI(`${LABOR_API_BASE}/irrigation/field/${f.id}`).catch(() => [])
+        );
+        const irrigationResults = await Promise.allSettled(irrigationPromises);
+
+        // Build task list
+        quickAddTasksData = [];
+        let taskIndex = 0;
+
+        // --- Category 1: Field Inspections ---
+        fields.forEach(field => {
+            const fieldName = field.name || field.fieldName || `Ruộng #${field.id}`;
+            // currentCrop is an object {id, name, ...} — extract .name
+            const cropLabel = (field.currentCrop && typeof field.currentCrop === 'object')
+                ? field.currentCrop.name
+                : (field.currentCrop || field.cropName || '');
+            quickAddTasksData.push({
+                idx: taskIndex++,
+                category: 'inspect',
+                type: 'INSPECTION',
+                name: `Kiểm tra ${fieldName}`,
+                description: `Kiểm tra tình trạng mảnh ruộng "${fieldName}"${cropLabel ? ' - ' + cropLabel : ''}. Chụp ảnh minh chứng để cập nhật tình trạng.`,
+                fieldId: field.id,
+                penId: null,
+                timeEditable: true,
+                fixedTime: null,
+                workerId: null,
+                checked: true
+            });
+        });
+
+        // --- Category 2: Pen Inspections ---
+        pens.filter(p => p.animalCount > 0).forEach(pen => {
+            const animalName = pen.animalDefinition ? pen.animalDefinition.name : 'Vật nuôi';
+            const penCode = pen.code || `Chuồng #${pen.id}`;
+            quickAddTasksData.push({
+                idx: taskIndex++,
+                category: 'inspect',
+                type: 'INSPECTION',
+                name: `Kiểm tra chuồng ${penCode} - ${animalName}`,
+                description: `Kiểm tra chuồng ${penCode} (${animalName}, ${pen.animalCount} con). Chụp ảnh tình trạng chuồng và vật nuôi.`,
+                fieldId: null,
+                penId: pen.id,
+                timeEditable: true,
+                fixedTime: null,
+                workerId: null,
+                checked: true
+            });
+        });
+
+        // --- Category 3: Watering tasks ---
+        fields.forEach((field, fIdx) => {
+            let schedules = irrigationResults[fIdx]?.status === 'fulfilled'
+                ? irrigationResults[fIdx].value
+                : [];
+            if (!Array.isArray(schedules)) schedules = [];
+            const activeSchedules = schedules.filter(s => s.isActive === true || s.active === true);
+            const fieldName = field.name || field.fieldName || `Ruộng #${field.id}`;
+            const schedulesToUse = activeSchedules.length > 0 ? activeSchedules : (schedules.length > 0 ? schedules : []);
+
+            if (schedulesToUse.length > 0) {
+                schedulesToUse.forEach(sched => {
+                    let time = sched.timeOfDay || '06:00';
+                    if (typeof time === 'string' && time.length > 5) time = time.substring(0, 5);
+                    const duration = sched.durationMinutes || 30;
+                    quickAddTasksData.push({
+                        idx: taskIndex++,
+                        category: 'water',
+                        type: 'WATER',
+                        name: `Tưới nước ${fieldName}`,
+                        description: `Tưới nước mảnh ruộng "${fieldName}" lúc ${time} (${duration} phút). Lịch: ${formatScheduleTypeQA(sched.scheduleType)}.`,
+                        fieldId: field.id,
+                        penId: null,
+                        timeEditable: false,
+                        fixedTime: time,
+                        workerId: null,
+                        checked: true
+                    });
+                });
+            } else if (field.currentCrop && field.workflowStage && field.workflowStage !== 'EMPTY' && field.workflowStage !== 'HARVESTED') {
+                // No irrigation schedule in DB but field is actively growing — add default watering task
+                const cropObj = typeof field.currentCrop === 'object' ? field.currentCrop : null;
+                const waterInterval = cropObj?.wateringIntervalDays || 1;
+                const defaultTime = '06:00';
+                if (waterInterval <= 2) {
+                    quickAddTasksData.push({
+                        idx: taskIndex++,
+                        category: 'water',
+                        type: 'WATER',
+                        name: `Tưới nước ${fieldName}`,
+                        description: `Tưới nước mảnh ruộng "${fieldName}" (${cropObj?.name || 'Cây trồng'}). Tần suất: ${waterInterval === 1 ? 'hàng ngày' : 'cách ' + waterInterval + ' ngày'}.`,
+                        fieldId: field.id,
+                        penId: null,
+                        timeEditable: true,
+                        fixedTime: defaultTime,
+                        workerId: null,
+                        checked: true
+                    });
+                }
+            }
+        });
+
+        // --- Category 4: Feeding tasks ---
+        // Exclude non-feedable animals (bees, silkworms)
+        const NON_FEEDABLE_KEYWORDS = ['ong', 'tằm'];
+        const DEFAULT_FEED_TIMES = ['07:00', '17:00'];
+
+        pens.filter(p => p.animalCount > 0).forEach(pen => {
+            const animalName = pen.animalDefinition ? pen.animalDefinition.name : 'Vật nuôi';
+            const nameLower = animalName.toLowerCase();
+
+            // Skip non-feedable animals (bees, silkworms)
+            if (NON_FEEDABLE_KEYWORDS.some(kw => nameLower.includes(kw))) return;
+
+            const penCode = pen.code || `Chuồng #${pen.id}`;
+
+            // Determine feeding times
+            let feedTimes = [];
+            if (pen.nextFeedingAt) {
+                const dt = new Date(pen.nextFeedingAt);
+                const t = dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+                feedTimes = [t];
+            } else {
+                feedTimes = [...DEFAULT_FEED_TIMES];
+            }
+
+            feedTimes.forEach(feedTime => {
+                quickAddTasksData.push({
+                    idx: taskIndex++,
+                    category: 'feed',
+                    type: 'FEED',
+                    name: `Cho ăn chuồng ${penCode} - ${animalName}`,
+                    description: `Cho ăn chuồng ${penCode} (${animalName}, ${pen.animalCount} con). Giờ cho ăn: ${feedTime}.`,
+                    fieldId: null,
+                    penId: pen.id,
+                    timeEditable: false,
+                    fixedTime: feedTime,
+                    workerId: null,
+                    checked: true
+                });
+            });
+        });
+
+        renderQuickAddBody();
+
+    } catch (err) {
+        console.error('Quick Add load error:', err);
+        body.innerHTML = `<div class="qa-empty">
+            <span class="material-symbols-outlined">error</span>
+            <p>Không thể tải dữ liệu. Vui lòng thử lại.</p>
+        </div>`;
+    }
+}
+
+function renderQuickAddBody() {
+    const body = document.getElementById('quick-add-body');
+    if (!body) return;
+
+    if (quickAddTasksData.length === 0) {
+        body.innerHTML = `<div class="qa-empty">
+            <span class="material-symbols-outlined">task_alt</span>
+            <p>Không có công việc nào cần thêm hôm nay.</p>
+        </div>`;
+        return;
+    }
+
+    // Build worker options
+    const workerOpts = buildWorkerOptionsHTML();
+
+    // Group by category
+    const categories = [
+        { key: 'inspect', label: 'Kiểm tra tình trạng', icon: 'search', cssClass: 'inspect' },
+        { key: 'water', label: 'Tưới nước', icon: 'water_drop', cssClass: 'water' },
+        { key: 'feed', label: 'Cho ăn', icon: 'restaurant', cssClass: 'feed' }
+    ];
+
+    let html = `<label class="qa-select-all">
+        <input type="checkbox" checked onchange="toggleAllQuickAdd(this.checked)"> Chọn tất cả
+    </label>`;
+
+    categories.forEach(cat => {
+        const items = quickAddTasksData.filter(t => t.category === cat.key);
+        if (items.length === 0) return;
+
+        html += `<div class="qa-category">
+            <div class="qa-category-title">
+                <span class="cat-icon ${cat.cssClass}"><span class="material-symbols-outlined" style="font-size:14px;">${cat.icon}</span></span>
+                ${cat.label} (${items.length})
+            </div>`;
+
+        items.forEach((task, i) => {
+            const delay = i * 0.05;
+            html += `<div class="qa-task-row" style="animation-delay:${delay}s" id="qa-row-${task.idx}">
+                <input type="checkbox" ${task.checked ? 'checked' : ''} onchange="onQuickAddCheckChange(${task.idx}, this.checked)">
+                <div class="qa-task-info">
+                    <div class="qa-task-name">${escapeHtml(task.name)}</div>
+                    <div class="qa-task-desc">${escapeHtml(task.description).substring(0, 80)}...</div>
+                </div>
+                <div class="qa-task-controls">
+                    ${task.timeEditable
+                    ? `<input type="time" value="08:00" onchange="quickAddTasksData[${task.idx}].fixedTime=this.value" title="Thời gian">`
+                    : (task.fixedTime ? `<span class="qa-time-badge">⏰ ${task.fixedTime}</span>` : '')
+                }
+                    <select onchange="quickAddTasksData[${task.idx}].workerId=this.value?Number(this.value):null" title="Chọn người làm">
+                        ${workerOpts}
+                    </select>
+                </div>
+            </div>`;
+        });
+
+        html += `</div>`;
+    });
+
+    body.innerHTML = html;
+    updateQuickAddCount();
+}
+
+function buildWorkerOptionsHTML() {
+    let opts = '<option value="">-- Chọn worker --</option>';
+    if (approvedWorkers && approvedWorkers.length > 0) {
+        approvedWorkers.forEach(w => {
+            const name = w.fullName || w.email || `Worker #${w.id}`;
+            opts += `<option value="${w.id}">${escapeHtml(name)}</option>`;
+        });
+    }
+    return opts;
+}
+
+function onQuickAddCheckChange(idx, checked) {
+    if (quickAddTasksData[idx]) quickAddTasksData[idx].checked = checked;
+    updateQuickAddCount();
+}
+
+function toggleAllQuickAdd(checked) {
+    quickAddTasksData.forEach(t => t.checked = checked);
+    document.querySelectorAll('#quick-add-body .qa-task-row input[type="checkbox"]').forEach(cb => cb.checked = checked);
+    updateQuickAddCount();
+}
+
+function updateQuickAddCount() {
+    const count = quickAddTasksData.filter(t => t.checked).length;
+    const el = document.getElementById('qa-count');
+    if (el) el.textContent = count;
+    const btn = document.getElementById('qa-submit-btn');
+    if (btn) btn.disabled = count === 0;
+}
+
+async function submitQuickAddTasks() {
+    const selected = quickAddTasksData.filter(t => t.checked);
+    if (selected.length === 0) return;
+
+    const btn = document.getElementById('qa-submit-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;animation:spin 1s linear infinite;">sync</span> Đang giao...';
+    }
+
+    try {
+        const ownerId = await getCurrentUserId();
+        const farmId = myFarmId || 1;
+        let success = 0, fail = 0;
+
+        for (const task of selected) {
+            try {
+                // Build dueDate from fixedTime
+                let dueDate = null;
+                if (task.fixedTime) {
+                    const today = new Date();
+                    const [h, m] = task.fixedTime.split(':');
+                    today.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
+                    dueDate = today.toISOString();
+                }
+
+                const payload = {
+                    farmId: farmId,
+                    ownerId: ownerId,
+                    workerId: task.workerId || null,
+                    name: task.name,
+                    description: task.description,
+                    priority: 'NORMAL',
+                    taskType: task.type,
+                    fieldId: task.fieldId,
+                    penId: task.penId,
+                    dueDate: dueDate,
+                    salary: 0, quantityRequired: 0
+                };
+
+                await fetchAPI(`${LABOR_API_BASE}/tasks`, 'POST', payload);
+                success++;
+            } catch (err) {
+                console.error('Quick add task error:', err);
+                fail++;
+            }
+        }
+
+        closeQuickAddModal();
+        loadTasks(); // Refresh task list
+
+        const msg = fail === 0
+            ? `✅ Đã giao ${success} công việc thành công!`
+            : `⚠️ Giao ${success} thành công, ${fail} thất bại.`;
+        alert(msg);
+
+    } catch (err) {
+        console.error('Submit quick add error:', err);
+        alert('Lỗi: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">send</span> Giao tất cả';
+        }
+    }
+}
+
+function formatScheduleTypeQA(type) {
+    const map = { 'DAILY': 'Hàng ngày', 'EVERY_OTHER_DAY': 'Cách ngày', 'WEEKLY': 'Hàng tuần', 'CUSTOM': 'Tùy chỉnh' };
+    return map[type] || type || 'Hàng ngày';
 }
 
 

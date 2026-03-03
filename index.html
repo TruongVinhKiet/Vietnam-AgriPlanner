@@ -230,15 +230,22 @@
                         <div class="card fade-in">
                             <div class="card__header">
                                 <h3 class="card__title">Công việc hôm nay</h3>
-                                <button class="btn btn--secondary" style="padding: 4px 12px; font-size: 12px;">Xem tất
-                                    cả</button>
+                                <a href="pages/labor.html#tasks" class="btn btn--secondary"
+                                    style="padding: 4px 12px; font-size: 12px; text-decoration:none;">Xem tất cả</a>
                             </div>
-                            <div class="card__body" style="padding: var(--spacing-2);">
+                            <div class="card__body" style="padding: 8px;">
                                 <div id="tasks-container">
-                                    <div style="text-align: center; padding: 40px; color: #9ca3af;">
-                                        <span class="material-symbols-outlined"
-                                            style="font-size: 48px;">construction</span>
-                                        <p style="margin-top: 8px;">Tính năng đang phát triển</p>
+                                    <!-- Loading skeleton -->
+                                    <div style="display:flex; flex-direction:column; gap:8px; padding:8px;">
+                                        <div
+                                            style="height:56px; background:#f3f4f6; border-radius:10px; animation:pulse 1.5s infinite;">
+                                        </div>
+                                        <div
+                                            style="height:56px; background:#f3f4f6; border-radius:10px; animation:pulse 1.5s infinite; animation-delay:0.2s;">
+                                        </div>
+                                        <div
+                                            style="height:56px; background:#f3f4f6; border-radius:10px; animation:pulse 1.5s infinite; animation-delay:0.4s;">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -278,6 +285,7 @@
             updateCurrentDate();
             await loadDashboardData();
             await loadWeather();
+            await loadTodaysTasks();
         });
 
         // Update current date in real-time
@@ -507,6 +515,124 @@
         // Capitalize first letter
         function capitalizeFirst(str) {
             return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        // ============ TODAY'S TASKS WIDGET ============
+        function escapeHtmlDash(text) {
+            if (text == null) return '';
+            const div = document.createElement('div');
+            div.textContent = String(text);
+            return div.innerHTML;
+        }
+
+        function getStatusInfo(status) {
+            const s = (status || '').toUpperCase();
+            if (s === 'COMPLETED') return { label: 'Hoàn thành', color: '#16a34a', bg: '#f0fdf4', icon: 'check_circle' };
+            if (s === 'IN_PROGRESS') return { label: 'Đang làm', color: '#2563eb', bg: '#eff6ff', icon: 'autorenew' };
+            if (s === 'CANCELLED') return { label: 'Đã hủy', color: '#dc2626', bg: '#fef2f2', icon: 'cancel' };
+            return { label: 'Chờ xử lý', color: '#d97706', bg: '#fffbeb', icon: 'pending' };
+        }
+
+        async function loadTodaysTasks() {
+            const container = document.getElementById('tasks-container');
+            if (!container) return;
+
+            try {
+                // Get user ID
+                const email = localStorage.getItem('userEmail');
+                const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+                if (!email || !token) {
+                    container.innerHTML = '<div style="text-align:center; padding:24px; color:#9ca3af;"><span class="material-symbols-outlined" style="font-size:36px;">assignment</span><p style="margin-top:8px; font-size:13px;">Đăng nhập để xem công việc</p></div>';
+                    return;
+                }
+
+                const profileRes = await fetch(`${API_BASE}/user/profile?email=${encodeURIComponent(email)}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!profileRes.ok) throw new Error('Cannot get user ID');
+                const profile = await profileRes.json();
+                const ownerId = profile.id;
+                if (!ownerId) throw new Error('No user ID');
+
+                // Fetch tasks
+                const tasksRes = await fetch(`${API_BASE}/tasks/owner/${ownerId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!tasksRes.ok) throw new Error('Cannot load tasks');
+                const allTasks = await tasksRes.json();
+
+                // Filter today's tasks
+                const today = new Date().toISOString().split('T')[0];
+                const todaysTasks = allTasks.filter(t => {
+                    const created = t.createdAt ? t.createdAt.split('T')[0] : '';
+                    const active = t.status !== 'COMPLETED' && t.status !== 'CANCELLED';
+                    const completedToday = t.status === 'COMPLETED' && t.completedAt && t.completedAt.startsWith(today);
+                    return created === today || active || completedToday;
+                });
+
+                if (!todaysTasks.length) {
+                    container.innerHTML = '<div style="text-align:center; padding:32px; color:#9ca3af;"><span class="material-symbols-outlined" style="font-size:40px; opacity:0.5;">task_alt</span><p style="margin-top:8px; font-size:13px;">Không có công việc nào hôm nay</p></div>';
+                    return;
+                }
+
+                // Show max 5 tasks
+                const displayTasks = todaysTasks.slice(0, 5);
+                let html = '<div style="display:flex; flex-direction:column; gap:6px;">';
+
+                displayTasks.forEach(task => {
+                    const si = getStatusInfo(task.status);
+                    const taskName = escapeHtmlDash(task.name || '');
+                    const workerName = task.worker ? escapeHtmlDash(task.worker.fullName || task.worker.email || 'Nhân công') : (task.isAutoCreated ? 'Chưa phân công' : 'Tự làm');
+                    const workerAvatar = task.worker && task.worker.avatarUrl ? task.worker.avatarUrl : null;
+                    const avatarChar = task.worker ? (workerName || 'N').charAt(0).toUpperCase() : '?';
+
+                    const dueText = task.dueDate
+                        ? new Date(task.dueDate).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+                        : '';
+
+                    const avatarHtml = workerAvatar
+                        ? `<img src="${workerAvatar}" alt="" style="width:24px; height:24px; border-radius:50%; object-fit:cover; flex-shrink:0;">`
+                        : `<div style="width:24px; height:24px; border-radius:50%; background:#dbeafe; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0;">${avatarChar}</div>`;
+
+                    html += `
+                        <div onclick="window.location.href='pages/labor.html?taskDetail=${task.id}'" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; cursor:pointer; transition:all 0.2s; border:1px solid transparent;"
+                             onmouseenter="this.style.background='#f9fafb'; this.style.borderColor='#e5e7eb'" onmouseleave="this.style.background='transparent'; this.style.borderColor='transparent'">
+                            <div style="width:8px; height:8px; border-radius:50%; background:${si.color}; flex-shrink:0;"></div>
+                            <div style="flex:1; min-width:0;">
+                                <div style="font-weight:600; font-size:13px; color:#111827; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${taskName}</div>
+                                <div style="display:flex; align-items:center; gap:6px; margin-top:2px; font-size:11px; color:#6b7280;">
+                                    ${avatarHtml}
+                                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100px;">${workerName}</span>
+                                    ${dueText ? `<span style="color:#d1d5db;">·</span><span>${dueText}</span>` : ''}
+                                </div>
+                            </div>
+                            <div style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:${si.color}; background:${si.bg}; padding:3px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0;">
+                                <span class="material-symbols-outlined" style="font-size:14px;">${si.icon}</span>
+                                ${si.label}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                // Show remaining count
+                if (todaysTasks.length > 5) {
+                    html += `<div style="text-align:center; padding:8px; font-size:12px; color:#6b7280;">+ ${todaysTasks.length - 5} công việc khác</div>`;
+                }
+
+                html += '</div>';
+                container.innerHTML = html;
+
+                // Animate items
+                if (typeof gsap !== 'undefined') {
+                    gsap.from(container.querySelectorAll('[onclick]'), {
+                        y: 12, opacity: 0, duration: 0.35, stagger: 0.06, ease: 'power2.out'
+                    });
+                }
+
+            } catch (e) {
+                console.error('Error loading today tasks:', e);
+                container.innerHTML = '<div style="text-align:center; padding:24px; color:#9ca3af;"><span class="material-symbols-outlined" style="font-size:36px;">assignment</span><p style="margin-top:8px; font-size:13px;">Không thể tải công việc</p></div>';
+            }
         }
     </script>
 </body>

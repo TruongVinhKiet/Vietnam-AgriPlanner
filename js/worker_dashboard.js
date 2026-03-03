@@ -189,10 +189,12 @@ function animateViewTransition(viewId) {
 
             // Animate child cards/sections
             const cards = view.querySelectorAll('.bg-white, .task-card');
-            gsap.fromTo(cards,
-                { opacity: 0, y: 15 },
-                { opacity: 1, y: 0, duration: 0.3, stagger: 0.05, delay: 0.1, ease: 'power2.out' }
-            );
+            if (cards.length > 0) {
+                gsap.fromTo(cards,
+                    { opacity: 0, y: 15 },
+                    { opacity: 1, y: 0, duration: 0.3, stagger: 0.05, delay: 0.1, ease: 'power2.out' }
+                );
+            }
         }
     }
 }
@@ -200,15 +202,24 @@ function animateViewTransition(viewId) {
 // ================= API CALLS =================
 
 async function fetchAPI(url, method = 'GET', body = null) {
+    const token = getToken();
+    if (!token) {
+        window.location.href = 'login.html';
+        throw new Error('No auth token');
+    }
     const headers = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${getToken()}`
+        'Authorization': `Bearer ${token}`
     };
     const options = { method, headers };
     if (body) options.body = JSON.stringify(body);
 
     const res = await fetch(url, options);
-    if (!res.ok) throw new Error('API Error');
+    if (!res.ok) {
+        let errMsg = 'API Error';
+        try { const errData = await res.json(); errMsg = errData.error || errData.message || errMsg; } catch (_) { }
+        throw new Error(errMsg);
+    }
     return res.json();
 }
 
@@ -295,7 +306,16 @@ async function loadWeather() {
         if (!apiKey) return;
 
         const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${apiKey}&units=metric&lang=vi`);
+        if (!res.ok) {
+            console.warn('Weather API returned', res.status);
+            return;
+        }
         const data = await res.json();
+
+        if (!data || !data.weather || !data.weather[0] || !data.main) {
+            console.warn('Weather data incomplete');
+            return;
+        }
 
         // Update Header Widget
         const icon = getWeatherIconIcon(data.weather[0].main);
@@ -308,7 +328,7 @@ async function loadWeather() {
         document.getElementById('home-weather-temp').textContent = Math.round(data.main.temp) + '°C';
         document.getElementById('home-weather-desc').textContent = data.weather[0].description;
     } catch (e) {
-        console.error('Weather error filter', e);
+        console.warn('Weather load error:', e.message);
     }
 }
 
@@ -343,7 +363,7 @@ async function loadHomeData() {
                             <span class="material-icons-round text-sm">${icon}</span>
                         </div>
                         <div class="flex-1">
-                            <div class="text-sm font-medium text-gray-800">${task.name}</div>
+                            <div class="text-sm font-medium text-gray-800">${escapeHtml(fixUtf8(task.name))}</div>
                             <div class="text-xs text-gray-500">${getTaskTypeLabel(task.taskType)}</div>
                         </div>
                         ${task.status === 'COMPLETED' ?
@@ -372,13 +392,23 @@ async function loadTasksList() {
 
         await refreshActiveWorkLogs();
 
-        const sorted = sortWorkerTasks(Array.isArray(tasks) ? tasks : []);
+        // Filter: show PENDING/IN_PROGRESS (any date), created today, or completed today
+        const today = new Date().toISOString().split('T')[0];
+        const filtered = (Array.isArray(tasks) ? tasks : []).filter(t => {
+            const status = t && t.status ? String(t.status).toUpperCase() : '';
+            const active = status === 'PENDING' || status === 'IN_PROGRESS';
+            const createdToday = t.createdAt ? String(t.createdAt).split('T')[0] === today : false;
+            const completedToday = status === 'COMPLETED' && t.completedAt && String(t.completedAt).startsWith(today);
+            return active || createdToday || completedToday;
+        });
+
+        const sorted = sortWorkerTasks(filtered);
 
         if (sorted.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-12">
                      <span class="material-icons-round text-4xl text-gray-300 mb-2">assignment_turned_in</span>
-                     <p class="text-gray-500">Không có công việc nào.</p>
+                     <p class="text-gray-500">Không có công việc nào trong hôm nay.</p>
                 </div>
             `;
             stopTaskCountdownTicker();
@@ -402,6 +432,9 @@ async function loadTasksList() {
             const priorityBadgeClass = getPriorityBadgeClass(task && task.priority ? task.priority : null);
             const priorityShort = getPriorityShortLabel(task && task.priority ? task.priority : null);
 
+            const taskName = fixUtf8(task.name || '');
+            const taskDesc = fixUtf8(task.description || '');
+
             const countdownBlock = dueMs != null && status !== 'COMPLETED'
                 ? `
                     <div class="task-countdown inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border" data-due-ms="${dueMs}">
@@ -412,16 +445,16 @@ async function loadTasksList() {
                 : '';
 
             container.innerHTML += `
-                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4 items-start task-card">
+                <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex gap-4 items-start task-card" onclick="openTaskDetail(${task.id})" style="cursor:pointer;">
                     <div class="w-12 h-12 rounded-xl bg-green-50 text-green-600 flex items-center justify-center shrink-0">
                         <span class="material-icons-round text-2xl">${icon}</span>
                     </div>
                     <div class="flex-1">
                         <div class="flex justify-between items-start">
-                            <h4 class="font-bold text-gray-800 text-lg">${task.name}</h4>
+                            <h4 class="font-bold text-gray-800 text-lg">${escapeHtml(taskName)}</h4>
                             <span class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded font-medium">${getTaskTypeLabel(task.taskType)}</span>
                         </div>
-                        <p class="text-gray-600 text-sm mt-1">${task.description || 'Không có mô tả'}</p>
+                        <p class="text-gray-600 text-sm mt-1">${escapeHtml(taskDesc) || 'Không có mô tả'}</p>
                         
                         <div class="flex flex-wrap items-center gap-3 mt-3 text-sm text-gray-500">
                             <span class="flex items-center gap-1">
@@ -440,7 +473,7 @@ async function loadTasksList() {
                         </div>
                     </div>
                     
-                    <div class="self-center flex flex-col gap-2">
+                    <div class="self-center flex flex-col gap-2" onclick="event.stopPropagation()">
                         ${getWorkLogActionBlock(task)}
                         ${task.status === 'COMPLETED' ?
                     '<button disabled class="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed font-medium"><span class="material-icons-round">check</span> Đã xong</button>' :
@@ -460,6 +493,7 @@ async function loadTasksList() {
         }
 
     } catch (e) {
+        console.error('Error loading tasks:', e);
         container.innerHTML = '<div class="text-center py-8 text-red-500">Lỗi tải dữ liệu</div>';
         stopTaskCountdownTicker();
     }
@@ -484,19 +518,20 @@ async function completeTask(taskId) {
 
     if (!confirm('Xác nhận hoàn thành công việc?')) return;
 
-    // Optimistic UI update could happen here, but reloading for safety
     try {
         await stopActiveWorkLogIfNeeded(taskId);
-
-        // We use existing Execute Endpoint or a simple status update
-        // Current API has /api/tasks/{id}/execute for Shopping, but maybe we need generic complete
-        // Use the existing complete endpoint
         await fetchAPI(`${API_BASE}/tasks/${taskId}/complete`, 'POST');
 
-        // Refresh
+        // Refresh data silently
         loadHomeData();
-        loadTasksList();
-        loadUserProfile(); // Update balance if salary paid? (Not yet implemented auto-pay on task complete, usually periodic)
+        await loadTasksList();
+        loadUserProfile();
+
+        // Re-open detail view with updated data if still viewing detail
+        const detailView = document.getElementById('view-task-detail');
+        if (detailView && !detailView.classList.contains('hidden')) {
+            openTaskDetail(taskId);
+        }
     } catch (e) {
         let msg = e.message;
         if (msg.includes('Không đủ vật tư')) {
@@ -2435,6 +2470,279 @@ function loadAssets() {
 
 // ================= UTILS =================
 
+// Fix UTF-8 double-encoded Vietnamese text (mojibake)
+function fixUtf8(str) {
+    if (!str || typeof str !== 'string') return str || '';
+    // Detect mojibake pattern: Latin-1 interpretation of UTF-8 bytes
+    // e.g. "Kiá»ƒm" instead of "Kiểm"
+    try {
+        // Check if string contains typical mojibake sequences
+        if (/[\xC0-\xFF]/.test(str)) {
+            // Try to decode: interpret each char as a byte, then decode as UTF-8
+            const bytes = new Uint8Array(str.length);
+            for (let i = 0; i < str.length; i++) {
+                bytes[i] = str.charCodeAt(i) & 0xFF;
+            }
+            const decoded = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+            // If decoding succeeded and result differs, and result looks like valid Vietnamese
+            if (decoded && decoded !== str && /[\u00C0-\u024F\u1E00-\u1EFF]/.test(decoded)) {
+                return decoded;
+            }
+        }
+    } catch (e) {
+        // Not double-encoded, return original
+    }
+    return str;
+}
+
+// ================= TASK DETAIL =================
+
+function openTaskDetail(taskId) {
+    const task = workerTasksById && workerTasksById[taskId] ? workerTasksById[taskId] : null;
+    if (!task) {
+        showNotification('error', 'Lỗi', 'Không tìm thấy công việc.');
+        return;
+    }
+
+    stopTaskCountdownTicker();
+
+    document.querySelectorAll('.view-section').forEach(v => v.classList.add('hidden'));
+    const detailView = document.getElementById('view-task-detail');
+    if (!detailView) return;
+    detailView.classList.remove('hidden');
+
+    document.getElementById('page-title').textContent = 'Chi tiết công việc';
+
+    document.querySelectorAll('.sidebar-item').forEach(item => {
+        item.classList.remove('active');
+        item.classList.add('text-white/80', 'hover:bg-white/10');
+    });
+
+    const taskName = fixUtf8(task.name || '');
+    const taskDesc = fixUtf8(task.description || '');
+    const status = task.status ? String(task.status).toUpperCase() : 'PENDING';
+    const priority = task.priority ? String(task.priority).toUpperCase() : 'NORMAL';
+
+    const createdAtDate = parseTaskDateTime(task.createdAt);
+    const createdAtLabel = createdAtDate ? createdAtDate.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+
+    const dueDateObj = parseTaskDateTime(task.dueDate);
+    const dueLabel = dueDateObj ? dueDateObj.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Chưa đặt hạn';
+    const dueMs = dueDateObj ? dueDateObj.getTime() : null;
+
+    const ownerName = task.owner ? fixUtf8(task.owner.fullName || task.owner.email || 'Chủ trang trại') : 'N/A';
+    const ownerAvatar = task.owner && task.owner.avatarUrl ? task.owner.avatarUrl : null;
+
+    const locationLabel = task.field ? fixUtf8(task.field.name || 'Ruộng') : (task.pen ? fixUtf8(task.pen.name || 'Chuồng') : null);
+    const locationType = task.field ? 'Ruộng' : (task.pen ? 'Chuồng' : null);
+    const locationIcon = task.field ? 'grass' : (task.pen ? 'pets' : 'location_on');
+
+    const completedAtDate = parseTaskDateTime(task.completedAt);
+    const completedAtLabel = completedAtDate ? completedAtDate.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
+
+    const salaryLabel = task.salary ? formatCurrency(Number(task.salary)) : null;
+    const relatedItemName = task.relatedItem ? fixUtf8(task.relatedItem.name || '') : null;
+    const quantityLabel = task.quantityRequired ? String(task.quantityRequired) : null;
+
+    // Status config
+    const statusConfig = {
+        'COMPLETED': { icon: 'check_circle', label: 'Hoàn thành', color: '#16a34a', bg: '#f0fdf4' },
+        'IN_PROGRESS': { icon: 'autorenew', label: 'Đang thực hiện', color: '#2563eb', bg: '#eff6ff' },
+        'CANCELLED': { icon: 'cancel', label: 'Đã hủy', color: '#dc2626', bg: '#fef2f2' },
+        'PENDING': { icon: 'pending', label: 'Chờ xử lý', color: '#d97706', bg: '#fffbeb' }
+    };
+    const sc = statusConfig[status] || statusConfig['PENDING'];
+
+    // Priority config
+    const priorityConfig = {
+        'HIGH': { icon: 'priority_high', label: 'Cao', color: '#dc2626', bg: '#fef2f2' },
+        'URGENT': { icon: 'warning', label: 'Khẩn cấp', color: '#dc2626', bg: '#fef2f2' },
+        'LOW': { icon: 'low_priority', label: 'Thấp', color: '#16a34a', bg: '#f0fdf4' },
+        'NORMAL': { icon: 'drag_handle', label: 'Bình thường', color: '#6b7280', bg: '#f3f4f6' }
+    };
+    const pc = priorityConfig[priority] || priorityConfig['NORMAL'];
+
+    // Countdown
+    let countdownHtml = '';
+    if (dueMs && status !== 'COMPLETED') {
+        const remaining = dueMs - Date.now();
+        const countdownText = formatTaskCountdown(remaining);
+        const isOverdue = remaining < 0;
+        const isUrgent = remaining < 3600000;
+        const cdColor = isOverdue ? '#dc2626' : (isUrgent ? '#d97706' : '#2563eb');
+        const cdBg = isOverdue ? '#fef2f2' : (isUrgent ? '#fffbeb' : '#eff6ff');
+        countdownHtml = `
+            <div style="background:${cdBg}; border-radius:16px; padding:20px; margin-top:16px; border:1px solid ${cdColor}22;">
+                <div style="display:flex; align-items:center; gap:8px; color:${cdColor}; font-weight:600; font-size:14px;">
+                    <span class="material-icons-round" style="font-size:20px;">timer</span>
+                    ${isOverdue ? 'Đã quá hạn' : 'Thời gian còn lại'}
+                </div>
+                <div class="task-countdown" data-due-ms="${dueMs}" style="font-size:28px; font-weight:800; color:${cdColor}; margin-top:4px;">
+                    <span class="task-countdown-text">${countdownText}</span>
+                </div>
+            </div>
+        `;
+    }
+
+    // Owner avatar HTML
+    const ownerAvatarHtml = ownerAvatar
+        ? `<img src="${ownerAvatar}" alt="" style="width:44px; height:44px; border-radius:50%; object-fit:cover; border:2px solid #e5e7eb;">`
+        : `<div style="width:44px; height:44px; border-radius:50%; background:#dbeafe; color:#2563eb; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px; border:2px solid #e5e7eb;">${escapeHtml((ownerName || 'O').charAt(0).toUpperCase())}</div>`;
+
+    detailView.innerHTML = `
+        <div style="max-width:900px; margin:0 auto;">
+            <!-- Breadcrumb -->
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:20px; font-size:14px; color:#6b7280;">
+                <button onclick="closeTaskDetail()" style="display:flex; align-items:center; gap:4px; background:none; border:none; cursor:pointer; color:#6b7280; font-size:14px; padding:0; transition:color 0.2s;"
+                        onmouseenter="this.style.color='#059669'" onmouseleave="this.style.color='#6b7280'">
+                    <span class="material-icons-round" style="font-size:18px;">arrow_back</span> Công việc
+                </button>
+                <span style="color:#d1d5db;">›</span>
+                <span style="color:#111827; font-weight:600;">${escapeHtml(taskName)}</span>
+            </div>
+
+            <!-- Header Card -->
+            <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:24px; margin-bottom:16px;">
+                <div style="display:flex; align-items:flex-start; gap:16px;">
+                    <div style="width:56px; height:56px; border-radius:14px; background:linear-gradient(135deg, #ecfdf5, #d1fae5); color:#059669; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <span class="material-icons-round" style="font-size:28px;">${getTaskIcon(task.taskType)}</span>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <h2 style="margin:0 0 4px; font-size:22px; font-weight:800; color:#111827;">${escapeHtml(taskName)}</h2>
+                        <span style="font-size:13px; color:#6b7280;">${getTaskTypeLabel(task.taskType)}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stat Cards Row -->
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:16px;">
+                <div style="background:white; border-radius:12px; border:1px solid #e5e7eb; padding:16px; text-align:center;">
+                    <span class="material-icons-round" style="font-size:24px; color:${sc.color};">${sc.icon}</span>
+                    <div style="font-size:16px; font-weight:700; color:${sc.color}; margin-top:4px;">${sc.label}</div>
+                    <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Trạng thái</div>
+                </div>
+                <div style="background:white; border-radius:12px; border:1px solid #e5e7eb; padding:16px; text-align:center;">
+                    <span class="material-icons-round" style="font-size:24px; color:${pc.color};">${pc.icon}</span>
+                    <div style="font-size:16px; font-weight:700; color:${pc.color}; margin-top:4px;">${pc.label}</div>
+                    <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Ưu tiên</div>
+                </div>
+                <div style="background:white; border-radius:12px; border:1px solid #e5e7eb; padding:16px; text-align:center;">
+                    <span class="material-icons-round" style="font-size:24px; color:#d97706;">schedule</span>
+                    <div style="font-size:14px; font-weight:700; color:#111827; margin-top:4px;">${dueLabel}</div>
+                    <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Hạn hoàn thành</div>
+                </div>
+                ${salaryLabel ? `
+                <div style="background:white; border-radius:12px; border:1px solid #e5e7eb; padding:16px; text-align:center;">
+                    <span class="material-icons-round" style="font-size:24px; color:#059669;">payments</span>
+                    <div style="font-size:16px; font-weight:700; color:#059669; margin-top:4px;">${salaryLabel}</div>
+                    <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Thù lao</div>
+                </div>
+                ` : ''}
+                ${completedAtLabel ? `
+                <div style="background:white; border-radius:12px; border:1px solid #e5e7eb; padding:16px; text-align:center;">
+                    <span class="material-icons-round" style="font-size:24px; color:#16a34a;">verified</span>
+                    <div style="font-size:14px; font-weight:700; color:#16a34a; margin-top:4px;">${completedAtLabel}</div>
+                    <div style="font-size:11px; color:#9ca3af; margin-top:2px;">Hoàn thành lúc</div>
+                </div>
+                ` : ''}
+            </div>
+
+            <!-- Info Grid -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+                <!-- Người giao việc -->
+                <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px;">
+                    <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Người giao việc</div>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        ${ownerAvatarHtml}
+                        <div>
+                            <div style="font-weight:700; color:#111827; font-size:15px;">${escapeHtml(ownerName)}</div>
+                            <div style="font-size:13px; color:#6b7280;">Giao lúc ${createdAtLabel}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Khu vực -->
+                <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px;">
+                    <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Khu vực thực hiện</div>
+                    ${locationLabel ? `
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <div style="width:44px; height:44px; border-radius:12px; background:#f5f3ff; color:#7c3aed; display:flex; align-items:center; justify-content:center;">
+                            <span class="material-icons-round" style="font-size:22px;">${locationIcon}</span>
+                        </div>
+                        <div>
+                            <div style="font-weight:700; color:#111827; font-size:15px;">${escapeHtml(locationLabel)}</div>
+                            <div style="font-size:13px; color:#6b7280;">${locationType}</div>
+                        </div>
+                    </div>
+                    ` : `<div style="color:#9ca3af; font-size:14px;">Không chỉ định</div>`}
+                </div>
+            </div>
+
+            <!-- Description -->
+            ${taskDesc ? `
+            <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
+                <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Mô tả công việc</div>
+                <p style="margin:0; color:#374151; line-height:1.7; white-space:pre-wrap;">${escapeHtml(taskDesc)}</p>
+            </div>
+            ` : ''}
+
+            <!-- Related Item & Additional Info -->
+            ${relatedItemName || quantityLabel ? `
+            <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
+                <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Vật tư liên quan</div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="width:44px; height:44px; border-radius:12px; background:#fefce8; color:#ca8a04; display:flex; align-items:center; justify-content:center;">
+                        <span class="material-icons-round" style="font-size:22px;">inventory_2</span>
+                    </div>
+                    <div>
+                        <div style="font-weight:700; color:#111827; font-size:15px;">${escapeHtml(relatedItemName || '')}</div>
+                        ${quantityLabel ? `<div style="font-size:13px; color:#6b7280;">Số lượng: ${quantityLabel}</div>` : ''}
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+
+            ${countdownHtml}
+
+            <!-- Action Buttons -->
+            ${status !== 'COMPLETED' ? `
+            <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-top:16px;">
+                <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px;">Hành động</div>
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;" onclick="event.stopPropagation()">
+                    ${getWorkLogActionBlock(task)}
+                    <button onclick="completeTask(${task.id})" style="display:flex; align-items:center; gap:8px; padding:10px 24px; background:linear-gradient(135deg, #10b981, #059669); color:white; border:none; border-radius:12px; cursor:pointer; font-weight:600; font-size:14px; box-shadow:0 4px 12px rgba(16,185,129,0.3); transition:transform 0.2s, box-shadow 0.2s;"
+                            onmouseenter="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 16px rgba(16,185,129,0.4)'"
+                            onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(16,185,129,0.3)'">
+                        <span class="material-icons-round" style="font-size:20px;">done</span> Hoàn thành công việc
+                    </button>
+                </div>
+            </div>
+            ` : `
+            <div style="background:#f0fdf4; border-radius:16px; border:1px solid #bbf7d0; padding:20px; margin-top:16px; text-align:center;">
+                <span class="material-icons-round" style="font-size:48px; color:#16a34a;">task_alt</span>
+                <div style="font-size:18px; font-weight:700; color:#16a34a; margin-top:8px;">Công việc đã hoàn thành</div>
+                ${completedAtLabel ? `<div style="font-size:14px; color:#15803d; margin-top:4px;">Lúc ${completedAtLabel}</div>` : ''}
+            </div>
+            `}
+        </div>
+    `;
+
+    animateViewTransition('view-task-detail');
+    if (dueMs && status !== 'COMPLETED') startTaskCountdownTicker();
+}
+
+function getStatusBadgeWorker(status) {
+    const s = status ? String(status).toUpperCase() : '';
+    if (s === 'COMPLETED') return '<span class="inline-flex items-center gap-1 text-sm font-semibold px-3 py-1.5 rounded-full bg-green-100 text-green-700"><span class="material-icons-round text-sm">check_circle</span>Hoàn thành</span>';
+    if (s === 'IN_PROGRESS') return '<span class="inline-flex items-center gap-1 text-sm font-semibold px-3 py-1.5 rounded-full bg-blue-100 text-blue-700"><span class="material-icons-round text-sm">autorenew</span>Đang làm</span>';
+    if (s === 'CANCELLED') return '<span class="inline-flex items-center gap-1 text-sm font-semibold px-3 py-1.5 rounded-full bg-red-100 text-red-700"><span class="material-icons-round text-sm">cancel</span>Đã hủy</span>';
+    return '<span class="inline-flex items-center gap-1 text-sm font-semibold px-3 py-1.5 rounded-full bg-yellow-100 text-yellow-700"><span class="material-icons-round text-sm">pending</span>Chờ xử lý</span>';
+}
+
+function closeTaskDetail() {
+    switchTab('tasks');
+}
+
 function formatCurrency(amount) {
     const num = Number(amount) || 0;
     return new Intl.NumberFormat('vi-VN').format(num) + ' VNĐ';
@@ -2844,7 +3152,12 @@ async function startWorkLog(taskId) {
     try {
         const log = await fetchAPI(`${API_BASE}/worklogs/start`, 'POST', { taskId, workerId });
         activeWorkLogsByTaskId[taskId] = log;
-        loadTasksList();
+        await loadTasksList();
+        // Re-open detail view if viewing it
+        const detailView = document.getElementById('view-task-detail');
+        if (detailView && !detailView.classList.contains('hidden')) {
+            openTaskDetail(taskId);
+        }
     } catch (e) {
         alert('Lỗi: ' + (e.message || 'Không thể bắt đầu chấm công'));
     }
@@ -2857,7 +3170,12 @@ async function stopWorkLog(taskId) {
         if (log && log.endedAt) {
             delete activeWorkLogsByTaskId[taskId];
         }
-        loadTasksList();
+        await loadTasksList();
+        // Re-open detail view if viewing it
+        const detailView = document.getElementById('view-task-detail');
+        if (detailView && !detailView.classList.contains('hidden')) {
+            openTaskDetail(taskId);
+        }
     } catch (e) {
         alert('Lỗi: ' + (e.message || 'Không thể dừng chấm công'));
     }
