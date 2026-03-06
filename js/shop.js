@@ -19,7 +19,8 @@ const CATEGORY_LABELS = {
     'PHAN_BON': 'Phân bón',
     'THUC_AN': 'Thức ăn',
     'THUOC_TRU_SAU': 'Thuốc BVTV',
-    'MAY_MOC': 'Máy móc'
+    'MAY_MOC': 'Máy móc',
+    'TIEM_PHONG': 'Tiêm phòng'
 };
 
 const CATEGORY_ICONS = {
@@ -28,7 +29,8 @@ const CATEGORY_ICONS = {
     'PHAN_BON': 'compost',
     'THUC_AN': 'set_meal',
     'THUOC_TRU_SAU': 'bug_report',
-    'MAY_MOC': 'agriculture'
+    'MAY_MOC': 'agriculture',
+    'TIEM_PHONG': 'vaccines'
 };
 
 // ==================== INITIALIZATION ====================

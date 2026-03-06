@@ -256,6 +256,7 @@ async function loadFields() {
 
         if (farms.length > 0) {
             const farmId = farms[0].id; // Load fields for first farm
+            window._cultivationFarmId = farmId; // Store for field loss loading
             console.log('Loading fields for farmId:', farmId);
 
             const fieldsResponse = await fetch(`${API_BASE_URL}/fields?farmId=${farmId}`, {
@@ -286,6 +287,9 @@ async function loadFields() {
                 `);
                 });
             }
+
+            // Load field losses after fields are rendered
+            loadFieldLosses(farmId);
         } else {
             console.log('No farms found for current user');
         }
@@ -298,6 +302,246 @@ function getFieldColor(status) {
     if (status === 'ACTIVE') return '#10b981'; // Green
     if (status === 'FALLOW') return '#f59e0b'; // Amber/Yellow
     return '#6b7280'; // Gray
+}
+
+// ── Field Losses overlay on cultivation map ──
+let _fieldLossLayers = [];
+
+async function loadFieldLosses(farmId) {
+    if (!farmId) farmId = window._cultivationFarmId;
+    if (!farmId) return;
+
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    if (!token) return;
+
+    // Clear previous loss layers
+    _fieldLossLayers.forEach(l => { if (map.hasLayer(l)) map.removeLayer(l); });
+    _fieldLossLayers = [];
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/field-losses/farm/${farmId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const losses = await res.json();
+
+        const causeLabels = { DISEASE: 'Dịch bệnh', PESTS: 'Sâu bệnh', WEATHER: 'Thời tiết', FLOOD: 'Ngập lụt', DROUGHT: 'Hạn hán', OTHER: 'Khác' };
+
+        losses.forEach(loss => {
+            if (!loss.lossPolygon) return;
+            let coords;
+            try {
+                coords = typeof loss.lossPolygon === 'string' ? JSON.parse(loss.lossPolygon) : loss.lossPolygon;
+            } catch (e) { return; }
+            if (!Array.isArray(coords) || coords.length < 3) return;
+
+            const polygon = L.polygon(coords, {
+                color: '#dc2626', weight: 2, fillColor: '#dc2626', fillOpacity: 0.25, dashArray: '4,4'
+            });
+
+            const areaTxt = loss.lossAreaSqm < 10000
+                ? `${Number(loss.lossAreaSqm).toFixed(1)} m²`
+                : `${(Number(loss.lossAreaSqm) / 10000).toFixed(3)} ha`;
+            const pct = loss.lossPercentage ? `${Number(loss.lossPercentage).toFixed(1)}%` : '';
+            const valTxt = loss.estimatedLossValue ? new Intl.NumberFormat('vi-VN').format(Math.round(loss.estimatedLossValue)) + ' ₫' : '';
+            const dateStr = loss.reportDate || '';
+            const cause = causeLabels[loss.cause] || loss.cause || '';
+
+            polygon.bindPopup(`
+                <div style="min-width:180px;">
+                    <div style="font-weight:700; color:#dc2626; margin-bottom:6px; display:flex; align-items:center; gap:4px;">
+                        <span class="material-icons-round" style="font-size:16px;">warning</span>
+                        Vùng thiệt hại
+                    </div>
+                    <div style="font-size:13px; color:#374151;">
+                        <div><b>Diện tích:</b> ${areaTxt} ${pct ? `(${pct})` : ''}</div>
+                        <div><b>Nguyên nhân:</b> ${cause}${loss.causeDetail ? ' — ' + loss.causeDetail : ''}</div>
+                        ${valTxt ? `<div><b>Thiệt hại:</b> ${valTxt}</div>` : ''}
+                        ${dateStr ? `<div><b>Ngày:</b> ${dateStr}</div>` : ''}
+                        ${loss.reportedBy ? `<div><b>Báo cáo:</b> ${loss.reportedBy}</div>` : ''}
+                        ${loss.notes ? `<div style="margin-top:4px; font-style:italic; color:#6b7280;">${loss.notes}</div>` : ''}
+                    </div>
+                </div>
+            `);
+
+            polygon.addTo(map);
+            _fieldLossLayers.push(polygon);
+        });
+
+        // Store losses for analytics
+        window._fieldLossesData = losses;
+    } catch (err) {
+        console.error('Error loading field losses:', err);
+    }
+}
+
+// ── Field Loss Analytics Modal ──
+async function openFieldLossAnalytics() {
+    const farmId = window._cultivationFarmId;
+    if (!farmId) {
+        alert('Chưa có trang trại.');
+        return;
+    }
+
+    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+    if (!token) return;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/field-losses/farm/${farmId}/stats`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Không thể tải dữ liệu thống kê');
+        const stats = await res.json();
+
+        const totalRecords = stats.totalRecords || 0;
+        const totalLossArea = Number(stats.totalLossAreaSqm || stats.totalLossArea) || 0;
+        const totalLossValue = Number(stats.totalLossValue) || 0;
+        const causeDistribution = stats.causeDistribution || {};
+        const fieldSummaries = stats.fieldSummaries || [];
+
+        // Calculate average loss percentage from field summaries
+        let avgLossPercentage = 0;
+        if (fieldSummaries.length > 0) {
+            const sumPct = fieldSummaries.reduce((sum, fs) => sum + (Number(fs.lossPercentage) || 0), 0);
+            avgLossPercentage = sumPct / fieldSummaries.length;
+        }
+
+        const causeLabels = { DISEASE: 'Dịch bệnh', PESTS: 'Sâu bệnh', WEATHER: 'Thời tiết', FLOOD: 'Ngập lụt', DROUGHT: 'Hạn hán', OTHER: 'Khác' };
+        const causeColors = { DISEASE: '#dc2626', PESTS: '#ea580c', WEATHER: '#2563eb', FLOOD: '#0891b2', DROUGHT: '#d97706', OTHER: '#6b7280' };
+
+        // Build cause distribution rows
+        let causeRows = '';
+        let causeChartLabels = [];
+        let causeChartData = [];
+        let causeChartColors = [];
+        for (const [key, count] of Object.entries(causeDistribution)) {
+            causeRows += `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f3f4f6;">
+                <span style="display:flex; align-items:center; gap:6px;">
+                    <span style="width:10px; height:10px; border-radius:50%; background:${causeColors[key] || '#6b7280'};"></span>
+                    ${causeLabels[key] || key}
+                </span>
+                <span style="font-weight:600;">${count}</span>
+            </div>`;
+            causeChartLabels.push(causeLabels[key] || key);
+            causeChartData.push(count);
+            causeChartColors.push(causeColors[key] || '#6b7280');
+        }
+
+        // Build field summaries  
+        let fieldRows = '';
+        fieldSummaries.forEach(fs => {
+            const fArea = Number(fs.lossAreaSqm || fs.totalLossArea) || 0;
+            const fVal = Number(fs.lossValue || fs.totalLossValue) || 0;
+            fieldRows += `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f3f4f6; font-size:13px;">
+                <span>${fs.fieldName || `Ruộng #${fs.fieldId}`}</span>
+                <span style="color:#dc2626; font-weight:600;">${fArea < 10000 ? fArea.toFixed(1) + ' m²' : (fArea / 10000).toFixed(3) + ' ha'} · ${fVal > 0 ? new Intl.NumberFormat('vi-VN').format(Math.round(fVal)) + ' ₫' : '--'}</span>
+            </div>`;
+        });
+
+        // Create modal
+        let modal = document.getElementById('field-loss-analytics-modal');
+        if (modal) modal.remove();
+
+        modal = document.createElement('div');
+        modal.id = 'field-loss-analytics-modal';
+        modal.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px);';
+        modal.innerHTML = `
+            <div style="background:white; border-radius:20px; width:90%; max-width:640px; max-height:85vh; overflow-y:auto; box-shadow:0 25px 50px rgba(0,0,0,0.25);">
+                <div style="padding:24px 28px 0; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #dc2626, #991b1b); display:flex; align-items:center; justify-content:center;">
+                            <span class="material-icons-round" style="color:white; font-size:22px;">warning</span>
+                        </div>
+                        <div>
+                            <h3 style="margin:0; font-size:18px; font-weight:700; color:#111827;">Thống kê hao hụt trồng trọt</h3>
+                            <p style="margin:2px 0 0; font-size:12px; color:#6b7280;">Tổng quan thiệt hại cây trồng</p>
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('field-loss-analytics-modal').remove()" style="width:36px; height:36px; border-radius:50%; border:none; background:#f3f4f6; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                        <span class="material-icons-round" style="font-size:20px; color:#6b7280;">close</span>
+                    </button>
+                </div>
+
+                <div style="padding:20px 28px 28px;">
+                    <!-- Stat Cards -->
+                    <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-bottom:24px;">
+                        <div style="padding:16px; border-radius:14px; background:linear-gradient(135deg, #fef2f2, #fee2e2); border:1px solid #fecaca;">
+                            <div style="font-size:11px; font-weight:600; color:#991b1b; text-transform:uppercase; letter-spacing:0.5px;">Số lần báo cáo</div>
+                            <div style="font-size:28px; font-weight:800; color:#dc2626; margin-top:4px;">${totalRecords}</div>
+                        </div>
+                        <div style="padding:16px; border-radius:14px; background:linear-gradient(135deg, #fff7ed, #ffedd5); border:1px solid #fed7aa;">
+                            <div style="font-size:11px; font-weight:600; color:#9a3412; text-transform:uppercase; letter-spacing:0.5px;">Tổng diện tích hao hụt</div>
+                            <div style="font-size:28px; font-weight:800; color:#ea580c; margin-top:4px;">${totalLossArea < 10000 ? totalLossArea.toFixed(0) + ' m²' : (totalLossArea / 10000).toFixed(2) + ' ha'}</div>
+                        </div>
+                        <div style="padding:16px; border-radius:14px; background:linear-gradient(135deg, #fdf2f8, #fce7f3); border:1px solid #f9a8d4;">
+                            <div style="font-size:11px; font-weight:600; color:#9d174d; text-transform:uppercase; letter-spacing:0.5px;">Tổng thiệt hại</div>
+                            <div style="font-size:28px; font-weight:800; color:#db2777; margin-top:4px;">${totalLossValue > 0 ? new Intl.NumberFormat('vi-VN').format(Math.round(totalLossValue)) + ' ₫' : '--'}</div>
+                        </div>
+                        <div style="padding:16px; border-radius:14px; background:linear-gradient(135deg, #eff6ff, #dbeafe); border:1px solid #93c5fd;">
+                            <div style="font-size:11px; font-weight:600; color:#1e40af; text-transform:uppercase; letter-spacing:0.5px;">Tỷ lệ hao hụt TB</div>
+                            <div style="font-size:28px; font-weight:800; color:#2563eb; margin-top:4px;">${avgLossPercentage.toFixed(1)}%</div>
+                        </div>
+                    </div>
+
+                    <!-- Cause Distribution -->
+                    ${Object.keys(causeDistribution).length > 0 ? `
+                    <div style="margin-bottom:24px;">
+                        <h4 style="font-size:14px; font-weight:700; color:#111827; margin:0 0 12px; display:flex; align-items:center; gap:6px;">
+                            <span class="material-icons-round" style="font-size:18px; color:#dc2626;">donut_large</span>
+                            Phân bố nguyên nhân
+                        </h4>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                            <div><canvas id="field-loss-cause-chart" width="200" height="200"></canvas></div>
+                            <div>${causeRows}</div>
+                        </div>
+                    </div>` : ''}
+
+                    <!-- Field Summaries -->
+                    ${fieldSummaries.length > 0 ? `
+                    <div>
+                        <h4 style="font-size:14px; font-weight:700; color:#111827; margin:0 0 12px; display:flex; align-items:center; gap:6px;">
+                            <span class="material-icons-round" style="font-size:18px; color:#ea580c;">grass</span>
+                            Thiệt hại theo ruộng
+                        </h4>
+                        <div style="background:#f9fafb; border-radius:12px; padding:12px 16px;">${fieldRows}</div>
+                    </div>` : ''}
+
+                    ${totalRecords === 0 ? `
+                    <div style="text-align:center; padding:40px 20px; color:#9ca3af;">
+                        <span class="material-icons-round" style="font-size:48px; color:#d1d5db; margin-bottom:8px;">sentiment_satisfied</span>
+                        <p style="font-size:14px; margin:0;">Chưa có báo cáo hao hụt nào.</p>
+                    </div>` : ''}
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+        // Render cause chart
+        if (Object.keys(causeDistribution).length > 0) {
+            setTimeout(() => {
+                const ctx = document.getElementById('field-loss-cause-chart');
+                if (ctx && typeof Chart !== 'undefined') {
+                    new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: causeChartLabels,
+                            datasets: [{ data: causeChartData, backgroundColor: causeChartColors, borderWidth: 2, borderColor: '#fff' }]
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: { legend: { display: false } },
+                            cutout: '60%'
+                        }
+                    });
+                }
+            }, 100);
+        }
+    } catch (err) {
+        console.error('Error loading field loss stats:', err);
+        alert('Không thể tải thống kê hao hụt: ' + err.message);
+    }
 }
 
 function handleFieldClick(field) {

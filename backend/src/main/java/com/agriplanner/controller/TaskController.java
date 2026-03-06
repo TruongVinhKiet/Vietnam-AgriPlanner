@@ -7,14 +7,21 @@ import com.agriplanner.service.TaskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/tasks")
 @CrossOrigin(origins = "*")
+@SuppressWarnings("null")
 public class TaskController {
 
     @Autowired
@@ -115,6 +122,21 @@ public class TaskController {
             String condition = request != null ? request.get("condition") : null;
             String aiSuggestion = request != null ? request.get("aiSuggestion") : null;
             taskService.completeTask(id, condition, aiSuggestion);
+
+            // Save media URLs if provided
+            if (request != null) {
+                Task task = taskRepository.findById(id).orElse(null);
+                if (task != null) {
+                    String imgUrl = request.get("reportImageUrl");
+                    String vidUrl = request.get("reportVideoUrl");
+                    if (imgUrl != null && !imgUrl.isBlank())
+                        task.setReportImageUrl(imgUrl);
+                    if (vidUrl != null && !vidUrl.isBlank())
+                        task.setReportVideoUrl(vidUrl);
+                    taskRepository.save(task);
+                }
+            }
+
             return ResponseEntity.ok().body(Map.of("message", "Task completed successfully"));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -186,5 +208,48 @@ public class TaskController {
     @GetMapping("/owner/{ownerId}")
     public List<Task> getOwnerTasks(@PathVariable Long ownerId) {
         return taskService.getOwnerTasks(ownerId);
+    }
+
+    @PostMapping(value = "/{id}/upload-media", consumes = "multipart/form-data")
+    public ResponseEntity<?> uploadMedia(@PathVariable Long id,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            Task task = taskRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Task not found"));
+
+            String originalName = file.getOriginalFilename();
+            if (originalName == null)
+                originalName = "file";
+            // Sanitize filename
+            String safeName = originalName.replaceAll("[^a-zA-Z0-9._-]", "_");
+            String uniqueName = UUID.randomUUID().toString().substring(0, 8) + "_" + safeName;
+
+            // Determine sub-directory based on content type
+            String contentType = file.getContentType();
+            boolean isVideo = contentType != null && contentType.startsWith("video");
+            String subDir = isVideo ? "videos" : "images";
+
+            Path uploadDir = Paths.get(System.getProperty("user.dir"), "uploads", "tasks", subDir).toAbsolutePath()
+                    .normalize();
+            Files.createDirectories(uploadDir);
+            Path filePath = uploadDir.resolve(uniqueName);
+            file.transferTo(filePath.toFile());
+
+            String url = "/uploads/tasks/" + subDir + "/" + uniqueName;
+
+            // Also save URL to task
+            if (isVideo) {
+                task.setReportVideoUrl(url);
+            } else {
+                task.setReportImageUrl(url);
+            }
+            taskRepository.save(task);
+
+            return ResponseEntity.ok(Map.of("url", url, "filename", originalName));
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", "File upload failed: " + e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }

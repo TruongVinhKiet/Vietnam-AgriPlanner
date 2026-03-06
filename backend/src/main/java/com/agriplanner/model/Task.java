@@ -89,4 +89,10 @@ public class Task {
 
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    @Column(name = "report_image_url", length = 500)
+    private String reportImageUrl;
+
+    @Column(name = "report_video_url", length = 500)
+    private String reportVideoUrl;
 }

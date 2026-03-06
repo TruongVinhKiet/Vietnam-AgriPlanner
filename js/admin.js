@@ -151,7 +151,7 @@ const VI_LABELS = {
     itemCategory: {
         'HAT_GIONG': 'Hạt giống', 'MAY_MOC': 'Máy móc', 'PHAN_BON': 'Phân bón',
         'THUC_AN': 'Thức ăn', 'CON_GIONG': 'Con giống', 'THUOC_TRU_SAU': 'Thuốc trừ sâu',
-        'DUNG_CU': 'Dụng cụ'
+        'DUNG_CU': 'Dụng cụ', 'TIEM_PHONG': 'Tiêm phòng'
     },
     season: {
         'spring': 'Xuân', 'summer': 'Hạ', 'fall': 'Thu', 'winter': 'Đông',
@@ -2145,10 +2145,13 @@ async function showItemModal(id = null) {
                         <label class="block text-sm font-medium text-gray-700 mb-2">Danh mục *</label>
                         <select name="category" required class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-primary">
                             <option value="HAT_GIONG" ${item.category === 'HAT_GIONG' ? 'selected' : ''}>Hạt giống</option>
+                            <option value="CON_GIONG" ${item.category === 'CON_GIONG' ? 'selected' : ''}>Con giống</option>
                             <option value="PHAN_BON" ${item.category === 'PHAN_BON' ? 'selected' : ''}>Phân bón</option>
-                            <option value="THUOC_TRU_SAU" ${item.category === 'THUOC_TRU_SAU' ? 'selected' : ''}>Thuốc trừ sâu</option>
-                            <option value="DUNG_CU" ${item.category === 'DUNG_CU' ? 'selected' : ''}>Dụng cụ</option>
                             <option value="THUC_AN" ${item.category === 'THUC_AN' ? 'selected' : ''}>Thức ăn chăn nuôi</option>
+                            <option value="THUOC_TRU_SAU" ${item.category === 'THUOC_TRU_SAU' ? 'selected' : ''}>Thuốc trừ sâu</option>
+                            <option value="MAY_MOC" ${item.category === 'MAY_MOC' ? 'selected' : ''}>Máy móc</option>
+                            <option value="DUNG_CU" ${item.category === 'DUNG_CU' ? 'selected' : ''}>Dụng cụ</option>
+                            <option value="TIEM_PHONG" ${item.category === 'TIEM_PHONG' ? 'selected' : ''}>Tiêm phòng</option>
                         </select>
                     </div>
                     <div>
@@ -2499,6 +2502,47 @@ async function showAnimalModal(id = null) {
                     </div>
                     <div></div>
 
+                    <!-- ═══ BYPRODUCT & HARVEST ═══ -->
+                    <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
+                        <span class="material-icons-round text-amber-500 text-lg">egg_alt</span>
+                        <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">Sản phẩm phụ & Thu hoạch</h4>
+                        <div class="flex-1 h-px bg-gray-200"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Loại thu hoạch</label>
+                        <select name="harvestType" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                            <option value="WEIGHT_ONLY" ${animal.harvestType === 'WEIGHT_ONLY' ? 'selected' : ''}>Chỉ bán thịt</option>
+                            <option value="BOTH" ${animal.harvestType === 'BOTH' ? 'selected' : ''}>Bán thịt & Sản phẩm phụ</option>
+                            <option value="BYPRODUCT_ONLY" ${animal.harvestType === 'BYPRODUCT_ONLY' ? 'selected' : ''}>Chỉ sản phẩm phụ</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Loại sản phẩm phụ</label>
+                        <select name="byproductType" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                            <option value="NONE" ${animal.byproductType === 'NONE' ? 'selected' : ''}>Không có</option>
+                            <option value="EGGS" ${animal.byproductType === 'EGGS' ? 'selected' : ''}>Trứng</option>
+                            <option value="MILK" ${animal.byproductType === 'MILK' ? 'selected' : ''}>Sữa</option>
+                            <option value="HONEY" ${animal.byproductType === 'HONEY' ? 'selected' : ''}>Mật ong</option>
+                            <option value="SILK" ${animal.byproductType === 'SILK' ? 'selected' : ''}>Tơ tằm</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Tên sản phẩm</label>
+                        <input type="text" name="byproductName" value="${animal.byproductName || ''}" placeholder="VD: Trứng gà" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Đơn vị</label>
+                        <input type="text" name="byproductUnit" value="${animal.byproductUnit || ''}" placeholder="VD: quả, lít, kg" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Sản lượng/ngày/con</label>
+                        <input type="number" step="0.01" name="byproductDailyAmount" value="${animal.byproductDailyAmount || ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1.5">Tuổi bắt đầu sản xuất (ngày)</label>
+                        <input type="number" name="byproductStartAgeDays" value="${animal.byproductStartAgeDays || ''}" class="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500">
+                    </div>
+
                     <!-- ═══ SIZE DATA ═══ -->
                     <div class="col-span-3 flex items-center gap-3 mt-2 mb-0.5">
                         <span class="material-icons-round text-purple-500 text-lg">straighten</span>
@@ -2695,11 +2739,18 @@ async function saveAnimal(id) {
     // Convert numeric fields
     const numericFields = ['growthDurationDays', 'maturityAgeDays', 'buyPricePerUnit', 'sellPricePerUnit',
         'idealTempMin', 'idealTempMax', 'idealHumidityMin', 'idealHumidityMax',
-        'survivalRate', 'spacePerUnitSqm', 'idealPhMin', 'idealPhMax'];
+        'survivalRate', 'spacePerUnitSqm', 'idealPhMin', 'idealPhMax',
+        'byproductDailyAmount', 'byproductStartAgeDays'];
     numericFields.forEach(key => {
         if (data[key] !== undefined && data[key] !== '') data[key] = Number(data[key]);
         else delete data[key];
     });
+
+    // Clean empty byproduct string fields
+    if (!data.harvestType) data.harvestType = 'WEIGHT_ONLY';
+    if (!data.byproductType) data.byproductType = 'NONE';
+    if (!data.byproductName) delete data.byproductName;
+    if (!data.byproductUnit) delete data.byproductUnit;
 
     // Collect farming types from checkboxes
     const farmingTypes = [...form.querySelectorAll('input[name="farmingType"]:checked')].map(el => el.value);
@@ -3934,6 +3985,59 @@ async function showAnimalDetail(id) {
                         </div>
                     </div>
                     ` : ''}
+
+                    <!-- Byproduct / Harvest Info -->
+                    ${animal.harvestType && animal.harvestType !== 'WEIGHT_ONLY' ? `
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-white">
+                            <div class="flex items-center gap-3">
+                                <div class="p-1.5 bg-amber-100 rounded-lg text-amber-600">
+                                    <span class="material-icons-round">${{'EGGS':'egg','MILK':'water_drop','HONEY':'sports_handball','SILK':'gesture'}[animal.byproductType] || 'eco'}</span>
+                                </div>
+                                <h4 class="text-base font-semibold text-gray-800">Sản phẩm thu hoạch</h4>
+                            </div>
+                        </div>
+                        <div class="p-5 space-y-3">
+                            <div class="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                                <span class="text-sm font-medium text-gray-700">Loại thu hoạch</span>
+                                <span class="text-sm font-bold ${animal.harvestType === 'BOTH' ? 'text-blue-600' : 'text-amber-600'}">${animal.harvestType === 'BOTH' ? 'Thịt + Sản phẩm' : 'Chỉ sản phẩm'}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm font-medium text-gray-700">Sản phẩm</span>
+                                <span class="text-sm font-bold text-gray-900">${animal.byproductName || '-'}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm font-medium text-gray-700">Đơn vị</span>
+                                <span class="text-sm font-bold text-gray-900">${animal.byproductUnit || '-'}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm font-medium text-gray-700">SL TB/ngày/con</span>
+                                <span class="text-sm font-bold text-gray-900">${animal.byproductDailyAmount || '-'}</span>
+                            </div>
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm font-medium text-gray-700">Bắt đầu sản xuất</span>
+                                <span class="text-sm font-bold text-gray-900">${animal.byproductStartAgeDays ? animal.byproductStartAgeDays + ' ngày tuổi' : '-'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    ` : `
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/50">
+                            <div class="flex items-center gap-3">
+                                <div class="p-1.5 bg-gray-100 rounded-lg text-gray-500">
+                                    <span class="material-icons-round">agriculture</span>
+                                </div>
+                                <h4 class="text-base font-semibold text-gray-800">Sản phẩm thu hoạch</h4>
+                            </div>
+                        </div>
+                        <div class="p-5">
+                            <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span class="text-sm font-medium text-gray-700">Loại thu hoạch</span>
+                                <span class="text-sm font-bold text-gray-900">Chỉ bán thịt (cân nặng)</span>
+                            </div>
+                        </div>
+                    </div>
+                    `}
                 </div>
 
                 <!-- Right Column (1/3) -->

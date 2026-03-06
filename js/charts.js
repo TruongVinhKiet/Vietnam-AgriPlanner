@@ -138,6 +138,21 @@ function createLineChart(container, options = {}) {
 
     const config = { ...defaults, ...options };
 
+    // Guard: need at least 1 data point
+    if (!config.data || config.data.length === 0) {
+        container.innerHTML = '<p class="text-muted" style="text-align:center;padding:20px;">Chưa có dữ liệu</p>';
+        return;
+    }
+
+    // Guard: single data point — duplicate to make a line
+    if (config.data.length === 1) {
+        config.data = [config.data[0], config.data[0]];
+        config.labels = [config.labels[0] || '', config.labels[0] || ''];
+    }
+
+    // Resolve CSS variable colors to hex for SVG compatibility
+    const resolvedColor = resolveColor(config.color);
+
     const minValue = Math.min(...config.data);
     const maxValue = Math.max(...config.data);
     const range = maxValue - minValue || 1;
@@ -146,16 +161,22 @@ function createLineChart(container, options = {}) {
     const height = 50;
     const padding = 5;
 
-    // Calculate points
+    // Calculate points — guard against NaN
     const points = config.data.map((value, i) => {
-        const x = (i / (config.data.length - 1)) * (width - padding * 2) + padding;
+        const len = config.data.length;
+        const x = len > 1
+            ? (i / (len - 1)) * (width - padding * 2) + padding
+            : width / 2;
         const y = height - ((value - minValue) / range) * (height - padding * 2) - padding;
-        return { x, y, value };
+        return { x: isNaN(x) ? padding : x, y: isNaN(y) ? padding : y, value };
     });
 
     // Create path
     const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ');
     const areaD = pathD + ` L${width - padding},${height - padding} L${padding},${height - padding} Z`;
+
+    // Generate unique gradient ID to avoid collisions
+    const gradId = 'chartGrad_' + Math.random().toString(36).substr(2, 9);
 
     const svgHTML = `
         <div class="weight-chart" style="height: ${config.height}px">
@@ -165,23 +186,23 @@ function createLineChart(container, options = {}) {
             <svg class="weight-chart__svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">
                 ${config.fill ? `
                     <defs>
-                        <linearGradient id="chartGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                            <stop offset="0%" style="stop-color: ${config.color}; stop-opacity: 0.2"/>
-                            <stop offset="100%" style="stop-color: ${config.color}; stop-opacity: 0"/>
+                        <linearGradient id="${gradId}" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color: ${resolvedColor}; stop-opacity: 0.2"/>
+                            <stop offset="100%" style="stop-color: ${resolvedColor}; stop-opacity: 0"/>
                         </linearGradient>
                     </defs>
-                    <path d="${areaD}" fill="url(#chartGradient)"/>
+                    <path d="${areaD}" fill="url(#${gradId})"/>
                 ` : ''}
                 <path d="${pathD}" 
                       fill="none" 
-                      stroke="${config.color}" 
+                      stroke="${resolvedColor}" 
                       stroke-width="2" 
                       vector-effect="non-scaling-stroke"
                       class="line-chart__path"/>
                 ${config.showDots ? points.map(p => `
                     <circle cx="${p.x}" cy="${p.y}" r="3" 
                             fill="white" 
-                            stroke="${config.color}" 
+                            stroke="${resolvedColor}" 
                             stroke-width="1.5" 
                             vector-effect="non-scaling-stroke"/>
                 `).join('') : ''}
@@ -201,6 +222,127 @@ function createLineChart(container, options = {}) {
             window.Animations.drawLine(path);
         }
     }
+}
+
+/**
+ * Resolve CSS variable to actual color value
+ */
+function resolveColor(color) {
+    if (!color || !color.startsWith('var(')) return color;
+    const varName = color.replace(/var\((.*?)\)/, '$1').trim();
+    const computed = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+    return computed || '#10b981';
+}
+
+/**
+ * Create a professional ApexCharts area chart for livestock trends
+ * Uses ApexCharts library (already loaded on livestock page)
+ * @param {Element} container - Container element
+ * @param {Object} options - Chart configuration
+ */
+function createApexAreaChart(container, options = {}) {
+    const {
+        data = [],
+        labels = [],
+        color = '#10b981',
+        height = 180,
+        title = '',
+        yAxisLabel = '',
+        unit = '',
+        seriesName = 'Giá trị'
+    } = options;
+
+    if (!data || data.length === 0) {
+        container.innerHTML = '<p class="text-muted" style="text-align:center;padding:20px;">Chưa có dữ liệu</p>';
+        return null;
+    }
+
+    // Destroy previous chart if any
+    if (container._apexChart) {
+        try { container._apexChart.destroy(); } catch (e) { /* ignore */ }
+    }
+    container.innerHTML = '';
+
+    const chartOptions = {
+        series: [{
+            name: seriesName,
+            data: data
+        }],
+        chart: {
+            type: 'area',
+            height: height,
+            fontFamily: 'Inter, sans-serif',
+            toolbar: { show: false },
+            zoom: { enabled: false },
+            sparkline: { enabled: false },
+            animations: {
+                enabled: true,
+                easing: 'easeinout',
+                speed: 800,
+                animateGradually: { enabled: true, delay: 150 },
+                dynamicAnimation: { enabled: true, speed: 350 }
+            }
+        },
+        colors: [color],
+        fill: {
+            type: 'gradient',
+            gradient: {
+                shadeIntensity: 1,
+                opacityFrom: 0.45,
+                opacityTo: 0.05,
+                stops: [0, 100]
+            }
+        },
+        stroke: {
+            curve: 'smooth',
+            width: 2.5
+        },
+        dataLabels: { enabled: false },
+        xaxis: {
+            categories: labels,
+            labels: {
+                style: { fontSize: '10px', colors: '#94a3b8' },
+                rotate: -45,
+                rotateAlways: labels.length > 5
+            },
+            axisBorder: { show: false },
+            axisTicks: { show: false }
+        },
+        yaxis: {
+            labels: {
+                style: { fontSize: '10px', colors: '#94a3b8' },
+                formatter: (val) => val !== undefined && val !== null ? val.toFixed(1) + (unit ? ' ' + unit : '') : ''
+            },
+            title: yAxisLabel ? { text: yAxisLabel, style: { fontSize: '11px', color: '#94a3b8' } } : undefined
+        },
+        grid: {
+            borderColor: '#f1f5f9',
+            strokeDashArray: 4,
+            xaxis: { lines: { show: false } },
+            yaxis: { lines: { show: true } },
+            padding: { top: -10, right: 5, bottom: 0, left: 5 }
+        },
+        tooltip: {
+            theme: 'light',
+            x: { show: true },
+            y: {
+                formatter: (val) => val !== undefined && val !== null ? val.toFixed(2) + (unit ? ' ' + unit : '') : ''
+            },
+            marker: { show: true }
+        },
+        markers: {
+            size: data.length <= 10 ? 4 : 2,
+            colors: ['#fff'],
+            strokeColors: [color],
+            strokeWidth: 2,
+            hover: { sizeOffset: 2 }
+        }
+    };
+
+    const chart = new ApexCharts(container, chartOptions);
+    chart.render();
+    container._apexChart = chart;
+    return chart;
 }
 
 /**
@@ -242,5 +384,6 @@ window.Charts = {
     createBarChart,
     createPieChart,
     createLineChart,
-    createProgressBar
+    createProgressBar,
+    createApexAreaChart
 };

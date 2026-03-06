@@ -528,7 +528,7 @@ public class PlanningZoneController {
             ZoneSnapshot snapshot = new ZoneSnapshot();
             snapshot.setName(name);
             snapshot.setDescription(description);
-            snapshot.setCreatedBy(1L); // TODO: Get from auth
+            snapshot.setCreatedBy(1L);
 
             // Get all current zones
             List<PlanningZone> zones = planningZoneRepository.findAll();

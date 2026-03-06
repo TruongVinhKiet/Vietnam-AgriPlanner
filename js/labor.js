@@ -1,5 +1,45 @@
 const LABOR_API_BASE = CONFIG.API_BASE_URL || 'http://localhost:8080/api';
 
+// ── Lightbox for media viewing ──
+function openMediaLightbox(src, type) {
+    // Remove existing lightbox if any
+    const existing = document.getElementById('media-lightbox-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'media-lightbox-overlay';
+    overlay.style.cssText = 'position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.85); display:flex; align-items:center; justify-content:center; padding:20px; cursor:pointer; animation:lbFadeIn 0.2s ease;';
+
+    // Add animation style
+    if (!document.getElementById('lightbox-style')) {
+        const style = document.createElement('style');
+        style.id = 'lightbox-style';
+        style.textContent = '@keyframes lbFadeIn{from{opacity:0}to{opacity:1}}';
+        document.head.appendChild(style);
+    }
+
+    let mediaHtml;
+    if (type === 'video') {
+        mediaHtml = `<video src="${src}" controls autoplay style="max-width:90vw; max-height:85vh; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,0.5); cursor:default;" onclick="event.stopPropagation()"></video>`;
+    } else {
+        mediaHtml = `<img src="${src}" style="max-width:90vw; max-height:85vh; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,0.5); cursor:default; object-fit:contain;" onclick="event.stopPropagation()">`;
+    }
+
+    overlay.innerHTML = `
+        <button onclick="event.stopPropagation(); this.parentElement.remove();" style="position:absolute; top:16px; right:16px; width:44px; height:44px; border-radius:50%; background:rgba(255,255,255,0.15); backdrop-filter:blur(8px); color:white; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:1; transition:background 0.2s;" onmouseenter="this.style.background='rgba(255,255,255,0.3)'" onmouseleave="this.style.background='rgba(255,255,255,0.15)'">
+            <span class="material-symbols-outlined" style="font-size:24px;">close</span>
+        </button>
+        ${mediaHtml}
+    `;
+
+    overlay.addEventListener('click', () => overlay.remove());
+    document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
+    });
+
+    document.body.appendChild(overlay);
+}
+
 // Global variable for farm ID
 let myFarmId = null;
 let approvedWorkers = []; // List of approved workers
@@ -422,8 +462,149 @@ function renderTasks(tasks) {
 
 // ============ OWNER TASK DETAIL VIEW ============
 function getTaskIconOwner(taskType) {
-    const icons = { 'FEED': 'restaurant', 'CLEAN': 'cleaning_services', 'HARVEST': 'agriculture', 'BUY_SUPPLIES': 'shopping_cart', 'PLANT': 'park', 'SEED': 'grass', 'FERTILIZE': 'science', 'WATER': 'water_drop', 'PEST_CONTROL': 'bug_report', 'VACCINATE': 'vaccines', 'SELL': 'store', 'OTHER': 'task' };
+    const icons = { 'FEED': 'restaurant', 'CLEAN': 'cleaning_services', 'HARVEST': 'agriculture', 'BUY_SUPPLIES': 'shopping_cart', 'PLANT': 'park', 'SEED': 'grass', 'FERTILIZE': 'science', 'WATER': 'water_drop', 'PEST_CONTROL': 'bug_report', 'VACCINATE': 'vaccines', 'SELL': 'store', 'INSPECTION': 'search', 'OTHER': 'task' };
     return icons[taskType] || 'task';
+}
+
+function buildInspectionResultsHtml(task) {
+    if (!task) return '';
+    const status = task.status ? String(task.status).toUpperCase() : '';
+    if (status !== 'COMPLETED') return '';
+
+    // Parse inspection data from description (appended by worker)
+    const desc = task.description || '';
+    const aiLines = desc.split('\n').filter(l => l.startsWith('AI:'));
+    if (aiLines.length === 0) return '';
+
+    const aiData = aiLines.map(l => l.replace(/^AI:\s*/, '')).join('\n');
+
+    // Extract condition assessment
+    const conditionMatch = aiData.match(/^(CLEAN|DIRTY|SICK|GOOD|FAIR|POOR):/);
+    let conditionLabel = '';
+    let conditionColor = '#6b7280';
+    let conditionIcon = 'help';
+    if (conditionMatch) {
+        const val = conditionMatch[1];
+        const labelMap = { 'CLEAN': 'Sạch', 'DIRTY': 'Bẩn', 'SICK': 'Có dấu hiệu bệnh', 'GOOD': 'Tốt', 'FAIR': 'Trung bình', 'POOR': 'Kém' };
+        const colorMap = { 'CLEAN': '#16a34a', 'GOOD': '#16a34a', 'DIRTY': '#d97706', 'FAIR': '#d97706', 'SICK': '#dc2626', 'POOR': '#dc2626' };
+        const iconMap = { 'CLEAN': 'check_circle', 'GOOD': 'check_circle', 'DIRTY': 'warning', 'FAIR': 'info', 'SICK': 'coronavirus', 'POOR': 'error' };
+        conditionLabel = labelMap[val] || val;
+        conditionColor = colorMap[val] || '#6b7280';
+        conditionIcon = iconMap[val] || 'help';
+    }
+
+    // Extract photo info
+    const photoMatches = aiData.match(/Ảnh chuồng:\s*([^\|]+)/);
+    const photo2Matches = aiData.match(/Ảnh vật nuôi:\s*([^\|]+)/);
+    const photo1Name = photoMatches ? photoMatches[1].trim() : null;
+    const photo2Name = photo2Matches ? photo2Matches[1].trim() : null;
+
+    // Use server URLs first (task.reportImageUrl / task.reportVideoUrl), fallback to localStorage
+    const _apiOrigin = new URL(LABOR_API_BASE).origin;
+    const serverImageUrl = task.reportImageUrl ? (_apiOrigin + task.reportImageUrl) : null;
+    const serverVideoUrl = task.reportVideoUrl ? (_apiOrigin + task.reportVideoUrl) : null;
+    const photoStore = JSON.parse(localStorage.getItem('inspectionPhotos') || '{}');
+    const photo1Data = serverImageUrl || photoStore[`task_${task.id}_photo1`] || null;
+    const photo2Data = photoStore[`task_${task.id}_photo2`] || null;
+    const videoData = serverVideoUrl || photoStore[`task_${task.id}_video`] || null;
+
+    // Extract video info
+    const videoMatch = aiData.match(/Video:\s*([^\|]+)/);
+    const videoName = videoMatch ? videoMatch[1].trim() : null;
+
+    // Extract mortality info
+    const mortalityMatch = aiData.match(/Hao hụt:\s*(\d+)\s*con(?:\s*\((\w+)\)\s*-\s*(.+))?/);
+    const mortalityQty = mortalityMatch ? mortalityMatch[1] : null;
+    const mortalityCauseType = mortalityMatch ? (mortalityMatch[2] || null) : null;
+    const mortalityCause = mortalityMatch ? (mortalityMatch[3] ? mortalityMatch[3].trim() : null) : null;
+
+    const causeTypeLabels = { 'DEATH': 'Chết', 'DISEASE': 'Bệnh', 'ACCIDENT': 'Tai nạn', 'CULL': 'Loại thải' };
+
+    let html = `<div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px; display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:18px; color:#2563eb;">assignment_turned_in</span>
+            Báo cáo từ nhân công
+        </div>`;
+
+    // Condition assessment
+    if (conditionLabel) {
+        html += `<div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; padding:12px 16px; border-radius:12px; background:${conditionColor}11; border:1px solid ${conditionColor}22;">
+            <span class="material-symbols-outlined" style="font-size:28px; color:${conditionColor};">${conditionIcon}</span>
+            <div>
+                <div style="font-size:12px; color:#6b7280;">Đánh giá tình trạng</div>
+                <div style="font-size:16px; font-weight:700; color:${conditionColor};">${conditionLabel}</div>
+            </div>
+        </div>`;
+    }
+
+    // Photos/Video media section
+    const hasMedia = photo1Name || photo2Name || videoName || serverImageUrl || serverVideoUrl;
+    if (hasMedia) {
+        html += `<div style="margin-bottom:14px;">
+            <div style="font-size:12px; font-weight:500; color:#6b7280; margin-bottom:8px;">Minh chứng đính kèm</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">`;
+        if (photo1Name || serverImageUrl) {
+            const imgSrc = photo1Data;
+            html += `<div style="border-radius:10px; background:#f0fdf4; border:1px solid #bbf7d0; overflow:hidden;">
+                ${imgSrc ? `<img src="${imgSrc}" style="width:100%; max-height:200px; object-fit:cover; cursor:pointer;" alt="Ảnh chuồng" onclick="openMediaLightbox(this.src, 'image')">` : `<div style="padding:20px; text-align:center; color:#9ca3af;"><span class="material-symbols-outlined" style="font-size:40px;">image</span><div style="font-size:12px; margin-top:4px;">Không tải được ảnh</div></div>`}
+                <div style="padding:8px 12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:18px; color:#16a34a;">photo_camera</span>
+                    <div>
+                        <div style="font-size:11px; font-weight:600; color:#15803d;">Ảnh</div>
+                        <div style="font-size:10px; color:#6b7280; word-break:break-all;">${escapeHtml(photo1Name || 'Ảnh báo cáo')}</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+        if (photo2Name) {
+            html += `<div style="border-radius:10px; background:#fff7ed; border:1px solid #fed7aa; overflow:hidden;">
+                ${photo2Data ? `<img src="${photo2Data}" style="width:100%; max-height:200px; object-fit:cover; cursor:pointer;" alt="Ảnh vật nuôi" onclick="openMediaLightbox(this.src, 'image')">` : `<div style="padding:20px; text-align:center; color:#9ca3af;"><span class="material-symbols-outlined" style="font-size:40px;">image</span><div style="font-size:12px; margin-top:4px;">Không tải được ảnh</div></div>`}
+                <div style="padding:8px 12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:18px; color:#ea580c;">pets</span>
+                    <div>
+                        <div style="font-size:11px; font-weight:600; color:#9a3412;">Ảnh vật nuôi</div>
+                        <div style="font-size:10px; color:#6b7280; word-break:break-all;">${escapeHtml(photo2Name)}</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+        if (videoName || serverVideoUrl) {
+            const vidSrc = videoData;
+            html += `<div style="border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; overflow:hidden;">
+                ${vidSrc ? `<video src="${vidSrc}" style="width:100%; max-height:200px; object-fit:cover; cursor:pointer;" onclick="openMediaLightbox(this.src, 'video')" preload="metadata"></video>` : `<div style="padding:20px; text-align:center; color:#9ca3af;"><span class="material-symbols-outlined" style="font-size:40px;">videocam_off</span><div style="font-size:12px; margin-top:4px;">Không tải được video</div></div>`}
+                <div style="padding:8px 12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:18px; color:#2563eb;">videocam</span>
+                    <div>
+                        <div style="font-size:11px; font-weight:600; color:#1e40af;">Video</div>
+                        <div style="font-size:10px; color:#6b7280; word-break:break-all;">${escapeHtml(videoName || 'Video báo cáo')}</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    // Mortality info
+    if (mortalityQty && parseInt(mortalityQty) > 0) {
+        const causeLabel = causeTypeLabels[mortalityCauseType] || mortalityCauseType || 'Không rõ';
+        html += `<div style="padding:12px 16px; border-radius:12px; background:#fef2f2; border:1px solid #fecaca;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                <span class="material-symbols-outlined" style="font-size:20px; color:#dc2626;">heart_broken</span>
+                <span style="font-size:13px; font-weight:700; color:#dc2626;">Hao hụt: ${mortalityQty} con</span>
+            </div>
+            ${mortalityCause ? `<div style="font-size:12px; color:#991b1b;">Loại: ${causeLabel} — ${escapeHtml(mortalityCause)}</div>` : ''}
+        </div>`;
+    } else if (mortalityQty === '0' || (mortalityMatch && mortalityMatch[1] === '0')) {
+        html += `<div style="padding:12px 16px; border-radius:12px; background:#f0fdf4; border:1px solid #bbf7d0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="material-symbols-outlined" style="font-size:20px; color:#16a34a;">check_circle</span>
+                <span style="font-size:13px; font-weight:700; color:#16a34a;">Không có hao hụt</span>
+            </div>
+        </div>`;
+    }
+
+    html += `</div>`;
+    return html;
 }
 
 function openOwnerTaskDetail(taskId) {
@@ -620,13 +801,17 @@ function openOwnerTaskDetail(taskId) {
                 </div>
             </div>
 
-            <!-- Description -->
-            ${taskDesc ? `
-            <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
-                <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Mô tả công việc</div>
-                <p style="margin:0; color:#374151; line-height:1.7; white-space:pre-wrap;">${escapeHtml(taskDesc)}</p>
-            </div>
-            ` : ''}
+            <!-- Description (filter AI: lines) -->
+            ${(() => {
+                const cleanDesc = (taskDesc || '').split('\n').filter(l => !l.startsWith('AI:')).join('\n').trim();
+                return cleanDesc ? `
+                <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
+                    <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Mô tả công việc</div>
+                    <p style="margin:0; color:#374151; line-height:1.7; white-space:pre-wrap;">${escapeHtml(cleanDesc)}</p>
+                </div>` : '';
+            })()}
+
+            ${buildInspectionResultsHtml(task)}
 
             ${countdownHtml}
 
@@ -1195,6 +1380,7 @@ function getTaskTypeLabel(type) {
         'PEST_CONTROL': 'Trừ sâu',
         'VACCINATE': 'Tiêm phòng',
         'SELL': 'Bán',
+        'INSPECTION': 'Kiểm tra',
         'OTHER': 'Khác'
     };
     return map[type] || type;

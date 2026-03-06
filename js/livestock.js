@@ -296,6 +296,12 @@ async function createPen(penData) {
             closeModal();
             // Auto-select the newly created pen
             if (result && result.id) selectPen(result.id);
+
+            // Auto-generate initial weight record based on selected size
+            if (result && result.id) {
+                autoGenerateInitialWeight(result, penData);
+            }
+
             return result;
         } else {
             if (result.warning) {
@@ -309,6 +315,62 @@ async function createPen(penData) {
         console.error('Error creating pen:', error);
         showNotification('Lỗi kết nối server', 'error');
         return null;
+    }
+}
+
+/**
+ * Automatically generate an initial weight record when a new pen is created.
+ * Uses the selected animal size to determine starting weight.
+ */
+async function autoGenerateInitialWeight(createdPen, penData) {
+    try {
+        // Find the animal definition from allAnimals (loaded on page init)
+        const animalDef = allAnimals?.find(a => a.id === penData.animalDefinitionId);
+        if (!animalDef || !animalDef.sizes) return;
+
+        let sizes;
+        try {
+            sizes = typeof animalDef.sizes === 'string' ? JSON.parse(animalDef.sizes) : animalDef.sizes;
+        } catch (e) { return; }
+
+        const selectedSize = (penData.animalSize || 'MEDIUM').toLowerCase();
+        const sizeData = sizes[selectedSize] || sizes['medium'] || sizes['small'];
+        if (!sizeData || !sizeData.weight) return;
+
+        // Parse weight range
+        const match = String(sizeData.weight).match(/([\d.]+)\s*[-–]\s*([\d.]+)/);
+        if (!match) return;
+
+        const minW = parseFloat(match[1]);
+        const maxW = parseFloat(match[2]);
+        const avgWeight = Math.round(((minW + maxW) / 2) * 100) / 100;
+
+        if (avgWeight <= 0 || isNaN(avgWeight)) return;
+
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/feeding/growth`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+                penId: createdPen.id,
+                weight: avgWeight,
+                date: new Date().toISOString().split('T')[0],
+                notes: `Cân nặng ban đầu (${selectedSize}, ước tính ~${avgWeight} kg)`
+            })
+        });
+
+        if (response.ok) {
+            console.log(`Auto-generated initial weight: ${avgWeight} kg for pen ${createdPen.id}`);
+            // Reload growth chart if this pen is currently selected
+            if (selectedPen && selectedPen.id === createdPen.id) {
+                loadGrowthChart(createdPen.id);
+            }
+        }
+    } catch (e) {
+        console.warn('Could not auto-generate initial weight:', e);
     }
 }
 
@@ -550,8 +612,10 @@ function updatePenDetails(pen) {
     const statAge = document.getElementById('stat-age');
     if (statAge) {
         if (pen.startDate) {
-            const days = Math.floor((new Date() - new Date(pen.startDate)) / (1000 * 60 * 60 * 24));
-            statAge.textContent = days > 0 ? `${days} ngày` : 'Mới';
+            const daysSinceStart = Math.floor((new Date() - new Date(pen.startDate)) / (1000 * 60 * 60 * 24));
+            const ageAtPurchase = pen.animalAgeAtPurchaseDays || 0;
+            const totalAge = daysSinceStart + ageAtPurchase;
+            statAge.textContent = totalAge > 0 ? `${totalAge} ngày` : 'Mới';
         } else {
             statAge.textContent = 'N/A';
         }
@@ -569,11 +633,60 @@ function updatePenDetails(pen) {
         }
     }
 
-    // Load Health Records
-    loadHealthRecords(pen.id);
+    // Hide health section for animals that don't need it (bees, silkworms, aquatic)
+    const healthSection = document.getElementById('health-section');
+    if (healthSection) {
+        const needsHealth = needsVaccination(pen.animalDefinition);
+        healthSection.style.display = needsHealth ? 'block' : 'none';
+    }
 
-    // Load Growth Chart
-    loadGrowthChart(pen.id);
+    // Load mortality stats for the pen
+    loadMortalityStats(pen.id);
+
+    // Load Health Records (only if animal needs it)
+    if (needsVaccination(pen.animalDefinition)) {
+        loadHealthRecords(pen.id);
+    }
+
+    // Determine harvest type and show/hide chart sections
+    const harvestType = pen.animalDefinition?.harvestType || 'WEIGHT_ONLY';
+    const byproductType = pen.animalDefinition?.byproductType || 'NONE';
+
+    const weightSection = document.getElementById('weight-chart-section');
+    const byproductSection = document.getElementById('byproduct-chart-section');
+
+    if (harvestType === 'BYPRODUCT_ONLY') {
+        // Hide weight chart, show byproduct chart only
+        if (weightSection) weightSection.style.display = 'none';
+        if (byproductSection) byproductSection.style.display = 'block';
+        loadByproductChart(pen.id, pen.animalDefinition);
+    } else if (harvestType === 'BOTH') {
+        // Show both charts
+        if (weightSection) weightSection.style.display = 'block';
+        if (byproductSection) byproductSection.style.display = 'block';
+        loadGrowthChart(pen.id);
+        loadByproductChart(pen.id, pen.animalDefinition);
+    } else {
+        // WEIGHT_ONLY - show weight chart only
+        if (weightSection) weightSection.style.display = 'block';
+        if (byproductSection) byproductSection.style.display = 'none';
+        loadGrowthChart(pen.id);
+    }
+
+    // Update byproduct section icons & titles
+    if (byproductType !== 'NONE' && byproductSection) {
+        const bpIcon = document.getElementById('byproduct-icon');
+        const bpTitle = document.getElementById('byproduct-title');
+        const iconMap = { 'EGGS': 'egg', 'MILK': 'water_drop', 'HONEY': 'hive', 'SILK': 'stroke_full' };
+        const titleMap = {
+            'EGGS': `Xu hướng sản lượng trứng`,
+            'MILK': `Xu hướng sản lượng sữa`,
+            'HONEY': `Xu hướng sản lượng mật ong`,
+            'SILK': `Xu hướng sản lượng tơ tằm`
+        };
+        if (bpIcon) bpIcon.textContent = iconMap[byproductType] || 'eco';
+        if (bpTitle) bpTitle.textContent = titleMap[byproductType] || 'Xu hướng sản phẩm phụ';
+    }
 
     // Update Workflow Buttons State
     updateUIForWorkflow(pen);
@@ -877,6 +990,14 @@ function createAddCageModal() {
                         <div class="capacity-warning hidden" id="capacity-warning">
                             <span class="material-symbols-outlined">warning</span>
                             <span id="capacity-warning-text">Số lượng vượt quá sức chứa!</span>
+                        </div>
+                    </div>
+                    <div class="age-input" id="age-input-group">
+                        <label>Tuổi lúc mua (ngày)</label>
+                        <input type="number" id="animal-age" min="0" value="1" placeholder="VD: 30">
+                        <div class="form-hint" style="margin-top:4px;font-size:12px;color:#9ca3af;">
+                            <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">info</span>
+                            Tuổi của vật nuôi khi mua về (ngày tuổi)
                         </div>
                     </div>
                     <div class="expected-info">
@@ -1375,6 +1496,7 @@ async function confirmAddCage() {
     const width = parseFloat(document.getElementById('pen-width').value);
     const quantity = parseInt(document.getElementById('animal-quantity').value);
     const size = document.querySelector('.size-card.selected')?.dataset.size || 'MEDIUM';
+    const age = parseInt(document.getElementById('animal-age')?.value) || 0;
 
     if (!penCode || !length || !width || !selectedAnimal) {
         showNotification('Vui lòng điền đầy đủ thông tin', 'error');
@@ -1390,7 +1512,8 @@ async function confirmAddCage() {
         widthM: width,
         animalDefinitionId: selectedAnimal.id,
         animalCount: quantity,
-        animalSize: size
+        animalSize: size,
+        animalAgeAtPurchaseDays: age
     };
 
     await createPen(penData);
@@ -1844,6 +1967,54 @@ function selectFeedItemFromInventory(item) {
     window.selectedFeedItemId = item.id;
 }
 
+// ==================== REMINDER BADGES ====================
+
+/**
+ * Update the reminder badge for weight or byproduct sections.
+ * Shows a warning if the last record was too long ago.
+ * @param {'weight'|'byproduct'} type - The section type
+ * @param {Array} records - The records array (must have recordedDate field)
+ * @param {number} intervalDays - How many days between records is expected
+ */
+function updateReminderBadge(type, records, intervalDays) {
+    const badgeEl = document.getElementById(`${type}-reminder-badge`);
+    if (!badgeEl) return;
+
+    if (!records || records.length === 0) {
+        // No records at all — show initial prompt
+        badgeEl.innerHTML = `<span class="reminder-badge reminder-badge--warning">
+            <span class="material-symbols-outlined">notification_important</span>
+            Chưa có dữ liệu
+        </span>`;
+        return;
+    }
+
+    // Find the most recent record date
+    const dates = records.map(r => new Date(r.recordedDate || r.date)).filter(d => !isNaN(d));
+    if (dates.length === 0) { badgeEl.innerHTML = ''; return; }
+
+    const lastDate = new Date(Math.max(...dates));
+    const now = new Date();
+    const daysSince = Math.floor((now - lastDate) / 86400000);
+
+    if (daysSince <= intervalDays) {
+        // Recent enough — no badge
+        badgeEl.innerHTML = '';
+    } else if (daysSince <= intervalDays * 3) {
+        // Warning level
+        badgeEl.innerHTML = `<span class="reminder-badge reminder-badge--warning">
+            <span class="material-symbols-outlined">schedule</span>
+            ${daysSince} ngày trước
+        </span>`;
+    } else {
+        // Danger level — overdue
+        badgeEl.innerHTML = `<span class="reminder-badge reminder-badge--danger">
+            <span class="material-symbols-outlined">warning</span>
+            ${daysSince} ngày chưa ghi
+        </span>`;
+    }
+}
+
 async function loadGrowthChart(penId) {
     const container = document.getElementById('weight-chart');
     if (!container) return;
@@ -1859,9 +2030,8 @@ async function loadGrowthChart(penId) {
         if (response.ok) {
             const data = await response.json();
 
-            // If data is empty, maybe create fake data for demo if requested? 
-            // Or just check feeding logs to show something?
-            // For now, if empty, show placeholder.
+            // Update weight reminder badge
+            updateReminderBadge('weight', data, 7);
 
             if (data.length === 0) {
                 container.innerHTML = '<p class="text-muted" style="text-align:center; padding: 20px;">Chưa có dữ liệu cân nặng</p>';
@@ -1874,20 +2044,579 @@ async function loadGrowthChart(penId) {
             const labels = data.map(d => formatDate(d.recordedDate));
             const values = data.map(d => d.avgWeightKg);
 
-            Charts.createLineChart(container, {
-                data: values,
-                labels: labels,
-                color: '#10b981', // Emerald 500
-                height: 160,
-                showDots: true,
-                fill: true
-            });
+            // Use ApexCharts for professional rendering
+            if (typeof ApexCharts !== 'undefined' && Charts.createApexAreaChart) {
+                Charts.createApexAreaChart(container, {
+                    data: values,
+                    labels: labels,
+                    color: '#10b981',
+                    height: 200,
+                    seriesName: 'Cân nặng TB',
+                    unit: 'kg',
+                    yAxisLabel: 'kg'
+                });
+            } else {
+                Charts.createLineChart(container, {
+                    data: values,
+                    labels: labels,
+                    color: '#10b981',
+                    height: 160,
+                    showDots: true,
+                    fill: true
+                });
+            }
         } else {
             container.innerHTML = '<p class="text-error">Không thể tải biểu đồ</p>';
         }
     } catch (e) {
         console.error("Chart error:", e);
         container.innerHTML = '<p class="text-error">Lỗi tải dữ liệu</p>';
+    }
+}
+
+// ==================== BYPRODUCT CHART ====================
+
+async function loadByproductChart(penId, animalDef) {
+    const container = document.getElementById('byproduct-chart');
+    if (!container) return;
+
+    container.innerHTML = '<div class="loading-spinner"></div>';
+
+    const byproductName = animalDef?.byproductName || 'Sản phẩm phụ';
+    const byproductUnit = animalDef?.byproductUnit || '';
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/livestock/pens/${penId}/byproduct`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+
+            // Update byproduct reminder badge (every 1 day for daily products)
+            updateReminderBadge('byproduct', data, 1);
+
+            if (data.length === 0) {
+                container.innerHTML = `<p class="text-muted" style="text-align:center; padding: 20px;">Chưa có dữ liệu ${byproductName.toLowerCase()}</p>`;
+                // Update stats
+                const totalEl = document.getElementById('byproduct-total');
+                const avgEl = document.getElementById('byproduct-avg-daily');
+                if (totalEl) totalEl.textContent = `0 ${byproductUnit}`;
+                if (avgEl) avgEl.textContent = `0 ${byproductUnit}`;
+                return;
+            }
+
+            data.sort((a, b) => new Date(a.recordedDate) - new Date(b.recordedDate));
+
+            const labels = data.map(d => formatDate(d.recordedDate));
+            const values = data.map(d => parseFloat(d.quantity));
+
+            // Calculate stats
+            const totalProduced = values.reduce((sum, v) => sum + v, 0);
+            const avgDaily = data.length > 0 ? (totalProduced / data.length) : 0;
+
+            const totalEl = document.getElementById('byproduct-total');
+            const avgEl = document.getElementById('byproduct-avg-daily');
+            if (totalEl) totalEl.textContent = `${totalProduced.toFixed(1)} ${byproductUnit}`;
+            if (avgEl) avgEl.textContent = `${avgDaily.toFixed(1)} ${byproductUnit}`;
+
+            // Color based on type
+            const colorMap = { 'EGGS': '#f59e0b', 'MILK': '#3b82f6', 'HONEY': '#eab308', 'SILK': '#8b5cf6' };
+            const chartColor = colorMap[animalDef?.byproductType] || '#f59e0b';
+
+            // Use ApexCharts for professional rendering
+            const byproductNameMap = { 'EGGS': 'Trứng', 'MILK': 'Sữa', 'HONEY': 'Mật ong', 'SILK': 'Tơ tằm' };
+            const chartSeriesName = byproductNameMap[animalDef?.byproductType] || byproductName;
+
+            if (typeof ApexCharts !== 'undefined' && Charts.createApexAreaChart) {
+                Charts.createApexAreaChart(container, {
+                    data: values,
+                    labels: labels,
+                    color: chartColor,
+                    height: 200,
+                    seriesName: chartSeriesName,
+                    unit: byproductUnit,
+                    yAxisLabel: byproductUnit
+                });
+            } else {
+                Charts.createLineChart(container, {
+                    data: values,
+                    labels: labels,
+                    color: chartColor,
+                    height: 160,
+                    showDots: true,
+                    fill: true
+                });
+            }
+        } else {
+            container.innerHTML = '<p class="text-error">Không thể tải biểu đồ</p>';
+        }
+    } catch (e) {
+        console.error("Byproduct chart error:", e);
+        container.innerHTML = '<p class="text-error">Lỗi tải dữ liệu</p>';
+    }
+}
+
+// ==================== WEIGHT RECORD MODAL ====================
+
+/**
+ * Estimate the current average weight of animals based on age and size definitions.
+ * Parses the sizes JSON from animalDefinition to interpolate weight by growth progress.
+ * @param {Object} pen - The selected pen object
+ * @returns {{ estimated: number|null, ageInDays: number, hint: string }}
+ */
+function estimateCurrentWeight(pen) {
+    const animalDef = pen?.animalDefinition;
+    if (!animalDef || !animalDef.sizes) return { estimated: null, ageInDays: 0, hint: '' };
+
+    // Calculate total age in days
+    let daysSinceStart = 0;
+    if (pen.startDate) {
+        daysSinceStart = Math.max(0, Math.floor((Date.now() - new Date(pen.startDate).getTime()) / 86400000));
+    }
+    const ageAtPurchase = pen.animalAgeAtPurchaseDays || 0;
+    const totalAgeDays = daysSinceStart + ageAtPurchase;
+
+    // Parse sizes JSON
+    let sizes;
+    try {
+        sizes = typeof animalDef.sizes === 'string' ? JSON.parse(animalDef.sizes) : animalDef.sizes;
+    } catch (e) {
+        return { estimated: null, ageInDays: totalAgeDays, hint: '' };
+    }
+
+    if (!sizes) return { estimated: null, ageInDays: totalAgeDays, hint: '' };
+
+    // Extract weight ranges from sizes (format: "20-40kg" or "0.5-1kg" or "1-2kg mật/năm")
+    function parseWeightRange(weightStr) {
+        if (!weightStr) return null;
+        const match = String(weightStr).match(/([\d.]+)\s*[-–]\s*([\d.]+)/);
+        if (match) return { min: parseFloat(match[1]), max: parseFloat(match[2]) };
+        // Single value like "5kg"
+        const single = String(weightStr).match(/([\d.]+)\s*kg/i);
+        if (single) return { min: parseFloat(single[1]), max: parseFloat(single[1]) };
+        return null;
+    }
+
+    const sizeKeys = ['small', 'medium', 'large'];
+    const weightRanges = [];
+    for (const key of sizeKeys) {
+        if (sizes[key] && sizes[key].weight) {
+            const range = parseWeightRange(sizes[key].weight);
+            if (range) weightRanges.push({ key, ...range });
+        }
+    }
+
+    if (weightRanges.length === 0) return { estimated: null, ageInDays: totalAgeDays, hint: '' };
+
+    // Growth duration (days to reach full size)
+    const growthDuration = animalDef.growthDurationDays || 180;
+
+    // Growth progress (0.0 to 1.0+)
+    const progress = Math.min(totalAgeDays / growthDuration, 1.0);
+
+    // Interpolate: from smallest min to largest max
+    const globalMin = weightRanges[0].min;
+    const globalMax = weightRanges[weightRanges.length - 1].max;
+    const estimated = globalMin + (globalMax - globalMin) * progress;
+
+    // Round appropriately
+    const rounded = estimated >= 10 ? Math.round(estimated * 10) / 10 : Math.round(estimated * 100) / 100;
+
+    const hint = `Gợi ý: ~${rounded} kg (tuổi ${totalAgeDays} ngày, tiến độ ${Math.round(progress * 100)}%)`;
+
+    return { estimated: rounded, ageInDays: totalAgeDays, hint };
+}
+
+/**
+ * Estimate daily byproduct production based on animalDefinition parameters.
+ * @param {Object} pen - The selected pen object
+ * @returns {{ estimated: number|null, hint: string, canProduce: boolean }}
+ */
+function estimateByproductQuantity(pen) {
+    const animalDef = pen?.animalDefinition;
+    if (!animalDef) return { estimated: null, hint: '', canProduce: false };
+
+    const dailyAmount = animalDef.byproductDailyAmount || 0;
+    const startAgeDays = animalDef.byproductStartAgeDays || 0;
+    const count = pen.animalCount || 0;
+
+    if (dailyAmount <= 0 || count <= 0) return { estimated: null, hint: '', canProduce: false };
+
+    // Calculate total age
+    let daysSinceStart = 0;
+    if (pen.startDate) {
+        daysSinceStart = Math.max(0, Math.floor((Date.now() - new Date(pen.startDate).getTime()) / 86400000));
+    }
+    const ageAtPurchase = pen.animalAgeAtPurchaseDays || 0;
+    const totalAgeDays = daysSinceStart + ageAtPurchase;
+
+    if (totalAgeDays < startAgeDays) {
+        const daysLeft = startAgeDays - totalAgeDays;
+        return {
+            estimated: null,
+            hint: `Vật nuôi chưa đủ tuổi sản xuất (còn ${daysLeft} ngày nữa)`,
+            canProduce: false
+        };
+    }
+
+    // Production ramp-up: first 30 days after start age, production increases gradually
+    const daysSinceStartProduction = totalAgeDays - startAgeDays;
+    let productionFactor = 1.0;
+    if (daysSinceStartProduction < 30) {
+        productionFactor = 0.5 + (daysSinceStartProduction / 30) * 0.5; // 50%-100% ramp
+    }
+
+    const estimated = Math.round(dailyAmount * count * productionFactor * 100) / 100;
+    const unit = animalDef.byproductUnit || '';
+    const productName = animalDef.byproductName || 'sản phẩm';
+
+    const hint = `Gợi ý: ~${estimated} ${unit} ${productName}/ngày (${count} con × ${dailyAmount} ${unit})`;
+
+    return { estimated, hint, canProduce: true };
+}
+
+function openWeightRecordModal() {
+    if (!selectedPen || !selectedPen.id) {
+        showNotification('Vui lòng chọn chuồng trước', 'warning');
+        return;
+    }
+    if (!selectedPen.animalCount || selectedPen.animalCount <= 0) {
+        showNotification('Chuồng không có vật nuôi', 'warning');
+        return;
+    }
+
+    const penName = `Chuồng ${selectedPen.code} — ${selectedPen.animalDefinition?.name || ''}`;
+    document.getElementById('weight-record-pen-name').textContent = penName;
+    document.getElementById('weight-record-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('weight-record-notes').value = '';
+
+    // Auto-suggest weight
+    const suggestion = estimateCurrentWeight(selectedPen);
+    const weightInput = document.getElementById('weight-record-value');
+    const suggestionEl = document.getElementById('weight-suggestion');
+    const suggestionText = document.getElementById('weight-suggestion-text');
+    const suggestionApply = document.getElementById('weight-suggestion-apply');
+
+    if (suggestion.estimated !== null && suggestionEl && suggestionText) {
+        weightInput.value = '';
+        weightInput.placeholder = suggestion.estimated;
+        suggestionText.textContent = suggestion.hint;
+        suggestionEl.style.display = 'flex';
+
+        // Apply suggestion on click
+        if (suggestionApply) {
+            suggestionApply.onclick = () => {
+                weightInput.value = suggestion.estimated;
+                weightInput.focus();
+            };
+        }
+    } else {
+        weightInput.value = '';
+        weightInput.placeholder = '0.00';
+        if (suggestionEl) suggestionEl.style.display = 'none';
+    }
+
+    const modal = document.getElementById('weight-record-modal');
+    modal.classList.add('modal--visible');
+}
+
+function closeWeightRecordModal() {
+    const modal = document.getElementById('weight-record-modal');
+    modal.classList.remove('modal--visible');
+}
+
+async function submitWeightRecord() {
+    if (!selectedPen) return;
+
+    const weight = parseFloat(document.getElementById('weight-record-value').value);
+    const date = document.getElementById('weight-record-date').value;
+    const notes = document.getElementById('weight-record-notes').value;
+
+    if (!weight || weight <= 0) {
+        showNotification('Vui lòng nhập cân nặng hợp lệ', 'error');
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/feeding/growth`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+                penId: selectedPen.id,
+                weight: weight,
+                date: date,
+                notes: notes
+            })
+        });
+
+        if (response.ok) {
+            showNotification('✅ Đã ghi nhận cân nặng thành công!', 'success');
+            closeWeightRecordModal();
+            loadGrowthChart(selectedPen.id);
+        } else {
+            const txt = await response.text();
+            showNotification('Lỗi: ' + txt, 'error');
+        }
+    } catch (e) {
+        showNotification('Lỗi kết nối: ' + e.message, 'error');
+    }
+}
+
+// ==================== BYPRODUCT RECORD MODAL ====================
+
+function openByproductRecordModal() {
+    if (!selectedPen || !selectedPen.id) {
+        showNotification('Vui lòng chọn chuồng trước', 'warning');
+        return;
+    }
+    if (!selectedPen.animalCount || selectedPen.animalCount <= 0) {
+        showNotification('Chuồng không có vật nuôi', 'warning');
+        return;
+    }
+
+    const animalDef = selectedPen.animalDefinition;
+    const byproductName = animalDef?.byproductName || 'Sản phẩm phụ';
+    const byproductUnit = animalDef?.byproductUnit || 'đơn vị';
+    const byproductType = animalDef?.byproductType || 'NONE';
+
+    const penName = `Chuồng ${selectedPen.code} — ${animalDef?.name || ''}`;
+    document.getElementById('byproduct-record-pen-name').textContent = penName;
+    document.getElementById('byproduct-record-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('byproduct-record-notes').value = '';
+    document.getElementById('byproduct-record-unit').textContent = byproductUnit;
+    document.getElementById('byproduct-record-hint').textContent = `Sản lượng ${byproductName.toLowerCase()} thu được`;
+
+    // Update modal title icon
+    const iconMap = { 'EGGS': 'egg', 'MILK': 'water_drop', 'HONEY': 'hive', 'SILK': 'stroke_full' };
+    const modalIcon = document.getElementById('byproduct-modal-icon');
+    const modalTitle = document.getElementById('byproduct-modal-title');
+    if (modalIcon) modalIcon.textContent = iconMap[byproductType] || 'eco';
+    if (modalTitle) modalTitle.textContent = `Ghi nhận ${byproductName}`;
+
+    // Auto-suggest byproduct quantity
+    const suggestion = estimateByproductQuantity(selectedPen);
+    const quantityInput = document.getElementById('byproduct-record-value');
+    const suggestionEl = document.getElementById('byproduct-suggestion');
+    const suggestionText = document.getElementById('byproduct-suggestion-text');
+    const suggestionApply = document.getElementById('byproduct-suggestion-apply');
+
+    if (suggestion.estimated !== null && suggestionEl && suggestionText) {
+        quantityInput.value = '';
+        quantityInput.placeholder = suggestion.estimated;
+        suggestionText.textContent = suggestion.hint;
+        suggestionEl.style.display = 'flex';
+
+        if (suggestionApply) {
+            suggestionApply.onclick = () => {
+                quantityInput.value = suggestion.estimated;
+                quantityInput.focus();
+            };
+        }
+    } else {
+        quantityInput.value = '';
+        quantityInput.placeholder = '0';
+        if (suggestionEl) {
+            if (suggestion.hint) {
+                // Show "not old enough" message
+                suggestionText.textContent = suggestion.hint;
+                suggestionEl.style.display = 'flex';
+                if (suggestionApply) suggestionApply.style.display = 'none';
+            } else {
+                suggestionEl.style.display = 'none';
+            }
+        }
+    }
+
+    const modal = document.getElementById('byproduct-record-modal');
+    modal.classList.add('modal--visible');
+}
+
+function closeByproductRecordModal() {
+    const modal = document.getElementById('byproduct-record-modal');
+    modal.classList.remove('modal--visible');
+}
+
+async function submitByproductRecord() {
+    if (!selectedPen) return;
+
+    const quantity = parseFloat(document.getElementById('byproduct-record-value').value);
+    const date = document.getElementById('byproduct-record-date').value;
+    const notes = document.getElementById('byproduct-record-notes').value;
+    const animalDef = selectedPen.animalDefinition;
+
+    if (!quantity || quantity <= 0) {
+        showNotification('Vui lòng nhập sản lượng hợp lệ', 'error');
+        return;
+    }
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/livestock/pens/${selectedPen.id}/byproduct`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+                productType: animalDef?.byproductType || 'NONE',
+                quantity: quantity,
+                unit: animalDef?.byproductUnit || '',
+                date: date,
+                notes: notes
+            })
+        });
+
+        if (response.ok) {
+            const productName = animalDef?.byproductName || 'sản phẩm';
+            showNotification(`✅ Đã ghi nhận ${productName} thành công!`, 'success');
+            closeByproductRecordModal();
+            loadByproductChart(selectedPen.id, animalDef);
+        } else {
+            const txt = await response.text();
+            showNotification('Lỗi: ' + txt, 'error');
+        }
+    } catch (e) {
+        showNotification('Lỗi kết nối: ' + e.message, 'error');
+    }
+}
+
+// ==================== SELL BYPRODUCT MODAL ====================
+
+let sellByproductPenData = null;
+
+function openSellByproductModal() {
+    if (!selectedPen || !selectedPen.id) {
+        showNotification('Vui lòng chọn chuồng trước', 'warning');
+        return;
+    }
+
+    const animalDef = selectedPen.animalDefinition;
+    if (!animalDef || animalDef.byproductType === 'NONE') {
+        showNotification('Vật nuôi này không có sản phẩm phụ', 'warning');
+        return;
+    }
+
+    sellByproductPenData = selectedPen;
+    const byproductName = animalDef.byproductName || 'Sản phẩm phụ';
+    const byproductUnit = animalDef.byproductUnit || '';
+
+    document.getElementById('sell-byproduct-title').textContent = `Bán ${byproductName}`;
+    document.getElementById('sell-bp-product-name').textContent = byproductName;
+    document.getElementById('sell-bp-unit').textContent = byproductUnit;
+    document.getElementById('sell-bp-price-unit').textContent = `₫/${byproductUnit}`;
+    document.getElementById('sell-bp-quantity').value = '';
+    document.getElementById('sell-bp-price').value = '';
+    document.getElementById('sell-bp-buyer').value = '';
+    document.getElementById('sell-bp-notes').value = '';
+
+    // Load total produced
+    loadByproductTotalForSell(selectedPen.id);
+
+    // Reset preview
+    updateSellByproductPreview();
+
+    const modal = document.getElementById('sell-byproduct-modal');
+    modal.classList.add('modal--visible');
+
+    // Live preview listeners
+    document.getElementById('sell-bp-quantity').addEventListener('input', updateSellByproductPreview);
+    document.getElementById('sell-bp-price').addEventListener('input', updateSellByproductPreview);
+}
+
+function closeSellByproductModal() {
+    const modal = document.getElementById('sell-byproduct-modal');
+    modal.classList.remove('modal--visible');
+    sellByproductPenData = null;
+    document.getElementById('sell-bp-quantity').removeEventListener('input', updateSellByproductPreview);
+    document.getElementById('sell-bp-price').removeEventListener('input', updateSellByproductPreview);
+}
+
+async function loadByproductTotalForSell(penId) {
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/livestock/pens/${penId}/byproduct/total`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (response.ok) {
+            const data = await response.json();
+            const unit = data.unit || '';
+            document.getElementById('sell-bp-total-produced').textContent = `${parseFloat(data.total || 0).toFixed(1)} ${unit}`;
+        }
+    } catch (e) {
+        console.error('Error loading byproduct total:', e);
+    }
+}
+
+function updateSellByproductPreview() {
+    const quantity = parseFloat(document.getElementById('sell-bp-quantity').value) || 0;
+    const price = parseFloat(document.getElementById('sell-bp-price').value) || 0;
+    const total = quantity * price;
+    const unit = sellByproductPenData?.animalDefinition?.byproductUnit || '';
+
+    document.getElementById('sell-bp-preview-qty').textContent = `${quantity} ${unit}`;
+    document.getElementById('sell-bp-preview-price').textContent = formatCurrency(price);
+    document.getElementById('sell-bp-preview-total').textContent = formatCurrency(total);
+
+    const submitBtn = document.getElementById('sell-bp-submit-btn');
+    submitBtn.disabled = !(quantity > 0 && price > 0);
+}
+
+async function submitSellByproduct() {
+    if (!sellByproductPenData) return;
+
+    const quantity = parseFloat(document.getElementById('sell-bp-quantity').value);
+    const price = parseFloat(document.getElementById('sell-bp-price').value);
+    const buyer = document.getElementById('sell-bp-buyer').value;
+    const notes = document.getElementById('sell-bp-notes').value;
+    const animalDef = sellByproductPenData.animalDefinition;
+
+    if (!quantity || quantity <= 0 || !price || price <= 0) {
+        showNotification('Vui lòng nhập số lượng và giá hợp lệ', 'error');
+        return;
+    }
+
+    const submitBtn = document.getElementById('sell-bp-submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="material-symbols-outlined icon-sm rotating">sync</span> Đang xử lý...';
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/livestock/pens/${sellByproductPenData.id}/sell-byproduct`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+                quantity: quantity,
+                pricePerUnit: price,
+                buyer: buyer,
+                notes: notes,
+                productName: animalDef?.byproductName || 'Sản phẩm phụ'
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            const totalRevenue = quantity * price;
+            showNotification(`🎉 Bán ${animalDef?.byproductName || 'sản phẩm'} thành công! +${formatCurrency(totalRevenue)}`, 'success');
+            closeSellByproductModal();
+        } else {
+            showNotification(result.error || 'Lỗi khi bán sản phẩm', 'error');
+        }
+    } catch (error) {
+        console.error('Sell byproduct error:', error);
+        showNotification('Lỗi kết nối server', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined icon-sm">check_circle</span> Xác nhận bán';
     }
 }
 
@@ -1903,12 +2632,43 @@ function openHarvestModal() {
         return;
     }
 
+    const harvestType = selectedPen.animalDefinition?.harvestType || 'WEIGHT_ONLY';
+
+    // BYPRODUCT_ONLY: redirect to sell byproduct modal
+    if (harvestType === 'BYPRODUCT_ONLY') {
+        openSellByproductModal();
+        return;
+    }
+
     if (!selectedPen.animalCount || selectedPen.animalCount <= 0) {
         showNotification('Chuồng không có vật nuôi để bán', 'warning');
         return;
     }
 
     harvestPenData = selectedPen;
+
+    // Show/hide harvest type toggle
+    const toggleContainer = document.getElementById('harvest-type-toggle');
+    if (toggleContainer) {
+        if (harvestType === 'BOTH') {
+            toggleContainer.style.display = 'flex';
+            // Update byproduct label
+            const bpIcon = document.getElementById('harvest-toggle-bp-icon');
+            const bpLabel = document.getElementById('harvest-toggle-bp-label');
+            const iconMap = { 'EGGS': 'egg', 'MILK': 'water_drop', 'HONEY': 'hive', 'SILK': 'stroke_full' };
+            const labelMap = {
+                'EGGS': 'Bán trứng', 'MILK': 'Bán sữa',
+                'HONEY': 'Bán mật ong', 'SILK': 'Bán tơ tằm'
+            };
+            const bt = selectedPen.animalDefinition?.byproductType || 'EGGS';
+            if (bpIcon) bpIcon.textContent = iconMap[bt] || 'eco';
+            if (bpLabel) bpLabel.textContent = labelMap[bt] || 'Bán sản phẩm phụ';
+            // Default to animal tab
+            switchHarvestType('animal');
+        } else {
+            toggleContainer.style.display = 'none';
+        }
+    }
 
     // Populate summary
     const animalName = selectedPen.animalDefinition?.name || 'Không xác định';
@@ -1951,6 +2711,21 @@ function closeHarvestModal() {
     // Remove listeners
     document.getElementById('harvest-quantity').removeEventListener('input', updateHarvestPreview);
     document.getElementById('harvest-price').removeEventListener('input', updateHarvestPreview);
+}
+
+function switchHarvestType(type) {
+    const btnAnimal = document.getElementById('harvest-toggle-animal');
+    const btnByproduct = document.getElementById('harvest-toggle-byproduct');
+
+    if (type === 'byproduct') {
+        // Close current harvest modal and open sell byproduct modal
+        closeHarvestModal();
+        openSellByproductModal();
+    } else {
+        // animal tab is active
+        if (btnAnimal) btnAnimal.classList.add('active');
+        if (btnByproduct) btnByproduct.classList.remove('active');
+    }
 }
 
 function updateHarvestPreview() {
@@ -2067,23 +2842,52 @@ async function submitHarvest() {
 
 // ==================== WORKFLOW UI LOGIC ====================
 
+/**
+ * Determines if an animal type needs vaccination based on category.
+ * Land animals and poultry need vaccination.
+ * Aquatic animals, bees, and silkworms don't get traditional vaccines.
+ */
+function needsVaccination(animalDef) {
+    if (!animalDef) return false;
+    const category = (animalDef.category || '').toUpperCase();
+    const name = (animalDef.name || '').toLowerCase();
+
+    // Land animals (cattle, buffalo, pigs, goats, sheep) always need vaccination
+    if (category === 'LAND') return true;
+
+    // SPECIAL category: poultry needs vaccination, but bees/silkworms don't
+    if (category === 'SPECIAL') {
+        if (name.includes('ong') || name.includes('tằm')) return false;
+        return true; // Gà, Vịt, Ngan, Ngỗng, Chim cút
+    }
+
+    // Aquatic animals (FRESHWATER, BRACKISH, SALTWATER) don't get vaccinated
+    return false;
+}
+
 function updateUIForWorkflow(pen) {
     // Buttons
     const btnSelect = document.getElementById('btn-select-animal');
     const btnFeed = document.getElementById('btn-feed');
     const btnClean = document.getElementById('btn-clean');
     const btnVaccine = document.getElementById('btn-vaccine');
+    const btnMortality = document.getElementById('btn-mortality');
     const btnHarvest = document.getElementById('btn-harvest');
     const btnDelete = document.getElementById('btn-delete-pen');
+    const btnUtility = document.getElementById('btn-utility');
 
     // Reset default
-    [btnFeed, btnClean, btnVaccine, btnHarvest].forEach(btn => disableButton(btn));
+    [btnFeed, btnClean, btnVaccine, btnMortality, btnHarvest, btnUtility].forEach(btn => disableButton(btn));
     enableButton(btnDelete); // Always allow delete
+
+    // Remove vaccine tooltip class
+    if (btnVaccine) btnVaccine.classList.remove('action-btn--no-vaccine');
 
     if (!pen.animalCount || pen.animalCount === 0) {
         // Empty State: Step 1 active
         enableButton(btnSelect);
         enableButton(btnDelete);
+        enableButton(btnUtility); // Allow utility setup even for empty pens
     } else {
         // Occupied State
         disableButton(btnSelect);
@@ -2097,8 +2901,44 @@ function updateUIForWorkflow(pen) {
         }
 
         enableButton(btnClean);
-        enableButton(btnVaccine);
+
+        // Mortality button: enabled for normal animals, disabled for bees/silkworms
+        if (name.includes('ong') || name.includes('tằm')) {
+            disableButton(btnMortality);
+        } else {
+            enableButton(btnMortality);
+        }
+
+        // Vaccine button: only for animals that need vaccination
+        if (needsVaccination(pen.animalDefinition)) {
+            enableButton(btnVaccine);
+        } else {
+            disableButton(btnVaccine);
+            if (btnVaccine) btnVaccine.classList.add('action-btn--no-vaccine');
+            // Change label to indicate why it's disabled
+            const btnLabel = btnVaccine?.querySelector('.action-btn__label');
+            if (btnLabel) btnLabel.textContent = 'Tiêm phòng';
+        }
+
         enableButton(btnHarvest);
+        enableButton(btnUtility);
+
+        // Update harvest button label based on harvest type
+        if (btnHarvest) {
+            const harvestType = pen.animalDefinition?.harvestType || 'WEIGHT_ONLY';
+            const btnLabel = btnHarvest.querySelector('.action-btn__label');
+            const btnIcon = btnHarvest.querySelector('.material-symbols-outlined');
+            if (harvestType === 'BYPRODUCT_ONLY') {
+                if (btnLabel) btnLabel.textContent = 'Bán sản phẩm';
+                if (btnIcon) btnIcon.textContent = 'storefront';
+            } else if (harvestType === 'BOTH') {
+                if (btnLabel) btnLabel.textContent = 'Thu hoạch';
+                if (btnIcon) btnIcon.textContent = 'payments';
+            } else {
+                if (btnLabel) btnLabel.textContent = 'Thu hoạch';
+                if (btnIcon) btnIcon.textContent = 'agriculture';
+            }
+        }
     }
 }
 
@@ -2152,12 +2992,616 @@ async function cleanPen() {
     }
 }
 
-function openVaccineModal() {
-    showNotification('Tính năng Tiêm phòng đang phát triển', 'info');
+// ==================== VACCINATION SYSTEM (Comprehensive) ====================
+
+let cachedVaccineSchedules = [];
+let cachedHealthRecords = [];
+let currentVaccineFilter = 'all';
+let vaccineModalPenId = null; // Track which pen the vaccine modal is showing
+
+// Vaccine cost estimates per animal type (VND per dose per animal)
+const VACCINE_COST_MAP = {
+    // Gia súc lớn (Trâu, Bò)
+    'Lở mồm long móng': { cost: 15000, unit: 'liều' },
+    'Tụ huyết trùng': { cost: 12000, unit: 'liều' },
+    'Ký sinh trùng đường máu': { cost: 8000, unit: 'liều' },
+    'Viêm phổi': { cost: 10000, unit: 'liều' },
+    'Viêm vú': { cost: 20000, unit: 'liều' },
+    'Sốt sữa': { cost: 25000, unit: 'liều' },
+    'Giun sán': { cost: 5000, unit: 'liều' },
+    // Lợn
+    'Dịch tả lợn': { cost: 8000, unit: 'liều' },
+    'Tai xanh (PRRS)': { cost: 12000, unit: 'liều' },
+    'Suyễn lợn': { cost: 6000, unit: 'liều' },
+    'Tiêu chảy phân trắng': { cost: 5000, unit: 'liều' },
+    'Phó thương hàn': { cost: 7000, unit: 'liều' },
+    'E.coli': { cost: 6000, unit: 'liều' },
+    // Gia cầm
+    'Newcastle': { cost: 500, unit: 'liều' },
+    'Cúm gia cầm (H5N1)': { cost: 800, unit: 'liều' },
+    'Gumboro': { cost: 400, unit: 'liều' },
+    'Cầu trùng': { cost: 300, unit: 'liều' },
+    'Dịch tả vịt': { cost: 600, unit: 'liều' },
+    'Viêm gan virus': { cost: 700, unit: 'liều' },
+    'Marek': { cost: 500, unit: 'liều' },
+    // Dê/Cừu
+    'Đậu dê': { cost: 5000, unit: 'liều' },
+    'Tẩy giun định kỳ': { cost: 3000, unit: 'liều' },
+    'Viêm ruột hoại tử': { cost: 8000, unit: 'liều' },
+};
+
+async function openVaccineModal() {
+    if (!selectedPen || !selectedPen.animalDefinition) {
+        showNotification('Vui lòng chọn chuồng có vật nuôi', 'warning');
+        return;
+    }
+
+    const modal = document.getElementById('vaccination-modal');
+    if (!modal) return;
+
+    // Show modal
+    modal.classList.add('modal--visible');
+
+    // Render pen selector bar (all pens that need vaccination)
+    renderVaccinePenSelector();
+
+    // Load data for the selected pen
+    await loadVaccineDataForPen(selectedPen);
+}
+
+function renderVaccinePenSelector() {
+    const container = document.getElementById('vaccine-pen-selector');
+    if (!container) return;
+
+    // Filter pens that have animals and need vaccination
+    const vaccinePens = allPens.filter(p => p.animalCount > 0 && needsVaccination(p.animalDefinition));
+
+    if (vaccinePens.length <= 1) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+    }
+
+    container.style.display = 'flex';
+    container.innerHTML = vaccinePens.map(pen => {
+        const isActive = pen.id === (vaccineModalPenId || selectedPen?.id);
+        const animalName = pen.animalDefinition?.name || '?';
+        return `
+            <button class="vaccine-pen-chip ${isActive ? 'vaccine-pen-chip--active' : ''}"
+                    onclick="switchVaccinePen(${pen.id})">
+                <span class="material-symbols-outlined" style="font-size: 16px;">${getAnimalIcon(pen.animalDefinition)}</span>
+                <span>${pen.code}</span>
+                <span class="vaccine-pen-chip__count">${animalName} · ${pen.animalCount}</span>
+            </button>
+        `;
+    }).join('');
+}
+
+async function switchVaccinePen(penId) {
+    const pen = allPens.find(p => p.id === penId);
+    if (!pen) return;
+    await loadVaccineDataForPen(pen);
+    renderVaccinePenSelector();
+}
+
+async function loadVaccineDataForPen(pen) {
+    vaccineModalPenId = pen.id;
+    const animalDef = pen.animalDefinition;
+
+    // Update title
+    const titleEl = document.getElementById('vaccine-modal-title');
+    if (titleEl) titleEl.textContent = `Tiêm phòng - ${pen.code} (${animalDef.name})`;
+
+    // Render pen info card
+    renderVaccinePenInfo(pen);
+
+    // Show loading
+    const listEl = document.getElementById('vaccine-list');
+    if (listEl) {
+        listEl.innerHTML = '<div class="vaccine-list__loading"><span class="material-symbols-outlined spin">progress_activity</span><span>Đang tải lịch tiêm phòng...</span></div>';
+    }
+
+    // Reset filter
+    currentVaccineFilter = 'all';
+    document.querySelectorAll('.vaccine-filter-tab').forEach(tab => {
+        tab.classList.toggle('vaccine-filter-tab--active', tab.dataset.filter === 'all');
+    });
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+        const [schedulesRes, healthRes] = await Promise.all([
+            fetch(`${API_BASE_URL}/livestock/vaccination-schedules/${animalDef.id}`, { headers }),
+            fetch(`${API_BASE_URL}/livestock/pens/${pen.id}/health`, { headers })
+        ]);
+
+        cachedVaccineSchedules = schedulesRes.ok ? await schedulesRes.json() : [];
+        const allHealth = healthRes.ok ? await healthRes.json() : [];
+        cachedHealthRecords = allHealth.filter(h => h.eventType === 'VACCINE');
+
+        renderVaccineList(pen);
+        renderVaccineCostEstimate(pen);
+        populateVaccineSelect();
+    } catch (error) {
+        console.error('Error loading vaccination data:', error);
+        if (listEl) {
+            listEl.innerHTML = '<div class="vaccine-list__empty"><span class="material-symbols-outlined">error</span>Lỗi tải dữ liệu tiêm phòng</div>';
+        }
+    }
+}
+
+function renderVaccinePenInfo(pen) {
+    const container = document.getElementById('vaccine-pen-info');
+    if (!container) return;
+
+    const animalDef = pen.animalDefinition;
+    const startDate = pen.startDate ? new Date(pen.startDate) : new Date();
+    const ageAtPurchase = pen.ageAtPurchase || 0;
+    const daysSinceStart = Math.floor((new Date() - startDate) / (1000 * 60 * 60 * 24));
+    const currentAge = daysSinceStart + ageAtPurchase;
+
+    container.innerHTML = `
+        <div class="vaccine-pen-info__grid">
+            <div class="vaccine-pen-info__item">
+                <span class="material-symbols-outlined">pets</span>
+                <div>
+                    <div class="vaccine-pen-info__label">Vật nuôi</div>
+                    <div class="vaccine-pen-info__value">${animalDef.name} × ${pen.animalCount} ${animalDef.unit || 'con'}</div>
+                </div>
+            </div>
+            <div class="vaccine-pen-info__item">
+                <span class="material-symbols-outlined">calendar_month</span>
+                <div>
+                    <div class="vaccine-pen-info__label">Tuổi hiện tại</div>
+                    <div class="vaccine-pen-info__value">${currentAge} ngày</div>
+                </div>
+            </div>
+            <div class="vaccine-pen-info__item">
+                <span class="material-symbols-outlined">event_available</span>
+                <div>
+                    <div class="vaccine-pen-info__label">Ngày nhập chuồng</div>
+                    <div class="vaccine-pen-info__value">${startDate.toLocaleDateString('vi-VN')}</div>
+                </div>
+            </div>
+            <div class="vaccine-pen-info__item">
+                <span class="material-symbols-outlined">health_and_safety</span>
+                <div>
+                    <div class="vaccine-pen-info__label">Tình trạng</div>
+                    <div class="vaccine-pen-info__value" style="color: var(--color-success);">Đang nuôi</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function renderVaccineCostEstimate(pen) {
+    const container = document.getElementById('vaccine-cost-estimate');
+    if (!container) return;
+
+    const animalCount = pen.animalCount || 1;
+    const startDate = pen.startDate ? new Date(pen.startDate) : new Date();
+    const ageAtPurchase = pen.ageAtPurchase || 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const items = buildVaccineItems(startDate, ageAtPurchase, today);
+    const pending = items.filter(i => i.status !== 'completed');
+
+    if (pending.length === 0) {
+        container.innerHTML = `
+            <div class="vaccine-cost-card vaccine-cost-card--done">
+                <span class="material-symbols-outlined">verified</span>
+                <span>Tất cả vaccine đã hoàn thành! Không có chi phí phát sinh.</span>
+            </div>
+        `;
+        return;
+    }
+
+    let totalCost = 0;
+    let nextVaccine = null;
+    let nextDate = null;
+
+    pending.forEach(item => {
+        const costEntry = findVaccineCost(item.name);
+        const itemCost = costEntry ? costEntry.cost * animalCount : 0;
+        totalCost += itemCost;
+        if (!nextDate || item.targetDate < nextDate) {
+            nextDate = item.targetDate;
+            nextVaccine = item;
+        }
+    });
+
+    const nextCostEntry = nextVaccine ? findVaccineCost(nextVaccine.name) : null;
+    const nextCost = nextCostEntry ? nextCostEntry.cost * animalCount : 0;
+
+    container.innerHTML = `
+        <div class="vaccine-cost-grid">
+            <div class="vaccine-cost-card">
+                <div class="vaccine-cost-card__icon" style="background: rgba(239,68,68,0.1); color: var(--color-error);">
+                    <span class="material-symbols-outlined">payments</span>
+                </div>
+                <div>
+                    <div class="vaccine-cost-card__label">Tổng chi phí dự kiến</div>
+                    <div class="vaccine-cost-card__value">${totalCost > 0 ? formatMoney(totalCost) : 'Liên hệ thú y'}</div>
+                    <div class="vaccine-cost-card__sub">${pending.length} mũi × ${animalCount} ${pen.animalDefinition?.unit || 'con'}</div>
+                </div>
+            </div>
+            <div class="vaccine-cost-card">
+                <div class="vaccine-cost-card__icon" style="background: rgba(59,130,246,0.1); color: var(--color-primary);">
+                    <span class="material-symbols-outlined">event_upcoming</span>
+                </div>
+                <div>
+                    <div class="vaccine-cost-card__label">Mũi tiêm tiếp theo</div>
+                    <div class="vaccine-cost-card__value">${nextVaccine ? nextVaccine.name : '--'}</div>
+                    <div class="vaccine-cost-card__sub">${nextDate ? nextDate.toLocaleDateString('vi-VN') : '--'}${nextCost > 0 ? ' · ~' + formatMoney(nextCost) : ''}</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function findVaccineCost(name) {
+    // Try exact match first
+    if (VACCINE_COST_MAP[name]) return VACCINE_COST_MAP[name];
+    // Try partial match
+    const lowerName = name.toLowerCase();
+    for (const [key, val] of Object.entries(VACCINE_COST_MAP)) {
+        if (lowerName.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerName)) {
+            return val;
+        }
+    }
+    return null;
+}
+
+function formatMoney(amount) {
+    return new Intl.NumberFormat('vi-VN').format(amount) + ' ₫';
+}
+
+function closeVaccineModal() {
+    const modal = document.getElementById('vaccination-modal');
+    if (modal) modal.classList.remove('modal--visible');
+    vaccineModalPenId = null;
+}
+
+function renderVaccineList(pen) {
+    const listEl = document.getElementById('vaccine-list');
+    if (!listEl) return;
+
+    const activePen = pen || allPens.find(p => p.id === vaccineModalPenId) || selectedPen;
+    if (!activePen) return;
+
+    const startDate = activePen.startDate ? new Date(activePen.startDate) : new Date();
+    const ageAtPurchase = activePen.ageAtPurchase || 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const items = buildVaccineItems(startDate, ageAtPurchase, today);
+    updateVaccineSummary(items);
+
+    const filtered = currentVaccineFilter === 'all'
+        ? items
+        : items.filter(item => item.status === currentVaccineFilter);
+
+    if (filtered.length === 0) {
+        const filterLabels = { all: 'tiêm phòng', completed: 'đã hoàn thành', overdue: 'quá hạn', upcoming: 'sắp tới' };
+        listEl.innerHTML = `<div class="vaccine-list__empty"><span class="material-symbols-outlined">vaccines</span>Không có mục ${filterLabels[currentVaccineFilter] || ''} nào</div>`;
+        return;
+    }
+
+    listEl.innerHTML = '';
+    filtered.sort((a, b) => {
+        const order = { overdue: 0, upcoming: 1, completed: 2 };
+        if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
+        return (a.targetDate || 0) - (b.targetDate || 0);
+    });
+
+    const animalCount = activePen.animalCount || 1;
+    filtered.forEach(item => {
+        const el = createVaccineItemElement(item, animalCount);
+        listEl.appendChild(el);
+    });
+}
+
+function buildVaccineItems(startDate, ageAtPurchase, today) {
+    const items = [];
+
+    const healthByName = {};
+    cachedHealthRecords.forEach(hr => {
+        const key = hr.name.toLowerCase().trim();
+        if (!healthByName[key]) healthByName[key] = [];
+        healthByName[key].push(hr);
+    });
+
+    cachedVaccineSchedules.forEach(schedule => {
+        const daysOffset = schedule.ageDays - ageAtPurchase;
+        const targetDate = new Date(startDate);
+        targetDate.setDate(targetDate.getDate() + Math.max(0, daysOffset));
+        targetDate.setHours(0, 0, 0, 0);
+
+        const key = schedule.name.toLowerCase().trim();
+        const matchedRecords = healthByName[key] || [];
+        const completedRecord = matchedRecords.find(r => r.status === 'COMPLETED');
+        const plannedRecord = matchedRecords.find(r => r.status === 'PLANNED');
+
+        let status = 'upcoming';
+        let healthRecord = completedRecord || plannedRecord || null;
+
+        if (completedRecord) {
+            status = 'completed';
+            healthRecord = completedRecord;
+        } else if (targetDate < today) {
+            status = 'overdue';
+        }
+
+        items.push({
+            schedule,
+            healthRecord,
+            targetDate,
+            status,
+            name: schedule.name,
+            description: schedule.description || '',
+            isMandatory: schedule.isMandatory || schedule.mandatory,
+            ageDays: schedule.ageDays,
+        });
+    });
+
+    return items;
+}
+
+function updateVaccineSummary(items) {
+    const total = items.length;
+    const completed = items.filter(i => i.status === 'completed').length;
+    const overdue = items.filter(i => i.status === 'overdue').length;
+    const upcoming = items.filter(i => i.status === 'upcoming').length;
+
+    const setCount = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    };
+
+    setCount('vaccine-total-count', total);
+    setCount('vaccine-completed-count', completed);
+    setCount('vaccine-overdue-count', overdue);
+    setCount('vaccine-upcoming-count', upcoming);
+}
+
+function createVaccineItemElement(item, animalCount) {
+    const el = document.createElement('div');
+    el.className = `vaccine-item vaccine-item--${item.status}`;
+
+    const iconClass = `vaccine-item__icon--${item.status}`;
+    const iconName = item.status === 'completed' ? 'check_circle'
+        : item.status === 'overdue' ? 'warning' : 'schedule';
+
+    const statusLabel = item.status === 'completed' ? 'Đã tiêm'
+        : item.status === 'overdue' ? 'Quá hạn' : 'Sắp tới';
+
+    const dateStr = item.targetDate ? item.targetDate.toLocaleDateString('vi-VN') : '--';
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diffDays = Math.round((item.targetDate - today) / (1000 * 60 * 60 * 24));
+    let timeLabel = '';
+    if (item.status === 'overdue') {
+        timeLabel = `Quá hạn ${Math.abs(diffDays)} ngày`;
+    } else if (item.status === 'upcoming') {
+        timeLabel = diffDays === 0 ? 'Hôm nay' : `Còn ${diffDays} ngày`;
+    } else if (item.healthRecord) {
+        const completedDate = new Date(item.healthRecord.eventDate);
+        timeLabel = `Hoàn thành: ${completedDate.toLocaleDateString('vi-VN')}`;
+    }
+
+    const mandatoryBadge = item.isMandatory
+        ? '<span class="vaccine-item__mandatory">Bắt buộc</span>'
+        : '<span class="vaccine-item__optional">Tùy chọn</span>';
+
+    // Cost estimate for this vaccine
+    const costEntry = findVaccineCost(item.name);
+    const itemCost = costEntry ? costEntry.cost * (animalCount || 1) : 0;
+    const costLabel = itemCost > 0 ? `~${formatMoney(itemCost)}` : '';
+
+    const actionBtn = item.status !== 'completed'
+        ? `<button class="vaccine-item__action-btn" onclick="event.stopPropagation(); confirmVaccineComplete(${item.healthRecord ? item.healthRecord.id : 'null'}, '${item.name.replace(/'/g, "\\'")}')">
+              <span class="material-symbols-outlined">check</span>
+              Hoàn thành
+           </button>`
+        : '';
+
+    el.innerHTML = `
+        <div class="vaccine-item__icon ${iconClass}">
+            <span class="material-symbols-outlined">${iconName}</span>
+        </div>
+        <div class="vaccine-item__info">
+            <div class="vaccine-item__name">
+                ${item.name}
+                ${mandatoryBadge}
+            </div>
+            ${item.description ? `<div class="vaccine-item__desc">${item.description}</div>` : ''}
+            <div class="vaccine-item__meta">
+                <span class="vaccine-item__meta-item">
+                    <span class="material-symbols-outlined">event</span>
+                    ${dateStr}
+                </span>
+                <span class="vaccine-item__meta-item">
+                    <span class="material-symbols-outlined">timer</span>
+                    Ngày tuổi: ${item.ageDays}
+                </span>
+                ${costLabel ? `<span class="vaccine-item__meta-item" style="color: var(--color-warning);">
+                    <span class="material-symbols-outlined">payments</span>
+                    ${costLabel}
+                </span>` : ''}
+                ${timeLabel ? `<span class="vaccine-item__meta-item" style="color: ${item.status === 'overdue' ? 'var(--color-error)' : 'inherit'}">
+                    <span class="material-symbols-outlined">${item.status === 'overdue' ? 'error' : 'info'}</span>
+                    ${timeLabel}
+                </span>` : ''}
+            </div>
+        </div>
+        <div class="vaccine-item__actions">
+            <span class="vaccine-item__status-badge vaccine-item__status-badge--${item.status}">${statusLabel}</span>
+            ${actionBtn}
+        </div>
+    `;
+
+    if (item.healthRecord && item.healthRecord.notes) {
+        el.title = `Ghi chú: ${item.healthRecord.notes}`;
+    }
+
+    return el;
+}
+
+function filterVaccineList(filter) {
+    currentVaccineFilter = filter;
+    document.querySelectorAll('.vaccine-filter-tab').forEach(tab => {
+        tab.classList.toggle('vaccine-filter-tab--active', tab.dataset.filter === filter);
+    });
+    renderVaccineList();
+}
+
+async function confirmVaccineComplete(healthRecordId, vaccineName) {
+    const penId = vaccineModalPenId || selectedPen?.id;
+    if (!penId) return;
+
+    const confirmed = confirm(`Xác nhận đã hoàn thành tiêm: ${vaccineName}?`);
+    if (!confirmed) return;
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const headers = {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        };
+
+        if (healthRecordId) {
+            const res = await fetch(`${API_BASE_URL}/livestock/health/${healthRecordId}/status`, {
+                method: 'PUT', headers,
+                body: JSON.stringify({ status: 'COMPLETED' })
+            });
+            if (!res.ok) throw new Error('Failed to update');
+        } else {
+            const res = await fetch(`${API_BASE_URL}/livestock/pens/${penId}/health`, {
+                method: 'POST', headers,
+                body: JSON.stringify({
+                    eventType: 'VACCINE', name: vaccineName,
+                    eventDate: new Date().toISOString().split('T')[0],
+                    status: 'COMPLETED', notes: 'Hoàn thành từ lịch tiêm phòng'
+                })
+            });
+            if (!res.ok) throw new Error('Failed to create');
+        }
+
+        showNotification(`✅ Đã ghi nhận tiêm: ${vaccineName}`, 'success');
+
+        // Reload
+        const healthRes = await fetch(`${API_BASE_URL}/livestock/pens/${penId}/health`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (healthRes.ok) {
+            const allHealth = await healthRes.json();
+            cachedHealthRecords = allHealth.filter(h => h.eventType === 'VACCINE');
+        }
+
+        const activePen = allPens.find(p => p.id === penId);
+        renderVaccineList(activePen);
+        renderVaccineCostEstimate(activePen);
+
+        // If it's the currently selected pen, reload sidebar health timeline too
+        if (selectedPen && selectedPen.id === penId) {
+            loadHealthRecords(penId);
+        }
+    } catch (error) {
+        console.error('Error completing vaccine:', error);
+        showNotification('Lỗi khi cập nhật tiêm phòng', 'error');
+    }
+}
+
+function populateVaccineSelect() {
+    const select = document.getElementById('vaccine-record-select');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Chọn loại vaccine --</option>';
+
+    cachedVaccineSchedules.forEach(schedule => {
+        const option = document.createElement('option');
+        option.value = schedule.name;
+        const mandatoryText = (schedule.isMandatory || schedule.mandatory) ? ' [Bắt buộc]' : '';
+        option.textContent = `${schedule.name} (ngày ${schedule.ageDays})${mandatoryText}`;
+        select.appendChild(option);
+    });
+}
+
+function openAddVaccineRecord() {
+    const modal = document.getElementById('add-vaccine-record-modal');
+    if (!modal) return;
+
+    const dateInput = document.getElementById('vaccine-record-date');
+    if (dateInput) dateInput.value = new Date().toISOString().split('T')[0];
+
+    const statusSelect = document.getElementById('vaccine-record-status');
+    if (statusSelect) statusSelect.value = 'COMPLETED';
+
+    const notesInput = document.getElementById('vaccine-record-notes');
+    if (notesInput) notesInput.value = '';
+
+    const selectInput = document.getElementById('vaccine-record-select');
+    if (selectInput) selectInput.value = '';
+
+    modal.classList.add('modal--visible');
+}
+
+function closeAddVaccineRecord() {
+    const modal = document.getElementById('add-vaccine-record-modal');
+    if (modal) modal.classList.remove('modal--visible');
+}
+
+async function submitVaccineRecord() {
+    const penId = vaccineModalPenId || selectedPen?.id;
+    if (!penId) return;
+
+    const name = document.getElementById('vaccine-record-select')?.value;
+    const date = document.getElementById('vaccine-record-date')?.value;
+    const status = document.getElementById('vaccine-record-status')?.value || 'COMPLETED';
+    const notes = document.getElementById('vaccine-record-notes')?.value || '';
+
+    if (!name) { showNotification('Vui lòng chọn loại vaccine', 'warning'); return; }
+    if (!date) { showNotification('Vui lòng chọn ngày tiêm', 'warning'); return; }
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const res = await fetch(`${API_BASE_URL}/livestock/pens/${penId}/health`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ eventType: 'VACCINE', name, eventDate: date, status, notes })
+        });
+
+        if (res.ok) {
+            showNotification(`✅ Đã ghi nhận tiêm phòng: ${name}`, 'success');
+            closeAddVaccineRecord();
+
+            const healthRes = await fetch(`${API_BASE_URL}/livestock/pens/${penId}/health`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            if (healthRes.ok) {
+                const allHealth = await healthRes.json();
+                cachedHealthRecords = allHealth.filter(h => h.eventType === 'VACCINE');
+            }
+            const activePen = allPens.find(p => p.id === penId);
+            renderVaccineList(activePen);
+            renderVaccineCostEstimate(activePen);
+            if (selectedPen && selectedPen.id === penId) loadHealthRecords(penId);
+        } else {
+            showNotification('Lỗi khi tạo ghi nhận', 'error');
+        }
+    } catch (error) {
+        console.error('Error submitting vaccine record:', error);
+        showNotification('Lỗi kết nối', 'error');
+    }
 }
 
 function openVaccineScheduleModal() {
-    showNotification('Tính năng Lịch tiêm đang phát triển', 'info');
+    openVaccineModal();
 }
 
 // ==================== NOTIFICATION SYSTEM (Upgraded) ====================
@@ -2280,7 +3724,9 @@ function getNotifIcon(type) {
         'FEEDING_REMINDER': 'restaurant',
         'VACCINE_REMINDER': 'vaccines',
         'HEALTH_ALERT': 'health_and_safety',
-        'MARKET_UPDATE': 'trending_up'
+        'MARKET_UPDATE': 'trending_up',
+        'PEN_MORTALITY': 'heart_broken',
+        'PEN_STATUS_CHANGE': 'pets'
     };
     return icons[type] || 'notifications';
 }
@@ -2295,7 +3741,9 @@ function getNotifIconClass(type) {
         'FEEDING_REMINDER': 'icon--amber',
         'VACCINE_REMINDER': 'icon--blue',
         'HEALTH_ALERT': 'icon--red',
-        'MARKET_UPDATE': 'icon--green'
+        'MARKET_UPDATE': 'icon--green',
+        'PEN_MORTALITY': 'icon--red',
+        'PEN_STATUS_CHANGE': 'icon--orange'
     };
     return classes[type] || 'icon--default';
 }
@@ -2370,7 +3818,7 @@ function markAllNotificationsRead() {
         fetch(`${API_BASE}/notifications/${n.id}/read`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` }
-        }).catch(() => {});
+        }).catch(() => { });
     });
     renderNotificationItems();
 }
@@ -2410,6 +3858,9 @@ function updateNotificationBadge() {
     updateNotificationBadgeUpgraded(unreadCount);
 }
 
+// Track last known pen notification count to detect new pen changes
+let _lastPenNotifCount = 0;
+
 // Periodically check for new notifications (every 30s)
 setInterval(async () => {
     const oldCount = cachedNotifications.length;
@@ -2423,7 +3874,74 @@ setInterval(async () => {
         return createdTime > lastSeen;
     }).length;
     updateNotificationBadgeUpgraded(newUnread);
+
+    // Auto-refresh pen data when new pen-related notifications arrive
+    const penNotifs = cachedNotifications.filter(n =>
+        (n.type === 'PEN_MORTALITY' || n.type === 'PEN_STATUS_CHANGE') && !n.isRead && !readIds.includes(n.id)
+    );
+    if (penNotifs.length > _lastPenNotifCount) {
+        // New pen notifications detected — refresh pen data
+        try {
+            await refreshPensData();
+        } catch (e) {
+            console.error('Auto-refresh pens failed:', e);
+        }
+    }
+    _lastPenNotifCount = penNotifs.length;
 }, 30000);
+
+/**
+ * Refresh pen data from server and update the UI immediately
+ * Called when pen-related notifications are detected
+ */
+async function refreshPensData() {
+    if (!currentFarmId) return;
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken') || localStorage.getItem('accessToken');
+        const response = await fetch(`${API_BASE_URL}/livestock/pens?farmId=${currentFarmId}`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (!response.ok) return;
+        const pens = await response.json();
+
+        // Update pens array
+        allPens = pens;
+
+        // Re-render pen selector bar to show updated status dots
+        renderPenSelectorBar();
+
+        // Update selected pen if it exists
+        if (selectedPen && selectedPen.id) {
+            const updatedPen = pens.find(p => p.id === selectedPen.id);
+            if (updatedPen) {
+                const oldCount = selectedPen.animalCount;
+                const oldStatus = selectedPen.status;
+                selectedPen = updatedPen;
+
+                // Re-render pen detail if count or status changed
+                if (updatedPen.animalCount !== oldCount || updatedPen.status !== oldStatus) {
+                    updatePenDetails(selectedPen);
+
+                    // Update canvas simulation
+                    if (penSimulation) {
+                        penSimulation.loadPen(selectedPen);
+                    }
+
+                    // Show toast about changes
+                    let changeMsg = `Chuồng ${updatedPen.code} đã cập nhật`;
+                    if (updatedPen.animalCount !== oldCount) {
+                        changeMsg += `: ${updatedPen.animalCount} con`;
+                    }
+                    showNotification(changeMsg, 'info');
+                }
+            }
+        }
+    } catch (e) {
+        console.error('refreshPensData error:', e);
+    }
+}
+
+window.refreshPensData = refreshPensData;
 
 // openInventoryModal is provided by inventory.js.
 // Marketplace is OVERRIDDEN below for livestock-specific animal prices.
@@ -2762,6 +4280,610 @@ function closeAllFeaturePanels() {
     if (typeof stopMarketplacePolling === 'function') stopMarketplacePolling();
 }
 
+// ==================== MORTALITY / LOSS MANAGEMENT ====================
+
+let mortalityPenData = null;
+let selectedMortalityCauseType = 'DEATH';
+
+async function loadMortalityStats(penId) {
+    const statHealth = document.getElementById('stat-health');
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/livestock/pens/${penId}/mortality-history`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (!response.ok) return;
+        const records = await response.json();
+
+        if (records && records.length > 0) {
+            // Sum total lost from notes (format: "X con - notes")
+            let totalLost = 0;
+            records.forEach(r => {
+                const match = r.notes?.match(/^(\d+)\s*con/);
+                if (match) totalLost += parseInt(match[1]);
+            });
+
+            if (totalLost > 0 && statHealth) {
+                const currentPen = allPens.find(p => p.id === penId);
+                if (currentPen) {
+                    const originalCount = (currentPen.animalCount || 0) + totalLost;
+                    const survivalRate = originalCount > 0 ? Math.round(((originalCount - totalLost) / originalCount) * 100) : 100;
+                    statHealth.innerHTML = `<span style="font-size:11px; color:#dc2626;">-${totalLost}</span>`;
+                    statHealth.title = `Đã mất ${totalLost} con · Tỷ lệ sống: ${survivalRate}%`;
+                }
+            }
+        }
+    } catch (e) {
+        // Silently fail - stats are optional
+    }
+}
+
+function openMortalityModal() {
+    if (!selectedPen || !selectedPen.id) {
+        showNotification('Vui lòng chọn chuồng trước', 'warning');
+        return;
+    }
+
+    if (!selectedPen.animalCount || selectedPen.animalCount <= 0) {
+        showNotification('Chuồng không có vật nuôi', 'warning');
+        return;
+    }
+
+    mortalityPenData = selectedPen;
+    selectedMortalityCauseType = 'DEATH';
+
+    // Populate summary
+    const animalName = selectedPen.animalDefinition?.name || 'Không xác định';
+    const currentCount = selectedPen.animalCount || 0;
+    const unit = selectedPen.animalDefinition?.unit || 'con';
+
+    document.getElementById('mortality-animal-name').textContent = animalName;
+    document.getElementById('mortality-current-count').textContent = `${currentCount} ${unit}`;
+    document.getElementById('mortality-quantity-hint').textContent = `Tối đa: ${currentCount} ${unit}`;
+
+    // Reset form
+    document.getElementById('mortality-quantity').value = '';
+    document.getElementById('mortality-quantity').max = currentCount;
+    document.getElementById('mortality-cause').value = '';
+    document.getElementById('mortality-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('mortality-loss').value = '';
+    document.getElementById('mortality-notes').value = '';
+
+    // Reset cause type tabs
+    document.querySelectorAll('.mortality-cause-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelector('.mortality-cause-tab[data-cause="DEATH"]').classList.add('active');
+
+    // Reset preview
+    updateMortalityPreview();
+
+    // Load mortality history
+    loadMortalityHistory(selectedPen.id);
+
+    // Show modal
+    const modal = document.getElementById('mortality-modal');
+    modal.classList.add('modal--visible');
+
+    // Event listeners for live preview
+    document.getElementById('mortality-quantity').addEventListener('input', updateMortalityPreview);
+    document.getElementById('mortality-loss').addEventListener('input', updateMortalityPreview);
+    document.getElementById('mortality-cause').addEventListener('input', updateMortalityPreview);
+}
+
+function closeMortalityModal() {
+    const modal = document.getElementById('mortality-modal');
+    modal.classList.remove('modal--visible');
+    mortalityPenData = null;
+
+    document.getElementById('mortality-quantity').removeEventListener('input', updateMortalityPreview);
+    document.getElementById('mortality-loss').removeEventListener('input', updateMortalityPreview);
+    document.getElementById('mortality-cause').removeEventListener('input', updateMortalityPreview);
+}
+
+function selectMortalityCauseType(type) {
+    selectedMortalityCauseType = type;
+    document.querySelectorAll('.mortality-cause-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelector(`.mortality-cause-tab[data-cause="${type}"]`).classList.add('active');
+
+    // Auto-fill cause placeholder based on type
+    const causeInput = document.getElementById('mortality-cause');
+    const placeholders = {
+        'DEATH': 'VD: Già yếu, sốc nhiệt, không rõ...',
+        'DISEASE': 'VD: Dịch tả, cúm gia cầm, lở mồm long móng...',
+        'ACCIDENT': 'VD: Chết đuối, chuồng sập, thú hoang...',
+        'CULL': 'VD: Không đạt tiêu chuẩn, dị tật, chậm lớn...'
+    };
+    causeInput.placeholder = placeholders[type] || 'Nhập nguyên nhân...';
+}
+
+function updateMortalityPreview() {
+    const quantity = parseInt(document.getElementById('mortality-quantity').value) || 0;
+    const loss = parseFloat(document.getElementById('mortality-loss').value) || 0;
+    const maxCount = mortalityPenData?.animalCount || 0;
+    const unit = mortalityPenData?.animalDefinition?.unit || 'con';
+
+    document.getElementById('mortality-preview-quantity').textContent = `${quantity} ${unit}`;
+    document.getElementById('mortality-preview-remaining').textContent = `${Math.max(0, maxCount - quantity)} ${unit}`;
+    document.getElementById('mortality-preview-loss').textContent = formatCurrency(loss);
+
+    // Enable/disable submit
+    const submitBtn = document.getElementById('mortality-submit-btn');
+    const cause = document.getElementById('mortality-cause').value.trim();
+    const isValid = quantity > 0 && quantity <= maxCount && cause.length > 0;
+    submitBtn.disabled = !isValid;
+
+    // Warning if exceeds
+    const hint = document.getElementById('mortality-quantity-hint');
+    if (quantity > maxCount) {
+        hint.textContent = `⚠️ Vượt quá số lượng! Tối đa: ${maxCount}`;
+        hint.style.color = '#dc2626';
+    } else {
+        hint.textContent = `Tối đa: ${maxCount} ${unit}`;
+        hint.style.color = '';
+    }
+}
+
+async function submitMortality() {
+    if (!mortalityPenData) return;
+
+    const quantity = parseInt(document.getElementById('mortality-quantity').value);
+    const cause = document.getElementById('mortality-cause').value.trim();
+    const eventDate = document.getElementById('mortality-date').value;
+    const estimatedLoss = parseFloat(document.getElementById('mortality-loss').value) || 0;
+    const notes = document.getElementById('mortality-notes').value;
+
+    if (!quantity || quantity <= 0) {
+        showNotification('Vui lòng nhập số lượng hợp lệ', 'error');
+        return;
+    }
+    if (quantity > mortalityPenData.animalCount) {
+        showNotification('Số lượng vượt quá số con hiện có', 'error');
+        return;
+    }
+    if (!cause) {
+        showNotification('Vui lòng nhập nguyên nhân', 'error');
+        return;
+    }
+
+    const submitBtn = document.getElementById('mortality-submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="material-symbols-outlined icon-sm rotating">sync</span> Đang xử lý...';
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/livestock/pens/${mortalityPenData.id}/mortality`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+                quantity: quantity,
+                cause: cause,
+                causeType: selectedMortalityCauseType,
+                eventDate: eventDate,
+                estimatedLoss: estimatedLoss,
+                notes: notes,
+                animalName: mortalityPenData.animalDefinition?.name || 'Vật nuôi'
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            const causeLabels = { 'DEATH': 'chết', 'DISEASE': 'bệnh', 'ACCIDENT': 'tai nạn', 'CULL': 'loại thải' };
+            const causeLabel = causeLabels[selectedMortalityCauseType] || 'hao hụt';
+            showNotification(`⚠️ Đã ghi nhận ${quantity} con ${causeLabel} (${cause})`, 'warning');
+
+            closeMortalityModal();
+
+            // Reload pen data
+            await loadPens();
+            renderPenSelectorBar();
+
+            // Update detail panel
+            if (selectedPen && selectedPen.id === mortalityPenData.id) {
+                const updatedPen = allPens.find(p => p.id === mortalityPenData.id);
+                if (updatedPen) {
+                    selectedPen = updatedPen;
+                    updatePenDetails(updatedPen);
+                } else {
+                    const emptyState = document.getElementById('empty-pen-state');
+                    const content = document.getElementById('pen-detail-content');
+                    if (emptyState) emptyState.style.display = 'flex';
+                    if (content) content.style.display = 'none';
+                    selectedPen = null;
+                }
+            }
+        } else {
+            showNotification(result.error || 'Lỗi khi ghi nhận hao hụt', 'error');
+        }
+    } catch (error) {
+        console.error('Mortality error:', error);
+        showNotification('Lỗi kết nối server', 'error');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined icon-sm">check_circle</span> Xác nhận ghi nhận';
+    }
+}
+
+async function loadMortalityHistory(penId) {
+    const listEl = document.getElementById('mortality-history-list');
+    if (!listEl) return;
+
+    listEl.innerHTML = '<div class="mortality-history__loading"><span class="material-symbols-outlined rotating">sync</span> Đang tải...</div>';
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/livestock/pens/${penId}/mortality-history`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        if (!response.ok) throw new Error('Failed to load');
+        const records = await response.json();
+
+        if (!records || records.length === 0) {
+            listEl.innerHTML = '<div class="mortality-history__empty"><span class="material-symbols-outlined">check_circle</span> Chưa có dữ liệu hao hụt</div>';
+            return;
+        }
+
+        const causeTypeIcons = {
+            'Chết': 'skull',
+            'Bệnh': 'coronavirus',
+            'Tai nạn': 'warning',
+            'Loại thải': 'remove_circle'
+        };
+
+        listEl.innerHTML = records.slice(0, 10).map(record => {
+            // Parse quantity from notes (format: "X con - notes")
+            const quantityMatch = record.notes?.match(/^(\d+)\s*con/);
+            const quantity = quantityMatch ? quantityMatch[1] : '?';
+            const noteText = record.notes?.replace(/^\d+\s*con\s*-\s*/, '') || '';
+
+            // Determine icon from record name prefix
+            let icon = 'skull';
+            for (const [prefix, iconName] of Object.entries(causeTypeIcons)) {
+                if (record.name?.startsWith(prefix)) {
+                    icon = iconName;
+                    break;
+                }
+            }
+
+            const date = record.eventDate ? new Date(record.eventDate).toLocaleDateString('vi-VN') : '--';
+
+            return `
+                <div class="mortality-history__item">
+                    <div class="mortality-history__icon">
+                        <span class="material-symbols-outlined">${icon}</span>
+                    </div>
+                    <div class="mortality-history__content">
+                        <div class="mortality-history__title">${record.name || 'Không xác định'}</div>
+                        <div class="mortality-history__meta">
+                            <span>${date}</span> · <span>${quantity} con</span>
+                            ${noteText ? ` · <span>${noteText}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('Error loading mortality history:', error);
+        listEl.innerHTML = '<div class="mortality-history__empty">Lỗi tải dữ liệu</div>';
+    }
+}
+
+// ==================== MORTALITY REPORT / ANALYTICS ====================
+
+async function openMortalityReport() {
+    if (!selectedPen || !selectedPen.id) {
+        showNotification('Vui lòng chọn chuồng trước', 'warning');
+        return;
+    }
+
+    const modal = document.getElementById('mortality-report-modal');
+    modal.classList.add('modal--visible');
+
+    // Show loading state
+    document.getElementById('mr-total-lost').textContent = '...';
+    document.getElementById('mr-survival-rate').textContent = '...';
+    document.getElementById('mr-total-loss').textContent = '...';
+    document.getElementById('mr-event-count').textContent = '...';
+    document.getElementById('mr-timeline-chart').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:180px;color:#9ca3af;font-size:13px;"><span class="material-symbols-outlined rotating" style="margin-right:6px;">sync</span>Đang tải...</div>';
+    document.getElementById('mr-cause-chart').innerHTML = '';
+    document.getElementById('mortality-report-history-list').innerHTML = '<div class="mortality-history__loading"><span class="material-symbols-outlined rotating">sync</span> Đang tải...</div>';
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/livestock/pens/${selectedPen.id}/mortality-history`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        if (!response.ok) throw new Error('Failed to load');
+        const records = await response.json();
+
+        renderMortalityReport(records, selectedPen);
+    } catch (error) {
+        console.error('Error loading mortality report:', error);
+        document.getElementById('mr-timeline-chart').innerHTML = '<div class="mortality-report__empty"><span class="material-symbols-outlined">error</span>Lỗi tải dữ liệu</div>';
+    }
+}
+
+function closeMortalityReport() {
+    const modal = document.getElementById('mortality-report-modal');
+    modal.classList.remove('modal--visible');
+}
+
+function renderMortalityReport(records, pen) {
+    if (!records || records.length === 0) {
+        // Empty state
+        document.getElementById('mr-total-lost').textContent = '0';
+        document.getElementById('mr-survival-rate').textContent = '100%';
+        document.getElementById('mr-total-loss').textContent = '0₫';
+        document.getElementById('mr-event-count').textContent = '0';
+        document.getElementById('mr-timeline-chart').innerHTML = '<div class="mortality-report__empty"><span class="material-symbols-outlined">check_circle</span>Chưa có sự kiện hao hụt nào — tuyệt vời!</div>';
+        document.getElementById('mr-cause-chart').innerHTML = '<div class="mortality-report__empty"><span class="material-symbols-outlined">pie_chart</span>Không có dữ liệu</div>';
+        document.getElementById('mortality-report-history-list').innerHTML = '<div class="mortality-history__empty"><span class="material-symbols-outlined">check_circle</span> Không có lịch sử</div>';
+        return;
+    }
+
+    // Parse data from records
+    let totalLost = 0;
+    let totalLoss = 0;
+    const causeMap = {};
+    const monthMap = {};
+
+    records.forEach(record => {
+        // Parse quantity from notes: "X con - notes"
+        const qMatch = record.notes?.match(/^(\d+)\s*con/);
+        const qty = qMatch ? parseInt(qMatch[1]) : 1;
+        totalLost += qty;
+
+        // Parse estimated loss from notes if available
+        const lossMatch = record.notes?.match(/thiệt hại[:\s]*([0-9,.]+)/i);
+        if (lossMatch) {
+            totalLoss += parseFloat(lossMatch[1].replace(/,/g, '')) || 0;
+        }
+
+        // Cause breakdown from record name prefix
+        const causeType = record.name?.split(' - ')[0] || 'Không rõ';
+        causeMap[causeType] = (causeMap[causeType] || 0) + qty;
+
+        // Timeline by month
+        const date = record.eventDate ? new Date(record.eventDate) : new Date(record.createdAt);
+        const monthKey = `${date.getMonth() + 1}/${date.getFullYear()}`;
+        monthMap[monthKey] = (monthMap[monthKey] || 0) + qty;
+    });
+
+    // Calculate survival rate
+    const currentCount = pen.animalCount || 0;
+    const originalCount = currentCount + totalLost;
+    const survivalRate = originalCount > 0 ? ((currentCount / originalCount) * 100).toFixed(1) : 100;
+
+    // Update stat cards
+    document.getElementById('mr-total-lost').textContent = totalLost;
+    document.getElementById('mr-survival-rate').textContent = `${survivalRate}%`;
+    document.getElementById('mr-total-loss').textContent = formatCurrency(totalLoss);
+    document.getElementById('mr-event-count').textContent = records.length;
+
+    // ---- Timeline Bar Chart ----
+    const months = Object.keys(monthMap);
+    const maxVal = Math.max(...Object.values(monthMap), 1);
+    const chartHeight = 150;
+
+    if (months.length > 0) {
+        const barsHtml = months.map(m => {
+            const val = monthMap[m];
+            const barH = Math.max((val / maxVal) * chartHeight, 8);
+            return `<div class="mr-bar-group">
+                <div class="mr-bar-value">${val}</div>
+                <div class="mr-bar" style="height:${barH}px;"></div>
+                <div class="mr-bar-label">${m}</div>
+            </div>`;
+        }).join('');
+        document.getElementById('mr-timeline-chart').innerHTML = barsHtml;
+    } else {
+        document.getElementById('mr-timeline-chart').innerHTML = '<div class="mortality-report__empty">Không đủ dữ liệu</div>';
+    }
+
+    // ---- Cause Donut Chart ----
+    const causeEntries = Object.entries(causeMap).sort((a, b) => b[1] - a[1]);
+    const colors = ['#ea580c', '#dc2626', '#d97706', '#7c3aed', '#2563eb', '#0d9488'];
+    const total = causeEntries.reduce((s, [_, v]) => s + v, 0);
+
+    if (causeEntries.length > 0) {
+        // Build SVG donut
+        let cumulativePercent = 0;
+        const segments = causeEntries.map(([name, val], i) => {
+            const percent = (val / total) * 100;
+            const color = colors[i % colors.length];
+            const dashArray = `${percent} ${100 - percent}`;
+            const dashOffset = 25 - cumulativePercent;
+            cumulativePercent += percent;
+            return `<circle cx="50" cy="50" r="35" fill="none" stroke="${color}" stroke-width="18" stroke-dasharray="${dashArray}" stroke-dashoffset="${dashOffset}" />`;
+        }).join('');
+
+        const legendItems = causeEntries.map(([name, val], i) => {
+            const color = colors[i % colors.length];
+            const pct = ((val / total) * 100).toFixed(0);
+            return `<div class="mr-donut-legend-item"><span class="mr-donut-dot" style="background:${color};"></span>${name} (${val}, ${pct}%)</div>`;
+        }).join('');
+
+        document.getElementById('mr-cause-chart').innerHTML = `
+            <div class="mr-donut-wrap">
+                <svg class="mr-donut-svg" viewBox="0 0 100 100">
+                    ${segments}
+                    <text x="50" y="48" text-anchor="middle" font-size="12" font-weight="800" fill="#111827">${total}</text>
+                    <text x="50" y="58" text-anchor="middle" font-size="5" fill="#9ca3af">tổng</text>
+                </svg>
+                <div class="mr-donut-legend">${legendItems}</div>
+            </div>
+        `;
+    } else {
+        document.getElementById('mr-cause-chart').innerHTML = '<div class="mortality-report__empty">Không có dữ liệu</div>';
+    }
+
+    // ---- Recent History List ----
+    const causeTypeIcons = {
+        'Chết': 'skull',
+        'Bệnh': 'coronavirus',
+        'Tai nạn': 'warning',
+        'Loại thải': 'remove_circle'
+    };
+
+    const historyHtml = records.slice(0, 10).map(record => {
+        const qMatch = record.notes?.match(/^(\d+)\s*con/);
+        const quantity = qMatch ? qMatch[1] : '?';
+        const noteText = record.notes?.replace(/^\d+\s*con\s*-\s*/, '') || '';
+        let icon = 'skull';
+        for (const [prefix, iconName] of Object.entries(causeTypeIcons)) {
+            if (record.name?.startsWith(prefix)) {
+                icon = iconName;
+                break;
+            }
+        }
+        const date = record.eventDate ? new Date(record.eventDate).toLocaleDateString('vi-VN') : '--';
+        return `<div class="mortality-history__item">
+            <div class="mortality-history__icon"><span class="material-symbols-outlined">${icon}</span></div>
+            <div class="mortality-history__content">
+                <div class="mortality-history__title">${record.name || 'Không xác định'}</div>
+                <div class="mortality-history__meta"><span>${date}</span> · <span>${quantity} con</span>${noteText ? ` · <span>${noteText}</span>` : ''}</div>
+            </div>
+        </div>`;
+    }).join('');
+
+    document.getElementById('mortality-report-history-list').innerHTML = historyHtml || '<div class="mortality-history__empty">Không có lịch sử</div>';
+}
+
+// ==================== UTILITY SETTINGS ====================
+
+function openUtilityModal() {
+    if (!selectedPen) {
+        showNotification('Vui lòng chọn chuồng trước', 'warning');
+        return;
+    }
+    const modal = document.getElementById('utilityModal');
+    if (!modal) return;
+
+    // Set pen info
+    document.getElementById('utility-pen-name').textContent = `Chuồng ${selectedPen.code || selectedPen.id}`;
+    document.getElementById('utility-pen-type').textContent = selectedPen.animalDefinition?.name || 'Chưa chọn vật nuôi';
+
+    // Load existing utility settings
+    loadUtilitySetting(selectedPen.id);
+
+    modal.style.display = 'flex';
+    if (typeof gsap !== 'undefined') {
+        gsap.fromTo(modal.querySelector('.modal__content'), {
+            opacity: 0, scale: 0.9, y: 30
+        }, {
+            opacity: 1, scale: 1, y: 0,
+            duration: 0.35, ease: 'power2.out'
+        });
+    }
+}
+
+function closeUtilityModal() {
+    const modal = document.getElementById('utilityModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function loadUtilitySetting(penId) {
+    try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/utility-settings/pen/${penId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            const setting = await res.json();
+            document.getElementById('utility-power-kw').value = setting.powerKw || 0;
+            document.getElementById('utility-elec-rate').value = setting.electricityRate || 3000;
+            document.getElementById('utility-water-m3').value = setting.waterM3PerDay || 0;
+            document.getElementById('utility-water-rate').value = setting.waterRate || 12000;
+            document.getElementById('utility-hours').value = setting.hoursPerDay || 12;
+        } else {
+            // Reset to defaults
+            document.getElementById('utility-power-kw').value = 0;
+            document.getElementById('utility-elec-rate').value = 3000;
+            document.getElementById('utility-water-m3').value = 0;
+            document.getElementById('utility-water-rate').value = 12000;
+            document.getElementById('utility-hours').value = 12;
+        }
+        updateUtilityPreview();
+    } catch (e) {
+        console.error('Error loading utility setting:', e);
+    }
+}
+
+function updateUtilityPreview() {
+    const powerKw = parseFloat(document.getElementById('utility-power-kw').value) || 0;
+    const elecRate = parseFloat(document.getElementById('utility-elec-rate').value) || 0;
+    const waterM3 = parseFloat(document.getElementById('utility-water-m3').value) || 0;
+    const waterRate = parseFloat(document.getElementById('utility-water-rate').value) || 0;
+    const hours = parseInt(document.getElementById('utility-hours').value) || 12;
+
+    document.getElementById('utility-hours-label').textContent = `${hours} giờ`;
+
+    // Monthly calculations (30 days)
+    const monthlyElec = powerKw * hours * 30 * elecRate;
+    const monthlyWater = waterM3 * 30 * waterRate;
+    const total = monthlyElec + monthlyWater;
+
+    const fmt = (v) => new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' VNĐ';
+    document.getElementById('utility-elec-cost').textContent = fmt(monthlyElec);
+    document.getElementById('utility-water-cost').textContent = fmt(monthlyWater);
+    document.getElementById('utility-total-cost').textContent = fmt(total);
+}
+
+async function saveUtilitySetting() {
+    if (!selectedPen) {
+        showNotification('Không tìm thấy chuồng', 'error');
+        return;
+    }
+
+    const powerKw = parseFloat(document.getElementById('utility-power-kw').value) || 0;
+    const elecRate = parseFloat(document.getElementById('utility-elec-rate').value) || 0;
+    const waterM3 = parseFloat(document.getElementById('utility-water-m3').value) || 0;
+    const waterRate = parseFloat(document.getElementById('utility-water-rate').value) || 0;
+    const hours = parseInt(document.getElementById('utility-hours').value) || 12;
+
+    try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${API_BASE_URL}/utility-settings/pen/${selectedPen.id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                penId: selectedPen.id,
+                powerKw,
+                electricityRate: elecRate,
+                waterM3PerDay: waterM3,
+                waterRate,
+                hoursPerDay: hours
+            })
+        });
+
+        if (res.ok) {
+            showNotification('Đã lưu cài đặt điện nước thành công!', 'success');
+            closeUtilityModal();
+        } else {
+            const err = await res.text();
+            showNotification('Lỗi: ' + err, 'error');
+        }
+    } catch (e) {
+        console.error('Error saving utility setting:', e);
+        showNotification('Lỗi kết nối server', 'error');
+    }
+}
+
+// Add event listeners for live preview
+document.addEventListener('DOMContentLoaded', () => {
+    ['utility-power-kw', 'utility-elec-rate', 'utility-water-m3', 'utility-water-rate', 'utility-hours'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateUtilityPreview);
+    });
+});
+
 // Make global — all functions referenced in HTML onclick handlers
 window.openAddCageModal = openAddCageModal;
 window.openFeedingModal = openFeedingModal;
@@ -2775,7 +4897,14 @@ window.closeHarvestModal = closeHarvestModal;
 window.submitHarvest = submitHarvest;
 window.cleanPen = cleanPen;
 window.openVaccineModal = openVaccineModal;
+window.closeVaccineModal = closeVaccineModal;
 window.openVaccineScheduleModal = openVaccineScheduleModal;
+window.filterVaccineList = filterVaccineList;
+window.confirmVaccineComplete = confirmVaccineComplete;
+window.openAddVaccineRecord = openAddVaccineRecord;
+window.closeAddVaccineRecord = closeAddVaccineRecord;
+window.submitVaccineRecord = submitVaccineRecord;
+window.switchVaccinePen = switchVaccinePen;
 window.openAnalysisModal = openAnalysisModal;
 window.handlePenStatusChange = handlePenStatusChange;
 window.toggleMarketplacePanel = toggleMarketplacePanel;
@@ -2785,5 +4914,29 @@ window.toggleNotificationPanel = toggleNotificationPanel;
 window.markAllNotificationsRead = markAllNotificationsRead;
 window.filterNotifications = filterNotifications;
 window.handleNotificationClick = handleNotificationClick;
+// New: Weight & Byproduct functions
+window.openWeightRecordModal = openWeightRecordModal;
+window.closeWeightRecordModal = closeWeightRecordModal;
+window.submitWeightRecord = submitWeightRecord;
+window.openByproductRecordModal = openByproductRecordModal;
+window.closeByproductRecordModal = closeByproductRecordModal;
+window.submitByproductRecord = submitByproductRecord;
+window.openSellByproductModal = openSellByproductModal;
+window.closeSellByproductModal = closeSellByproductModal;
+window.submitSellByproduct = submitSellByproduct;
+window.switchHarvestType = switchHarvestType;
+// Mortality functions
+window.openMortalityModal = openMortalityModal;
+window.closeMortalityModal = closeMortalityModal;
+window.submitMortality = submitMortality;
+window.selectMortalityCauseType = selectMortalityCauseType;
+// Mortality Report / Analytics
+window.openMortalityReport = openMortalityReport;
+window.closeMortalityReport = closeMortalityReport;
+// Utility functions
+window.openUtilityModal = openUtilityModal;
+window.closeUtilityModal = closeUtilityModal;
+window.saveUtilitySetting = saveUtilitySetting;
+window.updateUtilityPreview = updateUtilityPreview;
 // openInventoryModal from inventory.js
 // closeAllFeaturePanels redefined above to also stop market polling

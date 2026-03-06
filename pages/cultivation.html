@@ -1787,6 +1787,10 @@
                     </div>
 
                     <div class="map-controls">
+                        <button class="map-control-btn" id="btn-field-loss-analytics" title="Thống kê hao hụt"
+                            onclick="openFieldLossAnalytics()" style="background:linear-gradient(135deg, #dc2626, #991b1b); color:white;">
+                            <span class="material-symbols-outlined">warning</span>
+                        </button>
                         <button class="map-control-btn" id="btn-financial-mode" title="Bản đồ tài chính"
                             onclick="toggleFinancialMode()">
                             <span class="material-symbols-outlined">monetization_on</span>
@@ -1875,7 +1879,9 @@
                         <div class="planning-legend__header">
                             <span class="material-symbols-outlined">map</span>
                             <span>Bản đồ Quy hoạch</span>
-                            <button class="planning-legend__close" onclick="togglePlanningLayer(); if(typeof deactivateAllUserMapLayers==='function') deactivateAllUserMapLayers(); document.querySelector('.map-layer-btn[data-layer=planning]')?.classList.remove('active');" title="Đóng">
+                            <button class="planning-legend__close"
+                                onclick="togglePlanningLayer(); if(typeof deactivateAllUserMapLayers==='function') deactivateAllUserMapLayers(); document.querySelector('.map-layer-btn[data-layer=planning]')?.classList.remove('active');"
+                                title="Đóng">
                                 <span class="material-symbols-outlined">close</span>
                             </button>
                         </div>
@@ -1938,7 +1944,9 @@
                             style="background: linear-gradient(135deg, #92400e 0%, #d97706 100%);">
                             <span class="material-symbols-outlined">landscape</span>
                             <span>Bản đồ Thổ nhưỡng</span>
-                            <button class="planning-legend__close" onclick="toggleSoilLayer(); if(typeof deactivateAllUserMapLayers==='function') deactivateAllUserMapLayers(); document.querySelector('.map-layer-btn[data-layer=soil]')?.classList.remove('active');" title="Đóng">
+                            <button class="planning-legend__close"
+                                onclick="toggleSoilLayer(); if(typeof deactivateAllUserMapLayers==='function') deactivateAllUserMapLayers(); document.querySelector('.map-layer-btn[data-layer=soil]')?.classList.remove('active');"
+                                title="Đóng">
                                 <span class="material-symbols-outlined">close</span>
                             </button>
                         </div>
@@ -2210,6 +2218,14 @@
                                     id="btn-delete-field" disabled onclick="openDeleteFieldModal()"><span
                                         class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--red">delete</span><span
                                         class="field-action-btn__label">Xóa ruộng</span>
+                                </button>
+
+                                <!-- Utility Settings (Điện nước) -->
+                                <button class="field-action-btn field-action-btn--disabled" id="btn-field-utility"
+                                    disabled onclick="openFieldUtilityModal()"><span
+                                        class="material-symbols-outlined field-action-btn__icon"
+                                        style="background: #e0f7fa; color: #06b6d4;">electrical_services</span><span
+                                        class="field-action-btn__label">Điện nước</span>
                                 </button>
                             </div>
 
@@ -2748,8 +2764,12 @@
         function findPlanningZoneAtPoint(latlng) {
             if (!planningZonesData || planningZonesData.length === 0) return null;
 
+            let bestZone = null;
+            let bestArea = Infinity;
+
             for (const zone of planningZonesData) {
                 let coords = null;
+                let isGeoJSON = false;
                 if (zone.boundaryCoordinates) {
                     try {
                         coords = typeof zone.boundaryCoordinates === 'string' ? JSON.parse(zone.boundaryCoordinates) : zone.boundaryCoordinates;
@@ -2758,25 +2778,48 @@
                 if (!coords && zone.geojson) {
                     try {
                         const gj = typeof zone.geojson === 'string' ? JSON.parse(zone.geojson) : zone.geojson;
-                        if (gj.type === 'Polygon') coords = gj.coordinates[0];
-                        else if (gj.type === 'Feature' && gj.geometry.type === 'Polygon') coords = gj.geometry.coordinates[0];
+                        if (gj.type === 'Polygon') { coords = gj.coordinates[0]; isGeoJSON = true; }
+                        else if (gj.type === 'Feature' && gj.geometry.type === 'Polygon') { coords = gj.geometry.coordinates[0]; isGeoJSON = true; }
+                        else if (gj.type === 'MultiPolygon') { coords = gj.coordinates[0][0]; isGeoJSON = true; }
+                        else if (gj.type === 'Feature' && gj.geometry?.type === 'MultiPolygon') { coords = gj.geometry.coordinates[0][0]; isGeoJSON = true; }
                     } catch (e) { }
                 }
 
-                if (coords) {
-                    let ring = coords;
-                    while (ring.length > 0 && Array.isArray(ring[0]) && typeof ring[0][0] !== 'undefined') {
-                        ring = ring.map(p => ({ lat: (p.lat !== undefined ? p.lat : p[0]), lng: (p.lng !== undefined ? p.lng : p[1]) }));
-                        break;
+                if (coords && coords.length >= 3) {
+                    let ring;
+                    if (coords[0] && typeof coords[0].lat !== 'undefined') {
+                        ring = coords;
+                    } else if (Array.isArray(coords[0])) {
+                        // Detect GeoJSON [lng, lat] vs [lat, lng]
+                        const firstVal = Math.abs(coords[0][0]);
+                        if (isGeoJSON || firstVal > 90) {
+                            ring = coords.map(p => ({ lat: p[1], lng: p[0] }));
+                        } else {
+                            ring = coords.map(p => ({ lat: p[0], lng: p[1] }));
+                        }
+                    } else {
+                        continue;
                     }
-                    if (ring.length > 0 && ring[0].lat !== undefined) {
-                        if (raycastPointInPolygon(latlng.lat, latlng.lng, ring)) {
-                            return zone;
+                    if (ring.length >= 3 && raycastPointInPolygon(latlng.lat, latlng.lng, ring)) {
+                        // Calculate approximate area to find smallest matching zone
+                        const zoneArea = zone.areaSqm ? parseFloat(zone.areaSqm) : calcApproxArea(ring);
+                        if (zoneArea < bestArea) {
+                            bestArea = zoneArea;
+                            bestZone = zone;
                         }
                     }
                 }
             }
-            return null;
+            return bestZone;
+        }
+
+        function calcApproxArea(ring) {
+            // Shoelace formula approximation for lat/lng polygon area
+            let area = 0;
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                area += (ring[j].lng + ring[i].lng) * (ring[j].lat - ring[i].lat);
+            }
+            return Math.abs(area / 2) * 111320 * 111320; // rough sq meters
         }
 
         // === 2. ROBUST POINT-IN-POLYGON (Matches admin logic) ===
@@ -2861,7 +2904,7 @@
         function checkInventory(category, productName, requiredQuantity) {
             const items = userInventoryCache.filter(item => {
                 const matchCategory = !category || item.category === category;
-                const matchName = !productName || item.name.toLowerCase().includes(productName.toLowerCase());
+                const matchName = !productName || (item.name && item.name.toLowerCase().includes(productName.toLowerCase()));
                 return matchCategory && matchName;
             });
 
@@ -4828,16 +4871,7 @@
                             </select>
                         </div>
                         <div class="field-status-indicators" style="display:flex;flex-direction:column;gap:6px;margin-top:8px;">
-                            ${renderStatusBadge('Cây trồng', !!field.currentCrop, field.currentCrop?.name)}
-                            ${renderStatusBadge('Bón phân', !!field.lastFertilizedAt, field.lastFertilizedAt ? formatDateShort(field.lastFertilizedAt) : null, field.seedingDate ? getTimingInfo(field).fertilizer : null)}
-                            ${renderStatusBadge('Gieo hạt', !!field.seedingDate, field.seedingDate ? `nảy mầm ${getTimingInfo(field).germDays} ngày` : null, getTimingInfo(field).seedWait)}
-                            ${renderStatusBadge('Phun thuốc', !!field.lastPesticideAt, field.lastPesticideAt ? formatDateShort(field.lastPesticideAt) : null, getTimingInfo(field).pesticide)}
-                            ${(() => {
-                    // Custom Harvest Logic
-                    if (!field.currentCrop || !field.expectedHarvestDate) return '';
-                    const daysToHarvest = Math.ceil((new Date(field.expectedHarvestDate) - new Date()) / (1000 * 60 * 60 * 24));
-                    return renderStatusBadge('Thu hoạch', false, null, daysToHarvest);
-                })()}
+                            ${renderWorkflowBadges(field)}
                         </div>
                     </div>
                 </div>`;
@@ -4892,6 +4926,70 @@
             } finally {
                 if (selectEl) selectEl.disabled = false;
             }
+        }
+
+        function renderWorkflowBadges(field) {
+            const stage = getWorkflowStage(field);
+            const timing = getTimingInfo(field);
+            let badges = '';
+
+            // Step 1: Cây trồng - always visible
+            badges += renderStatusBadge('Cây trồng', !!field.currentCrop, field.currentCrop?.name);
+
+            // Step 2: Bón phân
+            if (stage === 'EMPTY') {
+                // Not relevant yet - gray inactive
+                badges += renderStatusBadge('Bón phân', false, null);
+            } else if (stage === 'CROP_SELECTED') {
+                // Crop selected, fertilizer is due now
+                badges += renderStatusBadge('Bón phân', false, null, 0);
+            } else {
+                // Fertilized or beyond - show done with possible re-fertilize timing
+                badges += renderStatusBadge('Bón phân', !!field.lastFertilizedAt,
+                    field.lastFertilizedAt ? formatDateShort(field.lastFertilizedAt) : null,
+                    field.seedingDate ? timing.fertilizer : null);
+            }
+
+            // Step 3: Gieo hạt
+            if (stage === 'EMPTY' || stage === 'CROP_SELECTED') {
+                // Not relevant yet
+                badges += renderStatusBadge('Gieo hạt', false, null);
+            } else if (stage === 'FERTILIZED') {
+                // Fertilized, waiting for soil rest before seeding
+                badges += renderStatusBadge('Gieo hạt', false, null, timing.seedWait);
+            } else {
+                // Seeded or beyond
+                badges += renderStatusBadge('Gieo hạt', !!field.seedingDate,
+                    field.seedingDate ? `nảy mầm ${timing.germDays} ngày` : null);
+            }
+
+            // Step 4: Tưới nước
+            if (stage === 'SEEDED' || stage === 'READY_HARVEST') {
+                badges += renderStatusBadge('Tưới nước', !!field.lastWateredAt,
+                    field.lastWateredAt ? formatDateShort(field.lastWateredAt) : null,
+                    timing.watering);
+            }
+
+            // Step 5: Phun thuốc
+            if (stage === 'EMPTY' || stage === 'CROP_SELECTED' || stage === 'FERTILIZED') {
+                badges += renderStatusBadge('Phun thuốc', false, null);
+            } else {
+                badges += renderStatusBadge('Phun thuốc', !!field.lastPesticideAt,
+                    field.lastPesticideAt ? formatDateShort(field.lastPesticideAt) : null,
+                    timing.pesticide);
+            }
+
+            // Step 6: Thu hoạch
+            if (field.currentCrop && field.expectedHarvestDate) {
+                const daysToHarvest = Math.ceil((new Date(field.expectedHarvestDate) - new Date()) / (1000 * 60 * 60 * 24));
+                if (daysToHarvest <= 0) {
+                    badges += renderStatusBadge('Thu hoạch', false, null, 0); // Ready to harvest
+                } else {
+                    badges += renderStatusBadge('Thu hoạch', false, null, daysToHarvest);
+                }
+            }
+
+            return badges;
         }
 
         function renderStatusBadge(label, isDone, detail, timeRemaining = null) {
@@ -5183,12 +5281,43 @@
             } catch (e) { console.error(e); }
         }
 
+        // Helper: check if a timing value is due (handles both number and object from calculateDaysRemaining)
+        function timingIsDue(val) {
+            if (val === null || val === undefined) return true; // null means no constraint
+            if (typeof val === 'object' && val !== null) {
+                return (val.totalHours || (val.days * 24)) <= 0;
+            }
+            return val <= 0;
+        }
+
+        function formatTimingDisplay(val) {
+            if (val === null || val === undefined) return '';
+            if (typeof val === 'object' && val !== null) {
+                if (val.isHours) return `còn ${val.hours} giờ`;
+                return `còn ${val.days} ngày`;
+            }
+            return `còn ${val} ngày`;
+        }
+
         function updateFarmManagementButtons(field) {
             const stage = getWorkflowStage(field);
             const timing = getTimingInfo(field);
 
+            // Update workflow stage text
+            const stageText = document.getElementById('workflow-stage-text');
+            if (stageText) {
+                const stageMessages = {
+                    'EMPTY': '🌾 Bước 1: Chọn giống cây trồng cho ruộng',
+                    'CROP_SELECTED': '🧪 Bước 2: Bón phân chuẩn bị đất trước khi gieo',
+                    'FERTILIZED': timingIsDue(timing.seedWait) ? '🌱 Bước 3: Đất đã sẵn sàng - Gieo hạt giống' : `⏳ Bước 3: Chờ đất nghỉ sau bón phân (${formatTimingDisplay(timing.seedWait)})`,
+                    'SEEDED': '🌿 Đang phát triển - Tưới nước & phun thuốc khi cần',
+                    'READY_HARVEST': '🌾 Cây đã sẵn sàng thu hoạch!'
+                };
+                stageText.textContent = stageMessages[stage] || 'Chọn một mảnh ruộng để quản lý';
+            }
+
             // All buttons disabled by default
-            const allButtons = ['btn-select-crop', 'btn-watering', 'btn-fertilize', 'btn-seed', 'btn-pesticide', 'btn-harvest', 'btn-delete-field'];
+            const allButtons = ['btn-select-crop', 'btn-watering', 'btn-fertilize', 'btn-seed', 'btn-pesticide', 'btn-harvest', 'btn-delete-field', 'btn-field-utility'];
             allButtons.forEach(id => {
                 const btn = document.getElementById(id);
                 if (btn) {
@@ -5199,6 +5328,9 @@
 
             // Delete button is always enabled when field is selected
             enableButton('btn-delete-field');
+
+            // Utility button is always enabled when field is selected
+            enableButton('btn-field-utility');
 
             // Enable Analysis button when field is selected
             enableButton('btn-pest-analysis');
@@ -5212,34 +5344,34 @@
 
                 case 'CROP_SELECTED':
                     // Need to fertilize first - check if timing allows (fertilize is due when remaining <= 0)
-                    if (timing.fertilizer === null || timing.fertilizer <= 0) {
+                    if (timingIsDue(timing.fertilizer)) {
                         enableButton('btn-fertilize');
                     }
                     break;
 
                 case 'FERTILIZED':
                     // Need to seed - check wait time (soil rest) after fertilizer
-                    if (timing.seedWait === null || timing.seedWait <= 0) {
+                    if (timingIsDue(timing.seedWait)) {
                         enableButton('btn-seed');
                     }
                     break;
 
                 case 'SEEDED':
                     // Can water and spray ONLY when timing is due
-                    if (timing.watering === null || timing.watering <= 0) {
+                    if (timingIsDue(timing.watering)) {
                         enableButton('btn-watering');
                     }
-                    if (timing.pesticide === null || timing.pesticide <= 0) {
+                    if (timingIsDue(timing.pesticide)) {
                         enableButton('btn-pesticide');
                     }
                     break;
 
                 case 'READY_HARVEST':
                     // Can water, spray (if due), or harvest
-                    if (timing.watering === null || timing.watering <= 0) {
+                    if (timingIsDue(timing.watering)) {
                         enableButton('btn-watering');
                     }
-                    if (timing.pesticide === null || timing.pesticide <= 0) {
+                    if (timingIsDue(timing.pesticide)) {
                         enableButton('btn-pesticide');
                     }
                     enableButton('btn-harvest');
@@ -5274,6 +5406,38 @@
             // Hide hint if field is selected
             const hint = document.querySelector('#farm-management p');
             if (hint) hint.style.display = 'none';
+
+            // Update step badges with checkmarks for completed steps
+            const stepCrop = document.getElementById('step-crop');
+            const stepFertilize = document.getElementById('step-fertilize');
+            const stepSeed = document.getElementById('step-seed');
+            if (stepCrop) {
+                if (field.currentCrop) {
+                    stepCrop.textContent = '✓';
+                    stepCrop.style.background = '#10b981';
+                } else {
+                    stepCrop.textContent = '1';
+                    stepCrop.style.background = '';
+                }
+            }
+            if (stepFertilize) {
+                if (field.lastFertilizedAt) {
+                    stepFertilize.textContent = '✓';
+                    stepFertilize.style.background = '#10b981';
+                } else {
+                    stepFertilize.textContent = '2';
+                    stepFertilize.style.background = '';
+                }
+            }
+            if (stepSeed) {
+                if (field.seedingDate) {
+                    stepSeed.textContent = '✓';
+                    stepSeed.style.background = '#10b981';
+                } else {
+                    stepSeed.textContent = '3';
+                    stepSeed.style.background = '';
+                }
+            }
         }
 
         function enableButton(id) {
@@ -5287,7 +5451,7 @@
         function enableFarmManagement(enable) {
             // Legacy function - now uses updateFarmManagementButtons
             if (!enable) {
-                const allButtons = ['btn-select-crop', 'btn-watering', 'btn-fertilize', 'btn-seed', 'btn-pesticide', 'btn-harvest', 'btn-delete-field'];
+                const allButtons = ['btn-select-crop', 'btn-watering', 'btn-fertilize', 'btn-seed', 'btn-pesticide', 'btn-harvest', 'btn-delete-field', 'btn-field-utility'];
                 allButtons.forEach(id => {
                     const btn = document.getElementById(id);
                     if (btn) {
@@ -6943,11 +7107,207 @@
             list.innerHTML = html || '<div class="empty-state">Không có lịch tưới hôm nay</div>';
         }
 
+        // ── Field Losses overlay on cultivation map ──
+        let _fieldLossLayers = [];
+
+        async function loadFieldLosses(farmId) {
+            if (!farmId) farmId = currentFarmId;
+            if (!farmId) return;
+
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            if (!token) return;
+
+            _fieldLossLayers.forEach(l => { if (map && map.hasLayer(l)) map.removeLayer(l); });
+            _fieldLossLayers = [];
+
+            try {
+                const res = await fetch(`${API_BASE}/field-losses/farm/${farmId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) return;
+                const losses = await res.json();
+
+                const causeLabels = { DISEASE: 'Dịch bệnh', PESTS: 'Sâu bệnh', WEATHER: 'Thời tiết', FLOOD: 'Ngập lụt', DROUGHT: 'Hạn hán', OTHER: 'Khác' };
+
+                losses.forEach(loss => {
+                    if (!loss.lossPolygon) return;
+                    let coords;
+                    try { coords = typeof loss.lossPolygon === 'string' ? JSON.parse(loss.lossPolygon) : loss.lossPolygon; } catch (e) { return; }
+                    if (!Array.isArray(coords) || coords.length < 3) return;
+
+                    const polygon = L.polygon(coords, { color: '#dc2626', weight: 2, fillColor: '#dc2626', fillOpacity: 0.25, dashArray: '4,4' });
+
+                    const areaTxt = loss.lossAreaSqm < 10000 ? `${Number(loss.lossAreaSqm).toFixed(1)} m²` : `${(Number(loss.lossAreaSqm) / 10000).toFixed(3)} ha`;
+                    const pct = loss.lossPercentage ? `${Number(loss.lossPercentage).toFixed(1)}%` : '';
+                    const valTxt = loss.estimatedLossValue ? new Intl.NumberFormat('vi-VN').format(Math.round(loss.estimatedLossValue)) + ' ₫' : '';
+                    const cause = causeLabels[loss.cause] || loss.cause || '';
+
+                    polygon.bindPopup(`
+                        <div style="min-width:180px;">
+                            <div style="font-weight:700; color:#dc2626; margin-bottom:6px;">⚠ Vùng thiệt hại</div>
+                            <div style="font-size:13px; color:#374151;">
+                                <div><b>Diện tích:</b> ${areaTxt} ${pct ? '(' + pct + ')' : ''}</div>
+                                <div><b>Nguyên nhân:</b> ${cause}${loss.causeDetail ? ' — ' + loss.causeDetail : ''}</div>
+                                ${valTxt ? '<div><b>Thiệt hại:</b> ' + valTxt + '</div>' : ''}
+                                ${loss.reportDate ? '<div><b>Ngày:</b> ' + loss.reportDate + '</div>' : ''}
+                                ${loss.notes ? '<div style="margin-top:4px; font-style:italic; color:#6b7280;">' + loss.notes + '</div>' : ''}
+                            </div>
+                        </div>
+                    `);
+
+                    polygon.addTo(map);
+                    _fieldLossLayers.push(polygon);
+                });
+
+                window._fieldLossesData = losses;
+            } catch (err) {
+                console.error('Error loading field losses:', err);
+            }
+        }
+
+        async function openFieldLossAnalytics() {
+            const farmId = currentFarmId;
+            if (!farmId) { alert('Chưa có trang trại.'); return; }
+
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            if (!token) return;
+
+            try {
+                const res = await fetch(`${API_BASE}/field-losses/farm/${farmId}/stats`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (!res.ok) throw new Error('Không thể tải dữ liệu thống kê');
+                const stats = await res.json();
+
+                const totalRecords = stats.totalRecords || 0;
+                const totalLossArea = Number(stats.totalLossAreaSqm || stats.totalLossArea) || 0;
+                const totalLossValue = Number(stats.totalLossValue) || 0;
+                const causeDistribution = stats.causeDistribution || {};
+                const fieldSummaries = stats.fieldSummaries || [];
+
+                let avgLossPercentage = 0;
+                if (fieldSummaries.length > 0) {
+                    const sumPct = fieldSummaries.reduce((sum, fs) => sum + (Number(fs.lossPercentage) || 0), 0);
+                    avgLossPercentage = sumPct / fieldSummaries.length;
+                }
+
+                const causeLabels = { DISEASE: 'Dịch bệnh', PESTS: 'Sâu bệnh', WEATHER: 'Thời tiết', FLOOD: 'Ngập lụt', DROUGHT: 'Hạn hán', OTHER: 'Khác' };
+                const causeColors = { DISEASE: '#dc2626', PESTS: '#ea580c', WEATHER: '#2563eb', FLOOD: '#0891b2', DROUGHT: '#d97706', OTHER: '#6b7280' };
+
+                let causeRows = '';
+                let causeChartLabels = [], causeChartData = [], causeChartColors = [];
+                for (const [key, count] of Object.entries(causeDistribution)) {
+                    causeRows += `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f3f4f6;">
+                        <span style="display:flex; align-items:center; gap:6px;"><span style="width:10px; height:10px; border-radius:50%; background:${causeColors[key] || '#6b7280'};"></span>${causeLabels[key] || key}</span>
+                        <span style="font-weight:600;">${count}</span>
+                    </div>`;
+                    causeChartLabels.push(causeLabels[key] || key);
+                    causeChartData.push(count);
+                    causeChartColors.push(causeColors[key] || '#6b7280');
+                }
+
+                let fieldRows = '';
+                fieldSummaries.forEach(fs => {
+                    const fArea = Number(fs.lossAreaSqm || fs.totalLossArea) || 0;
+                    const fVal = Number(fs.lossValue || fs.totalLossValue) || 0;
+                    fieldRows += `<div style="display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f3f4f6; font-size:13px;">
+                        <span>${fs.fieldName || 'Ruộng #' + fs.fieldId}</span>
+                        <span style="color:#dc2626; font-weight:600;">${fArea < 10000 ? fArea.toFixed(1) + ' m²' : (fArea / 10000).toFixed(3) + ' ha'} · ${fVal > 0 ? new Intl.NumberFormat('vi-VN').format(Math.round(fVal)) + ' ₫' : '--'}</span>
+                    </div>`;
+                });
+
+                let modal = document.getElementById('field-loss-analytics-modal');
+                if (modal) modal.remove();
+
+                modal = document.createElement('div');
+                modal.id = 'field-loss-analytics-modal';
+                modal.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px);';
+                modal.innerHTML = `
+                    <div style="background:white; border-radius:20px; width:90%; max-width:640px; max-height:85vh; overflow-y:auto; box-shadow:0 25px 50px rgba(0,0,0,0.25);">
+                        <div style="padding:24px 28px 0; display:flex; justify-content:space-between; align-items:center;">
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #dc2626, #991b1b); display:flex; align-items:center; justify-content:center;">
+                                    <span class="material-symbols-outlined" style="color:white; font-size:22px;">warning</span>
+                                </div>
+                                <div>
+                                    <h3 style="margin:0; font-size:18px; font-weight:700; color:#111827;">Thống kê hao hụt trồng trọt</h3>
+                                    <p style="margin:2px 0 0; font-size:12px; color:#6b7280;">Tổng quan thiệt hại cây trồng</p>
+                                </div>
+                            </div>
+                            <button onclick="document.getElementById('field-loss-analytics-modal').remove()" style="width:36px; height:36px; border-radius:50%; border:none; background:#f3f4f6; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                                <span class="material-symbols-outlined" style="font-size:20px; color:#6b7280;">close</span>
+                            </button>
+                        </div>
+                        <div style="padding:20px 28px 28px;">
+                            <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; margin-bottom:24px;">
+                                <div style="padding:16px; border-radius:14px; background:linear-gradient(135deg, #fef2f2, #fee2e2); border:1px solid #fecaca;">
+                                    <div style="font-size:11px; font-weight:600; color:#991b1b; text-transform:uppercase;">Số lần báo cáo</div>
+                                    <div style="font-size:28px; font-weight:800; color:#dc2626; margin-top:4px;">${totalRecords}</div>
+                                </div>
+                                <div style="padding:16px; border-radius:14px; background:linear-gradient(135deg, #fff7ed, #ffedd5); border:1px solid #fed7aa;">
+                                    <div style="font-size:11px; font-weight:600; color:#9a3412; text-transform:uppercase;">Tổng diện tích</div>
+                                    <div style="font-size:28px; font-weight:800; color:#ea580c; margin-top:4px;">${totalLossArea < 10000 ? totalLossArea.toFixed(0) + ' m²' : (totalLossArea / 10000).toFixed(2) + ' ha'}</div>
+                                </div>
+                                <div style="padding:16px; border-radius:14px; background:linear-gradient(135deg, #fdf2f8, #fce7f3); border:1px solid #f9a8d4;">
+                                    <div style="font-size:11px; font-weight:600; color:#9d174d; text-transform:uppercase;">Tổng thiệt hại</div>
+                                    <div style="font-size:28px; font-weight:800; color:#db2777; margin-top:4px;">${totalLossValue > 0 ? new Intl.NumberFormat('vi-VN').format(Math.round(totalLossValue)) + ' ₫' : '--'}</div>
+                                </div>
+                                <div style="padding:16px; border-radius:14px; background:linear-gradient(135deg, #eff6ff, #dbeafe); border:1px solid #93c5fd;">
+                                    <div style="font-size:11px; font-weight:600; color:#1e40af; text-transform:uppercase;">Tỷ lệ hao hụt TB</div>
+                                    <div style="font-size:28px; font-weight:800; color:#2563eb; margin-top:4px;">${avgLossPercentage.toFixed(1)}%</div>
+                                </div>
+                            </div>
+                            ${Object.keys(causeDistribution).length > 0 ? `
+                            <div style="margin-bottom:24px;">
+                                <h4 style="font-size:14px; font-weight:700; color:#111827; margin:0 0 12px;">Phân bố nguyên nhân</h4>
+                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                                    <div><canvas id="field-loss-cause-chart" width="200" height="200"></canvas></div>
+                                    <div>${causeRows}</div>
+                                </div>
+                            </div>` : ''}
+                            ${fieldSummaries.length > 0 ? `
+                            <div>
+                                <h4 style="font-size:14px; font-weight:700; color:#111827; margin:0 0 12px;">Thiệt hại theo ruộng</h4>
+                                <div style="background:#f9fafb; border-radius:12px; padding:12px 16px;">${fieldRows}</div>
+                            </div>` : ''}
+                            ${totalRecords === 0 ? `
+                            <div style="text-align:center; padding:40px 20px; color:#9ca3af;">
+                                <span class="material-symbols-outlined" style="font-size:48px; color:#d1d5db; margin-bottom:8px;">sentiment_satisfied</span>
+                                <p style="font-size:14px; margin:0;">Chưa có báo cáo hao hụt nào.</p>
+                            </div>` : ''}
+                        </div>
+                    </div>
+                `;
+
+                document.body.appendChild(modal);
+                modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+
+                if (Object.keys(causeDistribution).length > 0) {
+                    setTimeout(() => {
+                        const ctx = document.getElementById('field-loss-cause-chart');
+                        if (ctx && typeof Chart !== 'undefined') {
+                            new Chart(ctx, {
+                                type: 'doughnut',
+                                data: { labels: causeChartLabels, datasets: [{ data: causeChartData, backgroundColor: causeChartColors, borderWidth: 2, borderColor: '#fff' }] },
+                                options: { responsive: true, plugins: { legend: { display: false } }, cutout: '60%' }
+                            });
+                        }
+                    }, 100);
+                }
+            } catch (err) {
+                console.error('Error loading field loss stats:', err);
+                alert('Không thể tải thống kê hao hụt: ' + err.message);
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             initMap();
             fetchWeather();
             fetchForecast(5);
             document.getElementById('refresh-sensors').onclick = () => { fetchWeather(); fetchForecast(5); };
+
+            // Load field losses after a short delay to allow fields to load first
+            setTimeout(() => { if (currentFarmId) loadFieldLosses(currentFarmId); }, 2000);
         });
     </script>
 
@@ -7688,19 +8048,17 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
 <!-- Traceability Logic (Simple inline for now or move to features.js) -->
 <script>
     function openTraceabilityModal() {
-        // Assume selectedFieldId from main.js or features.js
-        // If undefined, fallback or alert
-        const fieldId = 1; // Default for demo
+        // Use the currently selected field, or first field if none selected
+        const fieldId = selectedField ? selectedField.id : (fieldsData && fieldsData.length > 0 ? fieldsData[0].id : 1);
 
         const modal = document.getElementById('traceability-modal');
         const qrImg = document.getElementById('real-qr-img');
         const linkBtn = document.getElementById('traceability-link');
 
-        // Generate link to local file or deployed URL
-        // NOTE: In local dev, we link to the relative page
+        // Generate link to the farm profile page
         const viewUrl = `${window.location.origin}/pages/traceability-view.html?fieldId=${fieldId}`;
 
-        // Update QR (Using public API for demo)
+        // Update QR
         qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(viewUrl)}`;
 
         // Update Link
@@ -7833,14 +8191,20 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
             <!-- Search & View Toggle -->
             <div class="inventory-actions" style="margin-bottom: 16px;">
                 <div style="flex: 1; position: relative;">
-                    <span class="material-symbols-outlined" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#9ca3af; font-size:20px;">search</span>
-                    <input type="text" id="inventory-search" placeholder="Tìm kiếm vật tư..." class="form-input" style="padding-left: 38px;">
+                    <span class="material-symbols-outlined"
+                        style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#9ca3af; font-size:20px;">search</span>
+                    <input type="text" id="inventory-search" placeholder="Tìm kiếm vật tư..." class="form-input"
+                        style="padding-left: 38px;">
                 </div>
                 <div style="display:flex; gap:4px; margin-left:8px;">
-                    <button class="inv-view-btn active" data-view="grid" onclick="toggleInventoryView('grid')" title="Dạng lưới" style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:8px; cursor:pointer; color:#059669;">
+                    <button class="inv-view-btn active" data-view="grid" onclick="toggleInventoryView('grid')"
+                        title="Dạng lưới"
+                        style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:8px; cursor:pointer; color:#059669;">
                         <span class="material-symbols-outlined" style="font-size:20px;">grid_view</span>
                     </button>
-                    <button class="inv-view-btn" data-view="table" onclick="toggleInventoryView('table')" title="Dạng bảng" style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:8px; cursor:pointer; color:#6b7280;">
+                    <button class="inv-view-btn" data-view="table" onclick="toggleInventoryView('table')"
+                        title="Dạng bảng"
+                        style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:8px; cursor:pointer; color:#6b7280;">
                         <span class="material-symbols-outlined" style="font-size:20px;">table_rows</span>
                     </button>
                 </div>
@@ -7877,7 +8241,8 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
             <!-- Add/Edit Form (Hidden by default) -->
             <div id="inventory-form-overlay" class="inventory-overlay" style="display: none;">
                 <div class="inventory-form-card">
-                    <h4 id="inv-form-title"><span class="material-symbols-outlined">add_shopping_cart</span> Nhập kho vật tư mới</h4>
+                    <h4 id="inv-form-title"><span class="material-symbols-outlined">add_shopping_cart</span> Nhập kho
+                        vật tư mới</h4>
 
                     <div class="inv-tabs" style="display: flex; gap: 8px; margin-bottom: 16px;">
                         <button type="button" id="tab-catalog" class="inv-tab active"
@@ -8395,7 +8760,7 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
                 <span class="material-symbols-outlined">close</span> Hủy
             </button>
         `;
-        document.querySelector('.map-container').appendChild(banner);
+        document.getElementById('map-container').appendChild(banner);
 
         // Change cursor
         document.getElementById('map').style.cursor = 'crosshair';
@@ -8579,6 +8944,352 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
             // startDrawingField();
         }, 1500);
     }
+
+    // ==================== ADD FIELD BY PARCEL (FROM SUITABILITY MAP) ====================
+    let isSelectParcelMode = false;
+
+    function startAddFieldByParcel() {
+        // Use the NEW layer system (WMS + soil overlay) for suitability
+        if (typeof activateUserSuitabilityLayer === 'function') {
+            // Cleanup old inline layer state  
+            if (typeof isSuitabilityLayerVisible !== 'undefined') isSuitabilityLayerVisible = false;
+            if (typeof isPlanningLayerVisible !== 'undefined' && isPlanningLayerVisible) {
+                isPlanningLayerVisible = false;
+                if (planningLayerGroup) planningLayerGroup.clearLayers();
+            }
+            if (typeof isSoilLayerVisible !== 'undefined' && isSoilLayerVisible) {
+                isSoilLayerVisible = false;
+                if (soilLayerGroup && map.hasLayer(soilLayerGroup)) map.removeLayer(soilLayerGroup);
+            }
+            map.off('click', onMapClickSuitability);
+
+            // Activate new system
+            const suitBtn = document.querySelector('.map-layer-btn[data-layer="suitability"]');
+            if (suitBtn && !suitBtn.classList.contains('active')) {
+                // Deactivate other buttons
+                document.querySelectorAll('.map-layer-btn[data-layer="planning"], .map-layer-btn[data-layer="soil"]')
+                    .forEach(b => b.classList.remove('active'));
+                suitBtn.classList.add('active');
+                activateUserSuitabilityLayer();
+            }
+        } else {
+            // Fallback to old system
+            if (!isSuitabilityLayerVisible) toggleSuitabilityLayer();
+        }
+
+        // Also make sure planning zones are loaded for cross-reference
+        if (!planningZonesData || planningZonesData.length === 0) {
+            loadPlanningZones();
+        }
+
+        isSelectParcelMode = true;
+
+        // Show instruction banner
+        const banner = document.createElement('div');
+        banner.id = 'select-parcel-banner';
+        banner.className = 'click-to-add-banner';
+        banner.innerHTML = `
+            <div class="click-to-add-banner__content">
+                <span class="material-symbols-outlined">touch_app</span>
+                <span>Click vào thửa đất trên bản đồ để tạo ruộng theo ranh giới thửa</span>
+            </div>
+            <button class="click-to-add-banner__cancel" onclick="cancelSelectParcel()">
+                <span class="material-symbols-outlined">close</span> Hủy
+            </button>
+        `;
+        document.getElementById('map-container').appendChild(banner);
+        document.getElementById('map').style.cursor = 'crosshair';
+
+        showToast('Chọn thửa đất', 'Bản đồ Thích nghi đã bật. Click vào vùng đất trên bản đồ để chọn', 'info');
+
+        // Remove other click handlers, add our parcel handler
+        map.off('click', onMapClickSuitability);
+        if (typeof onUserMapClickSuitabilityInfo === 'function') map.off('click', onUserMapClickSuitabilityInfo);
+        if (typeof onUserMapClickParcelInfo === 'function') map.off('click', onUserMapClickParcelInfo);
+        map.on('click', onParcelClickForField);
+    }
+
+    function cancelSelectParcel() {
+        isSelectParcelMode = false;
+        document.getElementById('map').style.cursor = '';
+        const banner = document.getElementById('select-parcel-banner');
+        if (banner) banner.remove();
+        map.off('click', onParcelClickForField);
+        // Restore click handler based on current layer system
+        if (typeof userMapCurrentLayer !== 'undefined' && userMapCurrentLayer === 'suitability' && typeof onUserMapClickSuitabilityInfo === 'function') {
+            map.on('click', onUserMapClickSuitabilityInfo);
+        } else if (isSuitabilityLayerVisible) {
+            map.on('click', onMapClickSuitability);
+        }
+    }
+
+    async function onParcelClickForField(e) {
+        if (isDrawing) return;
+
+        const latlng = e.latlng;
+        let zone = null;
+        let parcelGeometry = null;
+
+        // Strategy 1: WMS GetFeatureInfo (best for suitability layer with iLIS parcels)
+        if (typeof getParcelInfoAtPoint === 'function') {
+            try {
+                const parcelInfo = await getParcelInfoAtPoint(latlng);
+                if (parcelInfo) {
+                    // Try to get accurate geometry from local DB
+                    try {
+                        const localParcels = await fetch(`${API_BASE}/land-parcels/bounds?swLat=${latlng.lat - 0.002}&swLng=${latlng.lng - 0.002}&neLat=${latlng.lat + 0.002}&neLng=${latlng.lng + 0.002}`)
+                            .then(r => r.ok ? r.json() : []);
+                        const match = localParcels.find(p =>
+                            p.parcelNumber == parcelInfo.parcelNumber &&
+                            p.mapSheetNumber == parcelInfo.mapSheetNumber
+                        );
+                        if (match && match.boundaryGeojson) {
+                            parcelGeometry = typeof match.boundaryGeojson === 'string' ? JSON.parse(match.boundaryGeojson) : match.boundaryGeojson;
+                        }
+                    } catch (err) { console.warn('Local parcel lookup:', err); }
+
+                    // Use WMS geometry if available as fallback
+                    if (!parcelGeometry && parcelInfo.geometry) {
+                        parcelGeometry = parcelInfo.geometry;
+                    }
+
+                    // Convert parcelInfo to zone-like object
+                    zone = {
+                        name: `Thửa ${parcelInfo.parcelNumber || '—'}`,
+                        zoneCode: parcelInfo.landUseCode || '',
+                        zoneType: parcelInfo.landUseName || '',
+                        landUsePurpose: parcelInfo.landUseName || '',
+                        areaSqm: parcelInfo.areaSqm || 0,
+                        adminUnit: parcelInfo.adminUnitName || ''
+                    };
+                }
+            } catch (err) { console.warn('WMS parcel detection error:', err); }
+        }
+
+        // Strategy 2: Soil zone detection (from userSoilOverlay or soilLayerGroup)
+        if (!zone) {
+            let soilZone = null;
+            if (typeof userSoilOverlay !== 'undefined' && userSoilOverlay) {
+                soilZone = findSoilZoneAtPoint(userSoilOverlay, latlng);
+            }
+            if (!soilZone && soilLayerGroup) {
+                soilZone = findSoilZoneAtPoint(soilLayerGroup, latlng);
+            }
+            if (soilZone) {
+                zone = soilZone;
+            }
+        }
+
+        // Strategy 3: Planning zone (client-side point-in-polygon)
+        if (!zone) {
+            zone = findPlanningZoneAtPoint(latlng);
+        }
+
+        // Strategy 4: API fallback - try both soil and planning
+        if (!zone) {
+            for (const mapType of ['soil', 'planning']) {
+                for (const radius of [0.002, 0.005, 0.01]) {
+                    try {
+                        const resp = await fetch(`${API_BASE}/planning-zones/near?lat=${latlng.lat}&lng=${latlng.lng}&radius=${radius}&mapType=${mapType}`);
+                        if (resp.ok) {
+                            const zones = await resp.json();
+                            if (zones.length > 0) {
+                                zone = zones.reduce((best, z) => {
+                                    const bestArea = best.areaSqm ? parseFloat(best.areaSqm) : Infinity;
+                                    const zArea = z.areaSqm ? parseFloat(z.areaSqm) : Infinity;
+                                    return zArea < bestArea ? z : best;
+                                }, zones[0]);
+                                break;
+                            }
+                        }
+                    } catch (err) { /* skip */ }
+                }
+                if (zone) break;
+            }
+        }
+
+        if (!zone) {
+            showToast('Không tìm thấy', 'Không có thửa đất tại vị trí này. Hãy thử vị trí khác hoặc dùng "Vẽ ruộng trực tiếp".', 'warning');
+            return;
+        }
+
+        // Extract polygon coordinates
+        let coords = null;
+
+        // Use parcelGeometry from WMS/local DB if available
+        if (parcelGeometry) {
+            try {
+                if (parcelGeometry.type === 'Polygon') coords = parcelGeometry.coordinates[0];
+                else if (parcelGeometry.type === 'MultiPolygon') coords = parcelGeometry.coordinates[0][0];
+                else if (parcelGeometry.type === 'Feature' && parcelGeometry.geometry) {
+                    if (parcelGeometry.geometry.type === 'Polygon') coords = parcelGeometry.geometry.coordinates[0];
+                    else if (parcelGeometry.geometry.type === 'MultiPolygon') coords = parcelGeometry.geometry.coordinates[0][0];
+                }
+            } catch (err) { coords = null; }
+        }
+
+        // Fallback: extract from zone data
+        if (!coords) {
+            if (zone.boundaryCoordinates) {
+                try {
+                    coords = typeof zone.boundaryCoordinates === 'string' ? JSON.parse(zone.boundaryCoordinates) : zone.boundaryCoordinates;
+                } catch (e) { }
+            }
+            if (!coords && zone.geojson) {
+                try {
+                    const gj = typeof zone.geojson === 'string' ? JSON.parse(zone.geojson) : zone.geojson;
+                    if (gj.type === 'Polygon') coords = gj.coordinates[0];
+                    else if (gj.type === 'Feature' && gj.geometry?.type === 'Polygon') coords = gj.geometry.coordinates[0];
+                    else if (gj.type === 'MultiPolygon') coords = gj.coordinates[0][0];
+                    else if (gj.type === 'Feature' && gj.geometry?.type === 'MultiPolygon') coords = gj.geometry.coordinates[0][0];
+                } catch (e) { }
+            }
+        }
+
+        if (!coords || coords.length < 3) {
+            // If we have WMS info but no geometry, use a marker-based approach
+            if (zone.areaSqm && zone.areaSqm > 0) {
+                cancelSelectParcel();
+                // Create a circle approximation  
+                const radiusM = Math.sqrt(zone.areaSqm / Math.PI);
+                if (drawnLayer) { drawnItems.removeLayer(drawnLayer); drawnLayer = null; }
+                drawnLayer = L.circle(latlng, { radius: radiusM, color: '#7c3aed', weight: 3, fillOpacity: 0.25, fillColor: '#8b5cf6', dashArray: '6,4' });
+                drawnItems.addLayer(drawnLayer);
+                map.fitBounds(drawnLayer.getBounds(), { padding: [40, 40] });
+                const areaHa = (zone.areaSqm / 10000).toFixed(2);
+                showParcelFieldConfirmModal(null, zone.areaSqm, areaHa, zone, latlng);
+                return;
+            }
+            showToast('Lỗi', 'Không thể lấy ranh giới thửa đất. Hãy thử cách "Vẽ ruộng trực tiếp".', 'warning');
+            return;
+        }
+
+        // Normalize coords to Leaflet [lat, lng]
+        let latlngs;
+        if (typeof coords[0] === 'object' && coords[0].lat !== undefined) {
+            latlngs = coords.map(c => L.latLng(c.lat, c.lng));
+        } else if (Array.isArray(coords[0]) && coords[0].length >= 2) {
+            const firstVal = Math.abs(coords[0][0]);
+            if (firstVal > 90) {
+                latlngs = coords.map(c => L.latLng(c[1], c[0]));
+            } else {
+                latlngs = coords.map(c => L.latLng(c[0], c[1]));
+            }
+        } else {
+            showToast('Lỗi', 'Định dạng tọa độ không hợp lệ', 'error');
+            return;
+        }
+
+        // 3. Calculate area — prefer zone.areaSqm from DB, else compute geodesic
+        let areaSqm = 0;
+        if (zone.areaSqm && parseFloat(zone.areaSqm) > 0) {
+            areaSqm = parseFloat(zone.areaSqm);
+        } else {
+            areaSqm = L.GeometryUtil.geodesicArea(latlngs);
+        }
+
+        // 4. Draw parcel on map for visual confirmation
+        cancelSelectParcel();
+
+        // Remove old drawn layer
+        if (drawnLayer) {
+            drawnItems.removeLayer(drawnLayer);
+            drawnLayer = null;
+        }
+
+        drawnLayer = L.polygon(latlngs, {
+            color: '#7c3aed',
+            weight: 3,
+            fillOpacity: 0.25,
+            fillColor: '#8b5cf6',
+            dashArray: '6,4'
+        });
+        drawnItems.addLayer(drawnLayer);
+        map.fitBounds(drawnLayer.getBounds(), { padding: [40, 40] });
+
+        // 5. Show confirmation modal (reuse existing flow but with zone info)
+        const areaHa = (areaSqm / 10000).toFixed(2);
+        showParcelFieldConfirmModal(latlngs, areaSqm, areaHa, zone);
+    }
+
+    function showParcelFieldConfirmModal(latlngs, areaSqm, areaHa, zone) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'field-confirm-modal';
+
+        const zoneName = zone.name || zone.zoneType || 'Thửa đất';
+        const zoneCode = zone.zoneCode || zone.mapSymbol || '';
+        const landUse = zone.landUsePurpose || zone.zoneType || '';
+
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 480px;">
+                <div class="modal-header" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white;">
+                    <div>
+                        <h3 style="margin:0;">
+                            <span class="material-symbols-outlined" style="vertical-align:middle;">add_location_alt</span>
+                            Tạo ruộng từ thửa đất
+                        </h3>
+                        <p style="margin:4px 0 0; font-size:12px; opacity:0.9;">Diện tích: <strong>${areaHa} ha</strong> (${Math.round(areaSqm).toLocaleString()} m²)</p>
+                    </div>
+                    <span class="close-modal" onclick="cancelFieldDrawing()" style="color:white;cursor:pointer;">&times;</span>
+                </div>
+                <div class="modal-body" style="padding:20px;">
+                    <!-- Zone info -->
+                    <div style="padding:12px; background:#f5f3ff; border-radius:8px; margin-bottom:16px; border-left:4px solid #7c3aed;">
+                        <div style="font-weight:600; color:#5b21b6; margin-bottom:4px;">${zoneName}</div>
+                        ${zoneCode ? `<div style="font-size:12px; color:#7c3aed;">Mã: ${zoneCode}</div>` : ''}
+                        ${landUse ? `<div style="font-size:12px; color:#6b7280;">MĐSD: ${landUse}</div>` : ''}
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:16px;">
+                        <label for="field-name-input" style="display:block; margin-bottom:6px; font-weight:500;">Tên mảnh ruộng *</label>
+                        <input type="text" id="field-name-input" placeholder="VD: Khu A, Ruộng Bắc..."
+                            value="${zoneName !== 'Thửa đất' ? zoneName : ''}"
+                            style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:8px;">
+                    </div>
+                    <div class="form-group">
+                        <label for="certificate-input" style="display:block; margin-bottom:6px; font-weight:500;">Giấy xác nhận quyền sử dụng đất *</label>
+                        <p style="font-size:12px; color:#6b7280; margin-bottom:8px;">Upload ảnh giấy tờ xác minh quyền sở hữu</p>
+                        <input type="file" id="certificate-input" accept="image/*" style="display:none;">
+                        <div id="certificate-preview" style="width:100%; height:120px; border:2px dashed #d1d5db; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; background:#f9fafb;"
+                            onclick="document.getElementById('certificate-input').click()">
+                            <div style="text-align:center; color:#9ca3af;">
+                                <span class="material-symbols-outlined" style="font-size:32px;">upload_file</span>
+                                <p style="margin:4px 0 0; font-size:12px;">Click để chọn ảnh</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button onclick="cancelFieldDrawing()" class="btn btn--secondary">Hủy</button>
+                    <button onclick="confirmFieldCreation()" class="btn btn--primary">Xác nhận tạo ruộng</button>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+
+        // Setup certificate upload handler
+        setupCertificateUpload();
+    }
+
+    function setupCertificateUpload() {
+        const input = document.getElementById('certificate-input');
+        if (!input) return;
+        input.onchange = function () {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (ev) {
+                    const preview = document.getElementById('certificate-preview');
+                    preview.innerHTML = '';
+                    preview.style.backgroundImage = `url('${ev.target.result}')`;
+                    preview.style.backgroundSize = 'cover';
+                    preview.style.backgroundPosition = 'center';
+                    preview.dataset.base64 = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+    }
 </script>
 
 <style>
@@ -8707,6 +9418,416 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
 <!-- Bottom DOMContentLoaded handler REMOVED: was conflicting with setupControls() onclick handlers.
      setupControls() in the inline script already correctly dispatches to activateUserPlanningLayer(),
      activateUserSoilLayer(), activateUserSuitabilityLayer() from cultivation-map-layers.js -->
+<!-- Field Utility Modal CSS (from livestock page) -->
+<style>
+    /* Modal overlay & container */
+    #fieldUtilityModal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        z-index: 10001;
+        align-items: center;
+        justify-content: center;
+        animation: fuModalBgFade 0.2s ease;
+    }
+
+    #fieldUtilityModal .modal__overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+    }
+
+    #fieldUtilityModal .modal__content {
+        position: relative;
+        background: #fff;
+        border-radius: 16px;
+        max-width: 560px;
+        width: 92%;
+        max-height: 85vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        animation: fuModalSlideIn 0.3s ease;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        z-index: 1;
+    }
+
+    #fieldUtilityModal .modal__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 24px;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+    }
+
+    #fieldUtilityModal .modal__header h3 {
+        font-size: 18px;
+        font-weight: 700;
+        color: #111827;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 0;
+    }
+
+    #fieldUtilityModal .modal__close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #6b7280;
+        padding: 4px;
+        line-height: 1;
+        border-radius: 8px;
+        transition: all 0.15s ease;
+    }
+
+    #fieldUtilityModal .modal__close:hover {
+        background: #f3f4f6;
+        color: #111827;
+    }
+
+    #fieldUtilityModal .modal__body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+    }
+
+    #fieldUtilityModal .modal__footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 16px 24px;
+        border-top: 1px solid #e5e7eb;
+        flex-shrink: 0;
+    }
+
+    #fieldUtilityModal .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    #fieldUtilityModal .form-group label,
+    #fieldUtilityModal .form-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: #6b7280;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    #fieldUtilityModal .form-input,
+    #fieldUtilityModal .form-group input[type="number"] {
+        width: 100%;
+        padding: 10px 14px;
+        border: 1.5px solid #e5e7eb;
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 14px;
+        color: #111827;
+        background: #fff;
+        transition: border-color 0.15s ease;
+        outline: none;
+        box-sizing: border-box;
+    }
+
+    #fieldUtilityModal .form-input:focus,
+    #fieldUtilityModal .form-group input:focus {
+        border-color: #2f7f34;
+        box-shadow: 0 0 0 3px rgba(47, 127, 52, 0.1);
+    }
+
+    #fieldUtilityModal .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s ease;
+    }
+
+    #fieldUtilityModal .btn--secondary {
+        background: #f3f4f6;
+        color: #374151;
+    }
+
+    #fieldUtilityModal .btn--secondary:hover {
+        background: #e5e7eb;
+    }
+
+    #fieldUtilityModal .btn--primary {
+        background: #2f7f34;
+        color: white;
+    }
+
+    #fieldUtilityModal .btn--primary:hover {
+        background: #256b29;
+    }
+
+    @keyframes fuModalBgFade {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes fuModalSlideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px) scale(0.98);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+</style>
+
+<!-- Field Utility Settings Modal (Điện nước) -->
+<div class="modal" id="fieldUtilityModal" style="display: none;">
+    <div class="modal__overlay" onclick="closeFieldUtilityModal()"></div>
+    <div class="modal__content" style="max-width: 560px;">
+        <div class="modal__header">
+            <div class="modal__header-title" style="display: flex; align-items: center; gap: 8px;">
+                <span class="material-symbols-outlined" style="color: #06b6d4;">electrical_services</span>
+                <h3>Cài đặt Điện nước</h3>
+            </div>
+            <button class="modal__close" onclick="closeFieldUtilityModal()">&times;</button>
+        </div>
+        <div class="modal__body">
+            <div
+                style="background: #f0fdfa; border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; display: flex; align-items: center; gap: 12px;">
+                <span class="material-symbols-outlined" style="color: #06b6d4; font-size: 28px;">grass</span>
+                <div>
+                    <div style="font-weight: 600; color: #111827;" id="field-utility-name">Ruộng --</div>
+                    <div style="font-size: 12px; color: #6b7280;" id="field-utility-crop">--</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div class="form-group">
+                    <label class="form-label">
+                        <span class="material-symbols-outlined"
+                            style="font-size: 16px; vertical-align: middle; color: #f59e0b;">bolt</span>
+                        Công suất điện (kW)
+                    </label>
+                    <input type="number" class="form-input" id="field-utility-power-kw" min="0" step="0.1"
+                        placeholder="VD: 2.5" value="0" oninput="updateFieldUtilityPreview()">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <span class="material-symbols-outlined"
+                            style="font-size: 16px; vertical-align: middle; color: #f59e0b;">payments</span>
+                        Giá điện (VNĐ/kWh)
+                    </label>
+                    <input type="number" class="form-input" id="field-utility-elec-rate" min="0" step="100"
+                        placeholder="VD: 3000" value="3000" oninput="updateFieldUtilityPreview()">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                <div class="form-group">
+                    <label class="form-label">
+                        <span class="material-symbols-outlined"
+                            style="font-size: 16px; vertical-align: middle; color: #3b82f6;">water_drop</span>
+                        Lượng nước sử dụng (m³/ngày)
+                    </label>
+                    <input type="number" class="form-input" id="field-utility-water-m3" min="0" step="0.1"
+                        placeholder="VD: 1.5" value="0" oninput="updateFieldUtilityPreview()">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">
+                        <span class="material-symbols-outlined"
+                            style="font-size: 16px; vertical-align: middle; color: #3b82f6;">payments</span>
+                        Giá nước (VNĐ/m³)
+                    </label>
+                    <input type="number" class="form-input" id="field-utility-water-rate" min="0" step="100"
+                        placeholder="VD: 12000" value="12000" oninput="updateFieldUtilityPreview()">
+                </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label class="form-label">
+                    <span class="material-symbols-outlined"
+                        style="font-size: 16px; vertical-align: middle; color: #8b5cf6;">schedule</span>
+                    Số giờ hoạt động/ngày
+                </label>
+                <input type="range" id="field-utility-hours" min="1" max="24" value="12" style="width: 100%;"
+                    oninput="updateFieldUtilityPreview()">
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #9ca3af;">
+                    <span>1 giờ</span>
+                    <span id="field-utility-hours-label" style="font-weight: 600; color: #111827;">12 giờ</span>
+                    <span>24 giờ</span>
+                </div>
+            </div>
+
+            <!-- Cost Preview -->
+            <div
+                style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-radius: 12px; padding: 16px; margin-top: 12px;">
+                <div
+                    style="font-weight: 600; color: #0369a1; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <span class="material-symbols-outlined" style="font-size: 18px;">analytics</span>
+                    Dự tính chi phí hàng tháng
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div style="background: white; border-radius: 8px; padding: 12px; text-align: center;">
+                        <div style="font-size: 12px; color: #6b7280;">Tiền điện</div>
+                        <div style="font-size: 20px; font-weight: 700; color: #f59e0b;" id="field-utility-elec-cost">0
+                            VNĐ</div>
+                    </div>
+                    <div style="background: white; border-radius: 8px; padding: 12px; text-align: center;">
+                        <div style="font-size: 12px; color: #6b7280;">Tiền nước</div>
+                        <div style="font-size: 20px; font-weight: 700; color: #3b82f6;" id="field-utility-water-cost">0
+                            VNĐ</div>
+                    </div>
+                </div>
+                <div
+                    style="background: white; border-radius: 8px; padding: 12px; text-align: center; margin-top: 12px;">
+                    <div style="font-size: 12px; color: #6b7280;">Tổng chi phí điện nước/tháng</div>
+                    <div style="font-size: 24px; font-weight: 800; color: #dc2626;" id="field-utility-total-cost">0 VNĐ
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal__footer">
+            <button class="btn btn--secondary" onclick="closeFieldUtilityModal()">Hủy</button>
+            <button class="btn btn--primary" onclick="saveFieldUtilitySetting()">
+                <span class="material-symbols-outlined icon-sm">save</span>
+                Lưu cài đặt
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==================== FIELD UTILITY SETTINGS ====================
+    function openFieldUtilityModal() {
+        if (!selectedField) {
+            if (typeof showNotification === 'function') showNotification('warning', 'Cảnh báo', 'Vui lòng chọn ruộng trước');
+            return;
+        }
+        const modal = document.getElementById('fieldUtilityModal');
+        if (!modal) return;
+
+        document.getElementById('field-utility-name').textContent = selectedField.name || 'Ruộng ' + selectedField.id;
+        document.getElementById('field-utility-crop').textContent =
+            selectedField.currentCrop?.name || selectedField.currentCrop || 'Chưa trồng cây';
+
+        loadFieldUtilitySetting(selectedField.id);
+        modal.style.display = 'flex';
+        if (typeof gsap !== 'undefined') {
+            gsap.fromTo(modal.querySelector('.modal__content'), {
+                opacity: 0, scale: 0.9, y: 30
+            }, {
+                opacity: 1, scale: 1, y: 0,
+                duration: 0.35, ease: 'power2.out'
+            });
+        }
+    }
+
+    function closeFieldUtilityModal() {
+        const modal = document.getElementById('fieldUtilityModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function loadFieldUtilitySetting(fieldId) {
+        try {
+            const token = localStorage.getItem('token');
+            const baseUrl = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:8080/api';
+            const res = await fetch(`${baseUrl}/utility-settings/field/${fieldId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const setting = await res.json();
+                document.getElementById('field-utility-power-kw').value = setting.powerKw || 0;
+                document.getElementById('field-utility-elec-rate').value = setting.electricityRate || 3000;
+                document.getElementById('field-utility-water-m3').value = setting.waterM3PerDay || 0;
+                document.getElementById('field-utility-water-rate').value = setting.waterRate || 12000;
+                document.getElementById('field-utility-hours').value = setting.hoursPerDay || 12;
+            } else {
+                document.getElementById('field-utility-power-kw').value = 0;
+                document.getElementById('field-utility-elec-rate').value = 3000;
+                document.getElementById('field-utility-water-m3').value = 0;
+                document.getElementById('field-utility-water-rate').value = 12000;
+                document.getElementById('field-utility-hours').value = 12;
+            }
+            updateFieldUtilityPreview();
+        } catch (e) {
+            console.error('Error loading field utility setting:', e);
+        }
+    }
+
+    async function saveFieldUtilitySetting() {
+        if (!selectedField) return;
+        try {
+            const token = localStorage.getItem('token');
+            const baseUrl = typeof API_BASE_URL !== 'undefined' ? API_BASE_URL : 'http://localhost:8080/api';
+            const body = {
+                powerKw: parseFloat(document.getElementById('field-utility-power-kw').value) || 0,
+                electricityRate: parseFloat(document.getElementById('field-utility-elec-rate').value) || 3000,
+                waterM3PerDay: parseFloat(document.getElementById('field-utility-water-m3').value) || 0,
+                waterRate: parseFloat(document.getElementById('field-utility-water-rate').value) || 12000,
+                hoursPerDay: parseInt(document.getElementById('field-utility-hours').value) || 12
+            };
+
+            const res = await fetch(`${baseUrl}/utility-settings/field/${selectedField.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(body)
+            });
+
+            if (res.ok) {
+                if (typeof showNotification === 'function') showNotification('success', 'Thành công', 'Đã lưu cài đặt điện nước!');
+                closeFieldUtilityModal();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                if (typeof showNotification === 'function') showNotification('error', 'Lỗi', err.error || 'Lỗi khi lưu');
+            }
+        } catch (e) {
+            console.error('Error saving field utility:', e);
+            if (typeof showNotification === 'function') showNotification('error', 'Lỗi', 'Lỗi kết nối server');
+        }
+    }
+
+    function updateFieldUtilityPreview() {
+        const powerKw = parseFloat(document.getElementById('field-utility-power-kw').value) || 0;
+        const elecRate = parseFloat(document.getElementById('field-utility-elec-rate').value) || 0;
+        const waterM3 = parseFloat(document.getElementById('field-utility-water-m3').value) || 0;
+        const waterRate = parseFloat(document.getElementById('field-utility-water-rate').value) || 0;
+        const hours = parseInt(document.getElementById('field-utility-hours').value) || 12;
+
+        document.getElementById('field-utility-hours-label').textContent = hours + ' giờ';
+
+        const monthlyElec = powerKw * hours * 30 * elecRate;
+        const monthlyWater = waterM3 * 30 * waterRate;
+        const total = monthlyElec + monthlyWater;
+
+        const fmt = (v) => v.toLocaleString('vi-VN') + ' VNĐ';
+        document.getElementById('field-utility-elec-cost').textContent = fmt(monthlyElec);
+        document.getElementById('field-utility-water-cost').textContent = fmt(monthlyWater);
+        document.getElementById('field-utility-total-cost').textContent = fmt(total);
+    }
+</script>
+
 </body>
 
 </html>

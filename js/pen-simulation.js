@@ -1341,6 +1341,382 @@ class PenFurniture {
     }
 }
 
+// ==================== BYPRODUCT VISUAL ITEMS ====================
+
+class ByproductItems {
+    /**
+     * Draw byproduct items on the pen canvas
+     * @param {CanvasRenderingContext2D} ctx
+     * @param {number} w - canvas width
+     * @param {number} h - canvas height
+     * @param {string} byproductType - EGGS, MILK, HONEY, SILK
+     * @param {string} animalName - animal name for context
+     * @param {string} farmingType - BARN, FREE_RANGE, etc.
+     * @param {number} time - animation time
+     */
+    static draw(ctx, w, h, byproductType, animalName, farmingType, time) {
+        if (!byproductType || byproductType === 'NONE') return;
+        switch (byproductType) {
+            case 'EGGS': ByproductItems.drawEggs(ctx, w, h, animalName, farmingType, time); break;
+            case 'MILK': ByproductItems.drawMilk(ctx, w, h, animalName, farmingType, time); break;
+            case 'HONEY': ByproductItems.drawHoney(ctx, w, h, animalName, farmingType, time); break;
+            case 'SILK': ByproductItems.drawSilk(ctx, w, h, animalName, farmingType, time); break;
+        }
+    }
+
+    static _drawSingleEgg(ctx, x, y, size, color, shadowColor) {
+        // Shadow
+        ctx.fillStyle = shadowColor || 'rgba(0,0,0,0.08)';
+        ctx.beginPath(); ctx.ellipse(x, y + size * 0.3, size * 0.7, size * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+        // Egg body (rounded oval)
+        ctx.fillStyle = color || '#FFF8E7';
+        ctx.beginPath();
+        ctx.ellipse(x, y, size * 0.55, size * 0.7, 0, 0, Math.PI * 2);
+        ctx.fill();
+        // Subtle outline
+        ctx.strokeStyle = 'rgba(180,160,120,0.3)'; ctx.lineWidth = 0.6; ctx.stroke();
+        // Highlight/shine
+        ctx.fillStyle = 'rgba(255,255,255,0.55)';
+        ctx.beginPath(); ctx.ellipse(x - size * 0.12, y - size * 0.2, size * 0.18, size * 0.25, -0.3, 0, Math.PI * 2); ctx.fill();
+    }
+
+    static drawEggs(ctx, w, h, animalName, farmingType, time) {
+        const nm = (animalName || '').toLowerCase();
+        const isWaterfowl = nm.includes('vịt') || nm.includes('ngan') || nm.includes('ngỗng');
+        const isQuail = nm.includes('cút');
+        const isBarn = farmingType === 'BARN' || farmingType === 'CAGED' || farmingType === 'INDUSTRIAL';
+
+        // Egg color and size based on animal type
+        let eggColor, eggSize, speckled;
+        if (isQuail) {
+            eggColor = '#E8D5B7'; eggSize = 3.5; speckled = true;
+        } else if (isWaterfowl) {
+            eggColor = nm.includes('vịt') ? '#E8F0E0' : '#F5F0E0';
+            eggSize = 6; speckled = false;
+        } else {
+            eggColor = '#FFF3E0'; eggSize = 5; speckled = false;
+        }
+
+        // === Eggs in nesting boxes (barn-type) ===
+        if (isBarn && !isWaterfowl) {
+            // Eggs inside nesting boxes (bottom-right area, matching PenFurniture nesting boxes)
+            const nestPositions = [
+                { x: w - 38, y: h - 24 },
+                { x: w - 68, y: h - 24 },
+            ];
+            nestPositions.forEach((pos, i) => {
+                // 1-2 eggs per nest
+                ByproductItems._drawSingleEgg(ctx, pos.x, pos.y, eggSize, eggColor);
+                if (i === 0) {
+                    ByproductItems._drawSingleEgg(ctx, pos.x + eggSize * 0.8, pos.y + 1, eggSize * 0.9, eggColor);
+                }
+            });
+        }
+
+        // === Eggs scattered on the ground (yard/free-range behavior) ===
+        // Seeded positions - eggs appear at natural spots
+        const scatterSeeds = [
+            { x: w * 0.35, y: h * 0.62, rot: 0.2 },
+            { x: w * 0.58, y: h * 0.48, rot: -0.1 },
+            { x: w * 0.22, y: h * 0.78, rot: 0.4 },
+            { x: w * 0.72, y: h * 0.72, rot: -0.3 },
+            { x: w * 0.45, y: h * 0.35, rot: 0.15 },
+            { x: w * 0.15, y: h * 0.55, rot: -0.2 },
+        ];
+
+        // For barn, show fewer scattered eggs; for free-range, show more
+        const scatterCount = isBarn ? 2 : (isWaterfowl ? 4 : 5);
+        for (let i = 0; i < scatterCount; i++) {
+            const seed = scatterSeeds[i];
+            ctx.save();
+            ctx.translate(seed.x, seed.y);
+            ctx.rotate(seed.rot);
+            ByproductItems._drawSingleEgg(ctx, 0, 0, eggSize, eggColor);
+            // Draw speckles for quail eggs
+            if (speckled) {
+                ctx.fillStyle = 'rgba(101,67,33,0.45)';
+                for (let s = 0; s < 6; s++) {
+                    const sx = (Math.sin(s * 2.1 + i) * eggSize * 0.35);
+                    const sy = (Math.cos(s * 1.7 + i) * eggSize * 0.45);
+                    ctx.beginPath(); ctx.arc(sx, sy, 0.8 + Math.sin(s) * 0.3, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+            ctx.restore();
+        }
+
+        // === Waterfowl: eggs near nest/pond area ===
+        if (isWaterfowl) {
+            // Cluster of eggs near nest area (matching PenFurniture nest near pond)
+            const nestX = w * 0.3, nestY = h * 0.85;
+            for (let i = 0; i < 3; i++) {
+                const ex = nestX - 6 + i * 7;
+                const ey = nestY - 2 + Math.sin(i * 1.5) * 2;
+                ByproductItems._drawSingleEgg(ctx, ex, ey, eggSize * 0.9, eggColor);
+            }
+        }
+
+        // === Small "basket" of collected eggs near feeders ===
+        const basketX = w * 0.18, basketY = h * 0.88;
+        // Basket outline
+        ctx.fillStyle = 'rgba(139,119,42,0.15)';
+        ctx.beginPath(); ctx.ellipse(basketX, basketY + 3, 14, 6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(139,90,43,0.35)'; ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.ellipse(basketX, basketY, 13, 9, 0, Math.PI, Math.PI * 2);
+        ctx.stroke();
+        // Woven lines
+        ctx.strokeStyle = 'rgba(139,90,43,0.2)'; ctx.lineWidth = 0.5;
+        for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.ellipse(basketX, basketY + 1 + i * 2, 12 - i, 7 - i, 0, Math.PI, Math.PI * 2);
+            ctx.stroke();
+        }
+        // Eggs in basket
+        const basketEggs = [
+            { dx: -4, dy: -3 }, { dx: 3, dy: -2 }, { dx: -1, dy: -5 }
+        ];
+        basketEggs.forEach(({ dx, dy }) => {
+            ByproductItems._drawSingleEgg(ctx, basketX + dx, basketY + dy, eggSize * 0.85, eggColor);
+        });
+    }
+
+    static drawMilk(ctx, w, h, animalName, farmingType, time) {
+        // Milk bucket near milking area (matching PenFurniture dairy cow milking area)
+        const bucketX = w * 0.75, bucketY = h * 0.55;
+
+        // === Main milk bucket ===
+        // Bucket body
+        ctx.fillStyle = '#B0BEC5';
+        ctx.beginPath();
+        ctx.moveTo(bucketX - 10, bucketY - 14);
+        ctx.lineTo(bucketX - 8, bucketY + 8);
+        ctx.lineTo(bucketX + 8, bucketY + 8);
+        ctx.lineTo(bucketX + 10, bucketY - 14);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 0.8; ctx.stroke();
+        // Metal bands
+        ctx.strokeStyle = 'rgba(96,125,139,0.4)'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(bucketX - 9.5, bucketY - 8); ctx.lineTo(bucketX + 9.5, bucketY - 8); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(bucketX - 8.5, bucketY + 4); ctx.lineTo(bucketX + 8.5, bucketY + 4); ctx.stroke();
+        // Bucket rim (top ellipse)
+        ctx.fillStyle = '#CFD8DC';
+        ctx.beginPath(); ctx.ellipse(bucketX, bucketY - 14, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 0.6; ctx.stroke();
+        // Milk surface
+        ctx.fillStyle = '#FAFAFA';
+        ctx.beginPath(); ctx.ellipse(bucketX, bucketY - 13, 8, 3, 0, 0, Math.PI * 2); ctx.fill();
+        // Milk shine
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.beginPath(); ctx.ellipse(bucketX - 2, bucketY - 14, 3, 1.5, -0.3, 0, 0, Math.PI * 2); ctx.fill();
+        // Handle
+        ctx.strokeStyle = '#78909C'; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(bucketX, bucketY - 20, 8, Math.PI * 0.15, Math.PI * 0.85);
+        ctx.stroke();
+
+        // === Second smaller milk container ===
+        const jug2X = bucketX + 22, jug2Y = bucketY + 2;
+        // Glass bottle shape
+        ctx.fillStyle = 'rgba(227,242,253,0.7)';
+        ctx.beginPath();
+        ctx.moveTo(jug2X - 4, jug2Y + 8);
+        ctx.lineTo(jug2X - 4, jug2Y - 4);
+        ctx.quadraticCurveTo(jug2X - 4, jug2Y - 8, jug2X - 2, jug2Y - 10);
+        ctx.lineTo(jug2X - 2, jug2Y - 14);
+        ctx.lineTo(jug2X + 2, jug2Y - 14);
+        ctx.lineTo(jug2X + 2, jug2Y - 10);
+        ctx.quadraticCurveTo(jug2X + 4, jug2Y - 8, jug2X + 4, jug2Y - 4);
+        ctx.lineTo(jug2X + 4, jug2Y + 8);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 0.5; ctx.stroke();
+        // Milk level in bottle
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillRect(jug2X - 3, jug2Y - 2, 6, 9);
+        // Cap
+        ctx.fillStyle = '#42A5F5';
+        ctx.fillRect(jug2X - 2.5, jug2Y - 15, 5, 2);
+
+        // === Small milk splashes/drips on ground ===
+        ctx.fillStyle = 'rgba(255,255,255,0.25)';
+        const drips = [
+            [bucketX - 14, bucketY + 10], [bucketX + 5, bucketY + 12],
+            [bucketX - 6, bucketY + 14]
+        ];
+        drips.forEach(([dx, dy]) => {
+            ctx.beginPath(); ctx.ellipse(dx, dy, 3, 1.5, Math.random() * 0.5, 0, Math.PI * 2); ctx.fill();
+        });
+
+        // === Stool near milking area ===
+        const stoolX = bucketX - 25, stoolY = bucketY + 5;
+        ctx.fillStyle = '#8D6E63';
+        ctx.fillRect(stoolX - 8, stoolY, 16, 3);
+        // Legs
+        ctx.fillRect(stoolX - 7, stoolY + 3, 3, 8);
+        ctx.fillRect(stoolX + 4, stoolY + 3, 3, 8);
+    }
+
+    static drawHoney(ctx, w, h, animalName, farmingType, time) {
+        const t = time || 0;
+
+        // === Honey dripping from hive ===
+        // The beehive frame is drawn by PenFurniture at center
+        const frameW = w * 0.3;
+        const frameH = h * 0.4;
+        const fx = w * 0.5 - frameW / 2;
+        const fy = h * 0.5 - frameH / 2;
+
+        // Honey drips from bottom of hive (animated)
+        ctx.fillStyle = 'rgba(255,183,0,0.65)';
+        const dripPositions = [
+            { x: fx + frameW * 0.25, baseLen: 8 },
+            { x: fx + frameW * 0.5, baseLen: 12 },
+            { x: fx + frameW * 0.75, baseLen: 6 },
+        ];
+        dripPositions.forEach((drip, i) => {
+            const dripLen = drip.baseLen + Math.sin(t * 0.8 + i * 2) * 4;
+            const dy = fy + frameH + 4;
+            // Drip streak
+            ctx.beginPath();
+            ctx.moveTo(drip.x - 1.5, dy);
+            ctx.quadraticCurveTo(drip.x - 1, dy + dripLen * 0.6, drip.x, dy + dripLen);
+            ctx.quadraticCurveTo(drip.x + 1, dy + dripLen * 0.6, drip.x + 1.5, dy);
+            ctx.fill();
+            // Drip droplet at tip
+            ctx.beginPath(); ctx.arc(drip.x, dy + dripLen + 1.5, 2, 0, Math.PI * 2); ctx.fill();
+        });
+
+        // === Honey jar on ground (left of hive) ===
+        const jarX = fx - 25, jarY = fy + frameH + 5;
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.06)';
+        ctx.beginPath(); ctx.ellipse(jarX, jarY + 14, 10, 3, 0, 0, Math.PI * 2); ctx.fill();
+        // Jar body (glass)
+        ctx.fillStyle = 'rgba(255,193,7,0.5)';
+        ctx.beginPath();
+        ctx.moveTo(jarX - 7, jarY + 12);
+        ctx.lineTo(jarX - 8, jarY - 2);
+        ctx.quadraticCurveTo(jarX - 8, jarY - 6, jarX - 5, jarY - 8);
+        ctx.lineTo(jarX + 5, jarY - 8);
+        ctx.quadraticCurveTo(jarX + 8, jarY - 6, jarX + 8, jarY - 2);
+        ctx.lineTo(jarX + 7, jarY + 12);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(180,130,0,0.3)'; ctx.lineWidth = 0.6; ctx.stroke();
+        // Honey level inside
+        ctx.fillStyle = 'rgba(255,160,0,0.55)';
+        ctx.fillRect(jarX - 6, jarY, 12, 11);
+        // Jar lid
+        ctx.fillStyle = '#8D6E63';
+        ctx.fillRect(jarX - 6, jarY - 10, 12, 3);
+        // Highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.fillRect(jarX - 5, jarY - 1, 3, 8);
+        // Label
+        ctx.fillStyle = 'rgba(255,193,7,0.7)';
+        ctx.fillRect(jarX - 5, jarY + 3, 10, 6);
+        ctx.strokeStyle = 'rgba(180,130,0,0.4)'; ctx.lineWidth = 0.3;
+        ctx.strokeRect(jarX - 5, jarY + 3, 10, 6);
+
+        // === Honey pool on landing board ===
+        ctx.fillStyle = 'rgba(255,183,0,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(fx + frameW * 0.5, fy + frameH + 5, 8, 2.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // === Small honeycomb piece on ground (right of hive) ===
+        const combX = fx + frameW + 18, combY = fy + frameH + 2;
+        ctx.fillStyle = 'rgba(255,183,0,0.5)';
+        // Small hex shape
+        const cr = 5;
+        for (let row = 0; row < 2; row++) {
+            for (let col = 0; col < 3; col++) {
+                const cx = combX + col * cr * 1.4 + (row % 2) * cr * 0.7;
+                const cy = combY + row * cr * 1.2;
+                ctx.beginPath();
+                for (let s = 0; s < 6; s++) {
+                    const a = (s / 6) * Math.PI * 2 - Math.PI / 6;
+                    const px = cx + Math.cos(a) * cr * 0.6;
+                    const py = cy + Math.sin(a) * cr * 0.6;
+                    s === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+                }
+                ctx.closePath(); ctx.fill();
+                ctx.strokeStyle = 'rgba(180,130,0,0.3)'; ctx.lineWidth = 0.5; ctx.stroke();
+            }
+        }
+    }
+
+    static drawSilk(ctx, w, h, animalName, farmingType, time) {
+        const t = time || 0;
+
+        // === Silk cocoons scattered on silkworm trays ===
+        const cocoonPositions = [
+            { x: w * 0.25, y: h * 0.35, size: 1 },
+            { x: w * 0.4, y: h * 0.28, size: 0.9 },
+            { x: w * 0.6, y: h * 0.42, size: 1.1 },
+            { x: w * 0.75, y: h * 0.32, size: 0.85 },
+            { x: w * 0.35, y: h * 0.55, size: 1.05 },
+            { x: w * 0.55, y: h * 0.65, size: 0.95 },
+            { x: w * 0.3, y: h * 0.72, size: 1 },
+            { x: w * 0.7, y: h * 0.58, size: 0.9 },
+            { x: w * 0.82, y: h * 0.48, size: 0.8 },
+            { x: w * 0.18, y: h * 0.62, size: 0.95 },
+        ];
+
+        cocoonPositions.forEach((pos, i) => {
+            const sz = pos.size * 6;
+            const pulse = 1 + Math.sin(t * 0.5 + i * 0.8) * 0.05; // subtle breathing
+
+            ctx.save();
+            ctx.translate(pos.x, pos.y);
+            ctx.rotate(Math.sin(i * 1.3) * 0.3); // slight random rotation
+
+            // Cocoon shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.06)';
+            ctx.beginPath(); ctx.ellipse(1, sz * 0.5 * pulse, sz * 0.5, sz * 0.15, 0, 0, Math.PI * 2); ctx.fill();
+
+            // Cocoon body (oval, silky white-yellow)
+            ctx.fillStyle = i % 3 === 0 ? '#FFF8E1' : i % 3 === 1 ? '#FFFDE7' : '#F5F5DC';
+            ctx.beginPath(); ctx.ellipse(0, 0, sz * 0.4 * pulse, sz * 0.65 * pulse, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = 'rgba(200,180,120,0.35)'; ctx.lineWidth = 0.5; ctx.stroke();
+
+            // Silk thread wrapping lines
+            ctx.strokeStyle = 'rgba(220,200,140,0.3)'; ctx.lineWidth = 0.4;
+            for (let j = 0; j < 4; j++) {
+                const ly = -sz * 0.4 + j * sz * 0.2;
+                ctx.beginPath();
+                ctx.ellipse(0, ly * pulse, sz * 0.35 * pulse, sz * 0.08, 0.2 * j, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // Highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.beginPath(); ctx.ellipse(-sz * 0.1, -sz * 0.15, sz * 0.12, sz * 0.25, -0.3, 0, Math.PI * 2); ctx.fill();
+
+            ctx.restore();
+        });
+
+        // === Silk thread bundle (collected) ===
+        const bundleX = w * 0.85, bundleY = h * 0.75;
+        // Thread spool
+        ctx.fillStyle = '#D7CCC8';
+        ctx.beginPath(); ctx.ellipse(bundleX, bundleY, 8, 12, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(180,160,120,0.3)'; ctx.lineWidth = 0.5; ctx.stroke();
+        // Silk threads wrapped around
+        ctx.strokeStyle = 'rgba(255,248,225,0.6)'; ctx.lineWidth = 0.8;
+        for (let i = 0; i < 8; i++) {
+            const ty = bundleY - 10 + i * 2.5;
+            ctx.beginPath();
+            ctx.ellipse(bundleX, ty, 7 + Math.sin(i) * 1, 2, 0, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        // Golden shimmer on silk
+        ctx.fillStyle = 'rgba(255,215,0,0.15)';
+        ctx.beginPath(); ctx.ellipse(bundleX - 2, bundleY - 3, 4, 8, -0.2, 0, Math.PI * 2); ctx.fill();
+    }
+}
+
 // ==================== ANIMAL ENTITY ====================
 
 class Animal {
@@ -2032,6 +2408,7 @@ class PenSimulation {
         this.sparkleParticles = [];
         this.cleaningProgress = -1;
         this.animalName = pen?.animalDefinition?.name || '';
+        this.byproductType = pen?.animalDefinition?.byproductType || 'NONE';
 
         if (!pen || !pen.animalCount || pen.animalCount <= 0) {
             this.emptyMessage = pen ? 'Chuồng trống — Chọn vật nuôi để bắt đầu' : 'Chọn một chuồng để xem mô phỏng';
@@ -2389,6 +2766,9 @@ class PenSimulation {
 
         // Food particles (under animals)
         this.foodParticles.forEach(f => f.draw(ctx));
+
+        // Byproduct items (eggs, milk, honey, silk — drawn under animals)
+        ByproductItems.draw(ctx, w, h, this.byproductType, this.animalName, this.pen.farmingType, Date.now() * 0.001);
 
         // Animals
         this.animals.forEach(a => { if (!a.selected) a.draw(ctx); });

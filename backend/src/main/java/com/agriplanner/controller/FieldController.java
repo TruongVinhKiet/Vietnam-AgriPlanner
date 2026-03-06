@@ -165,6 +165,20 @@ public class FieldController {
     }
 
     /**
+     * Plant/select crop - Step 1 in workflow
+     */
+    @PostMapping("/{id}/plant")
+    public ResponseEntity<?> plantCrop(@PathVariable Long id, @RequestBody Map<String, Object> request) {
+        try {
+            Long cropId = Long.valueOf(request.get("cropId").toString());
+            Field field = fieldService.plantCrop(id, cropId);
+            return ResponseEntity.ok(field);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
      * Fertilize field - Step 2 in workflow
      */
     @PostMapping("/{id}/fertilize")

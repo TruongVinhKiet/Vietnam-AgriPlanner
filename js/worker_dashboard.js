@@ -1,4 +1,43 @@
 const API_BASE = CONFIG.API_BASE_URL || 'http://localhost:8080/api';
+
+// ── Lightbox for media viewing ──
+function openMediaLightbox(src, type) {
+    const existing = document.getElementById('media-lightbox-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'media-lightbox-overlay';
+    overlay.style.cssText = 'position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.85); display:flex; align-items:center; justify-content:center; padding:20px; cursor:pointer; animation:lbFadeIn 0.2s ease;';
+
+    if (!document.getElementById('lightbox-style')) {
+        const style = document.createElement('style');
+        style.id = 'lightbox-style';
+        style.textContent = '@keyframes lbFadeIn{from{opacity:0}to{opacity:1}}';
+        document.head.appendChild(style);
+    }
+
+    let mediaHtml;
+    if (type === 'video') {
+        mediaHtml = `<video src="${src}" controls autoplay style="max-width:90vw; max-height:85vh; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,0.5); cursor:default;" onclick="event.stopPropagation()"></video>`;
+    } else {
+        mediaHtml = `<img src="${src}" style="max-width:90vw; max-height:85vh; border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,0.5); cursor:default; object-fit:contain;" onclick="event.stopPropagation()">`;
+    }
+
+    overlay.innerHTML = `
+        <button onclick="event.stopPropagation(); this.parentElement.remove();" style="position:absolute; top:16px; right:16px; width:44px; height:44px; border-radius:50%; background:rgba(255,255,255,0.15); backdrop-filter:blur(8px); color:white; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:1; transition:background 0.2s;" onmouseenter="this.style.background='rgba(255,255,255,0.3)'" onmouseleave="this.style.background='rgba(255,255,255,0.15)'">
+            <span class="material-icons-round" style="font-size:24px;">close</span>
+        </button>
+        ${mediaHtml}
+    `;
+
+    overlay.addEventListener('click', () => overlay.remove());
+    document.addEventListener('keydown', function escHandler(e) {
+        if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); }
+    });
+
+    document.body.appendChild(overlay);
+}
+
 let workerId = null;
 let currentTab = 'home';
 let currentTaskType = 'CULTIVATION';
@@ -510,12 +549,425 @@ function cacheWorkerTasks(tasks) {
 
 async function completeTask(taskId) {
     const task = workerTasksById && workerTasksById[taskId] ? workerTasksById[taskId] : null;
+    const hasPen = task && task.pen != null;
     const inspectionInfo = getInspectionTaskInfo(task);
-    if (inspectionInfo) {
-        openInspectionCompletionModal(task, inspectionInfo);
+    const errorEl = document.getElementById('inline-report-error');
+
+    // For pen tasks: validate inline media + mortality sections
+    if (hasPen) {
+        if (errorEl) errorEl.classList.add('hidden');
+        const hasImage = !!_inlineImageBase64;
+        const hasVideo = !!_inlineVideoBase64;
+
+        if (!hasImage && !hasVideo) {
+            if (errorEl) {
+                errorEl.textContent = 'Vui lòng thêm ít nhất 1 ảnh hoặc 1 video minh chứng.';
+                errorEl.classList.remove('hidden');
+                errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return;
+        }
+
+        // Validate mortality section is acknowledged (qty field exists for pen tasks)
+        const mortalityQtyEl = document.getElementById('inline-mortality-qty');
+        if (mortalityQtyEl && mortalityQtyEl.value === '') {
+            if (errorEl) {
+                errorEl.textContent = 'Vui lòng nhập số lượng hao hụt (nhập 0 nếu không có).';
+                errorEl.classList.remove('hidden');
+                errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return;
+        }
+
+        const mortalityQty = parseInt(mortalityQtyEl?.value) || 0;
+        if (mortalityQty > 0) {
+            const cause = (document.getElementById('inline-mortality-cause')?.value || '').trim();
+            if (!cause) {
+                if (errorEl) {
+                    errorEl.textContent = 'Vui lòng nhập nguyên nhân hao hụt.';
+                    errorEl.classList.remove('hidden');
+                    errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+        }
+
+        // For inspection tasks: validate condition
+        if (inspectionInfo) {
+            const condSelect = document.getElementById('inline-condition-select');
+            if (condSelect && !condSelect.value) {
+                if (errorEl) {
+                    errorEl.textContent = 'Vui lòng chọn tình trạng đánh giá.';
+                    errorEl.classList.remove('hidden');
+                    errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+        }
+
+        if (!confirm('Xác nhận hoàn thành công việc?')) return;
+
+        try {
+            await stopActiveWorkLogIfNeeded(taskId);
+
+            const penId = task.pen.id;
+            const mortalityQtyVal = parseInt(document.getElementById('inline-mortality-qty')?.value) || 0;
+
+            // Record mortality if > 0
+            if (mortalityQtyVal > 0 && penId) {
+                const cause = (document.getElementById('inline-mortality-cause')?.value || '').trim();
+                const causeType = document.getElementById('inline-mortality-type')?.value || 'DEATH';
+                const estimatedLoss = parseFloat(document.getElementById('inline-mortality-loss')?.value) || 0;
+                try {
+                    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+                    await fetch(`${API_BASE}/livestock/pens/${penId}/mortality`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                        },
+                        body: JSON.stringify({
+                            quantity: mortalityQtyVal,
+                            cause: cause,
+                            causeType: causeType,
+                            eventDate: new Date().toISOString().split('T')[0],
+                            estimatedLoss: estimatedLoss,
+                            notes: 'Ghi nhận bởi nhân công qua báo cáo công việc',
+                            animalName: 'Vật nuôi'
+                        })
+                    });
+                } catch (mortalityErr) {
+                    console.error('Mortality recording error:', mortalityErr);
+                }
+            }
+
+            // Build payload
+            const payload = {};
+            if (inspectionInfo) {
+                const condition = document.getElementById('inline-condition-select')?.value || '';
+                payload.condition = condition.toUpperCase();
+            }
+
+            // Upload media files to server
+            const authToken = getToken();
+            let uploadedImageUrl = null;
+            let uploadedVideoUrl = null;
+
+            if (_inlineImageBase64) {
+                try {
+                    const imageFile = document.getElementById('inline-image-input')?.files?.[0];
+                    if (imageFile) {
+                        const formData = new FormData();
+                        formData.append('file', imageFile);
+                        const uploadRes = await fetch(`${API_BASE}/tasks/${taskId}/upload-media`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${authToken}` },
+                            body: formData
+                        });
+                        if (uploadRes.ok) {
+                            const uploadData = await uploadRes.json();
+                            uploadedImageUrl = uploadData.url;
+                            console.log('Image uploaded:', uploadedImageUrl);
+                        } else {
+                            console.error('Image upload failed:', uploadRes.status, await uploadRes.text());
+                        }
+                    } else {
+                        console.warn('Image file input not found, using base64 fallback');
+                    }
+                } catch (uploadErr) {
+                    console.error('Image upload error:', uploadErr);
+                }
+            }
+
+            if (_inlineVideoBase64) {
+                try {
+                    const videoFile = document.getElementById('inline-video-input')?.files?.[0];
+                    if (videoFile) {
+                        const formData = new FormData();
+                        formData.append('file', videoFile);
+                        const uploadRes = await fetch(`${API_BASE}/tasks/${taskId}/upload-media`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${authToken}` },
+                            body: formData
+                        });
+                        if (uploadRes.ok) {
+                            const uploadData = await uploadRes.json();
+                            uploadedVideoUrl = uploadData.url;
+                            console.log('Video uploaded:', uploadedVideoUrl);
+                        } else {
+                            console.error('Video upload failed:', uploadRes.status, await uploadRes.text());
+                        }
+                    } else {
+                        console.warn('Video file input not found, using base64 fallback');
+                    }
+                } catch (uploadErr) {
+                    console.error('Video upload error:', uploadErr);
+                }
+            }
+
+            // Build aiSuggestion with media + mortality info for owner
+            const infoLines = [];
+            if (_inlineImageName) infoLines.push(`Ảnh chuồng: ${_inlineImageName}`);
+            if (_inlineVideoName) infoLines.push(`Video: ${_inlineVideoName}`);
+            if (mortalityQtyVal > 0) {
+                const cause = (document.getElementById('inline-mortality-cause')?.value || '').trim();
+                const causeType = document.getElementById('inline-mortality-type')?.value || 'DEATH';
+                infoLines.push(`Hao hụt: ${mortalityQtyVal} con (${causeType}) - ${cause}`);
+            } else {
+                infoLines.push('Hao hụt: 0 con');
+            }
+            if (inspectionInfo && payload.condition) {
+                payload.aiSuggestion = `${payload.condition}: Báo cáo kiểm tra | ${infoLines.join(' | ')}`;
+            } else {
+                payload.aiSuggestion = infoLines.join(' | ');
+            }
+
+            // Include uploaded media URLs in payload
+            if (uploadedImageUrl) payload.reportImageUrl = uploadedImageUrl;
+            if (uploadedVideoUrl) payload.reportVideoUrl = uploadedVideoUrl;
+
+            await fetchAPI(`${API_BASE}/tasks/${taskId}/complete`, 'POST', payload);
+
+            // Store media in localStorage (fallback for same-browser viewing)
+            const photoStore = JSON.parse(localStorage.getItem('inspectionPhotos') || '{}');
+            if (_inlineImageBase64) {
+                photoStore[`task_${taskId}_photo1`] = _inlineImageBase64;
+            }
+            if (_inlineVideoBase64) {
+                photoStore[`task_${taskId}_video`] = _inlineVideoBase64;
+            }
+            const keys = Object.keys(photoStore);
+            if (keys.length > 40) {
+                keys.slice(0, keys.length - 40).forEach(k => delete photoStore[k]);
+            }
+            localStorage.setItem('inspectionPhotos', JSON.stringify(photoStore));
+
+            // Reset inline state
+            _inlineImageBase64 = null; _inlineImageName = null;
+            _inlineVideoBase64 = null; _inlineVideoName = null;
+
+            // Success notification
+            const conditionLabels = { 'CLEAN': 'Sạch', 'DIRTY': 'Bẩn', 'SICK': 'Có dấu hiệu bệnh', 'GOOD': 'Tốt', 'FAIR': 'Trung bình', 'POOR': 'Kém' };
+            let successMsg = 'Đã hoàn thành công việc.';
+            if (inspectionInfo && payload.condition) {
+                successMsg = `Đã hoàn thành kiểm tra. Tình trạng: ${conditionLabels[payload.condition] || payload.condition}`;
+            }
+            if (mortalityQtyVal > 0) {
+                successMsg += `. Hao hụt: ${mortalityQtyVal} con`;
+            }
+            showNotification('success', 'Thành công', successMsg);
+
+            loadHomeData();
+            await loadTasksList();
+            loadUserProfile();
+
+            const detailView = document.getElementById('view-task-detail');
+            if (detailView) {
+                openTaskDetail(taskId);
+            }
+        } catch (e) {
+            let msg = e.message;
+            if (msg.includes('Không đủ vật tư')) {
+                msg = 'Kho không đủ vật tư để thực hiện công việc này. Vui lòng liên hệ chủ trang trại.';
+            }
+            if (errorEl) {
+                errorEl.textContent = 'Lỗi: ' + msg;
+                errorEl.classList.remove('hidden');
+            } else {
+                alert('Lỗi: ' + msg);
+            }
+        }
         return;
     }
 
+    // ── FIELD tasks: handle crop loss recording ──
+    const hasField = task && task.field != null;
+    if (hasField) {
+        if (errorEl) errorEl.classList.add('hidden');
+
+        // Validate condition for inspection
+        if (inspectionInfo) {
+            const condSelect = document.getElementById('inline-condition-select');
+            if (condSelect && !condSelect.value) {
+                if (errorEl) {
+                    errorEl.textContent = 'Vui lòng chọn tình trạng đánh giá.';
+                    errorEl.classList.remove('hidden');
+                    errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+        }
+
+        // If "has loss" checkbox is checked, validate polygon was drawn
+        const hasLoss = window._inlineFieldHasLoss;
+        if (hasLoss) {
+            if (!window._inlineFieldLossPolygon || window._inlineFieldLossPolygon.length < 3) {
+                if (errorEl) {
+                    errorEl.textContent = 'Vui lòng vẽ vùng bị hư hại trên bản đồ.';
+                    errorEl.classList.remove('hidden');
+                    errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                return;
+            }
+        }
+
+        if (!confirm('Xác nhận hoàn thành công việc?')) return;
+
+        try {
+            await stopActiveWorkLogIfNeeded(taskId);
+
+            // Upload media files if present
+            const authToken = getToken();
+            let uploadedImageUrl = null;
+            let uploadedVideoUrl = null;
+
+            if (_inlineImageBase64) {
+                try {
+                    const imageFile = document.getElementById('inline-image-input')?.files?.[0];
+                    if (imageFile) {
+                        const formData = new FormData();
+                        formData.append('file', imageFile);
+                        const uploadRes = await fetch(`${API_BASE}/tasks/${taskId}/upload-media`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${authToken}` },
+                            body: formData
+                        });
+                        if (uploadRes.ok) {
+                            const uploadData = await uploadRes.json();
+                            uploadedImageUrl = uploadData.url;
+                        }
+                    }
+                } catch (uploadErr) { console.error('Image upload error:', uploadErr); }
+            }
+
+            if (_inlineVideoBase64) {
+                try {
+                    const videoFile = document.getElementById('inline-video-input')?.files?.[0];
+                    if (videoFile) {
+                        const formData = new FormData();
+                        formData.append('file', videoFile);
+                        const uploadRes = await fetch(`${API_BASE}/tasks/${taskId}/upload-media`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${authToken}` },
+                            body: formData
+                        });
+                        if (uploadRes.ok) {
+                            const uploadData = await uploadRes.json();
+                            uploadedVideoUrl = uploadData.url;
+                        }
+                    }
+                } catch (uploadErr) { console.error('Video upload error:', uploadErr); }
+            }
+
+            // Record field loss if worker indicated damage
+            if (hasLoss && window._inlineFieldLossPolygon && window._inlineFieldLossPolygon.length >= 3) {
+                const cause = document.getElementById('inline-field-loss-cause')?.value || 'OTHER';
+                const causeDetail = (document.getElementById('inline-field-loss-cause-detail')?.value || '').trim();
+                const notes = (document.getElementById('inline-field-loss-notes')?.value || '').trim();
+                const lossPayload = {
+                    fieldId: task.field.id,
+                    taskId: taskId,
+                    lossAreaSqm: window._inlineFieldLossAreaSqm || 0,
+                    lossPolygon: JSON.stringify(window._inlineFieldLossPolygon),
+                    cause: cause,
+                    causeDetail: causeDetail,
+                    notes: notes,
+                    reportDate: new Date().toISOString().split('T')[0],
+                    reportedBy: localStorage.getItem('workerName') || localStorage.getItem('fullName') || 'Worker'
+                };
+                if (uploadedImageUrl) lossPayload.reportImageUrl = uploadedImageUrl;
+                if (uploadedVideoUrl) lossPayload.reportVideoUrl = uploadedVideoUrl;
+
+                try {
+                    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+                    await fetch(`${API_BASE}/field-losses`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                        },
+                        body: JSON.stringify(lossPayload)
+                    });
+                } catch (lossErr) {
+                    console.error('Field loss recording error:', lossErr);
+                }
+            }
+
+            // Build payload for task completion
+            const payload = {};
+            if (inspectionInfo) {
+                const condition = document.getElementById('inline-condition-select')?.value || '';
+                payload.condition = condition.toUpperCase();
+            }
+            if (uploadedImageUrl) payload.reportImageUrl = uploadedImageUrl;
+            if (uploadedVideoUrl) payload.reportVideoUrl = uploadedVideoUrl;
+
+            // Build aiSuggestion text
+            const infoLines = [];
+            if (_inlineImageName) infoLines.push(`Ảnh ruộng: ${_inlineImageName}`);
+            if (_inlineVideoName) infoLines.push(`Video: ${_inlineVideoName}`);
+            if (hasLoss) {
+                const areaSqm = window._inlineFieldLossAreaSqm || 0;
+                const cause = document.getElementById('inline-field-loss-cause')?.value || 'OTHER';
+                const causeLabels = { DISEASE: 'Dịch bệnh', PESTS: 'Sâu bệnh', WEATHER: 'Thời tiết', FLOOD: 'Ngập lụt', DROUGHT: 'Hạn hán', OTHER: 'Khác' };
+                infoLines.push(`Hao hụt: ${areaSqm.toFixed(1)} m² (${causeLabels[cause] || cause})`);
+            } else {
+                infoLines.push('Hao hụt: Không có');
+            }
+            if (inspectionInfo && payload.condition) {
+                payload.aiSuggestion = `${payload.condition}: Báo cáo kiểm tra ruộng | ${infoLines.join(' | ')}`;
+            } else {
+                payload.aiSuggestion = infoLines.join(' | ');
+            }
+
+            await fetchAPI(`${API_BASE}/tasks/${taskId}/complete`, 'POST', payload);
+
+            // Store inline media in localStorage fallback
+            const photoStore = JSON.parse(localStorage.getItem('inspectionPhotos') || '{}');
+            if (_inlineImageBase64) photoStore[`task_${taskId}_photo1`] = _inlineImageBase64;
+            if (_inlineVideoBase64) photoStore[`task_${taskId}_video`] = _inlineVideoBase64;
+            const keys = Object.keys(photoStore);
+            if (keys.length > 40) keys.slice(0, keys.length - 40).forEach(k => delete photoStore[k]);
+            localStorage.setItem('inspectionPhotos', JSON.stringify(photoStore));
+
+            // Reset inline state
+            _inlineImageBase64 = null; _inlineImageName = null;
+            _inlineVideoBase64 = null; _inlineVideoName = null;
+            destroyFieldLossMap();
+
+            // Success notification
+            const conditionLabels = { 'GOOD': 'Tốt', 'FAIR': 'Trung bình', 'POOR': 'Kém' };
+            let successMsg = 'Đã hoàn thành công việc.';
+            if (inspectionInfo && payload.condition) {
+                successMsg = `Đã hoàn thành kiểm tra ruộng. Tình trạng: ${conditionLabels[payload.condition] || payload.condition}`;
+            }
+            if (hasLoss) {
+                successMsg += `. Ghi nhận hao hụt ${(window._inlineFieldLossAreaSqm || 0).toFixed(1)} m²`;
+            }
+            showNotification('success', 'Thành công', successMsg);
+
+            loadHomeData();
+            await loadTasksList();
+            loadUserProfile();
+
+            const detailView = document.getElementById('view-task-detail');
+            if (detailView) openTaskDetail(taskId);
+        } catch (e) {
+            let msg = e.message;
+            if (msg.includes('Không đủ vật tư')) {
+                msg = 'Kho không đủ vật tư để thực hiện công việc này. Vui lòng liên hệ chủ trang trại.';
+            }
+            if (errorEl) {
+                errorEl.textContent = 'Lỗi: ' + msg;
+                errorEl.classList.remove('hidden');
+            } else {
+                alert('Lỗi: ' + msg);
+            }
+        }
+        return;
+    }
+
+    // Non-pen, non-field tasks: simple confirmation
     if (!confirm('Xác nhận hoàn thành công việc?')) return;
 
     try {
@@ -544,7 +996,7 @@ async function completeTask(taskId) {
 function getInspectionTaskInfo(task) {
     if (!task) return null;
     const taskType = task.taskType != null ? String(task.taskType).toUpperCase() : '';
-    if (taskType !== 'OTHER') return null;
+    if (taskType !== 'OTHER' && taskType !== 'INSPECTION') return null;
 
     const name = task.name != null ? String(task.name).toLowerCase() : '';
     const isFieldName = name.startsWith('kiểm tra ruộng');
@@ -587,11 +1039,14 @@ function getInspectionDefaultValue(task, info) {
 function openInspectionCompletionModal(task, info) {
     if (!task || !info) return;
 
-    inspectionModalContext = { taskId: task.id, kind: info.kind };
+    inspectionModalContext = { taskId: task.id, kind: info.kind, penId: task.pen ? task.pen.id : null, penAnimalCount: task.pen ? (task.pen.animalCount || 0) : 0 };
     inspectionSelectedImageBase64 = null;
     inspectionSelectedFileName = null;
     inspectionAiSuggestedValue = null;
     inspectionAiSuggestionText = null;
+    // Second photo for pen inspections
+    window._inspectionPhoto2Base64 = null;
+    window._inspectionPhoto2FileName = null;
 
     const kind = info.kind;
     const label = kind === 'FIELD' ? 'Tình trạng ruộng' : 'Tình trạng chuồng';
@@ -614,6 +1069,98 @@ function openInspectionCompletionModal(task, info) {
         return `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
     }).join('');
 
+    const isPen = kind === 'PEN';
+    const penAnimalCount = isPen && task.pen ? (task.pen.animalCount || 0) : 0;
+    const animalUnit = isPen && task.pen && task.pen.animalDefinition ? (task.pen.animalDefinition.unit || 'con') : 'con';
+
+    // Build mortality section for pen inspections
+    const mortalitySectionHtml = isPen ? `
+                <!-- Mortality / Loss Section -->
+                <div style="border-top:1px solid #f3f4f6; padding-top:16px;">
+                    <div style="display:flex; align-items:center; gap:6px; margin-bottom:12px;">
+                        <span class="material-symbols-outlined" style="font-size:20px; color:#ea580c;">heart_broken</span>
+                        <span style="font-size:14px; font-weight:700; color:#374151;">Ghi nhận hao hụt (nếu có)</span>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                        <div>
+                            <label style="display:block; font-size:12px; font-weight:500; color:#6b7280; margin-bottom:4px;">Số lượng hao hụt</label>
+                            <input type="number" id="inspection-mortality-qty" min="0" max="${penAnimalCount}" value="0"
+                                style="width:100%; padding:8px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;" placeholder="0"
+                                oninput="toggleInspectionMortalityDetail()">
+                        </div>
+                        <div>
+                            <label style="display:block; font-size:12px; font-weight:500; color:#6b7280; margin-bottom:4px;">Loại hao hụt</label>
+                            <select id="inspection-mortality-type" style="width:100%; padding:8px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;">
+                                <option value="DEATH">Chết</option>
+                                <option value="DISEASE">Bệnh</option>
+                                <option value="ACCIDENT">Tai nạn</option>
+                                <option value="CULL">Loại thải</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="inspection-mortality-detail" style="display:none;">
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block; font-size:12px; font-weight:500; color:#6b7280; margin-bottom:4px;">Nguyên nhân cụ thể <span style="color:#dc2626;">*</span></label>
+                            <input type="text" id="inspection-mortality-cause" style="width:100%; padding:8px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;" placeholder="VD: Dịch tả, sốc nhiệt...">
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label style="display:block; font-size:12px; font-weight:500; color:#6b7280; margin-bottom:4px;">Ước tính thiệt hại (₫)</label>
+                            <input type="number" id="inspection-mortality-loss" min="0" step="1000" value="0"
+                                style="width:100%; padding:8px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;" placeholder="0">
+                        </div>
+                    </div>
+
+                    <div style="font-size:11px; color:#9ca3af;">Số lượng hiện có: ${penAnimalCount} ${animalUnit}. Để 0 nếu không có hao hụt.</div>
+                </div>
+    ` : '';
+
+    // For pen inspections: 2 required photos
+    const photoSectionHtml = isPen ? `
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Ảnh chuồng (bắt buộc) <span style="color:#dc2626;">*</span></label>
+                    <div class="bg-green-50 border-2 border-dashed border-primary rounded-xl p-6 text-center cursor-pointer" onclick="document.getElementById('inspection-image-input').click()">
+                        <span class="material-symbols-outlined" style="font-size: 40px; color: #10b981;">photo_camera</span>
+                        <p class="mt-1 text-sm font-medium text-green-800">Chụp ảnh tình trạng chuồng</p>
+                        <p class="mt-1 text-xs text-green-700 opacity-80">JPG, PNG</p>
+                    </div>
+                    <input type="file" id="inspection-image-input" accept="image/*" class="hidden" onchange="onInspectionImageSelected(event)" />
+                    <div id="inspection-image-preview" class="hidden mt-2 rounded-xl border border-gray-200 overflow-hidden">
+                        <img id="inspection-image-preview-img" src="" class="w-full max-h-48 object-contain bg-gray-50" alt="preview" />
+                        <div class="px-3 py-2 text-xs text-gray-500" id="inspection-image-file-name"></div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Ảnh vật nuôi / đếm số (bắt buộc) <span style="color:#dc2626;">*</span></label>
+                    <div class="bg-orange-50 border-2 border-dashed border-orange-300 rounded-xl p-6 text-center cursor-pointer" style="background:#fff7ed; border-color:#fdba74;" onclick="document.getElementById('inspection-image-input-2').click()">
+                        <span class="material-symbols-outlined" style="font-size: 40px; color: #ea580c;">pets</span>
+                        <p class="mt-1 text-sm font-medium" style="color:#9a3412;">Chụp ảnh vật nuôi / con chết</p>
+                        <p class="mt-1 text-xs" style="color:#c2410c; opacity:0.8;">JPG, PNG</p>
+                    </div>
+                    <input type="file" id="inspection-image-input-2" accept="image/*" class="hidden" onchange="onInspectionImage2Selected(event)" />
+                    <div id="inspection-image-preview-2" class="hidden mt-2 rounded-xl border border-gray-200 overflow-hidden">
+                        <img id="inspection-image-preview-img-2" src="" class="w-full max-h-48 object-contain bg-gray-50" alt="preview 2" />
+                        <div class="px-3 py-2 text-xs text-gray-500" id="inspection-image-file-name-2"></div>
+                    </div>
+                </div>
+    ` : `
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Ảnh (tuỳ chọn)</label>
+                    <div class="bg-green-50 border-2 border-dashed border-primary rounded-xl p-8 text-center cursor-pointer" onclick="document.getElementById('inspection-image-input').click()">
+                        <span class="material-symbols-outlined" style="font-size: 48px; color: #10b981;">cloud_upload</span>
+                        <p class="mt-2 text-sm font-medium text-green-800">Click để chọn hình ảnh</p>
+                        <p class="mt-1 text-xs text-green-700 opacity-80">JPG, PNG...</p>
+                    </div>
+                    <input type="file" id="inspection-image-input" accept="image/*" class="hidden" onchange="onInspectionImageSelected(event)" />
+                    <div id="inspection-image-preview" class="hidden mt-3 rounded-xl border border-gray-200 overflow-hidden">
+                        <img id="inspection-image-preview-img" src="" class="w-full max-h-72 object-contain bg-gray-50" alt="preview" />
+                        <div class="px-3 py-2 text-xs text-gray-500" id="inspection-image-file-name"></div>
+                    </div>
+                </div>
+    `;
+
     openModal('inspection-complete-modal', `
         <div class="bg-white rounded-2xl p-6 w-[640px] max-w-full">
             <div class="flex items-start justify-between gap-4">
@@ -634,20 +1181,7 @@ function openInspectionCompletionModal(task, info) {
                     </select>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Ảnh (tuỳ chọn)</label>
-                    <div class="bg-green-50 border-2 border-dashed border-primary rounded-xl p-8 text-center cursor-pointer" onclick="document.getElementById('inspection-image-input').click()">
-                        <span class="material-symbols-outlined" style="font-size: 48px; color: #10b981;">cloud_upload</span>
-                        <p class="mt-2 text-sm font-medium text-green-800">Click để chọn hình ảnh</p>
-                        <p class="mt-1 text-xs text-green-700 opacity-80">JPG, PNG...</p>
-                    </div>
-
-                    <input type="file" id="inspection-image-input" accept="image/*" class="hidden" onchange="onInspectionImageSelected(event)" />
-                    <div id="inspection-image-preview" class="hidden mt-3 rounded-xl border border-gray-200 overflow-hidden">
-                        <img id="inspection-image-preview-img" src="" class="w-full max-h-72 object-contain bg-gray-50" alt="preview" />
-                        <div class="px-3 py-2 text-xs text-gray-500" id="inspection-image-file-name"></div>
-                    </div>
-                </div>
+                ${photoSectionHtml}
 
                 <div class="flex flex-col sm:flex-row gap-3">
                     <button id="inspection-ai-btn" type="button" class="px-4 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed" onclick="runInspectionAiSuggestion()" disabled>
@@ -665,6 +1199,8 @@ function openInspectionCompletionModal(task, info) {
                     <div class="text-xs text-gray-500 mt-2" id="inspection-ai-result-value"></div>
                 </div>
 
+                ${mortalitySectionHtml}
+
                 <div id="inspection-complete-error" class="hidden p-3 rounded-lg bg-red-50 text-red-600 text-sm"></div>
             </div>
 
@@ -674,6 +1210,44 @@ function openInspectionCompletionModal(task, info) {
             </div>
         </div>
     `);
+}
+
+// Handle second photo for pen inspections
+function onInspectionImage2Selected(event) {
+    const file = event && event.target && event.target.files ? event.target.files[0] : null;
+    const previewWrap = document.getElementById('inspection-image-preview-2');
+    const previewImg = document.getElementById('inspection-image-preview-img-2');
+    const fileNameEl = document.getElementById('inspection-image-file-name-2');
+
+    window._inspectionPhoto2Base64 = null;
+    window._inspectionPhoto2FileName = null;
+
+    if (!file) {
+        if (previewWrap) previewWrap.classList.add('hidden');
+        if (previewImg) previewImg.src = '';
+        if (fileNameEl) fileNameEl.textContent = '';
+        return;
+    }
+
+    window._inspectionPhoto2FileName = file.name || '';
+    if (fileNameEl) fileNameEl.textContent = window._inspectionPhoto2FileName;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        window._inspectionPhoto2Base64 = e.target?.result;
+        if (previewImg) previewImg.src = window._inspectionPhoto2Base64 || '';
+        if (previewWrap) previewWrap.classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+}
+
+// Toggle mortality detail form based on quantity > 0
+function toggleInspectionMortalityDetail() {
+    const qty = parseInt(document.getElementById('inspection-mortality-qty')?.value) || 0;
+    const detail = document.getElementById('inspection-mortality-detail');
+    if (detail) {
+        detail.style.display = qty > 0 ? 'block' : 'none';
+    }
 }
 
 function onInspectionImageSelected(event) {
@@ -829,6 +1403,7 @@ async function submitInspectionCompletion(taskId) {
     const btn = document.getElementById('inspection-complete-btn');
     const oldHtml = btn ? btn.innerHTML : '';
     const errorEl = document.getElementById('inspection-complete-error');
+    const isPen = inspectionModalContext && inspectionModalContext.kind === 'PEN';
 
     if (errorEl) errorEl.classList.add('hidden');
 
@@ -838,6 +1413,37 @@ async function submitInspectionCompletion(taskId) {
             errorEl.classList.remove('hidden');
         }
         return;
+    }
+
+    // For pen inspections: validate 2 required photos
+    if (isPen) {
+        if (!inspectionSelectedImageBase64) {
+            if (errorEl) {
+                errorEl.textContent = 'Vui lòng chụp ảnh tình trạng chuồng (ảnh 1).';
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+        if (!window._inspectionPhoto2Base64) {
+            if (errorEl) {
+                errorEl.textContent = 'Vui lòng chụp ảnh vật nuôi / đếm số lượng (ảnh 2).';
+                errorEl.classList.remove('hidden');
+            }
+            return;
+        }
+
+        // If mortality quantity > 0, cause is required
+        const mortalityQty = parseInt(document.getElementById('inspection-mortality-qty')?.value) || 0;
+        if (mortalityQty > 0) {
+            const cause = (document.getElementById('inspection-mortality-cause')?.value || '').trim();
+            if (!cause) {
+                if (errorEl) {
+                    errorEl.textContent = 'Vui lòng nhập nguyên nhân hao hụt.';
+                    errorEl.classList.remove('hidden');
+                }
+                return;
+            }
+        }
     }
 
     if (btn) {
@@ -855,14 +1461,92 @@ async function submitInspectionCompletion(taskId) {
                 : inspectionAiSuggestionText;
         }
 
+        // Record mortality if pen inspection has mortality data
+        if (isPen) {
+            const mortalityQty = parseInt(document.getElementById('inspection-mortality-qty')?.value) || 0;
+            if (mortalityQty > 0 && inspectionModalContext.penId) {
+                const cause = (document.getElementById('inspection-mortality-cause')?.value || '').trim();
+                const causeType = document.getElementById('inspection-mortality-type')?.value || 'DEATH';
+                const estimatedLoss = parseFloat(document.getElementById('inspection-mortality-loss')?.value) || 0;
+
+                try {
+                    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+                    await fetch(`${API_BASE}/livestock/pens/${inspectionModalContext.penId}/mortality`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                        },
+                        body: JSON.stringify({
+                            quantity: mortalityQty,
+                            cause: cause,
+                            causeType: causeType,
+                            eventDate: new Date().toISOString().split('T')[0],
+                            estimatedLoss: estimatedLoss,
+                            notes: `Ghi nhận bởi nhân công qua kiểm tra chuồng`,
+                            animalName: 'Vật nuôi'
+                        })
+                    });
+                } catch (mortalityErr) {
+                    console.error('Mortality recording error:', mortalityErr);
+                    // Continue with task completion even if mortality fails
+                }
+            }
+
+            // Add photo info to AI suggestion field for owner to see
+            const photoInfo = [];
+            if (inspectionSelectedFileName) photoInfo.push(`Ảnh chuồng: ${inspectionSelectedFileName}`);
+            if (window._inspectionPhoto2FileName) photoInfo.push(`Ảnh vật nuôi: ${window._inspectionPhoto2FileName}`);
+            const mortalityQty2 = parseInt(document.getElementById('inspection-mortality-qty')?.value) || 0;
+            if (mortalityQty2 > 0) {
+                const cause2 = (document.getElementById('inspection-mortality-cause')?.value || '').trim();
+                const causeType2 = document.getElementById('inspection-mortality-type')?.value || 'DEATH';
+                photoInfo.push(`Hao hụt: ${mortalityQty2} con (${causeType2}) - ${cause2}`);
+            }
+            if (photoInfo.length > 0) {
+                payload.aiSuggestion = (payload.aiSuggestion ? payload.aiSuggestion + '\n' : '') + photoInfo.join(' | ');
+            }
+        }
+
         await fetchAPI(`${API_BASE}/tasks/${taskId}/complete`, 'POST', payload);
 
+        // Store photos in localStorage for later viewing
+        if (isPen) {
+            const photoStore = JSON.parse(localStorage.getItem('inspectionPhotos') || '{}');
+            if (inspectionSelectedImageBase64) {
+                photoStore[`task_${taskId}_photo1`] = inspectionSelectedImageBase64;
+            }
+            if (window._inspectionPhoto2Base64) {
+                photoStore[`task_${taskId}_photo2`] = window._inspectionPhoto2Base64;
+            }
+            // Keep only last 20 photo entries to avoid storage bloat
+            const keys = Object.keys(photoStore);
+            if (keys.length > 40) {
+                keys.slice(0, keys.length - 40).forEach(k => delete photoStore[k]);
+            }
+            localStorage.setItem('inspectionPhotos', JSON.stringify(photoStore));
+        }
+
         closeModal('inspection-complete-modal');
-        showNotification('success', 'Thành công', 'Đã hoàn thành kiểm tra');
+
+        // Show detailed success notification with results
+        const conditionLabels = { 'CLEAN': 'Sạch', 'DIRTY': 'Bẩn', 'SICK': 'Có dấu hiệu bệnh', 'GOOD': 'Tốt', 'FAIR': 'Trung bình', 'POOR': 'Kém' };
+        const mortalityQtyFinal = isPen ? (parseInt(document.getElementById('inspection-mortality-qty')?.value) || 0) : 0;
+        let successMsg = `Đã hoàn thành kiểm tra. Tình trạng: ${conditionLabels[condition] || condition}`;
+        if (mortalityQtyFinal > 0) {
+            successMsg += `. Hao hụt: ${mortalityQtyFinal} con`;
+        }
+        showNotification('success', 'Thành công', successMsg);
 
         loadHomeData();
-        loadTasksList();
+        await loadTasksList();
         loadUserProfile();
+
+        // Re-open task detail to show completed state with results
+        const detailView = document.getElementById('view-task-detail');
+        if (detailView) {
+            openTaskDetail(taskId);
+        }
     } catch (e) {
         if (errorEl) {
             errorEl.textContent = 'Không thể hoàn thành công việc.';
@@ -2497,6 +3181,646 @@ function fixUtf8(str) {
 
 // ================= TASK DETAIL =================
 
+function buildWorkerInspectionResultsHtml(task) {
+    if (!task) return '';
+    const status = task.status ? String(task.status).toUpperCase() : '';
+    if (status !== 'COMPLETED') return '';
+
+    const desc = task.description || '';
+    const aiLines = desc.split('\n').filter(l => l.startsWith('AI:'));
+    if (aiLines.length === 0) return '';
+
+    const aiData = aiLines.map(l => l.replace(/^AI:\s*/, '')).join('\n');
+
+    // Extract condition
+    const conditionMatch = aiData.match(/^(CLEAN|DIRTY|SICK|GOOD|FAIR|POOR):/);
+    let conditionLabel = '';
+    let conditionColor = '#6b7280';
+    let conditionIcon = 'help';
+    if (conditionMatch) {
+        const val = conditionMatch[1];
+        const labelMap = { 'CLEAN': 'Sạch', 'DIRTY': 'Bẩn', 'SICK': 'Có dấu hiệu bệnh', 'GOOD': 'Tốt', 'FAIR': 'Trung bình', 'POOR': 'Kém' };
+        const colorMap = { 'CLEAN': '#16a34a', 'GOOD': '#16a34a', 'DIRTY': '#d97706', 'FAIR': '#d97706', 'SICK': '#dc2626', 'POOR': '#dc2626' };
+        const iconMap = { 'CLEAN': 'check_circle', 'GOOD': 'check_circle', 'DIRTY': 'warning', 'FAIR': 'info', 'SICK': 'coronavirus', 'POOR': 'error' };
+        conditionLabel = labelMap[val] || val;
+        conditionColor = colorMap[val] || '#6b7280';
+        conditionIcon = iconMap[val] || 'help';
+    }
+
+    // Extract photos
+    const photo1Match = aiData.match(/Ảnh chuồng:\s*([^\|]+)/);
+    const photo2Match = aiData.match(/Ảnh vật nuôi:\s*([^\|]+)/);
+    const photo1Name = photo1Match ? photo1Match[1].trim() : null;
+    const photo2Name = photo2Match ? photo2Match[1].trim() : null;
+
+    // Extract video
+    const videoMatch = aiData.match(/Video:\s*([^\|]+)/);
+    const videoName = videoMatch ? videoMatch[1].trim() : null;
+
+    // Use server URLs first, fallback to localStorage
+    const _apiOrigin = new URL(API_BASE).origin;
+    const serverImageUrl = task.reportImageUrl ? (_apiOrigin + task.reportImageUrl) : null;
+    const serverVideoUrl = task.reportVideoUrl ? (_apiOrigin + task.reportVideoUrl) : null;
+    const photoStore = JSON.parse(localStorage.getItem('inspectionPhotos') || '{}');
+    const photo1Data = serverImageUrl || photoStore[`task_${task.id}_photo1`] || null;
+    const photo2Data = photoStore[`task_${task.id}_photo2`] || null;
+    const videoData = serverVideoUrl || photoStore[`task_${task.id}_video`] || null;
+
+    // Extract mortality
+    const mortalityMatch = aiData.match(/Hao hụt:\s*(\d+)\s*con(?:\s*\((\w+)\)\s*-\s*(.+))?/);
+    const mortalityQty = mortalityMatch ? mortalityMatch[1] : null;
+    const mortalityCauseType = mortalityMatch ? (mortalityMatch[2] || null) : null;
+    const mortalityCause = mortalityMatch ? (mortalityMatch[3] ? mortalityMatch[3].trim() : null) : null;
+    const causeTypeLabels = { 'DEATH': 'Chết', 'DISEASE': 'Bệnh', 'ACCIDENT': 'Tai nạn', 'CULL': 'Loại thải' };
+
+    let html = `<div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px; display:flex; align-items:center; gap:6px;">
+            <span class="material-icons-round" style="font-size:18px; color:#2563eb;">assignment_turned_in</span>
+            Kết quả báo cáo đã ghi nhận
+        </div>`;
+
+    // Condition
+    if (conditionLabel) {
+        html += `<div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; padding:12px 16px; border-radius:12px; background:${conditionColor}11; border:1px solid ${conditionColor}22;">
+            <span class="material-icons-round" style="font-size:28px; color:${conditionColor};">${conditionIcon}</span>
+            <div>
+                <div style="font-size:12px; color:#6b7280;">Tình trạng đã đánh giá</div>
+                <div style="font-size:16px; font-weight:700; color:${conditionColor};">${conditionLabel}</div>
+            </div>
+        </div>`;
+    }
+
+    // Media (photos + video)
+    const hasMedia = photo1Name || photo2Name || videoName || serverImageUrl || serverVideoUrl;
+    if (hasMedia) {
+        html += `<div style="margin-bottom:14px;">
+            <div style="font-size:12px; font-weight:500; color:#6b7280; margin-bottom:8px;">Minh chứng đã đính kèm</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">`;
+        if (photo1Name || serverImageUrl) {
+            const imgSrc = photo1Data;
+            html += `<div style="border-radius:10px; background:#f0fdf4; border:1px solid #bbf7d0; overflow:hidden;">
+                ${imgSrc ? `<img src="${imgSrc}" style="width:100%; max-height:160px; object-fit:cover; cursor:pointer;" alt="Ảnh chuồng" onclick="openMediaLightbox(this.src, 'image')">` : `<div style="padding:20px; text-align:center; color:#9ca3af;"><span class="material-icons-round" style="font-size:40px;">image</span><div style="font-size:12px; margin-top:4px;">Không tải được ảnh</div></div>`}
+                <div style="padding:8px 12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-icons-round" style="font-size:18px; color:#16a34a;">photo_camera</span>
+                    <div>
+                        <div style="font-size:11px; font-weight:600; color:#15803d;">Ảnh</div>
+                        <div style="font-size:10px; color:#6b7280; word-break:break-all;">${escapeHtml(photo1Name || 'Ảnh báo cáo')}</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+        if (photo2Name) {
+            html += `<div style="border-radius:10px; background:#fff7ed; border:1px solid #fed7aa; overflow:hidden;">
+                ${photo2Data ? `<img src="${photo2Data}" style="width:100%; max-height:160px; object-fit:cover; cursor:pointer;" alt="Ảnh vật nuôi" onclick="openMediaLightbox(this.src, 'image')">` : `<div style="padding:20px; text-align:center; color:#9ca3af;"><span class="material-icons-round" style="font-size:40px;">image</span><div style="font-size:12px; margin-top:4px;">Không tải được ảnh</div></div>`}
+                <div style="padding:8px 12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-icons-round" style="font-size:18px; color:#ea580c;">pets</span>
+                    <div>
+                        <div style="font-size:11px; font-weight:600; color:#9a3412;">Ảnh vật nuôi</div>
+                        <div style="font-size:10px; color:#6b7280; word-break:break-all;">${escapeHtml(photo2Name)}</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+        if (videoName || serverVideoUrl) {
+            const vidSrc = videoData;
+            html += `<div style="border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; overflow:hidden;">
+                ${vidSrc ? `<video src="${vidSrc}" style="width:100%; max-height:160px; object-fit:cover; cursor:pointer;" onclick="openMediaLightbox(this.src, 'video')" preload="metadata"></video>` : `<div style="padding:20px; text-align:center; color:#9ca3af;"><span class="material-icons-round" style="font-size:40px;">videocam_off</span><div style="font-size:12px; margin-top:4px;">Không tải được video</div></div>`}
+                <div style="padding:8px 12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-icons-round" style="font-size:18px; color:#2563eb;">videocam</span>
+                    <div>
+                        <div style="font-size:11px; font-weight:600; color:#1e40af;">Video</div>
+                        <div style="font-size:10px; color:#6b7280; word-break:break-all;">${escapeHtml(videoName || 'Video báo cáo')}</div>
+                    </div>
+                </div>
+            </div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    // Mortality
+    if (mortalityQty && parseInt(mortalityQty) > 0) {
+        const causeLabel = causeTypeLabels[mortalityCauseType] || mortalityCauseType || 'Không rõ';
+        html += `<div style="padding:12px 16px; border-radius:12px; background:#fef2f2; border:1px solid #fecaca;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                <span class="material-icons-round" style="font-size:20px; color:#dc2626;">heart_broken</span>
+                <span style="font-size:13px; font-weight:700; color:#dc2626;">Hao hụt: ${mortalityQty} con</span>
+            </div>
+            ${mortalityCause ? `<div style="font-size:12px; color:#991b1b;">Loại: ${causeLabel} — ${escapeHtml(mortalityCause)}</div>` : ''}
+        </div>`;
+    } else if (mortalityQty === '0' || (mortalityMatch && mortalityMatch[1] === '0')) {
+        html += `<div style="padding:12px 16px; border-radius:12px; background:#f0fdf4; border:1px solid #bbf7d0;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="material-icons-round" style="font-size:20px; color:#16a34a;">check_circle</span>
+                <span style="font-size:13px; font-weight:700; color:#16a34a;">Không có hao hụt</span>
+            </div>
+        </div>`;
+    }
+
+    html += `</div>`;
+    return html;
+}
+
+// ── Inline report sections for task detail (media upload + mortality) ──
+function buildInlineReportSections(task) {
+    if (!task) return '';
+    const hasPen = task.pen != null;
+    const hasField = task.field != null;
+    if (!hasPen && !hasField) return ''; // Only for pen or field tasks
+
+    const penAnimalCount = task.pen ? (task.pen.animalCount || 0) : 0;
+    const animalUnit = task.pen && task.pen.animalDefinition ? (task.pen.animalDefinition.unit || 'con') : 'con';
+    const sellPrice = task.pen && task.pen.animalDefinition ? (Number(task.pen.animalDefinition.sellPricePerUnit) || 0) : 0;
+    window._inlineSellPrice = sellPrice;
+    const inspectionInfo = getInspectionTaskInfo(task);
+    const isInspection = !!inspectionInfo;
+
+    // Condition selector for inspection tasks
+    let conditionHtml = '';
+    if (isInspection) {
+        const kind = inspectionInfo.kind;
+        const defaultValue = getInspectionDefaultValue(task, inspectionInfo);
+        const options = kind === 'FIELD'
+            ? [{ value: 'GOOD', label: 'Tốt' }, { value: 'FAIR', label: 'Trung bình' }, { value: 'POOR', label: 'Kém' }]
+            : [{ value: 'CLEAN', label: 'Sạch' }, { value: 'DIRTY', label: 'Bẩn' }, { value: 'SICK', label: 'Có dấu hiệu bệnh' }];
+        const optionsHtml = options.map(o => `<option value="${o.value}" ${o.value === defaultValue ? 'selected' : ''}>${o.label}</option>`).join('');
+        conditionHtml = `
+        <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-top:16px;">
+            <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                <span class="material-icons-round" style="font-size:18px; color:#7c3aed;">assignment</span>
+                Đánh giá tình trạng <span style="color:#dc2626;">*</span>
+            </div>
+            <select id="inline-condition-select" style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:10px; font-size:14px; background:white; color:#111827;">
+                ${optionsHtml}
+            </select>
+        </div>`;
+    }
+
+    // Media upload section (shared for both pen and field)
+    const mediaHtml = `
+        <!-- Media Upload Section -->
+        <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-top:16px;">
+            <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px; display:flex; align-items:center; gap:6px;">
+                <span class="material-icons-round" style="font-size:18px; color:#2563eb;">attach_file</span>
+                Hình ảnh / Video báo cáo ${hasPen ? '<span style="color:#dc2626;">*</span>' : ''}
+            </div>
+            <p style="font-size:12px; color:#9ca3af; margin:0 0 12px;">${hasPen ? 'Thêm ít nhất 1 ảnh hoặc 1 video minh chứng công việc' : 'Đính kèm ảnh/video (nếu có)'}</p>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <!-- Image upload -->
+                <div>
+                    <div id="inline-img-dropzone" style="background:#f0fdf4; border:2px dashed #86efac; border-radius:12px; padding:20px; text-align:center; cursor:pointer; transition:border-color 0.2s, background 0.2s;"
+                         onclick="document.getElementById('inline-image-input').click()"
+                         onmouseenter="this.style.borderColor='#10b981'; this.style.background='#ecfdf5'"
+                         onmouseleave="this.style.borderColor='#86efac'; this.style.background='#f0fdf4'">
+                        <span class="material-icons-round" style="font-size:36px; color:#10b981;">photo_camera</span>
+                        <p style="margin:6px 0 0; font-size:13px; font-weight:600; color:#15803d;">Chọn ảnh</p>
+                        <p style="margin:2px 0 0; font-size:11px; color:#6b7280;">JPG, PNG</p>
+                    </div>
+                    <input type="file" id="inline-image-input" accept="image/*" class="hidden" onchange="onInlineImageSelected(event)" />
+                    <div id="inline-img-preview" style="display:none; margin-top:8px; border-radius:10px; overflow:hidden; border:1px solid #e5e7eb; position:relative;">
+                        <img id="inline-img-preview-img" src="" style="width:100%; max-height:180px; object-fit:cover;" />
+                        <button onclick="removeInlineImage()" style="position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(0,0,0,0.5); color:white; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                            <span class="material-icons-round" style="font-size:18px;">close</span>
+                        </button>
+                        <div style="padding:6px 10px; font-size:11px; color:#6b7280; background:#f9fafb;" id="inline-img-filename"></div>
+                    </div>
+                </div>
+
+                <!-- Video upload -->
+                <div>
+                    <div id="inline-vid-dropzone" style="background:#eff6ff; border:2px dashed #93c5fd; border-radius:12px; padding:20px; text-align:center; cursor:pointer; transition:border-color 0.2s, background 0.2s;"
+                         onclick="document.getElementById('inline-video-input').click()"
+                         onmouseenter="this.style.borderColor='#3b82f6'; this.style.background='#dbeafe'"
+                         onmouseleave="this.style.borderColor='#93c5fd'; this.style.background='#eff6ff'">
+                        <span class="material-icons-round" style="font-size:36px; color:#3b82f6;">videocam</span>
+                        <p style="margin:6px 0 0; font-size:13px; font-weight:600; color:#1e40af;">Chọn video</p>
+                        <p style="margin:2px 0 0; font-size:11px; color:#6b7280;">MP4, MOV (tối đa 50MB)</p>
+                    </div>
+                    <input type="file" id="inline-video-input" accept="video/*" class="hidden" onchange="onInlineVideoSelected(event)" />
+                    <div id="inline-vid-preview" style="display:none; margin-top:8px; border-radius:10px; overflow:hidden; border:1px solid #e5e7eb; position:relative;">
+                        <video id="inline-vid-preview-el" src="" style="width:100%; max-height:180px; object-fit:cover;" controls></video>
+                        <button onclick="removeInlineVideo()" style="position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(0,0,0,0.5); color:white; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                            <span class="material-icons-round" style="font-size:18px;">close</span>
+                        </button>
+                        <div style="padding:6px 10px; font-size:11px; color:#6b7280; background:#f9fafb;" id="inline-vid-filename"></div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+    // ── PEN: Mortality Report Section ──
+    if (hasPen) {
+        return `
+            ${conditionHtml}
+            ${mediaHtml}
+
+            <!-- Mortality Report Section -->
+            <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-top:16px;">
+                <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-icons-round" style="font-size:18px; color:#ea580c;">heart_broken</span>
+                    Báo cáo hao hụt <span style="color:#dc2626;">*</span>
+                </div>
+                <p style="font-size:12px; color:#9ca3af; margin:0 0 12px;">Ghi nhận số lượng hao hụt (nhập 0 nếu không có hao hụt)</p>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:500; color:#6b7280; margin-bottom:4px;">Số lượng hao hụt</label>
+                        <input type="number" id="inline-mortality-qty" min="0" max="${penAnimalCount}" value="0"
+                            style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:10px; font-size:14px;" placeholder="0"
+                            oninput="toggleInlineMortalityDetail()">
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:500; color:#6b7280; margin-bottom:4px;">Loại hao hụt</label>
+                        <select id="inline-mortality-type" style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:10px; font-size:14px;">
+                            <option value="DEATH">Chết</option>
+                            <option value="DISEASE">Bệnh</option>
+                            <option value="ACCIDENT">Tai nạn</option>
+                            <option value="CULL">Loại thải</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="inline-mortality-detail" style="display:none;">
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block; font-size:12px; font-weight:500; color:#6b7280; margin-bottom:4px;">Nguyên nhân cụ thể <span style="color:#dc2626;">*</span></label>
+                        <input type="text" id="inline-mortality-cause" style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:10px; font-size:14px;" placeholder="VD: Dịch tả, sốc nhiệt...">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block; font-size:12px; font-weight:500; color:#6b7280; margin-bottom:4px;">Ước tính thiệt hại (₫) <span style="font-weight:400; color:#9ca3af;">(tự tính)</span></label>
+                        <input type="number" id="inline-mortality-loss" min="0" step="1000" value="0"
+                            style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:10px; font-size:14px;" placeholder="0">
+                        ${sellPrice > 0 ? `<div style="font-size:11px; color:#6b7280; margin-top:4px;">Giá bán: ${new Intl.NumberFormat('vi-VN').format(sellPrice)} ₫/${animalUnit} — Sẽ tự tính khi nhập số lượng</div>` : ''}
+                    </div>
+                </div>
+
+                <div style="font-size:11px; color:#9ca3af; display:flex; align-items:center; gap:4px;">
+                    <span class="material-icons-round" style="font-size:14px;">info</span>
+                    Số lượng hiện có: ${penAnimalCount} ${animalUnit}. Nhập 0 nếu không có hao hụt.
+                </div>
+            </div>
+        `;
+    }
+
+    // ── FIELD: Crop Loss Report Section ──
+    const field = task.field;
+    const fieldStage = field ? (field.workflowStage || '') : '';
+    const isPlanted = ['SEEDED', 'GROWING', 'READY_HARVEST'].includes(fieldStage);
+    const fieldAreaSqm = field ? (Number(field.areaSqm) || 0) : 0;
+    const cropName = field && field.currentCrop ? field.currentCrop.name : '';
+
+    // Store field data for later use in completeTask
+    window._inlineFieldId = field ? field.id : null;
+    window._inlineFieldLossPolygon = null;
+    window._inlineFieldLossAreaSqm = 0;
+    window._inlineFieldHasLoss = false;
+
+    let cropLossHtml = '';
+    if (isPlanted) {
+        cropLossHtml = `
+        <!-- Crop Loss Report Section -->
+        <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-top:16px;">
+            <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                <span class="material-icons-round" style="font-size:18px; color:#dc2626;">warning</span>
+                Báo cáo hao hụt trồng trọt
+            </div>
+            <p style="font-size:12px; color:#9ca3af; margin:0 0 12px;">Vẽ vùng bị hư hại trên bản đồ (nếu có). Bỏ trống nếu không có hao hụt.</p>
+
+            <div style="margin-bottom:12px;">
+                <label style="display:flex; align-items:center; gap:8px; cursor:pointer; padding:10px 14px; border:1px solid #d1d5db; border-radius:10px; background:white;">
+                    <input type="checkbox" id="inline-field-has-loss" onchange="toggleFieldLossSection()" style="width:18px; height:18px; accent-color:#dc2626;">
+                    <span style="font-size:14px; color:#111827;">Có vùng bị hư hại / thiệt hại cây trồng</span>
+                </label>
+            </div>
+
+            <div id="inline-field-loss-section" style="display:none;">
+                <!-- Mini map for polygon drawing -->
+                <div style="margin-bottom:12px;">
+                    <div id="inline-field-loss-map" style="height:280px; border-radius:12px; border:1px solid #d1d5db; overflow:hidden;"></div>
+                    <div style="font-size:11px; color:#6b7280; margin-top:6px; display:flex; align-items:center; gap:4px;">
+                        <span class="material-icons-round" style="font-size:14px;">gesture</span>
+                        Dùng công cụ vẽ trên bản đồ để đánh dấu vùng bị hư hại
+                    </div>
+                </div>
+
+                <!-- Loss area info -->
+                <div id="inline-field-loss-info" style="display:none; padding:12px 16px; border-radius:12px; background:#fef2f2; border:1px solid #fecaca; margin-bottom:12px;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <span class="material-icons-round" style="font-size:20px; color:#dc2626;">square_foot</span>
+                        <span style="font-size:14px; font-weight:700; color:#dc2626;" id="inline-field-loss-area-text">0 m²</span>
+                        <span style="font-size:12px; color:#991b1b; margin-left:8px;" id="inline-field-loss-pct-text"></span>
+                    </div>
+                    <div style="font-size:12px; color:#991b1b;" id="inline-field-loss-value-text"></div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:500; color:#6b7280; margin-bottom:4px;">Nguyên nhân</label>
+                        <select id="inline-field-loss-cause" style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:10px; font-size:14px;">
+                            <option value="DISEASE">Dịch bệnh</option>
+                            <option value="PESTS">Sâu bệnh</option>
+                            <option value="WEATHER">Thời tiết</option>
+                            <option value="FLOOD">Ngập lụt</option>
+                            <option value="DROUGHT">Hạn hán</option>
+                            <option value="OTHER">Khác</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display:block; font-size:12px; font-weight:500; color:#6b7280; margin-bottom:4px;">Chi tiết nguyên nhân</label>
+                        <input type="text" id="inline-field-loss-cause-detail" style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:10px; font-size:14px;" placeholder="VD: Rầy nâu, đạo ôn...">
+                    </div>
+                </div>
+
+                <div>
+                    <label style="display:block; font-size:12px; font-weight:500; color:#6b7280; margin-bottom:4px;">Ghi chú thêm</label>
+                    <textarea id="inline-field-loss-notes" rows="2" style="width:100%; padding:10px 14px; border:1px solid #d1d5db; border-radius:10px; font-size:14px; resize:vertical;" placeholder="Mô tả tình trạng thiệt hại..."></textarea>
+                </div>
+            </div>
+
+            ${!isPlanted ? '' : `
+            <div style="font-size:11px; color:#9ca3af; display:flex; align-items:center; gap:4px; margin-top:8px;">
+                <span class="material-icons-round" style="font-size:14px;">info</span>
+                ${cropName ? `Cây trồng: ${escapeHtml(cropName)}.` : ''} Diện tích: ${fieldAreaSqm > 0 ? (fieldAreaSqm / 10000).toFixed(2) + ' ha' : 'N/A'}.
+            </div>`}
+        </div>`;
+    } else {
+        cropLossHtml = `
+        <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-top:16px;">
+            <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                <span class="material-icons-round" style="font-size:18px; color:#9ca3af;">info</span>
+                Hao hụt trồng trọt
+            </div>
+            <p style="font-size:12px; color:#9ca3af; margin:0;">Ruộng chưa gieo trồng — không cần báo cáo hao hụt.</p>
+        </div>`;
+    }
+
+    return `
+        ${conditionHtml}
+        ${mediaHtml}
+        ${cropLossHtml}
+    `;
+}
+
+// ── Inline media handlers ──
+let _inlineImageBase64 = null;
+let _inlineImageName = null;
+let _inlineVideoBase64 = null;
+let _inlineVideoName = null;
+
+function onInlineImageSelected(event) {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+    _inlineImageName = file.name;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        _inlineImageBase64 = e.target?.result;
+        const preview = document.getElementById('inline-img-preview');
+        const img = document.getElementById('inline-img-preview-img');
+        const fname = document.getElementById('inline-img-filename');
+        if (img) img.src = _inlineImageBase64 || '';
+        if (fname) fname.textContent = _inlineImageName;
+        if (preview) preview.style.display = 'block';
+        // Hide dropzone
+        const dz = document.getElementById('inline-img-dropzone');
+        if (dz) dz.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+
+function removeInlineImage() {
+    _inlineImageBase64 = null;
+    _inlineImageName = null;
+    const preview = document.getElementById('inline-img-preview');
+    const input = document.getElementById('inline-image-input');
+    const dz = document.getElementById('inline-img-dropzone');
+    if (preview) preview.style.display = 'none';
+    if (input) input.value = '';
+    if (dz) dz.style.display = 'block';
+}
+
+function onInlineVideoSelected(event) {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) {
+        showNotification('error', 'Lỗi', 'Video không được lớn hơn 50MB');
+        return;
+    }
+    _inlineVideoName = file.name;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        _inlineVideoBase64 = e.target?.result;
+        const preview = document.getElementById('inline-vid-preview');
+        const vid = document.getElementById('inline-vid-preview-el');
+        const fname = document.getElementById('inline-vid-filename');
+        if (vid) vid.src = _inlineVideoBase64 || '';
+        if (fname) fname.textContent = _inlineVideoName;
+        if (preview) preview.style.display = 'block';
+        const dz = document.getElementById('inline-vid-dropzone');
+        if (dz) dz.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+}
+
+function removeInlineVideo() {
+    _inlineVideoBase64 = null;
+    _inlineVideoName = null;
+    const preview = document.getElementById('inline-vid-preview');
+    const input = document.getElementById('inline-video-input');
+    const dz = document.getElementById('inline-vid-dropzone');
+    if (preview) preview.style.display = 'none';
+    if (input) input.value = '';
+    if (dz) dz.style.display = 'block';
+}
+
+function toggleInlineMortalityDetail() {
+    const qty = parseInt(document.getElementById('inline-mortality-qty')?.value) || 0;
+    const detail = document.getElementById('inline-mortality-detail');
+    if (detail) detail.style.display = qty > 0 ? 'block' : 'none';
+
+    // Auto-calculate estimated loss from sell price
+    if (qty > 0 && window._inlineSellPrice > 0) {
+        const lossField = document.getElementById('inline-mortality-loss');
+        if (lossField) {
+            lossField.value = qty * window._inlineSellPrice;
+        }
+    }
+}
+
+// ── Field Crop Loss helpers ──
+let _fieldLossMap = null;
+let _fieldLossDrawnLayer = null;
+
+function toggleFieldLossSection() {
+    const cb = document.getElementById('inline-field-has-loss');
+    const section = document.getElementById('inline-field-loss-section');
+    if (!cb || !section) return;
+    const show = cb.checked;
+    section.style.display = show ? 'block' : 'none';
+    window._inlineFieldHasLoss = show;
+    if (show && !_fieldLossMap) {
+        setTimeout(() => initFieldLossMap(), 200);
+    }
+}
+
+function initFieldLossMap() {
+    const container = document.getElementById('inline-field-loss-map');
+    if (!container || _fieldLossMap) return;
+
+    const fieldId = window._inlineFieldId;
+    // Find the task to get field data
+    let fieldData = null;
+    if (workerTasksById) {
+        for (const t of Object.values(workerTasksById)) {
+            if (t.field && t.field.id === fieldId) { fieldData = t.field; break; }
+        }
+    }
+
+    // Parse boundary coordinates
+    let boundaryCoords = [];
+    if (fieldData && fieldData.boundaryCoordinates) {
+        try {
+            const raw = typeof fieldData.boundaryCoordinates === 'string'
+                ? JSON.parse(fieldData.boundaryCoordinates) : fieldData.boundaryCoordinates;
+            if (Array.isArray(raw) && raw.length >= 3) {
+                boundaryCoords = raw.map(c => Array.isArray(c) ? [c[0], c[1]] : [c.lat, c.lng]);
+            }
+        } catch (e) { console.error('Cannot parse field boundary:', e); }
+    }
+
+    // Default center (Ca Mau area)
+    let center = [9.1767, 105.1524];
+    let zoom = 16;
+    if (boundaryCoords.length > 0) {
+        const latSum = boundaryCoords.reduce((s, c) => s + c[0], 0);
+        const lngSum = boundaryCoords.reduce((s, c) => s + c[1], 0);
+        center = [latSum / boundaryCoords.length, lngSum / boundaryCoords.length];
+    }
+
+    _fieldLossMap = L.map(container, { zoomControl: true, attributionControl: false }).setView(center, zoom);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 20 }).addTo(_fieldLossMap);
+
+    // Draw field boundary polygon (green)
+    if (boundaryCoords.length >= 3) {
+        const fieldPoly = L.polygon(boundaryCoords, {
+            color: '#16a34a', weight: 2, fillColor: '#86efac', fillOpacity: 0.15, dashArray: '6,4'
+        }).addTo(_fieldLossMap);
+        _fieldLossMap.fitBounds(fieldPoly.getBounds(), { padding: [20, 20] });
+    }
+
+    // Drawn items layer
+    const drawnItems = new L.FeatureGroup();
+    _fieldLossMap.addLayer(drawnItems);
+
+    // Leaflet Draw control
+    const drawControl = new L.Control.Draw({
+        draw: {
+            polygon: { allowIntersection: false, shapeOptions: { color: '#dc2626', weight: 2, fillColor: '#dc2626', fillOpacity: 0.3 } },
+            polyline: false, circle: false, circlemarker: false, marker: false, rectangle: {
+                shapeOptions: { color: '#dc2626', weight: 2, fillColor: '#dc2626', fillOpacity: 0.3 }
+            }
+        },
+        edit: { featureGroup: drawnItems, remove: true }
+    });
+    _fieldLossMap.addControl(drawControl);
+
+    // Handle drawn polygon
+    _fieldLossMap.on(L.Draw.Event.CREATED, function (e) {
+        // Remove previous drawn layer
+        drawnItems.clearLayers();
+        _fieldLossDrawnLayer = e.layer;
+        drawnItems.addLayer(_fieldLossDrawnLayer);
+        updateFieldLossArea(fieldData);
+    });
+
+    _fieldLossMap.on(L.Draw.Event.EDITED, function () {
+        updateFieldLossArea(fieldData);
+    });
+
+    _fieldLossMap.on(L.Draw.Event.DELETED, function () {
+        _fieldLossDrawnLayer = null;
+        window._inlineFieldLossPolygon = null;
+        window._inlineFieldLossAreaSqm = 0;
+        const infoEl = document.getElementById('inline-field-loss-info');
+        if (infoEl) infoEl.style.display = 'none';
+    });
+
+    // Fix map render after container visibility change
+    setTimeout(() => _fieldLossMap.invalidateSize(), 300);
+}
+
+function calcPolygonAreaSqm(latlngs) {
+    // Geodesic area calculation using the Shoelace formula with Haversine
+    if (!latlngs || latlngs.length < 3) return 0;
+    // Use L.GeometryUtil if available, otherwise manual calc
+    if (L.GeometryUtil && L.GeometryUtil.geodesicArea) {
+        return Math.abs(L.GeometryUtil.geodesicArea(latlngs));
+    }
+    // Manual spherical excess formula
+    const RAD = Math.PI / 180;
+    const R = 6378137; // Earth radius in meters
+    let area = 0;
+    const n = latlngs.length;
+    for (let i = 0; i < n; i++) {
+        const j = (i + 1) % n;
+        area += (latlngs[j].lng - latlngs[i].lng) * RAD *
+            (2 + Math.sin(latlngs[i].lat * RAD) + Math.sin(latlngs[j].lat * RAD));
+    }
+    area = Math.abs(area * R * R / 2);
+    return area;
+}
+
+function updateFieldLossArea(fieldData) {
+    if (!_fieldLossDrawnLayer) return;
+    const latlngs = _fieldLossDrawnLayer.getLatLngs ? _fieldLossDrawnLayer.getLatLngs() : null;
+    if (!latlngs) return;
+    // Flatten for polygon (first ring)
+    const ring = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+    const areaSqm = calcPolygonAreaSqm(ring);
+
+    // Store polygon coordinates
+    const polygonCoords = ring.map(ll => [ll.lat, ll.lng]);
+    window._inlineFieldLossPolygon = polygonCoords;
+    window._inlineFieldLossAreaSqm = areaSqm;
+
+    // Calculate percentage and loss value
+    const fieldAreaSqm = fieldData ? (Number(fieldData.areaSqm) || 0) : 0;
+    const pct = fieldAreaSqm > 0 ? (areaSqm / fieldAreaSqm * 100) : 0;
+
+    let lossValue = 0;
+    if (fieldData && fieldData.currentCrop) {
+        const yieldPerSqm = Number(fieldData.currentCrop.expectedYieldPerSqm) || 0;
+        const pricePerKg = Number(fieldData.currentCrop.marketPricePerKg) || 0;
+        lossValue = areaSqm * yieldPerSqm * pricePerKg;
+    }
+
+    // Update UI
+    const infoEl = document.getElementById('inline-field-loss-info');
+    const areaText = document.getElementById('inline-field-loss-area-text');
+    const pctText = document.getElementById('inline-field-loss-pct-text');
+    const valText = document.getElementById('inline-field-loss-value-text');
+
+    if (infoEl) infoEl.style.display = 'flex';
+    if (infoEl) infoEl.style.flexDirection = 'column';
+    if (areaText) areaText.textContent = areaSqm < 10000
+        ? `${areaSqm.toFixed(1)} m²`
+        : `${(areaSqm / 10000).toFixed(3)} ha`;
+    if (pctText) pctText.textContent = `(${pct.toFixed(1)}% diện tích)`;
+    if (valText) valText.textContent = lossValue > 0
+        ? `Ước tính thiệt hại: ${new Intl.NumberFormat('vi-VN').format(Math.round(lossValue))} ₫`
+        : 'Chưa có thông tin giá cây trồng để tính thiệt hại';
+}
+
+function destroyFieldLossMap() {
+    if (_fieldLossMap) {
+        _fieldLossMap.remove();
+        _fieldLossMap = null;
+    }
+    _fieldLossDrawnLayer = null;
+    window._inlineFieldLossPolygon = null;
+    window._inlineFieldLossAreaSqm = 0;
+    window._inlineFieldHasLoss = false;
+    window._inlineFieldId = null;
+}
+
 function openTaskDetail(taskId) {
     const task = workerTasksById && workerTasksById[taskId] ? workerTasksById[taskId] : null;
     if (!task) {
@@ -2678,13 +4002,15 @@ function openTaskDetail(taskId) {
                 </div>
             </div>
 
-            <!-- Description -->
-            ${taskDesc ? `
-            <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
-                <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Mô tả công việc</div>
-                <p style="margin:0; color:#374151; line-height:1.7; white-space:pre-wrap;">${escapeHtml(taskDesc)}</p>
-            </div>
-            ` : ''}
+            <!-- Description (filter AI: lines) -->
+            ${(() => {
+            const cleanDesc = (taskDesc || '').split('\n').filter(l => !l.startsWith('AI:')).join('\n').trim();
+            return cleanDesc ? `
+                <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
+                    <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Mô tả công việc</div>
+                    <p style="margin:0; color:#374151; line-height:1.7; white-space:pre-wrap;">${escapeHtml(cleanDesc)}</p>
+                </div>` : '';
+        })()}
 
             <!-- Related Item & Additional Info -->
             ${relatedItemName || quantityLabel ? `
@@ -2702,12 +4028,17 @@ function openTaskDetail(taskId) {
             </div>
             ` : ''}
 
+            ${buildWorkerInspectionResultsHtml(task)}
+
             ${countdownHtml}
+
+            ${status !== 'COMPLETED' ? buildInlineReportSections(task) : ''}
 
             <!-- Action Buttons -->
             ${status !== 'COMPLETED' ? `
             <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-top:16px;">
                 <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px;">Hành động</div>
+                <div id="inline-report-error" class="hidden" style="margin-bottom:12px; padding:10px 14px; border-radius:10px; background:#fef2f2; border:1px solid #fecaca; color:#dc2626; font-size:13px; font-weight:500;"></div>
                 <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;" onclick="event.stopPropagation()">
                     ${getWorkLogActionBlock(task)}
                     <button onclick="completeTask(${task.id})" style="display:flex; align-items:center; gap:8px; padding:10px 24px; background:linear-gradient(135deg, #10b981, #059669); color:white; border:none; border-radius:12px; cursor:pointer; font-weight:600; font-size:14px; box-shadow:0 4px 12px rgba(16,185,129,0.3); transition:transform 0.2s, box-shadow 0.2s;"
@@ -2947,7 +4278,7 @@ function getTaskTypeLabel(type) {
         'FEED': 'Cho ăn', 'CLEAN': 'Vệ sinh', 'HARVEST': 'Thu hoạch',
         'BUY_SUPPLIES': 'Mua vật tư', 'PLANT': 'Gieo trồng', 'SEED': 'Gieo trồng',
         'FERTILIZE': 'Bón phân', 'WATER': 'Tưới nước', 'PEST_CONTROL': 'Phòng trừ sâu',
-        'VACCINATE': 'Tiêm phòng', 'SELL': 'Bán', 'OTHER': 'Khác'
+        'VACCINATE': 'Tiêm phòng', 'SELL': 'Bán', 'INSPECTION': 'Kiểm tra', 'OTHER': 'Khác'
     };
     return map[type] || type;
 }
@@ -2965,6 +4296,7 @@ function getTaskIcon(type) {
         PEST_CONTROL: 'bug_report',
         VACCINATE: 'vaccines',
         SELL: 'sell',
+        INSPECTION: 'search',
         OTHER: 'assignment'
     };
     return map[type] || 'assignment';

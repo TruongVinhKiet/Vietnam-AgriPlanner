@@ -75,6 +75,9 @@ public class SecurityConfig {
                         // Livestock management
                         .requestMatchers("/api/livestock/**").permitAll()
                         .requestMatchers("/api/feeding/**").permitAll()
+                        .requestMatchers("/api/utility-settings/**").permitAll()
+                        // Field loss / crop damage tracking
+                        .requestMatchers("/api/field-losses/**").permitAll()
                         // Shop & Inventory
                         .requestMatchers("/api/shop/**").permitAll()
                         // Cart & Reviews
@@ -105,6 +108,7 @@ public class SecurityConfig {
                         // Task Management
                         .requestMatchers("/api/tasks/worker/**").hasAnyRole("WORKER", "OWNER")
                         .requestMatchers("/api/tasks/*/complete").hasAnyRole("WORKER", "OWNER", "SYSTEM_ADMIN")
+                        .requestMatchers("/api/tasks/*/upload-media").hasAnyRole("WORKER", "OWNER", "SYSTEM_ADMIN")
                         .requestMatchers("/api/tasks/**").hasAnyRole("OWNER", "SYSTEM_ADMIN")
 
                         // Payroll

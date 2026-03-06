@@ -11,5 +11,7 @@ public enum TaskType {
     HARVEST,
     BUY_SUPPLIES,
     SELL,
+    PLANT,
+    INSPECTION,
     OTHER
 }
