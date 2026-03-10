@@ -231,6 +231,90 @@ public class ShopController {
         }
     }
 
+    /**
+     * Get inventory transactions for a specific item
+     */
+    @GetMapping("/inventory/{inventoryId}/transactions")
+    public ResponseEntity<?> getItemTransactions(
+            @PathVariable Long inventoryId,
+            @RequestParam(required = false) String userEmail,
+            @RequestParam(required = false) Long userId) {
+        try {
+            Long uid = resolveUserId(userEmail, userId);
+            if (uid == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User not found"));
+            }
+
+            return ResponseEntity.ok(shopService.getTransactionsByInventoryId(uid, inventoryId));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get single inventory item detail
+     */
+    @GetMapping("/inventory/{inventoryId}")
+    public ResponseEntity<?> getInventoryItem(
+            @PathVariable Long inventoryId,
+            @RequestParam(required = false) String userEmail,
+            @RequestParam(required = false) Long userId) {
+        try {
+            Long uid = resolveUserId(userEmail, userId);
+            if (uid == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User not found"));
+            }
+
+            return ResponseEntity.ok(shopService.getInventoryItemDetail(uid, inventoryId));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Update inventory item quantity (owner can only change quantity)
+     */
+    @PutMapping("/inventory/{inventoryId}")
+    public ResponseEntity<?> updateInventoryQuantity(
+            @PathVariable Long inventoryId,
+            @RequestBody Map<String, Object> request) {
+        try {
+            String userEmail = request.containsKey("userEmail") ? request.get("userEmail").toString() : null;
+            Long uid = resolveUserId(userEmail, null);
+            if (uid == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User not found"));
+            }
+
+            BigDecimal newQuantity = new BigDecimal(request.get("quantity").toString());
+            return ResponseEntity.ok(shopService.updateInventoryQuantity(uid, inventoryId, newQuantity));
+        } catch (Exception e) {
+            log.error("Update inventory error", e);
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Delete inventory item (remove from user's inventory)
+     */
+    @DeleteMapping("/inventory/{inventoryId}")
+    public ResponseEntity<?> deleteInventoryItem(
+            @PathVariable Long inventoryId,
+            @RequestParam(required = false) String userEmail,
+            @RequestParam(required = false) Long userId) {
+        try {
+            Long uid = resolveUserId(userEmail, userId);
+            if (uid == null) {
+                return ResponseEntity.badRequest().body(Map.of("error", "User not found"));
+            }
+
+            shopService.deleteInventoryItem(uid, inventoryId);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Đã xóa vật tư khỏi kho"));
+        } catch (Exception e) {
+            log.error("Delete inventory error", e);
+            return ResponseEntity.internalServerError().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     // ==================== HELPER ====================
 
     private Long resolveUserId(String email, Long userId) {

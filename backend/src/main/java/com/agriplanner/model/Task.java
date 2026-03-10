@@ -95,4 +95,10 @@ public class Task {
 
     @Column(name = "report_video_url", length = 500)
     private String reportVideoUrl;
+
+    @Column(name = "workflow_data", columnDefinition = "TEXT")
+    private String workflowData;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
 }

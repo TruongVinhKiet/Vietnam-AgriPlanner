@@ -1,0 +1,1953 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriPlanner - Kho vật tư</title>
+    <meta name="description" content="Quản lý kho vật tư nông nghiệp">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../css/variables.css">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/layout.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/pages/dashboard.css">
+    <link rel="stylesheet" href="../css/chatbot.css">
+    <link rel="stylesheet" href="../css/smart-advisor.css">
+
+    <!-- GSAP Animation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="icon" type="image/x-icon" href="../images/logo.png">
+
+    <style>
+        /* ==================== INVENTORY PAGE STYLES ==================== */
+
+        /* Page Header */
+        .inv-page-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .inv-page-header .page-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 28px;
+            flex-shrink: 0;
+        }
+
+        .inv-page-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0;
+        }
+
+        .inv-page-header p {
+            font-size: 14px;
+            color: #6b7280;
+            margin: 2px 0 0;
+        }
+
+        /* Summary Stats */
+        .inv-stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .inv-stats-row { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 500px) {
+            .inv-stats-row { grid-template-columns: 1fr; }
+        }
+
+        .inv-stat-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .inv-stat-card:hover {
+            border-color: #86efac;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .inv-stat-card .stat-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .inv-stat-card .stat-icon .material-symbols-outlined { font-size: 24px; }
+        .inv-stat-card .stat-icon.green  { background: linear-gradient(135deg, #10b981, #059669); }
+        .inv-stat-card .stat-icon.blue   { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .inv-stat-card .stat-icon.indigo { background: linear-gradient(135deg, #6366f1, #4f46e5); }
+        .inv-stat-card .stat-icon.rose   { background: linear-gradient(135deg, #f43f5e, #e11d48); }
+
+        .inv-stat-card .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 600;
+        }
+
+        .inv-stat-card .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-top: 2px;
+        }
+
+        /* Main Content Card */
+        .inv-main-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        /* Toolbar */
+        .inv-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 18px 20px;
+            border-bottom: 1px solid #f3f4f6;
+            flex-wrap: wrap;
+        }
+
+        .inv-search-wrap {
+            flex: 1;
+            min-width: 200px;
+            position: relative;
+        }
+
+        .inv-search-wrap .material-symbols-outlined {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            color: #9ca3af;
+            pointer-events: none;
+        }
+
+        .inv-search-wrap input {
+            width: 100%;
+            padding: 9px 14px 9px 38px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #f9fafb;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+
+        .inv-search-wrap input:focus {
+            outline: none;
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+            background: #fff;
+        }
+
+        .inv-view-toggle {
+            display: flex;
+            gap: 2px;
+            background: #f3f4f6;
+            border-radius: 8px;
+            padding: 3px;
+        }
+
+        .inv-view-toggle button {
+            padding: 6px 10px;
+            border: none;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            color: #9ca3af;
+            display: flex;
+            align-items: center;
+            transition: all 0.2s;
+        }
+
+        .inv-view-toggle button .material-symbols-outlined { font-size: 19px; }
+
+        .inv-view-toggle button.active {
+            background: #fff;
+            color: #10b981;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+
+        .btn-add-inv {
+            padding: 9px 18px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-add-inv:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+        }
+
+        .btn-add-inv .material-symbols-outlined { font-size: 18px; }
+
+        /* Category Tabs */
+        .inv-tabs-row {
+            display: flex;
+            gap: 6px;
+            padding: 12px 20px;
+            border-bottom: 1px solid #f3f4f6;
+            flex-wrap: wrap;
+            background: #fafbfc;
+        }
+
+        .inv-tab-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 20px;
+            background: #fff;
+            color: #4b5563;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .inv-tab-btn:hover {
+            border-color: #86efac;
+            background: #f0fdf4;
+        }
+
+        .inv-tab-btn.active {
+            background: #10b981;
+            color: #fff;
+            border-color: #10b981;
+        }
+
+        .inv-tab-btn .tab-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 9px;
+            font-size: 11px;
+            font-weight: 700;
+            background: rgba(0, 0, 0, 0.07);
+        }
+
+        .inv-tab-btn.active .tab-badge {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        /* Content Area */
+        .inv-content-area {
+            padding: 20px;
+            min-height: 320px;
+        }
+
+        /* Grid View */
+        .inv-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 14px;
+        }
+
+        .inv-card {
+            background: #fafbfc;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            transition: all 0.25s;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .inv-card:hover {
+            border-color: #86efac;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.08);
+            transform: translateY(-2px);
+        }
+
+        .inv-card-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .inv-card-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: #ecfdf5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .inv-card-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 10px;
+        }
+
+        .inv-card-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .inv-card-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .inv-card-cat {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+
+        .inv-card-bottom {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .inv-card-qty {
+            font-size: 18px;
+            font-weight: 700;
+            color: #10b981;
+        }
+
+        .inv-card-qty.low { color: #ef4444; }
+
+        .inv-card-unit {
+            font-size: 13px;
+            font-weight: 400;
+            color: #6b7280;
+            margin-left: 3px;
+        }
+
+        .inv-card-status {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+
+        .inv-card-status.ok { background: #ecfdf5; color: #059669; }
+        .inv-card-status.low { background: #fef2f2; color: #dc2626; }
+
+        /* Table View */
+        .inv-table-wrap {
+            display: none;
+            overflow-x: auto;
+        }
+
+        .inv-tbl {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .inv-tbl th {
+            background: #f0fdf4;
+            color: #065f46;
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            border-bottom: 2px solid #a7f3d0;
+            white-space: nowrap;
+        }
+
+        .inv-tbl td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f3f4f6;
+            color: #1e293b;
+        }
+
+        .inv-tbl tbody tr:hover { background: #f0fdf4; }
+
+        .inv-tbl .item-name-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .inv-tbl .item-icon-sm {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: #ecfdf5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .inv-tbl .item-icon-sm img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        /* Empty State */
+        .inv-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            color: #9ca3af;
+            text-align: center;
+            grid-column: 1 / -1;
+        }
+
+        .inv-empty .material-symbols-outlined {
+            font-size: 56px;
+            margin-bottom: 12px;
+            color: #d1d5db;
+        }
+
+        .inv-empty p { font-size: 15px; margin: 4px 0; }
+        .inv-empty .hl { color: #10b981; font-weight: 600; }
+
+        /* Inventory History Chart */
+        .inv-history-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 24px;
+            margin-bottom: 24px;
+            animation: invHistFadeIn 0.5s ease-out both;
+        }
+        @keyframes invHistFadeIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .inv-history-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .inv-history-header h3 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .inv-history-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .inv-history-controls select {
+            padding: 6px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 13px;
+            background: #fff;
+            color: #374151;
+            cursor: pointer;
+            outline: none;
+        }
+        .inv-history-controls select:focus {
+            border-color: #10b981;
+        }
+        .inv-history-toggle {
+            display: flex;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .inv-history-toggle button {
+            background: #fff;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            color: #9ca3af;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+        }
+        .inv-history-toggle button .material-symbols-outlined { font-size: 18px; }
+        .inv-history-toggle button.active {
+            background: #10b981;
+            color: #fff;
+        }
+        .inv-history-toggle button:not(:last-child) {
+            border-right: 1px solid #d1d5db;
+        }
+        .inv-history-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-bottom: 20px;
+        }
+        .inv-h-stat {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border-radius: 10px;
+            animation: invStatPop 0.4s ease-out both;
+        }
+        .inv-h-stat:nth-child(1) { animation-delay: 0.1s; }
+        .inv-h-stat:nth-child(2) { animation-delay: 0.2s; }
+        .inv-h-stat:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes invStatPop {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .inv-h-stat .material-symbols-outlined {
+            font-size: 28px;
+            padding: 8px;
+            border-radius: 10px;
+        }
+        .inv-h-stat.in {
+            background: #ecfdf5;
+        }
+        .inv-h-stat.in .material-symbols-outlined {
+            background: #d1fae5;
+            color: #059669;
+        }
+        .inv-h-stat.out {
+            background: #fef2f2;
+        }
+        .inv-h-stat.out .material-symbols-outlined {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        .inv-h-stat.net {
+            background: #eff6ff;
+        }
+        .inv-h-stat.net .material-symbols-outlined {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+        .inv-h-stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 2px;
+        }
+        .inv-h-stat-value {
+            font-size: 20px;
+            font-weight: 800;
+            color: #1e293b;
+        }
+        .inv-history-chart-wrap {
+            height: 280px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .inv-history-table-wrap {
+            max-height: 240px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+        }
+        .inv-history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .inv-history-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .inv-history-table th {
+            background: #f1f5f9;
+            color: #475569;
+            font-weight: 600;
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .inv-history-table td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #374151;
+        }
+        .inv-history-table tr {
+            animation: invRowFade 0.3s ease-out both;
+        }
+        @keyframes invRowFade {
+            from { opacity: 0; transform: translateX(-8px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        .inv-tx-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .inv-tx-badge.purchase {
+            background: #d1fae5;
+            color: #059669;
+        }
+        .inv-tx-badge.use {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        .inv-tx-badge.other {
+            background: #e5e7eb;
+            color: #6b7280;
+        }
+        @media (max-width: 640px) {
+            .inv-history-stats { grid-template-columns: 1fr; }
+            .inv-history-chart-wrap { height: 200px; }
+            .inv-history-header { flex-direction: column; align-items: flex-start; }
+        }
+
+        /* Chart sidebar */
+        .inv-two-col {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 960px) {
+            .inv-two-col { grid-template-columns: 1fr; }
+        }
+
+        .inv-chart-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .inv-chart-card h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0 0 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .inv-chart-wrap {
+            position: relative;
+            width: 220px;
+            height: 220px;
+            margin: 0 auto 16px;
+        }
+
+        .inv-chart-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .inv-chart-center .num {
+            font-size: 28px;
+            font-weight: 800;
+            color: #1e293b;
+        }
+
+        .inv-chart-center .lbl {
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .inv-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .inv-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #4b5563;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+
+        .inv-legend-item:hover { background: #f3f4f6; }
+
+        .inv-legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .inv-legend-count {
+            margin-left: auto;
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        /* Add Item Modal Overlay */
+        .inv-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .inv-modal-overlay.show {
+            display: flex;
+            animation: invFadeIn 0.2s ease;
+        }
+
+        @keyframes invFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .inv-modal {
+            background: #fff;
+            border-radius: 16px;
+            width: 90vw;
+            max-width: 560px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+            animation: invSlideUp 0.25s ease;
+            overflow: hidden;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        @keyframes invSlideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .inv-modal-head {
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #a7f3d0;
+            flex-shrink: 0;
+        }
+
+        .inv-modal-head h3 {
+            color: #065f46;
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .inv-modal-head .close-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 4px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            display: flex;
+        }
+
+        .inv-modal-head .close-btn:hover {
+            background: rgba(0, 0, 0, 0.06);
+            color: #1f2937;
+        }
+
+        .inv-modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .inv-modal-body .fg {
+            margin-bottom: 16px;
+        }
+
+        .inv-modal-body .fg label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 6px;
+        }
+
+        .inv-modal-body .fg input,
+        .inv-modal-body .fg select {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #f9fafb;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+
+        .inv-modal-body .fg input:focus,
+        .inv-modal-body .fg select:focus {
+            outline: none;
+            border-color: #10b981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+            background: #fff;
+        }
+
+        .inv-modal-body .fg input[readonly] {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .inv-modal-body .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .inv-modal-body .product-preview {
+            background: #f0fdf4;
+            border: 1px solid #a7f3d0;
+            border-radius: 10px;
+            padding: 12px 14px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .inv-modal-body .product-preview.show { display: flex; }
+
+        .inv-modal-body .product-preview img {
+            width: 44px;
+            height: 44px;
+            border-radius: 8px;
+            object-fit: cover;
+        }
+
+        .inv-modal-body .product-preview .pp-name {
+            font-weight: 600;
+            color: #065f46;
+            font-size: 14px;
+        }
+
+        .inv-modal-body .product-preview .pp-cat {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .inv-modal-foot {
+            padding: 14px 24px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-shrink: 0;
+        }
+
+        .inv-modal-foot .btn-cancel {
+            padding: 9px 20px;
+            background: #f3f4f6;
+            color: #4b5563;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .inv-modal-foot .btn-cancel:hover { background: #e5e7eb; }
+
+        .inv-modal-foot .btn-save {
+            padding: 9px 20px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .inv-modal-foot .btn-save:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+        }
+    </style>
+</head>
+
+<body data-page="inventory">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar__header">
+                <div class="sidebar__logo-icon" style="background: none; padding: 0;">
+                    <img src="../images/logo.png" alt="AgriPlanner Logo"
+                        style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                </div>
+                <h1 class="sidebar__logo-text">AgriPlanner</h1>
+            </div>
+
+            <nav class="sidebar__nav">
+                <a href="../index.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">home</span>
+                    <span>Trang chủ</span>
+                </a>
+                <a href="cultivation.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">potted_plant</span>
+                    <span>Trồng trọt</span>
+                </a>
+                <a href="livestock.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">egg</span>
+                    <span>Chăn nuôi</span>
+                </a>
+                <a href="labor.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">engineering</span>
+                    <span>Nhân công</span>
+                </a>
+                <a href="inventory.html" class="sidebar__nav-link active">
+                    <span class="material-symbols-outlined">warehouse</span>
+                    <span>Kho</span>
+                </a>
+                <a href="shop.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">store</span>
+                    <span>Cửa hàng</span>
+                </a>
+                <a href="cooperative.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">groups</span>
+                    <span>Hợp tác xã</span>
+                </a>
+                <a href="community.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">forum</span>
+                    <span>Cộng đồng</span>
+                </a>
+                <a href="analytics.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                    <span>Tài sản</span>
+                </a>
+                <a href="settings.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">settings</span>
+                    <span>Cài đặt</span>
+                </a>
+
+                <div class="sidebar__spacer"></div>
+
+                <a href="help.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">help</span>
+                    <span>Trợ giúp</span>
+                </a>
+            </nav>
+
+            <div class="sidebar__footer">
+                <div class="sidebar__user">
+                    <div class="sidebar__user-avatar" id="sidebar-avatar"></div>
+                    <div class="sidebar__user-info">
+                        <p class="sidebar__user-name" id="sidebar-name">Đang tải...</p>
+                        <p class="sidebar__user-email" id="sidebar-email"></p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Wrapper -->
+        <div class="main-wrapper">
+            <!-- Header -->
+            <header class="header">
+                <div class="header__search">
+                    <span class="material-symbols-outlined header__search-icon">search</span>
+                    <input type="text" class="header__search-input" placeholder="Tìm kiếm vật tư...">
+                </div>
+
+                <div class="header__actions">
+                    <button class="header__notification">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <span class="header__notification-badge"></span>
+                    </button>
+
+                    <div class="header__user">
+                        <div class="header__user-info">
+                            <p class="header__user-name" id="header-name">Đang tải...</p>
+                            <p class="header__user-role">Chủ trang trại</p>
+                        </div>
+                        <div class="header__user-avatar" id="header-avatar"></div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="main-content">
+                <div class="main-content__container">
+
+                    <!-- Page Header -->
+                    <div class="inv-page-header">
+                        <div class="page-icon">
+                            <span class="material-symbols-outlined">warehouse</span>
+                        </div>
+                        <div>
+                            <h2>Kho vật tư</h2>
+                            <p>Quản lý kho hàng — theo dõi tồn kho, danh mục và nhập kho từ cửa hàng.</p>
+                        </div>
+                    </div>
+
+                    <!-- Summary Stats -->
+                    <div class="inv-stats-row">
+                        <div class="inv-stat-card">
+                            <div class="stat-icon green"><span class="material-symbols-outlined">inventory_2</span></div>
+                            <div>
+                                <div class="stat-label">Tổng vật tư</div>
+                                <div class="stat-value" id="stat-total">0</div>
+                            </div>
+                        </div>
+                        <div class="inv-stat-card">
+                            <div class="stat-icon blue"><span class="material-symbols-outlined">straighten</span></div>
+                            <div>
+                                <div class="stat-label">Tổng số lượng</div>
+                                <div class="stat-value" id="stat-qty">0</div>
+                            </div>
+                        </div>
+                        <div class="inv-stat-card">
+                            <div class="stat-icon indigo"><span class="material-symbols-outlined">category</span></div>
+                            <div>
+                                <div class="stat-label">Danh mục</div>
+                                <div class="stat-value" id="stat-cats">0</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart + Main Table -->
+                    <div class="inv-two-col">
+                        <!-- Pie Chart Card -->
+                        <div class="inv-chart-card">
+                            <h3>
+                                <span class="material-symbols-outlined">donut_small</span>
+                                Phân bổ danh mục
+                            </h3>
+                            <div class="inv-chart-wrap">
+                                <canvas id="inv-chart"></canvas>
+                                <div class="inv-chart-center">
+                                    <div class="num" id="chart-center-num">0</div>
+                                    <div class="lbl">Vật tư</div>
+                                </div>
+                            </div>
+                            <div class="inv-legend" id="inv-legend"></div>
+                        </div>
+
+                        <!-- Items Card -->
+                        <div class="inv-main-card">
+                            <!-- Toolbar -->
+                            <div class="inv-toolbar">
+                                <div class="inv-search-wrap">
+                                    <span class="material-symbols-outlined">search</span>
+                                    <input type="text" id="inv-search" placeholder="Tìm kiếm vật tư...">
+                                </div>
+                                <div class="inv-view-toggle">
+                                    <button class="active" data-view="grid" onclick="setView('grid')">
+                                        <span class="material-symbols-outlined">grid_view</span>
+                                    </button>
+                                    <button data-view="table" onclick="setView('table')">
+                                        <span class="material-symbols-outlined">table_rows</span>
+                                    </button>
+                                </div>
+                                <button class="btn-add-inv" onclick="openAddModal()">
+                                    <span class="material-symbols-outlined">add</span>
+                                    Nhập kho
+                                </button>
+                            </div>
+
+                            <!-- Category Tabs -->
+                            <div class="inv-tabs-row" id="inv-tabs"></div>
+
+                            <!-- Content -->
+                            <div class="inv-content-area">
+                                <div class="inv-grid" id="inv-grid"></div>
+                                <div class="inv-table-wrap" id="inv-table-wrap">
+                                    <table class="inv-tbl">
+                                        <thead>
+                                            <tr>
+                                                <th>Tên vật tư</th>
+                                                <th>Danh mục</th>
+                                                <th>Tồn kho</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="inv-tbody"></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inventory History Chart -->
+                    <div class="inv-history-card" id="inv-history-section">
+                        <div class="inv-history-header">
+                            <h3>
+                                <span class="material-symbols-outlined">bar_chart</span>
+                                Lịch sử nhập / xuất kho
+                            </h3>
+                            <div class="inv-history-controls">
+                                <select id="history-days" onchange="loadTransactionHistory()">
+                                    <option value="7">7 ngày</option>
+                                    <option value="14">14 ngày</option>
+                                    <option value="30" selected>30 ngày</option>
+                                    <option value="90">90 ngày</option>
+                                </select>
+                                <div class="inv-history-toggle">
+                                    <button class="active" data-chart="bar" onclick="switchHistoryChart('bar')">
+                                        <span class="material-symbols-outlined">bar_chart</span>
+                                    </button>
+                                    <button data-chart="line" onclick="switchHistoryChart('line')">
+                                        <span class="material-symbols-outlined">show_chart</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="inv-history-stats" id="history-stats">
+                            <div class="inv-h-stat in">
+                                <span class="material-symbols-outlined">arrow_downward</span>
+                                <div>
+                                    <div class="inv-h-stat-label">Nhập kho</div>
+                                    <div class="inv-h-stat-value" id="h-stat-in">0</div>
+                                </div>
+                            </div>
+                            <div class="inv-h-stat out">
+                                <span class="material-symbols-outlined">arrow_upward</span>
+                                <div>
+                                    <div class="inv-h-stat-label">Xuất kho</div>
+                                    <div class="inv-h-stat-value" id="h-stat-out">0</div>
+                                </div>
+                            </div>
+                            <div class="inv-h-stat net">
+                                <span class="material-symbols-outlined">swap_vert</span>
+                                <div>
+                                    <div class="inv-h-stat-label">Chênh lệch</div>
+                                    <div class="inv-h-stat-value" id="h-stat-net">0</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="inv-history-chart-wrap">
+                            <canvas id="inv-history-chart"></canvas>
+                        </div>
+                        <div class="inv-history-table-wrap">
+                            <table class="inv-history-table">
+                                <thead>
+                                    <tr>
+                                        <th>Thời gian</th>
+                                        <th>Loại</th>
+                                        <th>Số lượng</th>
+                                        <th>Ghi chú</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Add Item Modal -->
+    <div class="inv-modal-overlay" id="inv-modal-overlay" onclick="if(event.target===this) closeAddModal()">
+        <div class="inv-modal">
+            <div class="inv-modal-head">
+                <h3>
+                    <span class="material-symbols-outlined">add_circle</span>
+                    Nhập kho vật tư
+                </h3>
+                <button class="close-btn" onclick="closeAddModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="inv-modal-body">
+                <div class="fg">
+                    <label>Danh mục *</label>
+                    <select id="add-category" onchange="onCategoryChange()">
+                        <option value="">— Chọn danh mục —</option>
+                        <option value="HAT_GIONG">🌾 Hạt giống</option>
+                        <option value="CON_GIONG">🐣 Con giống</option>
+                        <option value="PHAN_BON">🌱 Phân bón</option>
+                        <option value="THUC_AN">🍚 Thức ăn chăn nuôi</option>
+                        <option value="THUOC_TRU_SAU">🧪 Thuốc bảo vệ thực vật</option>
+                        <option value="MAY_MOC">⚙️ Máy móc, thiết bị</option>
+                        <option value="TIEM_PHONG">💉 Tiêm phòng, thú y</option>
+                    </select>
+                </div>
+                <div class="fg">
+                    <label>Sản phẩm *</label>
+                    <select id="add-product" onchange="onProductChange()" disabled>
+                        <option value="">— Chọn danh mục trước —</option>
+                    </select>
+                    <div class="product-preview" id="product-preview">
+                        <img id="pp-img" src="" alt="">
+                        <div>
+                            <div class="pp-name" id="pp-name"></div>
+                            <div class="pp-cat" id="pp-cat"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="fg">
+                        <label>Số lượng *</label>
+                        <input type="number" id="add-qty" min="0.01" step="0.01" value="1" required>
+                    </div>
+                    <div class="fg">
+                        <label>Đơn vị</label>
+                        <input type="text" id="add-unit" value="" readonly placeholder="Tự động">
+                    </div>
+                </div>
+            </div>
+            <div class="inv-modal-foot">
+                <button type="button" class="btn-cancel" onclick="closeAddModal()">Hủy</button>
+                <button type="button" class="btn-save" onclick="submitAddItem()">
+                    <span class="material-symbols-outlined">warehouse</span>
+                    Nhập kho
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/auth.js"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/animations.js"></script>
+    <script src="../js/sidebar.js"></script>
+    <script src="../js/chatbot.js"></script>
+    <script src="../js/smart-advisor.js"></script>
+
+    <script>
+        // ==================== CONSTANTS ====================
+
+        const INV_API = typeof API_BASE !== 'undefined' ? API_BASE :
+            (typeof CONFIG !== 'undefined' ? CONFIG.API_BASE_URL : 'http://localhost:8080/api');
+
+        const CAT_LABELS = {
+            'HAT_GIONG': 'Hạt giống',
+            'CON_GIONG': 'Con giống',
+            'PHAN_BON': 'Phân bón',
+            'THUC_AN': 'Thức ăn chăn nuôi',
+            'THUOC_TRU_SAU': 'Thuốc BVTV',
+            'MAY_MOC': 'Máy móc',
+            'TIEM_PHONG': 'Tiêm phòng'
+        };
+
+        const CAT_EMOJI = {
+            'HAT_GIONG': '🌾',
+            'CON_GIONG': '🐣',
+            'PHAN_BON': '🌱',
+            'THUC_AN': '🍚',
+            'THUOC_TRU_SAU': '🧪',
+            'MAY_MOC': '⚙️',
+            'TIEM_PHONG': '💉'
+        };
+
+        const COLORS = ['#10b981', '#f59e0b', '#6366f1', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'];
+
+        let invData = { items: [], byCategory: {}, totalItems: 0 };
+        let currentFilter = 'ALL';
+        let searchTerm = '';
+        let currentView = 'grid';
+        let chart = null;
+        let shopItemsCache = {};
+
+        // ==================== AUTH HELPERS ====================
+
+        function getHeaders() {
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            const h = {};
+            if (token) h['Authorization'] = `Bearer ${token}`;
+            return h;
+        }
+
+        function getUserEmail() {
+            return localStorage.getItem('userEmail') || '';
+        }
+
+        // ==================== DATA LOADING ====================
+
+        async function loadInventory() {
+            try {
+                const email = getUserEmail();
+                let url = `${INV_API}/shop/inventory`;
+                if (email) url += `?userEmail=${encodeURIComponent(email)}`;
+
+                const res = await fetch(url, { headers: getHeaders() });
+                if (res.ok) {
+                    const data = await res.json();
+                    invData.items = data.items || [];
+                    invData.byCategory = data.byCategory || {};
+                    invData.totalItems = data.totalItems || 0;
+                }
+            } catch (err) {
+                console.error('Lỗi tải kho:', err);
+            }
+            renderAll();
+        }
+
+        // ==================== RENDER ====================
+
+        function renderAll() {
+            renderStats();
+            renderChart();
+            renderTabs();
+            renderItems();
+        }
+
+        function renderStats() {
+            const { byCategory, totalItems } = invData;
+            const cats = Object.keys(byCategory || {}).length;
+            let totalQty = 0;
+
+            Object.values(byCategory || {}).forEach(items => {
+                items.forEach(item => {
+                    totalQty += (item.quantity || 0);
+                });
+            });
+
+            document.getElementById('stat-total').textContent = totalItems;
+            document.getElementById('stat-qty').textContent = fmtNum(totalQty);
+            document.getElementById('stat-cats').textContent = cats;
+            document.getElementById('chart-center-num').textContent = totalItems;
+        }
+
+        function renderChart() {
+            const { byCategory } = invData;
+            const cats = Object.keys(byCategory || {});
+            const legendEl = document.getElementById('inv-legend');
+
+            if (cats.length === 0) {
+                if (chart) { chart.destroy(); chart = null; }
+                const ctx = document.getElementById('inv-chart').getContext('2d');
+                ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+                legendEl.innerHTML = '<p style="color:#9ca3af;text-align:center;font-size:13px;">Chưa có dữ liệu</p>';
+                return;
+            }
+
+            const labels = cats.map(c => CAT_LABELS[c] || c);
+            const data = cats.map(c => (byCategory[c] || []).length);
+            const colors = cats.map((_, i) => COLORS[i % COLORS.length]);
+
+            if (chart) chart.destroy();
+
+            chart = new Chart(document.getElementById('inv-chart'), {
+                type: 'doughnut',
+                data: {
+                    labels,
+                    datasets: [{
+                        data,
+                        backgroundColor: colors,
+                        borderWidth: 3,
+                        borderColor: '#ffffff',
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    cutout: '65%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#1e293b',
+                            titleFont: { family: 'Manrope', weight: '600' },
+                            bodyFont: { family: 'Manrope' },
+                            padding: 10,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: tip => `${tip.label}: ${tip.parsed} mặt hàng`
+                            }
+                        }
+                    }
+                }
+            });
+
+            legendEl.innerHTML = cats.map((cat, i) => `
+                <div class="inv-legend-item" onclick="filterCat('${cat}')">
+                    <div class="inv-legend-dot" style="background:${colors[i]}"></div>
+                    <span>${CAT_EMOJI[cat] || '📦'} ${CAT_LABELS[cat] || cat}</span>
+                    <span class="inv-legend-count">${data[i]}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderTabs() {
+            const { byCategory, totalItems } = invData;
+            const cats = Object.keys(byCategory || {});
+
+            let html = `<button class="inv-tab-btn ${currentFilter === 'ALL' ? 'active' : ''}" onclick="filterCat('ALL')">
+                <span class="material-symbols-outlined" style="font-size:15px;">apps</span> Tất cả
+                <span class="tab-badge">${totalItems}</span>
+            </button>`;
+
+            cats.forEach(cat => {
+                const count = (byCategory[cat] || []).length;
+                html += `<button class="inv-tab-btn ${currentFilter === cat ? 'active' : ''}" onclick="filterCat('${cat}')">
+                    ${CAT_EMOJI[cat] || '📦'} ${CAT_LABELS[cat] || cat}
+                    <span class="tab-badge">${count}</span>
+                </button>`;
+            });
+
+            document.getElementById('inv-tabs').innerHTML = html;
+        }
+
+        function renderItems() {
+            const { byCategory } = invData;
+            let items = [];
+
+            if (currentFilter === 'ALL') {
+                Object.values(byCategory || {}).forEach(arr => items.push(...arr));
+            } else if (byCategory[currentFilter]) {
+                items = [...byCategory[currentFilter]];
+            }
+
+            if (searchTerm) {
+                const t = searchTerm.toLowerCase();
+                items = items.filter(it =>
+                    (it.effectiveName || '').toLowerCase().includes(t) ||
+                    (CAT_LABELS[it.effectiveCategory || it.itemCategory] || '').toLowerCase().includes(t)
+                );
+            }
+
+            renderGrid(items);
+            renderTable(items);
+        }
+
+        function renderGrid(items) {
+            const el = document.getElementById('inv-grid');
+            if (!items.length) {
+                el.innerHTML = `<div class="inv-empty">
+                    <span class="material-symbols-outlined">inventory_2</span>
+                    <p>Kho hàng trống</p>
+                    <p>Bấm <span class="hl">Nhập kho</span> để thêm vật tư hoặc mua từ <span class="hl">Cửa hàng</span>.</p>
+                </div>`;
+                return;
+            }
+
+            el.innerHTML = items.map(it => {
+                const cat = it.effectiveCategory || it.itemCategory || '';
+                const emoji = CAT_EMOJI[cat] || '📦';
+                const iconHtml = it.imageUrl
+                    ? `<img src="${sanitize(it.imageUrl)}" alt="">`
+                    : emoji;
+
+                return `<div class="inv-card" onclick="goDetail(${it.id})" style="cursor:pointer;">
+                    <div class="inv-card-top">
+                        <div class="inv-card-icon">${iconHtml}</div>
+                        <div class="inv-card-info">
+                            <div class="inv-card-name" title="${sanitize(it.effectiveName)}">${sanitize(it.effectiveName)}</div>
+                            <div class="inv-card-cat">${CAT_LABELS[cat] || cat}</div>
+                        </div>
+                    </div>
+                    <div class="inv-card-bottom">
+                        <div>
+                            <span class="inv-card-qty">${fmtNum(it.quantity)}</span>
+                            <span class="inv-card-unit">${sanitize(it.effectiveUnit || '')}</span>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderTable(items) {
+            const tbody = document.getElementById('inv-tbody');
+            if (!items.length) {
+                tbody.innerHTML = `<tr><td colspan="3" style="text-align:center;padding:40px;color:#9ca3af;">
+                    <span class="material-symbols-outlined" style="font-size:40px;display:block;margin-bottom:8px;">inventory_2</span>
+                    Chưa có vật tư trong kho
+                </td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = items.map(it => {
+                const cat = it.effectiveCategory || it.itemCategory || '';
+                const emoji = CAT_EMOJI[cat] || '📦';
+                const iconHtml = it.imageUrl
+                    ? `<img src="${sanitize(it.imageUrl)}" alt="">`
+                    : `<span style="font-size:16px;">${emoji}</span>`;
+
+                return `<tr onclick="goDetail(${it.id})" style="cursor:pointer;">
+                    <td>
+                        <div class="item-name-cell">
+                            <div class="item-icon-sm">${iconHtml}</div>
+                            <strong>${sanitize(it.effectiveName)}</strong>
+                        </div>
+                    </td>
+                    <td>${CAT_LABELS[cat] || cat}</td>
+                    <td style="font-weight:600;">${fmtNum(it.quantity)} ${sanitize(it.effectiveUnit || '')}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        // ==================== INTERACTIONS ====================
+
+        function filterCat(cat) {
+            currentFilter = cat;
+            renderTabs();
+            renderItems();
+        }
+
+        function goDetail(id) {
+            window.location.href = `inventory-detail.html?id=${id}`;
+        }
+
+        function setView(mode) {
+            currentView = mode;
+            document.querySelectorAll('.inv-view-toggle button').forEach(b =>
+                b.classList.toggle('active', b.dataset.view === mode));
+            document.getElementById('inv-grid').style.display = mode === 'grid' ? '' : 'none';
+            document.getElementById('inv-table-wrap').style.display = mode === 'table' ? 'block' : 'none';
+        }
+
+        // ==================== ADD ITEM MODAL ====================
+
+        function openAddModal() {
+            document.getElementById('inv-modal-overlay').classList.add('show');
+            document.getElementById('add-category').value = '';
+            document.getElementById('add-product').innerHTML = '<option value="">— Chọn danh mục trước —</option>';
+            document.getElementById('add-product').disabled = true;
+            document.getElementById('add-qty').value = 1;
+            document.getElementById('add-unit').value = '';
+            document.getElementById('product-preview').classList.remove('show');
+        }
+
+        function closeAddModal() {
+            document.getElementById('inv-modal-overlay').classList.remove('show');
+        }
+
+        async function onCategoryChange() {
+            const cat = document.getElementById('add-category').value;
+            const productSelect = document.getElementById('add-product');
+            document.getElementById('product-preview').classList.remove('show');
+            document.getElementById('add-unit').value = '';
+
+            if (!cat) {
+                productSelect.innerHTML = '<option value="">— Chọn danh mục trước —</option>';
+                productSelect.disabled = true;
+                return;
+            }
+
+            productSelect.innerHTML = '<option value="">Đang tải...</option>';
+            productSelect.disabled = true;
+
+            try {
+                if (!shopItemsCache[cat]) {
+                    const res = await fetch(`${INV_API}/shop/items/category/${cat}`, { headers: getHeaders() });
+                    if (res.ok) {
+                        shopItemsCache[cat] = await res.json();
+                    } else {
+                        shopItemsCache[cat] = [];
+                    }
+                }
+
+                const items = shopItemsCache[cat];
+                if (items.length === 0) {
+                    productSelect.innerHTML = '<option value="">Không có sản phẩm</option>';
+                    return;
+                }
+
+                let html = '<option value="">— Chọn sản phẩm —</option>';
+                items.forEach(item => {
+                    html += `<option value="${item.id}" data-unit="${sanitize(item.unit || '')}" data-name="${sanitize(item.name)}" data-img="${sanitize(item.imageUrl || '')}" data-cat="${sanitize(CAT_LABELS[item.category] || item.category)}">${sanitize(item.name)}</option>`;
+                });
+
+                productSelect.innerHTML = html;
+                productSelect.disabled = false;
+            } catch (err) {
+                console.error('Lỗi tải sản phẩm:', err);
+                productSelect.innerHTML = '<option value="">Lỗi tải dữ liệu</option>';
+            }
+        }
+
+        function onProductChange() {
+            const sel = document.getElementById('add-product');
+            const opt = sel.options[sel.selectedIndex];
+            const preview = document.getElementById('product-preview');
+
+            if (!sel.value) {
+                preview.classList.remove('show');
+                document.getElementById('add-unit').value = '';
+                return;
+            }
+
+            const unit = opt.dataset.unit || '';
+            const name = opt.dataset.name || '';
+            const img = opt.dataset.img || '';
+            const cat = opt.dataset.cat || '';
+
+            document.getElementById('add-unit').value = unit;
+
+            document.getElementById('pp-name').textContent = name;
+            document.getElementById('pp-cat').textContent = cat + (unit ? ` · Đơn vị: ${unit}` : '');
+
+            const imgEl = document.getElementById('pp-img');
+            if (img) {
+                imgEl.src = img;
+                imgEl.style.display = '';
+            } else {
+                imgEl.style.display = 'none';
+            }
+
+            preview.classList.add('show');
+        }
+
+        async function submitAddItem() {
+            const shopItemId = document.getElementById('add-product').value;
+            const qty = parseFloat(document.getElementById('add-qty').value);
+
+            if (!shopItemId) {
+                alert('Vui lòng chọn sản phẩm cần nhập kho.');
+                return;
+            }
+
+            if (!qty || qty <= 0) {
+                alert('Vui lòng nhập số lượng hợp lệ.');
+                return;
+            }
+
+            try {
+                const email = getUserEmail();
+                const res = await fetch(`${INV_API}/shop/purchase`, {
+                    method: 'POST',
+                    headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        shopItemId: parseInt(shopItemId),
+                        quantity: qty,
+                        userEmail: email
+                    })
+                });
+
+                if (res.ok) {
+                    closeAddModal();
+                    if (typeof showNotification === 'function') {
+                        showNotification('Đã nhập kho thành công!', 'success');
+                    }
+                    await loadInventory();
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    alert(err.error || 'Lỗi khi nhập kho. Vui lòng thử lại.');
+                }
+            } catch (err) {
+                console.error('Lỗi nhập kho:', err);
+                alert('Có lỗi xảy ra. Vui lòng thử lại.');
+            }
+        }
+
+        // ==================== UTILITIES ====================
+
+        function fmtNum(val) {
+            if (typeof formatNumber === 'function') return formatNumber(val);
+            return new Intl.NumberFormat('vi-VN').format(val || 0);
+        }
+
+        function sanitize(str) {
+            if (!str) return '';
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        // ==================== HISTORY CHART ====================
+
+        let historyChart = null;
+        let historyChartType = 'bar';
+        let transactionData = [];
+
+        async function loadTransactionHistory() {
+            const days = document.getElementById('history-days').value || 30;
+            const email = getUserEmail();
+            try {
+                let url = `${INV_API}/shop/inventory/transactions?days=${encodeURIComponent(days)}`;
+                if (email) url += `&userEmail=${encodeURIComponent(email)}`;
+                const res = await fetch(url, { headers: getHeaders() });
+                if (res.ok) {
+                    transactionData = await res.json();
+                } else {
+                    transactionData = [];
+                }
+            } catch (e) {
+                console.error('Lỗi tải lịch sử kho:', e);
+                transactionData = [];
+            }
+            renderHistoryStats();
+            renderHistoryChart();
+            renderHistoryTable();
+        }
+
+        function renderHistoryStats() {
+            let totalIn = 0, totalOut = 0;
+            transactionData.forEach(tx => {
+                const qty = parseFloat(tx.quantity) || 0;
+                if (qty > 0) totalIn += qty;
+                else totalOut += Math.abs(qty);
+            });
+            const net = totalIn - totalOut;
+            document.getElementById('h-stat-in').textContent = fmtNum(totalIn);
+            document.getElementById('h-stat-out').textContent = fmtNum(totalOut);
+            const netEl = document.getElementById('h-stat-net');
+            netEl.textContent = (net >= 0 ? '+' : '') + fmtNum(net);
+            netEl.style.color = net >= 0 ? '#059669' : '#dc2626';
+        }
+
+        function renderHistoryChart() {
+            const days = parseInt(document.getElementById('history-days').value) || 30;
+            // Aggregate by date
+            const dateMap = {};
+            const now = new Date();
+            for (let i = days - 1; i >= 0; i--) {
+                const d = new Date(now);
+                d.setDate(d.getDate() - i);
+                const key = d.toISOString().slice(0, 10);
+                dateMap[key] = { inQty: 0, outQty: 0 };
+            }
+
+            transactionData.forEach(tx => {
+                const d = (tx.createdAt || '').slice(0, 10);
+                if (!dateMap[d]) dateMap[d] = { inQty: 0, outQty: 0 };
+                const qty = parseFloat(tx.quantity) || 0;
+                if (qty > 0) dateMap[d].inQty += qty;
+                else dateMap[d].outQty += Math.abs(qty);
+            });
+
+            const labels = Object.keys(dateMap).sort();
+            const inData = labels.map(k => dateMap[k].inQty);
+            const outData = labels.map(k => dateMap[k].outQty);
+
+            // Format labels to DD/MM
+            const fmtLabels = labels.map(k => {
+                const parts = k.split('-');
+                return parts[2] + '/' + parts[1];
+            });
+
+            if (historyChart) historyChart.destroy();
+
+            const ctx = document.getElementById('inv-history-chart').getContext('2d');
+
+            const datasets = [
+                {
+                    label: 'Nhập kho',
+                    data: inData,
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    borderColor: '#10b981',
+                    borderWidth: 2,
+                    borderRadius: historyChartType === 'bar' ? 6 : 0,
+                    fill: historyChartType === 'line',
+                    tension: 0.4,
+                    pointRadius: historyChartType === 'line' ? 4 : 0,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#10b981',
+                },
+                {
+                    label: 'Xuất kho',
+                    data: outData,
+                    backgroundColor: 'rgba(239, 68, 68, 0.5)',
+                    borderColor: '#ef4444',
+                    borderWidth: 2,
+                    borderRadius: historyChartType === 'bar' ? 6 : 0,
+                    fill: historyChartType === 'line',
+                    tension: 0.4,
+                    pointRadius: historyChartType === 'line' ? 4 : 0,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: '#ef4444',
+                }
+            ];
+
+            historyChart = new Chart(ctx, {
+                type: historyChartType,
+                data: { labels: fmtLabels, datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    animation: {
+                        duration: 800,
+                        easing: 'easeOutQuart',
+                        delay: (context) => context.dataIndex * 30,
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                padding: 16,
+                                font: { family: 'Manrope', weight: '600', size: 12 }
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: '#1e293b',
+                            titleFont: { family: 'Manrope', weight: '600' },
+                            bodyFont: { family: 'Manrope' },
+                            padding: 12,
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: tip => `${tip.dataset.label}: ${fmtNum(tip.parsed.y)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: {
+                                font: { family: 'Manrope', size: 11 },
+                                color: '#9ca3af',
+                                maxRotation: 45,
+                                autoSkip: true,
+                                maxTicksLimit: 15
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f1f5f9' },
+                            ticks: {
+                                font: { family: 'Manrope', size: 11 },
+                                color: '#9ca3af',
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function switchHistoryChart(type) {
+            historyChartType = type;
+            document.querySelectorAll('.inv-history-toggle button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.chart === type);
+            });
+            renderHistoryChart();
+        }
+
+        function renderHistoryTable() {
+            const tbody = document.getElementById('history-tbody');
+            if (!transactionData.length) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#9ca3af;padding:24px;">Chưa có giao dịch nào</td></tr>`;
+                return;
+            }
+
+            // Sort most recent first
+            const sorted = [...transactionData].sort((a, b) =>
+                (b.createdAt || '').localeCompare(a.createdAt || '')
+            );
+
+            tbody.innerHTML = sorted.slice(0, 50).map((tx, i) => {
+                const qty = parseFloat(tx.quantity) || 0;
+                const isPurchase = qty > 0;
+                const typeClass = isPurchase ? 'purchase' : 'use';
+                const typeLabel = isPurchase ? '📥 Nhập' : '📤 Xuất';
+                const qtyStr = (isPurchase ? '+' : '') + fmtNum(qty);
+                const dt = tx.createdAt ? new Date(tx.createdAt) : null;
+                const timeStr = dt ? dt.toLocaleDateString('vi-VN') + ' ' + dt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '—';
+                const notes = sanitize(tx.notes || '—');
+                return `<tr style="animation-delay:${i * 30}ms">
+                    <td>${timeStr}</td>
+                    <td><span class="inv-tx-badge ${typeClass}">${typeLabel}</span></td>
+                    <td style="font-weight:700;color:${isPurchase ? '#059669' : '#dc2626'}">${qtyStr}</td>
+                    <td>${notes}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        // ==================== INIT ====================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadInventory();
+            loadTransactionHistory();
+
+            document.getElementById('inv-search').addEventListener('input', (e) => {
+                searchTerm = e.target.value;
+                renderItems();
+            });
+        });
+    </script>
+</body>
+
+</html>

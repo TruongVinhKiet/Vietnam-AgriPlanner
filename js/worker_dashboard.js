@@ -553,6 +553,169 @@ async function completeTask(taskId) {
     const inspectionInfo = getInspectionTaskInfo(task);
     const errorEl = document.getElementById('inline-report-error');
 
+    // Detect material-consuming tasks
+    const materialTaskTypes = ['FEED', 'VACCINATE', 'FERTILIZE', 'SEED', 'PEST_CONTROL'];
+    const taskType = task ? (task.taskType ? String(task.taskType).toUpperCase() : '') : '';
+    const isMaterialTask = materialTaskTypes.includes(taskType);
+
+    // For material-consuming tasks (pen or field): validate media only, no mortality
+    if (isMaterialTask && (hasPen || (task && task.field != null))) {
+        if (errorEl) errorEl.classList.add('hidden');
+        const hasImage = !!_inlineImageBase64;
+        const hasVideo = !!_inlineVideoBase64;
+
+        if (!hasImage && !hasVideo) {
+            if (errorEl) {
+                errorEl.textContent = 'Vui lòng thêm ít nhất 1 ảnh hoặc 1 video minh chứng.';
+                errorEl.classList.remove('hidden');
+                errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            return;
+        }
+
+        if (!confirm('Xác nhận hoàn thành công việc?')) return;
+
+        try {
+            await stopActiveWorkLogIfNeeded(taskId);
+
+            const payload = {};
+            const infoLines = [];
+            if (_inlineImageName) infoLines.push(`Ảnh: ${_inlineImageName}`);
+            if (_inlineVideoName) infoLines.push(`Video: ${_inlineVideoName}`);
+            payload.aiSuggestion = infoLines.join(' | ');
+
+            // Upload media
+            const authToken = getToken();
+            if (_inlineImageBase64) {
+                try {
+                    const imageFile = document.getElementById('inline-image-input')?.files?.[0];
+                    if (imageFile) {
+                        const formData = new FormData();
+                        formData.append('file', imageFile);
+                        const uploadRes = await fetch(`${API_BASE}/tasks/${taskId}/upload-media`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${authToken}` },
+                            body: formData
+                        });
+                        if (uploadRes.ok) {
+                            const uploadData = await uploadRes.json();
+                            payload.reportImageUrl = uploadData.url;
+                        }
+                    }
+                } catch (uploadErr) { console.error('Image upload error:', uploadErr); }
+            }
+            if (_inlineVideoBase64) {
+                try {
+                    const videoFile = document.getElementById('inline-video-input')?.files?.[0];
+                    if (videoFile) {
+                        const formData = new FormData();
+                        formData.append('file', videoFile);
+                        const uploadRes = await fetch(`${API_BASE}/tasks/${taskId}/upload-media`, {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${authToken}` },
+                            body: formData
+                        });
+                        if (uploadRes.ok) {
+                            const uploadData = await uploadRes.json();
+                            payload.reportVideoUrl = uploadData.url;
+                        }
+                    }
+                } catch (uploadErr) { console.error('Video upload error:', uploadErr); }
+            }
+
+            await fetchAPI(`${API_BASE}/tasks/${taskId}/complete`, 'POST', payload);
+            showNotification('success', 'Hoàn thành!', 'Công việc đã được ghi nhận. Chờ chủ trang trại duyệt.');
+            _inlineImageBase64 = null; _inlineImageName = null;
+            _inlineVideoBase64 = null; _inlineVideoName = null;
+            await loadTasksList();
+            openTaskDetail(taskId);
+        } catch (err) {
+            console.error('Complete task error:', err);
+            showNotification('error', 'Lỗi', err.message || 'Không thể hoàn thành công việc.');
+        }
+        return;
+    }
+
+    // For byproduct collection tasks (HARVEST with subType BYPRODUCT_COLLECTION)
+    if (taskType === 'HARVEST' && task.workflowData) {
+        try {
+            const wfData = typeof task.workflowData === 'string' ? JSON.parse(task.workflowData) : task.workflowData;
+            if (wfData.subType === 'BYPRODUCT_COLLECTION') {
+                if (errorEl) errorEl.classList.add('hidden');
+
+                const collectedQtyEl = document.getElementById('byproduct-collected-qty');
+                const collectedQty = parseFloat(collectedQtyEl?.value);
+                if (isNaN(collectedQty) || collectedQty < 0) {
+                    if (errorEl) {
+                        errorEl.textContent = 'Vui lòng nhập sản lượng thực tế thu được.';
+                        errorEl.classList.remove('hidden');
+                        errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    return;
+                }
+
+                if (!confirm(`Xác nhận đã thu ${collectedQty} ${wfData.byproductUnit || ''}?`)) return;
+
+                try {
+                    await stopActiveWorkLogIfNeeded(taskId);
+
+                    // Update workflowData with collected quantity
+                    const updatedWfData = { ...wfData, collectedQuantity: collectedQty };
+                    const payload = {
+                        aiSuggestion: `Thu ${wfData.byproductName || 'sản phẩm phụ'}: ${collectedQty} ${wfData.byproductUnit || ''}`
+                    };
+
+                    // Upload media if any
+                    const authToken = getToken();
+                    if (_inlineImageBase64) {
+                        try {
+                            const imageInput = document.querySelector('input[type="file"][accept="image/*"]');
+                            const imageFile = imageInput?.files?.[0];
+                            if (imageFile) {
+                                const formData = new FormData();
+                                formData.append('file', imageFile);
+                                const uploadRes = await fetch(`${API_BASE}/tasks/${taskId}/upload-media`, {
+                                    method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` }, body: formData
+                                });
+                                if (uploadRes.ok) { payload.reportImageUrl = (await uploadRes.json()).url; }
+                            }
+                        } catch (e) { console.error('Image upload error:', e); }
+                    }
+                    if (_inlineVideoBase64) {
+                        try {
+                            const videoInput = document.querySelector('input[type="file"][accept="video/*"]');
+                            const videoFile = videoInput?.files?.[0];
+                            if (videoFile) {
+                                const formData = new FormData();
+                                formData.append('file', videoFile);
+                                const uploadRes = await fetch(`${API_BASE}/tasks/${taskId}/upload-media`, {
+                                    method: 'POST', headers: { 'Authorization': `Bearer ${authToken}` }, body: formData
+                                });
+                                if (uploadRes.ok) { payload.reportVideoUrl = (await uploadRes.json()).url; }
+                            }
+                        } catch (e) { console.error('Video upload error:', e); }
+                    }
+
+                    // Save collected quantity to workflowData on the task
+                    try {
+                        await fetchAPI(`${API_BASE}/tasks/${taskId}`, 'PUT', { workflowData: JSON.stringify(updatedWfData) });
+                    } catch (e) { console.error('Workflow data update error:', e); }
+
+                    await fetchAPI(`${API_BASE}/tasks/${taskId}/complete`, 'POST', payload);
+                    showNotification('success', 'Hoàn thành!', `Đã ghi nhận thu ${collectedQty} ${wfData.byproductUnit || ''}. Chờ chủ trang trại duyệt.`);
+                    _inlineImageBase64 = null; _inlineImageName = null;
+                    _inlineVideoBase64 = null; _inlineVideoName = null;
+                    await loadTasksList();
+                    openTaskDetail(taskId);
+                } catch (err) {
+                    console.error('Complete byproduct task error:', err);
+                    showNotification('error', 'Lỗi', err.message || 'Không thể hoàn thành công việc.');
+                }
+                return;
+            }
+        } catch (e) { /* not a byproduct collection task, continue */ }
+    }
+
     // For pen tasks: validate inline media + mortality sections
     if (hasPen) {
         if (errorEl) errorEl.classList.add('hidden');
@@ -3186,6 +3349,23 @@ function buildWorkerInspectionResultsHtml(task) {
     const status = task.status ? String(task.status).toUpperCase() : '';
     if (status !== 'COMPLETED') return '';
 
+    // Material-consuming tasks: show material info instead of inspection results
+    const materialTaskTypes = ['FEED', 'VACCINATE', 'FERTILIZE', 'SEED', 'PEST_CONTROL'];
+    const taskType = task.taskType ? String(task.taskType).toUpperCase() : '';
+    if (materialTaskTypes.includes(taskType)) {
+        return buildCompletedMaterialTaskHtml(task);
+    }
+
+    // Byproduct collection tasks: show collected quantity info
+    if (taskType === 'HARVEST' && task.workflowData) {
+        try {
+            const wfData = typeof task.workflowData === 'string' ? JSON.parse(task.workflowData) : task.workflowData;
+            if (wfData.subType === 'BYPRODUCT_COLLECTION') {
+                return buildCompletedByproductTaskHtml(task, wfData);
+            }
+        } catch (e) { }
+    }
+
     const desc = task.description || '';
     const aiLines = desc.split('\n').filter(l => l.startsWith('AI:'));
     if (aiLines.length === 0) return '';
@@ -3320,12 +3500,111 @@ function buildWorkerInspectionResultsHtml(task) {
     return html;
 }
 
+// ── Completed material task view (shows material info + media, no mortality) ──
+function buildCompletedMaterialTaskHtml(task) {
+    const taskType = task.taskType ? String(task.taskType).toUpperCase() : '';
+    const typeConfig = {
+        'FEED': { icon: 'restaurant', color: '#16a34a', label: 'Thức ăn' },
+        'VACCINATE': { icon: 'vaccines', color: '#7c3aed', label: 'Vắc-xin' },
+        'FERTILIZE': { icon: 'science', color: '#d97706', label: 'Phân bón' },
+        'SEED': { icon: 'grass', color: '#16a34a', label: 'Giống' },
+        'PEST_CONTROL': { icon: 'bug_report', color: '#dc2626', label: 'Thuốc BVTV' }
+    };
+    const cfg = typeConfig[taskType] || { icon: 'inventory_2', color: '#6b7280', label: 'Vật tư' };
+
+    // Try relatedItem first, then fall back to workflowData for livestock tasks
+    let materialName = 'Không xác định';
+    let qty = task.quantityRequired || 0;
+    let unit = 'đơn vị';
+    if (task.relatedItem) {
+        materialName = task.relatedItem.name || 'Không rõ';
+        unit = task.relatedItem.unit || 'đơn vị';
+    } else if (task.workflowData) {
+        try {
+            const wf = typeof task.workflowData === 'string' ? JSON.parse(task.workflowData) : task.workflowData;
+            if (wf.feedName) { materialName = wf.feedName; unit = 'kg'; qty = wf.amountKg || qty; }
+            else if (wf.vaccineName) { materialName = wf.vaccineName; unit = 'liều'; }
+            else if (wf.pesticideName) { materialName = wf.pesticideName; unit = 'đơn vị'; }
+        } catch (e) { /* ignore parse errors */ }
+    }
+
+    // Media from server
+    const _apiOrigin = new URL(API_BASE).origin;
+    const serverImageUrl = task.reportImageUrl ? (_apiOrigin + task.reportImageUrl) : null;
+    const serverVideoUrl = task.reportVideoUrl ? (_apiOrigin + task.reportVideoUrl) : null;
+
+    let html = `<div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px; display:flex; align-items:center; gap:6px;">
+            <span class="material-icons-round" style="font-size:18px; color:${cfg.color};">inventory_2</span>
+            Vật tư tiêu hao đã sử dụng
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; padding:12px 16px; border-radius:12px; background:${cfg.color}11; border:1px solid ${cfg.color}22;">
+            <span class="material-icons-round" style="font-size:28px; color:${cfg.color};">${cfg.icon}</span>
+            <div style="flex:1;">
+                <div style="font-size:12px; color:#6b7280;">${cfg.label}</div>
+                <div style="font-size:16px; font-weight:700; color:${cfg.color};">${escapeHtml(materialName)}</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:12px; color:#6b7280;">Số lượng</div>
+                <div style="font-size:16px; font-weight:700; color:#1f2937;">${qty} ${escapeHtml(unit)}</div>
+            </div>
+        </div>`;
+
+    // Media
+    if (serverImageUrl || serverVideoUrl) {
+        html += `<div style="margin-bottom:14px;">
+            <div style="font-size:12px; font-weight:500; color:#6b7280; margin-bottom:8px;">Minh chứng đã đính kèm</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">`;
+        if (serverImageUrl) {
+            html += `<div style="border-radius:10px; background:#f0fdf4; border:1px solid #bbf7d0; overflow:hidden;">
+                <img src="${serverImageUrl}" style="width:100%; max-height:160px; object-fit:cover; cursor:pointer;" alt="Ảnh báo cáo" onclick="openMediaLightbox(this.src, 'image')">
+                <div style="padding:8px 12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-icons-round" style="font-size:18px; color:#16a34a;">photo_camera</span>
+                    <span style="font-size:11px; font-weight:600; color:#15803d;">Ảnh báo cáo</span>
+                </div>
+            </div>`;
+        }
+        if (serverVideoUrl) {
+            html += `<div style="border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; overflow:hidden;">
+                <video src="${serverVideoUrl}" style="width:100%; max-height:160px; object-fit:cover; cursor:pointer;" onclick="openMediaLightbox(this.src, 'video')" preload="metadata"></video>
+                <div style="padding:8px 12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-icons-round" style="font-size:18px; color:#2563eb;">videocam</span>
+                    <span style="font-size:11px; font-weight:600; color:#1e40af;">Video báo cáo</span>
+                </div>
+            </div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    html += `</div>`;
+    return html;
+}
+
 // ── Inline report sections for task detail (media upload + mortality) ──
 function buildInlineReportSections(task) {
     if (!task) return '';
     const hasPen = task.pen != null;
     const hasField = task.field != null;
     if (!hasPen && !hasField) return ''; // Only for pen or field tasks
+
+    // Detect material-consuming tasks (no mortality/loss report needed)
+    const materialTaskTypes = ['FEED', 'VACCINATE', 'FERTILIZE', 'SEED', 'PEST_CONTROL'];
+    const taskType = task.taskType ? String(task.taskType).toUpperCase() : '';
+    const isMaterialTask = materialTaskTypes.includes(taskType);
+
+    if (isMaterialTask) {
+        return buildMaterialTaskReportSections(task);
+    }
+
+    // Detect byproduct collection tasks (HARVEST with subType BYPRODUCT_COLLECTION)
+    if (taskType === 'HARVEST' && task.workflowData) {
+        try {
+            const wfData = typeof task.workflowData === 'string' ? JSON.parse(task.workflowData) : task.workflowData;
+            if (wfData.subType === 'BYPRODUCT_COLLECTION') {
+                return buildByproductCollectionReportSections(task, wfData);
+            }
+        } catch (e) { /* not byproduct collection */ }
+    }
 
     const penAnimalCount = task.pen ? (task.pen.animalCount || 0) : 0;
     const animalUnit = task.pen && task.pen.animalDefinition ? (task.pen.animalDefinition.unit || 'con') : 'con';
@@ -3560,11 +3839,249 @@ function buildInlineReportSections(task) {
     `;
 }
 
+// ── Material-consuming task report (no mortality/loss needed) ──
+function buildMaterialTaskReportSections(task) {
+    const relatedItemName = task.relatedItem ? fixUtf8(task.relatedItem.name || '') : null;
+    const quantityLabel = task.quantityRequired ? String(task.quantityRequired) : null;
+    const taskType = task.taskType ? String(task.taskType).toUpperCase() : '';
+    const unit = task.relatedItem ? (task.relatedItem.effectiveUnit || task.relatedItem.unit || '') : '';
+
+    const materialIcons = {
+        'FEED': { icon: 'restaurant', color: '#059669', bg: '#ecfdf5', label: 'Thức ăn' },
+        'VACCINATE': { icon: 'vaccines', color: '#7c3aed', bg: '#f5f3ff', label: 'Vắc xin' },
+        'FERTILIZE': { icon: 'science', color: '#d97706', bg: '#fffbeb', label: 'Phân bón' },
+        'SEED': { icon: 'grass', color: '#16a34a', bg: '#f0fdf4', label: 'Hạt giống' },
+        'PEST_CONTROL': { icon: 'bug_report', color: '#dc2626', bg: '#fef2f2', label: 'Thuốc trừ sâu' }
+    };
+    const mi = materialIcons[taskType] || { icon: 'inventory_2', color: '#ca8a04', bg: '#fefce8', label: 'Vật tư' };
+
+    const materialInfoHtml = relatedItemName ? `
+        <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-top:16px;">
+            <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                <span class="material-icons-round" style="font-size:18px; color:${mi.color};">${mi.icon}</span>
+                Vật tư tiêu hao
+            </div>
+            <div style="display:flex; align-items:center; gap:14px; padding:14px 16px; border-radius:12px; background:${mi.bg}; border:1px solid ${mi.color}22;">
+                <div style="width:48px; height:48px; border-radius:12px; background:white; color:${mi.color}; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+                    <span class="material-icons-round" style="font-size:26px;">${mi.icon}</span>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-weight:700; color:#111827; font-size:15px;">${escapeHtml(relatedItemName)}</div>
+                    <div style="font-size:13px; color:#6b7280; margin-top:2px;">
+                        ${mi.label} — Số lượng: <strong style="color:${mi.color};">${quantityLabel || '?'} ${escapeHtml(unit)}</strong>
+                    </div>
+                </div>
+            </div>
+            <div style="font-size:11px; color:#9ca3af; display:flex; align-items:center; gap:4px; margin-top:10px;">
+                <span class="material-icons-round" style="font-size:14px;">info</span>
+                Vật tư sẽ được trừ khỏi kho sau khi chủ trang trại duyệt công việc
+            </div>
+        </div>` : '';
+
+    const mediaHtml = `
+        <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-top:16px;">
+            <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px; display:flex; align-items:center; gap:6px;">
+                <span class="material-icons-round" style="font-size:18px; color:#2563eb;">attach_file</span>
+                Hình ảnh / Video báo cáo <span style="color:#dc2626;">*</span>
+            </div>
+            <p style="font-size:12px; color:#9ca3af; margin:0 0 12px;">Thêm ít nhất 1 ảnh hoặc 1 video minh chứng công việc</p>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                <div>
+                    <div id="inline-img-dropzone" style="background:#f0fdf4; border:2px dashed #86efac; border-radius:12px; padding:20px; text-align:center; cursor:pointer; transition:border-color 0.2s, background 0.2s;"
+                         onclick="document.getElementById('inline-image-input').click()"
+                         onmouseenter="this.style.borderColor='#10b981'; this.style.background='#ecfdf5'"
+                         onmouseleave="this.style.borderColor='#86efac'; this.style.background='#f0fdf4'">
+                        <span class="material-icons-round" style="font-size:36px; color:#10b981;">photo_camera</span>
+                        <p style="margin:6px 0 0; font-size:13px; font-weight:600; color:#15803d;">Chọn ảnh</p>
+                        <p style="margin:2px 0 0; font-size:11px; color:#6b7280;">JPG, PNG</p>
+                    </div>
+                    <input type="file" id="inline-image-input" accept="image/*" class="hidden" onchange="onInlineImageSelected(event)" />
+                    <div id="inline-img-preview" style="display:none; margin-top:8px; border-radius:10px; overflow:hidden; border:1px solid #e5e7eb; position:relative;">
+                        <img id="inline-img-preview-img" src="" style="width:100%; max-height:180px; object-fit:cover;" />
+                        <button onclick="removeInlineImage()" style="position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(0,0,0,0.5); color:white; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                            <span class="material-icons-round" style="font-size:18px;">close</span>
+                        </button>
+                        <div style="padding:6px 10px; font-size:11px; color:#6b7280; background:#f9fafb;" id="inline-img-filename"></div>
+                    </div>
+                </div>
+                <div>
+                    <div id="inline-vid-dropzone" style="background:#eff6ff; border:2px dashed #93c5fd; border-radius:12px; padding:20px; text-align:center; cursor:pointer; transition:border-color 0.2s, background 0.2s;"
+                         onclick="document.getElementById('inline-video-input').click()"
+                         onmouseenter="this.style.borderColor='#3b82f6'; this.style.background='#dbeafe'"
+                         onmouseleave="this.style.borderColor='#93c5fd'; this.style.background='#eff6ff'">
+                        <span class="material-icons-round" style="font-size:36px; color:#3b82f6;">videocam</span>
+                        <p style="margin:6px 0 0; font-size:13px; font-weight:600; color:#1e40af;">Chọn video</p>
+                        <p style="margin:2px 0 0; font-size:11px; color:#6b7280;">MP4, MOV (tối đa 50MB)</p>
+                    </div>
+                    <input type="file" id="inline-video-input" accept="video/*" class="hidden" onchange="onInlineVideoSelected(event)" />
+                    <div id="inline-vid-preview" style="display:none; margin-top:8px; border-radius:10px; overflow:hidden; border:1px solid #e5e7eb; position:relative;">
+                        <video id="inline-vid-preview-el" src="" style="width:100%; max-height:180px; object-fit:cover;" controls></video>
+                        <button onclick="removeInlineVideo()" style="position:absolute; top:6px; right:6px; width:28px; height:28px; border-radius:50%; background:rgba(0,0,0,0.5); color:white; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                            <span class="material-icons-round" style="font-size:18px;">close</span>
+                        </button>
+                        <div style="padding:6px 10px; font-size:11px; color:#6b7280; background:#f9fafb;" id="inline-vid-filename"></div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+    return `${materialInfoHtml}${mediaHtml}`;
+}
+
+// ── Completed byproduct collection task view ──
+function buildCompletedByproductTaskHtml(task, wfData) {
+    const byproductName = wfData.byproductName || 'Sản phẩm phụ';
+    const byproductUnit = wfData.byproductUnit || '';
+    const estimated = wfData.estimatedQuantity || 0;
+    const collected = wfData.collectedQuantity || 0;
+    const byproductType = wfData.byproductType || 'NONE';
+
+    const iconMap = { 'EGGS': 'egg_alt', 'MILK': 'water_drop', 'HONEY': 'emoji_nature', 'SILK': 'gesture' };
+    const colorMap = { 'EGGS': '#f59e0b', 'MILK': '#3b82f6', 'HONEY': '#eab308', 'SILK': '#8b5cf6' };
+    const icon = iconMap[byproductType] || 'eco';
+    const color = colorMap[byproductType] || '#f59e0b';
+
+    let html = `<div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px; display:flex; align-items:center; gap:6px;">
+            <span class="material-icons-round" style="font-size:18px; color:${color};">${icon}</span>
+            Kết quả thu ${byproductName.toLowerCase()}
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+            <div style="background:${color}11; border-radius:12px; padding:14px; text-align:center;">
+                <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">Ước tính</div>
+                <div style="font-size:20px; font-weight:700; color:${color};">${estimated}</div>
+                <div style="font-size:11px; color:#9ca3af;">${byproductUnit}</div>
+            </div>
+            <div style="background:#f0fdf4; border-radius:12px; padding:14px; text-align:center;">
+                <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">Thực tế</div>
+                <div style="font-size:20px; font-weight:700; color:#16a34a;">${collected}</div>
+                <div style="font-size:11px; color:#9ca3af;">${byproductUnit}</div>
+            </div>
+        </div>`;
+
+    // Server media
+    const _apiOrigin = new URL(API_BASE).origin;
+    const serverImageUrl = task.reportImageUrl ? (_apiOrigin + task.reportImageUrl) : null;
+    const serverVideoUrl = task.reportVideoUrl ? (_apiOrigin + task.reportVideoUrl) : null;
+
+    if (serverImageUrl || serverVideoUrl) {
+        html += `<div style="font-size:13px; font-weight:600; color:#374151; margin-bottom:8px;">
+            <span class="material-icons-round" style="font-size:16px; vertical-align:middle; color:#2563eb;">photo_camera</span> Minh chứng
+        </div><div style="display:grid; grid-template-columns:${serverImageUrl && serverVideoUrl ? '1fr 1fr' : '1fr'}; gap:10px;">`;
+        if (serverImageUrl) {
+            html += `<div style="border-radius:12px; overflow:hidden; border:1px solid #e5e7eb;">
+                <img src="${serverImageUrl}" style="width:100%; max-height:200px; object-fit:cover; cursor:pointer;" onclick="window.open('${serverImageUrl}','_blank')">
+            </div>`;
+        }
+        if (serverVideoUrl) {
+            html += `<div style="border-radius:12px; overflow:hidden; border:1px solid #e5e7eb;">
+                <video src="${serverVideoUrl}" controls style="width:100%; max-height:200px; object-fit:cover;"></video>
+            </div>`;
+        }
+        html += '</div>';
+    }
+
+    html += '</div>';
+    return html;
+}
+
+// ── Byproduct collection report sections (worker reports collected quantity) ──
+function buildByproductCollectionReportSections(task, wfData) {
+    const byproductName = wfData.byproductName || 'Sản phẩm phụ';
+    const byproductUnit = wfData.byproductUnit || '';
+    const estimated = wfData.estimatedQuantity || 0;
+    const byproductType = wfData.byproductType || 'NONE';
+
+    const iconMap = { 'EGGS': 'egg_alt', 'MILK': 'water_drop', 'HONEY': 'emoji_nature', 'SILK': 'gesture' };
+    const colorMap = { 'EGGS': '#f59e0b', 'MILK': '#3b82f6', 'HONEY': '#eab308', 'SILK': '#8b5cf6' };
+    const icon = iconMap[byproductType] || 'eco';
+    const color = colorMap[byproductType] || '#f59e0b';
+
+    let html = `
+    <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px; display:flex; align-items:center; gap:6px;">
+            <span class="material-icons-round" style="font-size:18px; color:${color};">${icon}</span>
+            Báo cáo thu ${byproductName.toLowerCase()}
+        </div>
+
+        ${estimated > 0 ? `
+        <div style="background:${color}11; border:1px solid ${color}22; border-radius:10px; padding:12px 16px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+            <span class="material-icons-round" style="color:${color}; font-size:20px;">lightbulb</span>
+            <span style="font-size:13px; color:#374151;">Ước tính: ~<strong>${estimated} ${byproductUnit}</strong></span>
+        </div>` : ''}
+
+        <div style="margin-bottom:16px;">
+            <label style="font-size:13px; font-weight:600; color:#374151; margin-bottom:6px; display:block;">
+                <span class="material-icons-round" style="font-size:16px; vertical-align:middle; color:${color};">scale</span>
+                Sản lượng thực tế thu được
+            </label>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <input type="number" id="byproduct-collected-qty" min="0" step="0.1"
+                    placeholder="${estimated || '0'}"
+                    style="flex:1; padding:12px 14px; border-radius:10px; border:1px solid #d1d5db; font-size:16px; font-weight:600;">
+                <span style="font-size:14px; font-weight:600; color:#6b7280;">${byproductUnit}</span>
+            </div>
+        </div>`;
+
+    // Media upload section
+    html += `
+        <div style="font-size:13px; font-weight:600; color:#374151; margin-bottom:8px;">
+            <span class="material-icons-round" style="font-size:16px; vertical-align:middle; color:#2563eb;">photo_camera</span>
+            Minh chứng (tùy chọn)
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+            <label style="cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; border-radius:12px; border:2px dashed #d1d5db; background:#f9fafb; transition:all 0.2s; min-height:80px;"
+                onmouseenter="this.style.borderColor='${color}'; this.style.background='${color}11'" onmouseleave="this.style.borderColor='#d1d5db'; this.style.background='#f9fafb'">
+                <span class="material-icons-round" style="font-size:28px; color:#9ca3af;">add_a_photo</span>
+                <span style="font-size:12px; color:#6b7280; margin-top:4px;">Chụp ảnh</span>
+                <span id="inline-photo-name" style="font-size:10px; color:#059669; margin-top:2px; display:none;"></span>
+                <input type="file" accept="image/*" capture="environment" style="display:none;" onchange="handleByproductPhotoSelect(event)">
+            </label>
+            <label style="cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; border-radius:12px; border:2px dashed #d1d5db; background:#f9fafb; transition:all 0.2s; min-height:80px;"
+                onmouseenter="this.style.borderColor='#2563eb'; this.style.background='#eff6ff'" onmouseleave="this.style.borderColor='#d1d5db'; this.style.background='#f9fafb'">
+                <span class="material-icons-round" style="font-size:28px; color:#9ca3af;">videocam</span>
+                <span style="font-size:12px; color:#6b7280; margin-top:4px;">Quay video</span>
+                <span id="inline-video-name" style="font-size:10px; color:#059669; margin-top:2px; display:none;"></span>
+                <input type="file" accept="video/*" capture="environment" style="display:none;" onchange="handleByproductVideoSelect(event)">
+            </label>
+        </div>
+    </div>`;
+
+    return html;
+}
+
 // ── Inline media handlers ──
 let _inlineImageBase64 = null;
 let _inlineImageName = null;
 let _inlineVideoBase64 = null;
 let _inlineVideoName = null;
+
+// Simple handlers for byproduct collection form (lighter than the standard ones)
+function handleByproductPhotoSelect(event) {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+    _inlineImageName = file.name;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        _inlineImageBase64 = e.target?.result;
+        const nameEl = document.getElementById('inline-photo-name');
+        if (nameEl) { nameEl.textContent = file.name; nameEl.style.display = 'block'; }
+    };
+    reader.readAsDataURL(file);
+}
+function handleByproductVideoSelect(event) {
+    const file = event?.target?.files?.[0];
+    if (!file) return;
+    if (file.size > 50 * 1024 * 1024) { showNotification('error', 'Lỗi', 'Video không được lớn hơn 50MB'); return; }
+    _inlineVideoName = file.name;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        _inlineVideoBase64 = e.target?.result;
+        const nameEl = document.getElementById('inline-video-name');
+        if (nameEl) { nameEl.textContent = file.name; nameEl.style.display = 'block'; }
+    };
+    reader.readAsDataURL(file);
+}
 
 function onInlineImageSelected(event) {
     const file = event?.target?.files?.[0];
@@ -3865,8 +4382,19 @@ function openTaskDetail(taskId) {
     const completedAtLabel = completedAtDate ? completedAtDate.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : null;
 
     const salaryLabel = task.salary ? formatCurrency(Number(task.salary)) : null;
-    const relatedItemName = task.relatedItem ? fixUtf8(task.relatedItem.name || '') : null;
-    const quantityLabel = task.quantityRequired ? String(task.quantityRequired) : null;
+    let relatedItemName = task.relatedItem ? fixUtf8(task.relatedItem.name || '') : null;
+    let quantityLabel = task.quantityRequired ? String(task.quantityRequired) : null;
+    let quantityUnit = task.relatedItem ? (task.relatedItem.unit || '') : '';
+
+    // Fall back to workflowData for livestock tasks
+    if (!relatedItemName && task.workflowData) {
+        try {
+            const wf = typeof task.workflowData === 'string' ? JSON.parse(task.workflowData) : task.workflowData;
+            if (wf.feedName) { relatedItemName = wf.feedName; quantityLabel = wf.amountKg ? String(wf.amountKg) : quantityLabel; quantityUnit = 'kg'; }
+            else if (wf.vaccineName) { relatedItemName = wf.vaccineName; quantityUnit = 'liều'; }
+            else if (wf.pesticideName) { relatedItemName = wf.pesticideName; }
+        } catch (e) { /* ignore */ }
+    }
 
     // Status config
     const statusConfig = {
@@ -4022,7 +4550,7 @@ function openTaskDetail(taskId) {
                     </div>
                     <div>
                         <div style="font-weight:700; color:#111827; font-size:15px;">${escapeHtml(relatedItemName || '')}</div>
-                        ${quantityLabel ? `<div style="font-size:13px; color:#6b7280;">Số lượng: ${quantityLabel}</div>` : ''}
+                        ${quantityLabel ? `<div style="font-size:13px; color:#6b7280;">Số lượng: ${quantityLabel}${quantityUnit ? ' ' + escapeHtml(quantityUnit) : ''}</div>` : ''}
                     </div>
                 </div>
             </div>

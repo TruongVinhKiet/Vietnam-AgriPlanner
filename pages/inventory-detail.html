@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgriPlanner - Chi tiết vật tư</title>
+    <meta name="description" content="Xem chi tiết vật tư trong kho">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+
+    <!-- Material Symbols -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../css/variables.css">
+    <link rel="stylesheet" href="../css/base.css">
+    <link rel="stylesheet" href="../css/layout.css">
+    <link rel="stylesheet" href="../css/components.css">
+    <link rel="stylesheet" href="../css/pages/dashboard.css">
+    <link rel="stylesheet" href="../css/chatbot.css">
+    <link rel="stylesheet" href="../css/smart-advisor.css">
+
+    <!-- GSAP Animation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <link rel="icon" type="image/x-icon" href="../images/logo.png">
+
+    <style>
+        /* ==================== DETAIL PAGE STYLES ==================== */
+
+        /* Breadcrumb */
+        .inv-breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 24px;
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .inv-breadcrumb a {
+            color: #10b981;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .inv-breadcrumb a:hover { color: #059669; }
+
+        .inv-breadcrumb .sep {
+            font-size: 12px;
+            color: #d1d5db;
+        }
+
+        .inv-breadcrumb .current {
+            color: #1e293b;
+            font-weight: 600;
+        }
+
+        /* Detail Layout */
+        .inv-detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 860px) {
+            .inv-detail-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Product Info Card */
+        .inv-detail-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .inv-detail-card .card-head {
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+            padding: 20px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border-bottom: 1px solid #a7f3d0;
+        }
+
+        .inv-detail-card .card-head .item-img {
+            width: 72px;
+            height: 72px;
+            border-radius: 14px;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 36px;
+            flex-shrink: 0;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        .inv-detail-card .card-head .item-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .inv-detail-card .card-head .item-title {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .inv-detail-card .card-head .item-title h2 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #065f46;
+            margin: 0 0 4px;
+            word-break: break-word;
+        }
+
+        .inv-detail-card .card-head .item-title .cat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(5, 150, 105, 0.12);
+            color: #065f46;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .inv-detail-card .card-body {
+            padding: 24px;
+        }
+
+        .inv-detail-card .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .inv-detail-card .info-row:last-child { border-bottom: none; }
+
+        .inv-detail-card .info-row .label {
+            font-size: 13px;
+            color: #6b7280;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .inv-detail-card .info-row .label .material-symbols-outlined {
+            font-size: 18px;
+            color: #9ca3af;
+        }
+
+        .inv-detail-card .info-row .value {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .inv-detail-card .info-row .value.qty {
+            font-size: 22px;
+            font-weight: 800;
+            color: #10b981;
+        }
+
+        /* Description box */
+        .inv-detail-card .desc-box {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-top: 16px;
+            font-size: 14px;
+            color: #4b5563;
+            line-height: 1.6;
+        }
+
+        .inv-detail-card .desc-box .desc-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 6px;
+        }
+
+        /* Action Buttons Card */
+        .inv-actions-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .inv-actions-card h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .inv-actions-card h3 .material-symbols-outlined {
+            font-size: 20px;
+            color: #10b981;
+        }
+
+        .inv-actions-card .quick-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .inv-actions-card .qs-item {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 14px;
+            text-align: center;
+        }
+
+        .inv-actions-card .qs-item .qs-label {
+            font-size: 11px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            font-weight: 600;
+        }
+
+        .inv-actions-card .qs-item .qs-value {
+            font-size: 20px;
+            font-weight: 800;
+            color: #1e293b;
+            margin-top: 4px;
+        }
+
+        .inv-actions-card .qs-item .qs-value.green { color: #10b981; }
+
+        .inv-actions-card .action-btns {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        .inv-actions-card .btn-action {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .inv-actions-card .btn-action .material-symbols-outlined { font-size: 20px; }
+
+        .inv-actions-card .btn-edit {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: #fff;
+        }
+
+        .inv-actions-card .btn-edit:hover {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+        }
+
+        .inv-actions-card .btn-delete {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+
+        .inv-actions-card .btn-delete:hover {
+            background: #fee2e2;
+            border-color: #f87171;
+            transform: translateY(-1px);
+        }
+
+        .inv-actions-card .btn-back {
+            background: #f3f4f6;
+            color: #4b5563;
+            border: 1px solid #d1d5db;
+        }
+
+        .inv-actions-card .btn-back:hover {
+            background: #e5e7eb;
+            transform: translateY(-1px);
+        }
+
+        /* Transaction History Card */
+        .inv-history-card {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            overflow: hidden;
+        }
+
+        .inv-history-card .hist-head {
+            padding: 18px 24px;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .inv-history-card .hist-head h3 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .inv-history-card .hist-head h3 .material-symbols-outlined {
+            font-size: 20px;
+            color: #6366f1;
+        }
+
+        .inv-history-card .hist-head .hist-count {
+            margin-left: auto;
+            background: #eef2ff;
+            color: #4f46e5;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .inv-history-tbl {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        .inv-history-tbl th {
+            background: #f8fafc;
+            color: #64748b;
+            padding: 10px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .inv-history-tbl td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f3f4f6;
+            color: #1e293b;
+        }
+
+        .inv-history-tbl tbody tr:hover { background: #f8fafc; }
+
+        .inv-history-tbl .type-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .inv-history-tbl .type-badge.purchase { background: #ecfdf5; color: #059669; }
+        .inv-history-tbl .type-badge.use { background: #fef3c7; color: #d97706; }
+        .inv-history-tbl .type-badge.adjustment { background: #eef2ff; color: #4f46e5; }
+        .inv-history-tbl .type-badge.deletion { background: #fef2f2; color: #dc2626; }
+
+        .inv-history-tbl .qty-change {
+            font-weight: 700;
+        }
+
+        .inv-history-tbl .qty-change.positive { color: #059669; }
+        .inv-history-tbl .qty-change.negative { color: #dc2626; }
+
+        .hist-empty {
+            padding: 40px 20px;
+            text-align: center;
+            color: #9ca3af;
+        }
+
+        .hist-empty .material-symbols-outlined {
+            font-size: 40px;
+            display: block;
+            margin-bottom: 8px;
+            color: #d1d5db;
+        }
+
+        /* Loading State */
+        .inv-loading {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 20px;
+            color: #6b7280;
+            text-align: center;
+        }
+
+        .inv-loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #e5e7eb;
+            border-top-color: #10b981;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 16px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Error State */
+        .inv-error {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 80px 20px;
+            color: #6b7280;
+            text-align: center;
+        }
+
+        .inv-error .material-symbols-outlined {
+            font-size: 56px;
+            color: #f87171;
+            margin-bottom: 12px;
+        }
+
+        .inv-error p { font-size: 15px; margin: 4px 0; }
+
+        .inv-error .btn-retry {
+            margin-top: 16px;
+            padding: 10px 24px;
+            background: #10b981;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .inv-error .btn-retry:hover {
+            background: #059669;
+        }
+
+        /* Modal Overlay (shared between edit & delete) */
+        .inv-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .inv-modal-overlay.show {
+            display: flex;
+            animation: invFadeIn 0.2s ease;
+        }
+
+        @keyframes invFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .inv-modal {
+            background: #fff;
+            border-radius: 16px;
+            width: 90vw;
+            max-width: 440px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+            animation: invSlideUp 0.25s ease;
+            overflow: hidden;
+        }
+
+        @keyframes invSlideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .inv-modal .modal-head {
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .inv-modal .modal-head h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .inv-modal .modal-head .close-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 4px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            display: flex;
+        }
+
+        .inv-modal .modal-head .close-btn:hover {
+            background: rgba(0, 0, 0, 0.06);
+            color: #1f2937;
+        }
+
+        .inv-modal .modal-body {
+            padding: 24px;
+        }
+
+        .inv-modal .modal-foot {
+            padding: 14px 24px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .inv-modal .btn-cancel {
+            padding: 9px 20px;
+            background: #f3f4f6;
+            color: #4b5563;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .inv-modal .btn-cancel:hover { background: #e5e7eb; }
+
+        /* Edit modal */
+        .edit-modal .modal-head {
+            background: linear-gradient(135deg, #eff6ff, #dbeafe);
+            border-bottom: 1px solid #93c5fd;
+        }
+
+        .edit-modal .modal-head h3 { color: #1e40af; }
+
+        .edit-modal .fg {
+            margin-bottom: 16px;
+        }
+
+        .edit-modal .fg label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 6px;
+        }
+
+        .edit-modal .fg input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #f9fafb;
+            transition: all 0.2s;
+            box-sizing: border-box;
+        }
+
+        .edit-modal .fg input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            background: #fff;
+        }
+
+        .edit-modal .fg input[readonly] {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        .edit-modal .fg .current-info {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 4px;
+        }
+
+        .edit-modal .btn-save {
+            padding: 9px 20px;
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .edit-modal .btn-save:hover {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+        }
+
+        /* Delete confirm modal */
+        .delete-modal .modal-head {
+            background: linear-gradient(135deg, #fef2f2, #fee2e2);
+            border-bottom: 1px solid #fca5a5;
+        }
+
+        .delete-modal .modal-head h3 { color: #991b1b; }
+
+        .delete-modal .delete-warning {
+            text-align: center;
+            padding: 12px 0;
+        }
+
+        .delete-modal .delete-warning .material-symbols-outlined {
+            font-size: 48px;
+            color: #f87171;
+            display: block;
+            margin-bottom: 12px;
+        }
+
+        .delete-modal .delete-warning p {
+            font-size: 15px;
+            color: #4b5563;
+            margin: 4px 0;
+        }
+
+        .delete-modal .delete-warning .item-name {
+            font-weight: 700;
+            color: #1e293b;
+        }
+
+        .delete-modal .btn-confirm-delete {
+            padding: 9px 20px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .delete-modal .btn-confirm-delete:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+        }
+    </style>
+</head>
+
+<body data-page="inventory">
+    <div class="app-container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar__header">
+                <div class="sidebar__logo-icon" style="background: none; padding: 0;">
+                    <img src="../images/logo.png" alt="AgriPlanner Logo"
+                        style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                </div>
+                <h1 class="sidebar__logo-text">AgriPlanner</h1>
+            </div>
+
+            <nav class="sidebar__nav">
+                <a href="../index.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">home</span>
+                    <span>Trang chủ</span>
+                </a>
+                <a href="cultivation.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">potted_plant</span>
+                    <span>Trồng trọt</span>
+                </a>
+                <a href="livestock.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">egg</span>
+                    <span>Chăn nuôi</span>
+                </a>
+                <a href="labor.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">engineering</span>
+                    <span>Nhân công</span>
+                </a>
+                <a href="inventory.html" class="sidebar__nav-link active">
+                    <span class="material-symbols-outlined">warehouse</span>
+                    <span>Kho</span>
+                </a>
+                <a href="shop.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">store</span>
+                    <span>Cửa hàng</span>
+                </a>
+                <a href="cooperative.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">groups</span>
+                    <span>Hợp tác xã</span>
+                </a>
+                <a href="community.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">forum</span>
+                    <span>Cộng đồng</span>
+                </a>
+                <a href="analytics.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">account_balance_wallet</span>
+                    <span>Tài sản</span>
+                </a>
+                <a href="settings.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">settings</span>
+                    <span>Cài đặt</span>
+                </a>
+
+                <div class="sidebar__spacer"></div>
+
+                <a href="help.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">help</span>
+                    <span>Trợ giúp</span>
+                </a>
+            </nav>
+
+            <div class="sidebar__footer">
+                <div class="sidebar__user">
+                    <div class="sidebar__user-avatar" id="sidebar-avatar"></div>
+                    <div class="sidebar__user-info">
+                        <p class="sidebar__user-name" id="sidebar-name">Đang tải...</p>
+                        <p class="sidebar__user-email" id="sidebar-email"></p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Wrapper -->
+        <div class="main-wrapper">
+            <!-- Header -->
+            <header class="header">
+                <div class="header__search">
+                    <span class="material-symbols-outlined header__search-icon">search</span>
+                    <input type="text" class="header__search-input" placeholder="Tìm kiếm...">
+                </div>
+
+                <div class="header__actions">
+                    <button class="header__notification">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <span class="header__notification-badge"></span>
+                    </button>
+
+                    <div class="header__user">
+                        <div class="header__user-info">
+                            <p class="header__user-name" id="header-name">Đang tải...</p>
+                            <p class="header__user-role">Chủ trang trại</p>
+                        </div>
+                        <div class="header__user-avatar" id="header-avatar"></div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="main-content">
+                <div class="main-content__container">
+
+                    <!-- Breadcrumb -->
+                    <div class="inv-breadcrumb">
+                        <a href="inventory.html">Kho vật tư</a>
+                        <span class="sep material-symbols-outlined" style="font-size:16px;">chevron_right</span>
+                        <span class="current" id="breadcrumb-name">Chi tiết</span>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="loading-state" class="inv-loading">
+                        <div class="spinner"></div>
+                        <p>Đang tải thông tin vật tư...</p>
+                    </div>
+
+                    <!-- Error State -->
+                    <div id="error-state" class="inv-error" style="display:none;">
+                        <span class="material-symbols-outlined">error</span>
+                        <p id="error-msg">Không tìm thấy vật tư</p>
+                        <button class="btn-retry" onclick="window.location.href='inventory.html'">
+                            <span class="material-symbols-outlined" style="font-size:16px;vertical-align:middle;">arrow_back</span>
+                            Quay lại kho
+                        </button>
+                    </div>
+
+                    <!-- Detail Content (hidden until loaded) -->
+                    <div id="detail-content" style="display:none;">
+
+                        <!-- Top: Product Info + Actions -->
+                        <div class="inv-detail-grid">
+                            <!-- Product Info -->
+                            <div class="inv-detail-card">
+                                <div class="card-head">
+                                    <div class="item-img" id="detail-img">📦</div>
+                                    <div class="item-title">
+                                        <h2 id="detail-name">—</h2>
+                                        <span class="cat-badge" id="detail-cat-badge">—</span>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="info-row">
+                                        <span class="label">
+                                            <span class="material-symbols-outlined">straighten</span>
+                                            Số lượng trong kho
+                                        </span>
+                                        <span class="value qty" id="detail-qty">0</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="label">
+                                            <span class="material-symbols-outlined">scale</span>
+                                            Đơn vị
+                                        </span>
+                                        <span class="value" id="detail-unit">—</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="label">
+                                            <span class="material-symbols-outlined">category</span>
+                                            Danh mục
+                                        </span>
+                                        <span class="value" id="detail-category">—</span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="label">
+                                            <span class="material-symbols-outlined">calendar_today</span>
+                                            Ngày nhập kho
+                                        </span>
+                                        <span class="value" id="detail-date">—</span>
+                                    </div>
+                                    <div class="info-row" id="detail-expiry-row" style="display:none;">
+                                        <span class="label">
+                                            <span class="material-symbols-outlined">event_busy</span>
+                                            Hạn sử dụng
+                                        </span>
+                                        <span class="value" id="detail-expiry">—</span>
+                                    </div>
+
+                                    <!-- Description -->
+                                    <div class="desc-box" id="detail-desc-box" style="display:none;">
+                                        <div class="desc-label">Mô tả sản phẩm</div>
+                                        <div id="detail-desc"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="inv-actions-card">
+                                <h3>
+                                    <span class="material-symbols-outlined">tune</span>
+                                    Thao tác
+                                </h3>
+
+                                <div class="quick-stats">
+                                    <div class="qs-item">
+                                        <div class="qs-label">Tồn kho</div>
+                                        <div class="qs-value green" id="qs-qty">0</div>
+                                    </div>
+                                    <div class="qs-item">
+                                        <div class="qs-label">Lịch sử</div>
+                                        <div class="qs-value" id="qs-txcount">0</div>
+                                    </div>
+                                </div>
+
+                                <div class="action-btns">
+                                    <button class="btn-action btn-edit" onclick="openEditModal()">
+                                        <span class="material-symbols-outlined">edit</span>
+                                        Chỉnh sửa số lượng
+                                    </button>
+                                    <button class="btn-action btn-delete" onclick="openDeleteModal()">
+                                        <span class="material-symbols-outlined">delete</span>
+                                        Xóa khỏi kho
+                                    </button>
+                                    <button class="btn-action btn-back" onclick="window.location.href='inventory.html'">
+                                        <span class="material-symbols-outlined">arrow_back</span>
+                                        Quay lại kho
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Transaction History -->
+                        <div class="inv-history-card">
+                            <div class="hist-head">
+                                <h3>
+                                    <span class="material-symbols-outlined">history</span>
+                                    Lịch sử giao dịch
+                                </h3>
+                                <span class="hist-count" id="hist-count">0</span>
+                            </div>
+                            <div id="hist-content">
+                                <table class="inv-history-tbl">
+                                    <thead>
+                                        <tr>
+                                            <th>Thời gian</th>
+                                            <th>Loại</th>
+                                            <th>Số lượng</th>
+                                            <th>Ghi chú</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="hist-tbody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="inv-modal-overlay" id="edit-overlay" onclick="if(event.target===this) closeEditModal()">
+        <div class="inv-modal edit-modal">
+            <div class="modal-head">
+                <h3>
+                    <span class="material-symbols-outlined">edit</span>
+                    Chỉnh sửa số lượng
+                </h3>
+                <button class="close-btn" onclick="closeEditModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="fg">
+                    <label>Tên vật tư</label>
+                    <input type="text" id="edit-name" readonly>
+                </div>
+                <div class="fg">
+                    <label>Số lượng mới *</label>
+                    <input type="number" id="edit-qty" min="0" step="0.01" required>
+                    <div class="current-info">Hiện tại: <strong id="edit-current-qty">0</strong> <span id="edit-current-unit"></span></div>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn-cancel" onclick="closeEditModal()">Hủy</button>
+                <button class="btn-save" onclick="submitEdit()">
+                    <span class="material-symbols-outlined">save</span>
+                    Lưu thay đổi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirm Modal -->
+    <div class="inv-modal-overlay" id="delete-overlay" onclick="if(event.target===this) closeDeleteModal()">
+        <div class="inv-modal delete-modal">
+            <div class="modal-head">
+                <h3>
+                    <span class="material-symbols-outlined">warning</span>
+                    Xác nhận xóa
+                </h3>
+                <button class="close-btn" onclick="closeDeleteModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="delete-warning">
+                    <span class="material-symbols-outlined">delete_forever</span>
+                    <p>Bạn có chắc chắn muốn xóa</p>
+                    <p class="item-name" id="delete-item-name">—</p>
+                    <p>khỏi kho? Thao tác này không thể hoàn tác.</p>
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn-cancel" onclick="closeDeleteModal()">Hủy</button>
+                <button class="btn-confirm-delete" onclick="submitDelete()">
+                    <span class="material-symbols-outlined">delete</span>
+                    Xóa vật tư
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../js/auth.js"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/animations.js"></script>
+    <script src="../js/sidebar.js"></script>
+    <script src="../js/chatbot.js"></script>
+    <script src="../js/smart-advisor.js"></script>
+
+    <script>
+        // ==================== CONSTANTS ====================
+
+        const INV_API = typeof API_BASE !== 'undefined' ? API_BASE :
+            (typeof CONFIG !== 'undefined' ? CONFIG.API_BASE_URL : 'http://localhost:8080/api');
+
+        const CAT_LABELS = {
+            'HAT_GIONG': 'Hạt giống',
+            'CON_GIONG': 'Con giống',
+            'PHAN_BON': 'Phân bón',
+            'THUC_AN': 'Thức ăn chăn nuôi',
+            'THUOC_TRU_SAU': 'Thuốc BVTV',
+            'MAY_MOC': 'Máy móc',
+            'TIEM_PHONG': 'Tiêm phòng'
+        };
+
+        const CAT_EMOJI = {
+            'HAT_GIONG': '🌾',
+            'CON_GIONG': '🐣',
+            'PHAN_BON': '🌱',
+            'THUC_AN': '🍚',
+            'THUOC_TRU_SAU': '🧪',
+            'MAY_MOC': '⚙️',
+            'TIEM_PHONG': '💉'
+        };
+
+        const TX_LABELS = {
+            'PURCHASE': 'Nhập kho',
+            'USE': 'Sử dụng',
+            'SELL': 'Bán',
+            'TRANSFER': 'Chuyển',
+            'EXPIRE': 'Hết hạn',
+            'ADJUSTMENT': 'Điều chỉnh',
+            'DELETION': 'Xóa'
+        };
+
+        let itemId = null;
+        let itemData = null;
+        let txData = [];
+
+        // ==================== AUTH HELPERS ====================
+
+        function getHeaders() {
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            const h = {};
+            if (token) h['Authorization'] = `Bearer ${token}`;
+            return h;
+        }
+
+        function getUserEmail() {
+            return localStorage.getItem('userEmail') || '';
+        }
+
+        // ==================== LOAD DATA ====================
+
+        async function loadDetail() {
+            const params = new URLSearchParams(window.location.search);
+            itemId = params.get('id');
+
+            if (!itemId) {
+                showError('Không có mã vật tư');
+                return;
+            }
+
+            try {
+                const email = getUserEmail();
+                const url = `${INV_API}/shop/inventory/${encodeURIComponent(itemId)}?userEmail=${encodeURIComponent(email)}`;
+                const res = await fetch(url, { headers: getHeaders() });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    showError(err.error || 'Không tìm thấy vật tư');
+                    return;
+                }
+
+                const data = await res.json();
+                itemData = data.inventory;
+                txData = data.transactions || [];
+
+                renderDetail();
+                renderHistory();
+                showContent();
+            } catch (err) {
+                console.error('Lỗi tải chi tiết:', err);
+                showError('Lỗi kết nối máy chủ');
+            }
+        }
+
+        // ==================== RENDER ====================
+
+        function renderDetail() {
+            const inv = itemData;
+            const name = inv.effectiveName || inv.itemName || '—';
+            const cat = inv.effectiveCategory || inv.itemCategory || '';
+            const unit = inv.effectiveUnit || inv.itemUnit || '';
+            const qty = inv.quantity || 0;
+            const emoji = CAT_EMOJI[cat] || '📦';
+            const catLabel = CAT_LABELS[cat] || cat;
+
+            // Breadcrumb
+            document.getElementById('breadcrumb-name').textContent = name;
+            document.title = `AgriPlanner - ${name}`;
+
+            // Image
+            const imgEl = document.getElementById('detail-img');
+            if (inv.imageUrl) {
+                imgEl.innerHTML = `<img src="${sanitize(inv.imageUrl)}" alt="${sanitize(name)}">`;
+            } else {
+                imgEl.textContent = emoji;
+            }
+
+            // Info
+            document.getElementById('detail-name').textContent = name;
+            document.getElementById('detail-cat-badge').textContent = `${emoji} ${catLabel}`;
+            document.getElementById('detail-qty').textContent = `${fmtNum(qty)} ${sanitize(unit)}`;
+            document.getElementById('detail-unit').textContent = unit || '—';
+            document.getElementById('detail-category').textContent = catLabel || '—';
+
+            // Date
+            if (inv.createdAt) {
+                const d = new Date(inv.createdAt);
+                document.getElementById('detail-date').textContent = d.toLocaleDateString('vi-VN', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                });
+            }
+
+            // Expiry
+            if (inv.expiryDate) {
+                document.getElementById('detail-expiry-row').style.display = '';
+                const exp = new Date(inv.expiryDate);
+                document.getElementById('detail-expiry').textContent = exp.toLocaleDateString('vi-VN', {
+                    day: '2-digit', month: '2-digit', year: 'numeric'
+                });
+            }
+
+            // Description from shopItem
+            const shopItem = inv.shopItem;
+            if (shopItem && shopItem.description) {
+                document.getElementById('detail-desc-box').style.display = '';
+                document.getElementById('detail-desc').textContent = shopItem.description;
+            }
+
+            // Quick stats
+            document.getElementById('qs-qty').textContent = `${fmtNum(qty)} ${sanitize(unit)}`;
+            document.getElementById('qs-txcount').textContent = txData.length;
+        }
+
+        function renderHistory() {
+            const tbody = document.getElementById('hist-tbody');
+            document.getElementById('hist-count').textContent = txData.length;
+
+            if (!txData.length) {
+                tbody.innerHTML = `<tr><td colspan="4" class="hist-empty">
+                    <span class="material-symbols-outlined">history</span>
+                    Chưa có lịch sử giao dịch
+                </td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = txData.map(tx => {
+                const type = tx.transactionType || '';
+                const typeLabel = TX_LABELS[type] || type;
+                const typeCls = type.toLowerCase();
+                const qty = tx.quantity || 0;
+                const isPositive = qty > 0;
+                const qtyStr = isPositive ? `+${fmtNum(qty)}` : fmtNum(qty);
+                const qtyCls = isPositive ? 'positive' : 'negative';
+
+                let dateStr = '—';
+                if (tx.createdAt) {
+                    const d = new Date(tx.createdAt);
+                    dateStr = d.toLocaleDateString('vi-VN', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                    });
+                }
+
+                return `<tr>
+                    <td>${dateStr}</td>
+                    <td><span class="type-badge ${typeCls}">${typeLabel}</span></td>
+                    <td><span class="qty-change ${qtyCls}">${qtyStr}</span></td>
+                    <td>${sanitize(tx.notes || '—')}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        // ==================== STATE MANAGEMENT ====================
+
+        function showContent() {
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('error-state').style.display = 'none';
+            document.getElementById('detail-content').style.display = '';
+        }
+
+        function showError(msg) {
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('error-state').style.display = '';
+            document.getElementById('detail-content').style.display = 'none';
+            document.getElementById('error-msg').textContent = msg;
+        }
+
+        // ==================== EDIT MODAL ====================
+
+        function openEditModal() {
+            if (!itemData) return;
+            document.getElementById('edit-name').value = itemData.effectiveName || itemData.itemName || '';
+            document.getElementById('edit-qty').value = itemData.quantity || 0;
+            document.getElementById('edit-current-qty').textContent = fmtNum(itemData.quantity || 0);
+            document.getElementById('edit-current-unit').textContent = itemData.effectiveUnit || itemData.itemUnit || '';
+            document.getElementById('edit-overlay').classList.add('show');
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-overlay').classList.remove('show');
+        }
+
+        async function submitEdit() {
+            const newQty = parseFloat(document.getElementById('edit-qty').value);
+
+            if (isNaN(newQty) || newQty < 0) {
+                alert('Vui lòng nhập số lượng hợp lệ (≥ 0).');
+                return;
+            }
+
+            try {
+                const email = getUserEmail();
+                const res = await fetch(`${INV_API}/shop/inventory/${encodeURIComponent(itemId)}`, {
+                    method: 'PUT',
+                    headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userEmail: email, quantity: newQty })
+                });
+
+                if (res.ok) {
+                    closeEditModal();
+                    if (typeof showNotification === 'function') {
+                        showNotification('Đã cập nhật số lượng!', 'success');
+                    }
+                    await loadDetail();
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    alert(err.error || 'Lỗi khi cập nhật. Vui lòng thử lại.');
+                }
+            } catch (err) {
+                console.error('Lỗi cập nhật:', err);
+                alert('Có lỗi xảy ra. Vui lòng thử lại.');
+            }
+        }
+
+        // ==================== DELETE MODAL ====================
+
+        function openDeleteModal() {
+            if (!itemData) return;
+            document.getElementById('delete-item-name').textContent =
+                `"${itemData.effectiveName || itemData.itemName || '—'}"`;
+            document.getElementById('delete-overlay').classList.add('show');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-overlay').classList.remove('show');
+        }
+
+        async function submitDelete() {
+            try {
+                const email = getUserEmail();
+                const res = await fetch(`${INV_API}/shop/inventory/${encodeURIComponent(itemId)}?userEmail=${encodeURIComponent(email)}`, {
+                    method: 'DELETE',
+                    headers: getHeaders()
+                });
+
+                if (res.ok) {
+                    closeDeleteModal();
+                    if (typeof showNotification === 'function') {
+                        showNotification('Đã xóa vật tư khỏi kho!', 'success');
+                    }
+                    window.location.href = 'inventory.html';
+                } else {
+                    const err = await res.json().catch(() => ({}));
+                    alert(err.error || 'Lỗi khi xóa. Vui lòng thử lại.');
+                }
+            } catch (err) {
+                console.error('Lỗi xóa:', err);
+                alert('Có lỗi xảy ra. Vui lòng thử lại.');
+            }
+        }
+
+        // ==================== UTILITIES ====================
+
+        function fmtNum(val) {
+            if (typeof formatNumber === 'function') return formatNumber(val);
+            return new Intl.NumberFormat('vi-VN').format(val || 0);
+        }
+
+        function sanitize(str) {
+            if (!str) return '';
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        // ==================== INIT ====================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDetail();
+        });
+    </script>
+</body>
+
+</html>

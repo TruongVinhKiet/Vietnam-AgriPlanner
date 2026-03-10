@@ -52,6 +52,10 @@
                     <span class="material-symbols-outlined">engineering</span>
                     <span>Nhân công</span>
                 </a>
+                <a href="inventory.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">warehouse</span>
+                    <span>Kho</span>
+                </a>
                 <a href="shop.html" class="sidebar__nav-link"><span
                         class="material-symbols-outlined">store</span><span>Cửa hàng</span></a>
                 <a href="cooperative.html" class="sidebar__nav-link"><span
@@ -84,6 +88,14 @@
                 <div class="header__search"><span
                         class="material-symbols-outlined header__search-icon">search</span><input type="text"
                         class="header__search-input" placeholder="Tìm kiếm chuồng trại..."></div>
+                <div class="view-toggle-group" id="livestock-view-toggle">
+                    <button class="view-toggle-btn view-toggle-btn--active" data-view="canvas" onclick="toggleLivestockView('canvas')">
+                        <span class="material-symbols-outlined">video_camera_front</span> Mô phỏng
+                    </button>
+                    <button class="view-toggle-btn" data-view="grid" onclick="toggleLivestockView('grid')">
+                        <span class="material-symbols-outlined">grid_view</span> Sơ đồ
+                    </button>
+                </div>
                 <div class="header__actions">
                     <button class="header__notification" onclick="toggleNotificationPanel()"><span
                             class="material-symbols-outlined">notifications</span><span id="notification-badge"
@@ -118,6 +130,37 @@
                         <!-- Canvas Container -->
                         <div class="pen-canvas-container" id="pen-canvas-container">
                             <canvas id="pen-canvas"></canvas>
+                        </div>
+
+                        <!-- Grid View Container (initially hidden) -->
+                        <div class="pen-grid-container view-hidden" id="pen-grid-container" style="display:none;">
+                            <div class="pen-grid-header">
+                                <div class="pen-grid-header__title">
+                                    <span class="material-symbols-outlined">grid_view</span>
+                                    Sơ đồ chuồng trại
+                                </div>
+                                <div class="pen-grid-legend">
+                                    <div class="pen-grid-legend__item">
+                                        <div class="pen-grid-legend__dot pen-grid-legend__dot--clean"></div>
+                                        <span>Sạch</span>
+                                    </div>
+                                    <div class="pen-grid-legend__item">
+                                        <div class="pen-grid-legend__dot pen-grid-legend__dot--dirty"></div>
+                                        <span>Cần dọn</span>
+                                    </div>
+                                    <div class="pen-grid-legend__item">
+                                        <div class="pen-grid-legend__dot pen-grid-legend__dot--sick"></div>
+                                        <span>Ốm</span>
+                                    </div>
+                                    <div class="pen-grid-legend__item">
+                                        <div class="pen-grid-legend__dot pen-grid-legend__dot--empty"></div>
+                                        <span>Trống</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pen-grid-inner" id="pen-grid-inner">
+                                <!-- Cards rendered by livestock.js -->
+                            </div>
                         </div>
 
                         <!-- Canvas Overlays -->
@@ -258,6 +301,13 @@
                                             </div>
                                             <span class="action-btn__label">Thu hoạch</span>
                                         </button>
+                                        <button class="action-btn" id="btn-byproduct" disabled
+                                            onclick="openByproductPanel()">
+                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--amber">
+                                                <span class="material-symbols-outlined action-btn__icon">egg_alt</span>
+                                            </div>
+                                            <span class="action-btn__label">Sản phẩm phụ</span>
+                                        </button>
                                         <button class="action-btn" id="btn-delete-pen" disabled
                                             onclick="confirmDeletePen()">
                                             <div class="action-btn__icon-wrap action-btn__icon-wrap--red">
@@ -306,13 +356,7 @@
                                             </div>
                                             <span class="action-btn__label">Phân tích</span>
                                         </button>
-                                        <button class="action-btn" onclick="openInventoryModal()">
-                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--amber">
-                                                <span
-                                                    class="material-symbols-outlined action-btn__icon">inventory_2</span>
-                                            </div>
-                                            <span class="action-btn__label">Kho vật tư</span>
-                                        </button>
+
                                     </div>
                                 </div>
 
@@ -453,12 +497,15 @@
                         <span id="feed-total-cost">0 ₫</span>
                     </div>
                 </div>
+
+                <!-- Worker Selection -->
+                <div id="feed-worker-select"></div>
             </div>
             <div class="modal__footer">
                 <button class="btn btn--secondary" onclick="closeFeedingModal()">Hủy</button>
                 <button class="btn btn--primary" onclick="submitFeeding()">
-                    <span class="material-symbols-outlined">check</span>
-                    Xác nhận cho ăn
+                    <span class="material-symbols-outlined">assignment</span>
+                    Giao việc cho ăn
                 </button>
             </div>
         </div>
@@ -485,115 +532,153 @@
 
     <!-- Harvest/Sell Modal -->
     <div id="harvest-modal" class="modal">
-        <div class="modal__content" style="max-width: 550px;">
+        <div class="modal__content" style="max-width: 560px;">
             <div class="modal__header">
                 <h3 class="modal__title">
-                    <span class="material-symbols-outlined" style="color: var(--color-success);">payments</span>
-                    Thu hoạch / Bán vật nuôi
+                    <span class="material-symbols-outlined" id="harvest-modal-icon" style="color: var(--color-success);">payments</span>
+                    <span id="harvest-modal-title">Thu hoạch / Bán vật nuôi</span>
                 </h3>
                 <button class="modal__close" onclick="closeHarvestModal()">
                     <span class="material-symbols-outlined">close</span>
                 </button>
             </div>
             <div class="modal__body">
-                <!-- Harvest Type Toggle (shown for BOTH type animals) -->
+                <!-- Harvest Type Toggle (BOTH only) -->
                 <div class="harvest-type-toggle" id="harvest-type-toggle" style="display:none;">
-                    <button class="harvest-toggle-btn active" id="harvest-toggle-animal" onclick="switchHarvestType('animal')">
+                    <button class="harvest-toggle-btn active" id="harvest-toggle-animal" onclick="switchHarvestTab('animal')">
                         <span class="material-symbols-outlined">pets</span>
                         Bán vật nuôi
                     </button>
-                    <button class="harvest-toggle-btn" id="harvest-toggle-byproduct" onclick="switchHarvestType('byproduct')">
+                    <button class="harvest-toggle-btn" id="harvest-toggle-byproduct" onclick="switchHarvestTab('byproduct')">
                         <span class="material-symbols-outlined" id="harvest-toggle-bp-icon">egg</span>
                         <span id="harvest-toggle-bp-label">Bán sản phẩm phụ</span>
                     </button>
                 </div>
 
-                <!-- Pen Summary -->
-                <div class="harvest-summary">
-                    <div class="harvest-summary__header">
-                        <span class="material-symbols-outlined">info</span>
-                        <span>Thông tin chuồng</span>
+                <!-- Pen Info Cards -->
+                <div class="harvest-info-cards">
+                    <div class="harvest-info-card">
+                        <span class="harvest-info-card__icon material-symbols-outlined">pets</span>
+                        <span class="harvest-info-card__value" id="harvest-animal-name">--</span>
+                        <span class="harvest-info-card__label">Vật nuôi</span>
                     </div>
-                    <div class="harvest-summary__grid">
-                        <div class="harvest-summary__item">
-                            <span class="harvest-summary__label">Loại vật nuôi</span>
-                            <span class="harvest-summary__value" id="harvest-animal-name">--</span>
-                        </div>
-                        <div class="harvest-summary__item">
-                            <span class="harvest-summary__label">Số lượng hiện có</span>
-                            <span class="harvest-summary__value" id="harvest-current-count">-- con</span>
-                        </div>
-                        <div class="harvest-summary__item">
-                            <span class="harvest-summary__label">Ngày bắt đầu</span>
-                            <span class="harvest-summary__value" id="harvest-start-date">--</span>
-                        </div>
-                        <div class="harvest-summary__item">
-                            <span class="harvest-summary__label">Giá bán tham khảo</span>
-                            <span class="harvest-summary__value harvest-summary__value--highlight"
-                                id="harvest-ref-price">-- ₫/con</span>
-                        </div>
+                    <div class="harvest-info-card">
+                        <span class="harvest-info-card__icon material-symbols-outlined">groups</span>
+                        <span class="harvest-info-card__value" id="harvest-current-count">-- con</span>
+                        <span class="harvest-info-card__label">Đàn hiện tại</span>
+                    </div>
+                    <div class="harvest-info-card">
+                        <span class="harvest-info-card__icon material-symbols-outlined">calendar_today</span>
+                        <span class="harvest-info-card__value" id="harvest-start-date">--</span>
+                        <span class="harvest-info-card__label">Ngày bắt đầu</span>
+                    </div>
+                    <div class="harvest-info-card harvest-info-card--accent">
+                        <span class="harvest-info-card__icon material-symbols-outlined">sell</span>
+                        <span class="harvest-info-card__value" id="harvest-ref-price">-- ₫</span>
+                        <span class="harvest-info-card__label">Giá tham khảo</span>
                     </div>
                 </div>
 
-                <!-- Harvest Form -->
-                <div class="harvest-form">
+                <!-- Animal Sale Section -->
+                <div id="harvest-animal-section">
                     <div class="form-group">
                         <label class="form-label">Số lượng bán <span class="text-error">*</span></label>
                         <div class="input-with-suffix">
                             <input type="number" id="harvest-quantity" class="form-input" min="1" placeholder="0">
-                            <span class="input-suffix">con</span>
+                            <span class="input-suffix" id="harvest-qty-unit">con</span>
                         </div>
                         <div class="form-hint" id="harvest-quantity-hint">Tối đa: -- con</div>
                     </div>
-
                     <div class="form-group">
                         <label class="form-label">Giá bán thực tế <span class="text-error">*</span></label>
                         <div class="input-with-suffix">
-                            <input type="number" id="harvest-price" class="form-input" min="0" step="1000"
-                                placeholder="0">
-                            <span class="input-suffix">₫/con</span>
+                            <input type="number" id="harvest-price" class="form-input" min="0" step="1000" placeholder="0">
+                            <span class="input-suffix" id="harvest-price-unit">₫/con</span>
                         </div>
                         <div class="form-hint">Nhập giá bán thực tế tại thời điểm giao dịch</div>
                     </div>
-
-                    <div class="form-group">
-                        <label class="form-label">Người mua / Đối tác</label>
-                        <input type="text" id="harvest-buyer" class="form-input"
-                            placeholder="VD: Công ty ABC, Chợ đầu mối...">
-                    </div>
-
                     <div class="form-group">
                         <label class="form-label">Ghi chú</label>
-                        <textarea id="harvest-notes" class="form-input" rows="2"
-                            placeholder="Ghi chú thêm về giao dịch..."></textarea>
+                        <textarea id="harvest-notes" class="form-input" rows="2" placeholder="Ghi chú thêm về giao dịch..."></textarea>
+                    </div>
+                    <!-- Revenue Preview -->
+                    <div class="harvest-preview">
+                        <div class="harvest-preview__row">
+                            <span>Số lượng bán:</span>
+                            <span id="preview-quantity">0 con</span>
+                        </div>
+                        <div class="harvest-preview__row">
+                            <span>Đơn giá:</span>
+                            <span id="preview-price">0 ₫</span>
+                        </div>
+                        <div class="harvest-preview__row harvest-preview__row--total">
+                            <span>Tổng thu:</span>
+                            <span id="preview-total" class="text-success">0 ₫</span>
+                        </div>
+                        <div class="harvest-preview__note">
+                            <span class="material-symbols-outlined">account_balance_wallet</span>
+                            Số tiền sẽ được cộng vào số dư tài khoản sau khi duyệt
+                        </div>
                     </div>
                 </div>
 
-                <!-- Revenue Preview -->
-                <div class="harvest-preview">
-                    <div class="harvest-preview__row">
-                        <span>Số lượng bán:</span>
-                        <span id="preview-quantity">0 con</span>
+                <!-- Byproduct Sale Section (BOTH type, byproduct tab) -->
+                <div id="harvest-bp-section" style="display:none;">
+                    <div class="harvest-bp-info-row">
+                        <span class="material-symbols-outlined" id="harvest-bp-icon-display">egg</span>
+                        <div>
+                            <span class="harvest-bp-info-label">Tổng sản lượng đã ghi nhận:</span>
+                            <strong id="harvest-bp-total-produced">--</strong>
+                        </div>
                     </div>
-                    <div class="harvest-preview__row">
-                        <span>Đơn giá:</span>
-                        <span id="preview-price">0 ₫</span>
+                    <div class="form-group">
+                        <label class="form-label">Sản lượng bán <span class="text-error">*</span></label>
+                        <div class="input-with-suffix">
+                            <input type="number" id="harvest-bp-quantity" class="form-input" min="0" step="0.1" placeholder="0">
+                            <span class="input-suffix" id="harvest-bp-unit">quả</span>
+                        </div>
                     </div>
-                    <div class="harvest-preview__row harvest-preview__row--total">
-                        <span>Tổng thu:</span>
-                        <span id="preview-total" class="text-success">0 ₫</span>
+                    <div class="form-group">
+                        <label class="form-label">Giá bán <span class="text-error">*</span></label>
+                        <div class="input-with-suffix">
+                            <input type="number" id="harvest-bp-price" class="form-input" min="0" step="100" placeholder="0">
+                            <span class="input-suffix" id="harvest-bp-price-unit">₫/quả</span>
+                        </div>
+                        <div class="form-hint">Nhập giá tại thời điểm giao dịch</div>
                     </div>
-                    <div class="harvest-preview__note">
-                        <span class="material-symbols-outlined">account_balance_wallet</span>
-                        Số tiền sẽ được cộng vào số dư tài khoản
+                    <div class="form-group">
+                        <label class="form-label">Ghi chú</label>
+                        <textarea id="harvest-bp-notes" class="form-input" rows="2" placeholder="Ghi chú thêm..."></textarea>
+                    </div>
+                    <!-- Byproduct preview -->
+                    <div class="harvest-preview">
+                        <div class="harvest-preview__row">
+                            <span>Sản lượng bán:</span>
+                            <span id="harvest-bp-preview-qty">0</span>
+                        </div>
+                        <div class="harvest-preview__row">
+                            <span>Đơn giá:</span>
+                            <span id="harvest-bp-preview-price">0 ₫</span>
+                        </div>
+                        <div class="harvest-preview__row harvest-preview__row--total">
+                            <span>Tổng thu:</span>
+                            <span id="harvest-bp-preview-total" class="text-success">0 ₫</span>
+                        </div>
+                        <div class="harvest-preview__note">
+                            <span class="material-symbols-outlined">account_balance_wallet</span>
+                            Số tiền sẽ được cộng vào số dư tài khoản sau khi duyệt
+                        </div>
                     </div>
                 </div>
+
+                <!-- Worker Selection -->
+                <div id="harvest-worker-select"></div>
             </div>
             <div class="modal__footer">
                 <button class="btn btn--secondary" onclick="closeHarvestModal()">Hủy</button>
                 <button class="btn btn--success" id="harvest-submit-btn" onclick="submitHarvest()" disabled>
-                    <span class="material-symbols-outlined icon-sm">check_circle</span>
-                    Xác nhận bán
+                    <span class="material-symbols-outlined icon-sm">assignment_ind</span>
+                    <span id="harvest-submit-label">Giao việc thu hoạch</span>
                 </button>
             </div>
         </div>
@@ -801,152 +886,6 @@
         </div>
     </div>
 
-    <div class="modal" id="inventory-modal">
-        <div class="modal-content inventory-modal-content">
-            <div class="modal-header">
-                <h3><span class="material-symbols-outlined" style="font-size:20px;">warehouse</span> Kho vật tư</h3>
-                <span class="close-modal" onclick="closeInventoryModal()">&times;</span>
-            </div>
-            <div class="modal-body">
-                <!-- Summary Cards -->
-                <div class="inventory-summary" id="inventory-summary"></div>
-
-                <!-- Search & View Toggle -->
-                <div class="inventory-actions" style="margin-bottom: 16px;">
-                    <div style="flex: 1; position: relative;">
-                        <span class="material-symbols-outlined" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#9ca3af; font-size:20px;">search</span>
-                        <input type="text" id="inventory-search" placeholder="Tìm kiếm vật tư..." class="form-input" style="padding-left: 38px;">
-                    </div>
-                    <div style="display:flex; gap:4px; margin-left:8px;">
-                        <button class="inv-view-btn active" data-view="grid" onclick="toggleInventoryView('grid')" title="Dạng lưới" style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:8px; cursor:pointer; color:#059669;">
-                            <span class="material-symbols-outlined" style="font-size:20px;">grid_view</span>
-                        </button>
-                        <button class="inv-view-btn" data-view="table" onclick="toggleInventoryView('table')" title="Dạng bảng" style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:8px; cursor:pointer; color:#6b7280;">
-                            <span class="material-symbols-outlined" style="font-size:20px;">table_rows</span>
-                        </button>
-                    </div>
-                    <button class="btn btn--primary" onclick="showAddInventoryForm()" style="margin-left:8px;">
-                        <span class="material-symbols-outlined">add</span> Nhập kho
-                    </button>
-                </div>
-
-                <!-- Category Tabs -->
-                <div class="inv-category-tabs" id="inventory-category-tabs"></div>
-
-                <!-- Grid View -->
-                <div class="inventory-grid-container">
-                    <div class="inventory-grid" id="inventory-grid-view"></div>
-                </div>
-
-                <!-- Table View (hidden by default) -->
-                <div class="inventory-list-container" style="display:none;">
-                    <table class="inventory-table">
-                        <thead>
-                            <tr>
-                                <th>Tên vật tư</th>
-                                <th>Loại</th>
-                                <th>Tồn kho</th>
-                                <th>Đơn giá</th>
-                                <th>Trạng thái</th>
-                                <th>Giá trị</th>
-                            </tr>
-                        </thead>
-                        <tbody id="inventory-table-body"></tbody>
-                    </table>
-                </div>
-
-                <!-- Add/Edit Form Overlay -->
-                <div id="inventory-form-overlay" class="inventory-overlay" style="display: none;">
-                    <div class="inventory-form-card">
-                        <h4 id="inv-form-title"><span class="material-symbols-outlined">add_shopping_cart</span> Nhập kho vật tư mới</h4>
-                        <div class="inv-tabs" style="display: flex; gap: 8px; margin-bottom: 16px;">
-                            <button type="button" id="tab-catalog" class="inv-tab active" onclick="switchInventoryTab('catalog')">
-                                <span class="material-symbols-outlined">storefront</span> Chọn từ Catalog
-                            </button>
-                            <button type="button" id="tab-custom" class="inv-tab" onclick="switchInventoryTab('custom')">
-                                <span class="material-symbols-outlined">edit_note</span> Tự nhập
-                            </button>
-                        </div>
-                        <form id="inventory-form" onsubmit="handleInventorySubmit(event)">
-                            <input type="hidden" id="inv-id">
-                            <div id="catalog-mode">
-                                <div class="form-group">
-                                    <label>Loại vật tư</label>
-                                    <select id="inv-catalog-type" class="form-select" onchange="loadCatalogItems()">
-                                        <option value="FERTILIZER">🌱 Phân bón</option>
-                                        <option value="PESTICIDE">🦟 Thuốc BVTV</option>
-                                        <option value="SEED">🌾 Hạt giống</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Chọn sản phẩm</label>
-                                    <select id="inv-catalog-product" class="form-select" onchange="fillProductInfo()">
-                                        <option value="">-- Đang tải --</option>
-                                    </select>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>Số lượng nhập</label>
-                                        <input type="number" id="inv-catalog-quantity" required class="form-input" min="1" step="0.1" value="1">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Đơn giá (VNĐ)</label>
-                                        <input type="number" id="inv-catalog-cost" required class="form-input" min="0" readonly>
-                                    </div>
-                                </div>
-                                <div class="inv-product-preview" id="inv-product-preview" style="display: none;">
-                                    <div class="preview-name" id="preview-name"></div>
-                                    <div class="preview-desc" id="preview-desc"></div>
-                                </div>
-                            </div>
-                            <div id="custom-mode" style="display: none;">
-                                <div class="form-group">
-                                    <label>Tên vật tư</label>
-                                    <input type="text" id="inv-name" class="form-input" placeholder="VD: Thức ăn hỗn hợp">
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>Loại</label>
-                                        <select id="inv-type" class="form-select">
-                                            <option value="FERTILIZER">Phân bón</option>
-                                            <option value="PESTICIDE">Thuốc BVTV</option>
-                                            <option value="SEED">Hạt giống</option>
-                                            <option value="OTHER">Khác</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Đơn vị tính</label>
-                                        <input type="text" id="inv-unit" class="form-input" placeholder="kg, chai, bao">
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>Số lượng</label>
-                                        <input type="number" id="inv-quantity" class="form-input" min="0" step="0.1">
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Đơn giá/đơn vị</label>
-                                        <input type="number" id="inv-cost" class="form-input" min="0">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label>Ngưỡng cảnh báo (Min)</label>
-                                <input type="number" id="inv-threshold" class="form-input" value="10">
-                            </div>
-                            <div class="form-actions">
-                                <button type="button" class="btn btn--secondary" onclick="hideAddInventoryForm()">Hủy</button>
-                                <button type="submit" class="btn btn--primary">
-                                    <span class="material-symbols-outlined">add_shopping_cart</span> Nhập kho
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <!-- Feature Panel Overlay Backdrop -->
     <div class="feature-panel-overlay" id="feature-overlay" onclick="closeAllFeaturePanels()"></div>
 
@@ -1062,7 +1001,6 @@
     <script src="../js/ai_analysis.js"></script>
     <script src="../js/pen-simulation.js"></script>
     <script src="../js/features.js"></script>
-    <script src="../js/inventory.js"></script>
     <script src="../js/livestock.js"></script>
     <script src="../js/main.js"></script>
 
@@ -1278,12 +1216,14 @@
                     <label class="form-label">Ghi chú</label>
                     <textarea id="vaccine-record-notes" class="form-input" rows="2" placeholder="VD: Tiêm mũi 1, liều 2ml..."></textarea>
                 </div>
+                <!-- Worker Selection -->
+                <div id="vaccine-worker-select"></div>
             </div>
             <div class="modal__footer">
                 <button class="btn btn--secondary" onclick="closeAddVaccineRecord()">Hủy</button>
                 <button class="btn btn--primary" onclick="submitVaccineRecord()">
-                    <span class="material-symbols-outlined icon-sm">check</span>
-                    Lưu
+                    <span class="material-symbols-outlined icon-sm">assignment</span>
+                    Giao việc tiêm phòng
                 </button>
             </div>
         </div>
@@ -1332,10 +1272,6 @@
                             <input type="number" id="sell-bp-price" class="form-input" min="0" step="100" placeholder="0">
                             <span class="input-suffix" id="sell-bp-price-unit">₫/quả</span>
                         </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Người mua / Đối tác</label>
-                        <input type="text" id="sell-bp-buyer" class="form-input" placeholder="VD: Chợ đầu mối, Công ty ABC...">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Ghi chú</label>

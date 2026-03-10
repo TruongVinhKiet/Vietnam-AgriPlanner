@@ -4,6 +4,7 @@ let map;
 let drawnItems;
 var currentFieldId = null; // Use var to allow sharing with pest-analysis.js
 var currentFieldData = null;
+let allFieldsData = []; // Store all field data for grid view
 let currentLocation = { lat: 10.0342, lng: 105.7805, name: "Cần Thơ, Việt Nam" }; // Default: Can Tho
 let weatherInterval;
 let selectedFertilizer = null;
@@ -266,6 +267,7 @@ async function loadFields() {
             if (fieldsResponse.ok) {
                 const fields = await fieldsResponse.json();
                 console.log('Loaded fields:', fields.length);
+                allFieldsData = fields; // Store for grid view
 
                 fields.forEach(field => {
                     const coords = JSON.parse(field.boundaryCoordinates);
@@ -542,6 +544,124 @@ async function openFieldLossAnalytics() {
         console.error('Error loading field loss stats:', err);
         alert('Không thể tải thống kê hao hụt: ' + err.message);
     }
+}
+
+// ==================== VIEW TOGGLE ====================
+
+let currentCultivationView = localStorage.getItem('cultivationView') || 'map';
+
+function toggleCultivationView(mode) {
+    currentCultivationView = mode;
+    localStorage.setItem('cultivationView', mode);
+
+    const mapEl = document.getElementById('leaflet-map');
+    const gridEl = document.getElementById('field-grid-container');
+    const toggleBtns = document.querySelectorAll('#cultivation-view-toggle .view-toggle-btn');
+
+    // Map overlays to hide/show
+    const overlays = document.querySelectorAll('#map-container > .drawing-indicator, #map-container > .location-search, #map-container > .map-controls, #map-container > .map-layers, #map-container > .weather-widget, #map-container > .ndvi-legend, #map-container > .planning-legend, #map-container > .planning-sync-bar, #map-container > .soil-legend');
+
+    toggleBtns.forEach(btn => {
+        btn.classList.toggle('view-toggle-btn--active', btn.dataset.view === mode);
+    });
+
+    if (mode === 'grid') {
+        // Hide map, show grid
+        if (mapEl) mapEl.style.display = 'none';
+        overlays.forEach(el => el.style.visibility = 'hidden');
+
+        gridEl.style.display = '';
+        gridEl.offsetHeight;
+        gridEl.classList.remove('view-hidden');
+
+        renderFieldGridView();
+    } else {
+        // Show map, hide grid
+        gridEl.classList.add('view-hidden');
+        setTimeout(() => { gridEl.style.display = 'none'; }, 300);
+
+        if (mapEl) {
+            mapEl.style.display = '';
+            // Invalidate map size after showing
+            setTimeout(() => { if (map) map.invalidateSize(); }, 50);
+        }
+        overlays.forEach(el => el.style.visibility = '');
+    }
+}
+
+function renderFieldGridView() {
+    const grid = document.getElementById('field-grid-inner');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+
+    allFieldsData.forEach((field, idx) => {
+        const card = document.createElement('div');
+        const status = String(field.status || '').toUpperCase();
+        const isSelected = currentFieldId && currentFieldId == field.id;
+        const hasCrop = field.currentCrop && field.currentCrop.name;
+
+        let cls = 'field-grid-card';
+        if (status === 'ACTIVE') cls += ' field-grid-card--active';
+        else if (status === 'FALLOW') cls += ' field-grid-card--fallow';
+        else cls += ' field-grid-card--empty';
+        if (isSelected) cls += ' field-grid-card--selected';
+
+        card.className = cls;
+        card.setAttribute('data-field-id', field.id);
+        card.style.animationDelay = `${idx * 40}ms`;
+
+        const areaSqm = Number(field.areaSqm) || 0;
+        const areaText = areaSqm < 10000
+            ? `${areaSqm.toFixed(0)} m²`
+            : `${(areaSqm / 10000).toFixed(2)} ha`;
+
+        let html = `<span class="field-grid-card__code">${field.name}</span>`;
+        html += `<span class="field-grid-card__area">${areaText}</span>`;
+
+        if (hasCrop) {
+            const crop = field.currentCrop;
+            const imageUrl = crop.imageUrl;
+            const cropIcon = getCropIcon(crop);
+
+            let bodyContent = '';
+            if (imageUrl) {
+                bodyContent = `<img class="field-grid-card__img" src="${imageUrl}" alt="${crop.name}" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+                    <span class="material-symbols-outlined field-grid-card__icon" style="display:none">${cropIcon}</span>`;
+            } else {
+                bodyContent = `<span class="material-symbols-outlined field-grid-card__icon">${cropIcon}</span>`;
+            }
+            bodyContent += `<span class="field-grid-card__label">${crop.name}</span>`;
+
+            html += `<div class="field-grid-card__body">${bodyContent}</div>`;
+        } else {
+            html += `<div class="field-grid-card__body">
+                <span class="material-symbols-outlined field-grid-card__icon" style="color:#cbd5e1">grass</span>
+                <span class="field-grid-card__empty-text">Chưa trồng</span>
+            </div>`;
+        }
+
+        card.innerHTML = html;
+
+        card.addEventListener('click', () => {
+            grid.querySelectorAll('.field-grid-card--selected').forEach(c => c.classList.remove('field-grid-card--selected'));
+            card.classList.add('field-grid-card--selected');
+            handleFieldClick(field);
+        });
+
+        grid.appendChild(card);
+    });
+}
+
+function getCropIcon(crop) {
+    if (!crop) return 'grass';
+    const name = (crop.name || '').toLowerCase();
+    if (name.includes('lúa') || name.includes('rice')) return 'grain';
+    if (name.includes('rau') || name.includes('vegetable')) return 'eco';
+    if (name.includes('trái') || name.includes('fruit') || name.includes('cây ăn')) return 'nutrition';
+    if (name.includes('dừa') || name.includes('coconut')) return 'park';
+    if (name.includes('hoa') || name.includes('flower')) return 'local_florist';
+    return 'grass';
 }
 
 function handleFieldClick(field) {
@@ -1252,4 +1372,9 @@ document.addEventListener('DOMContentLoaded', function () {
     initMap();
     fetchWeather();
     fetchForecast(5);
+    // Restore saved view mode (map or grid)
+    if (currentCultivationView === 'grid') {
+        // Delay slightly to let map initialize first
+        setTimeout(() => toggleCultivationView('grid'), 500);
+    }
 });

@@ -28,4 +28,7 @@ public class TaskRequest {
 
     private BigDecimal salary;
     private LocalDateTime dueDate;
+
+    // Workflow data for task-based workflow actions
+    private String workflowData;
 }

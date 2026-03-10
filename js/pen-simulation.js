@@ -1347,21 +1347,73 @@ class ByproductItems {
     /**
      * Draw byproduct items on the pen canvas
      * @param {CanvasRenderingContext2D} ctx
-     * @param {number} w - canvas width
-     * @param {number} h - canvas height
+     * @param {number} w
+     * @param {number} h
      * @param {string} byproductType - EGGS, MILK, HONEY, SILK
-     * @param {string} animalName - animal name for context
-     * @param {string} farmingType - BARN, FREE_RANGE, etc.
+     * @param {string} animalName
+     * @param {string} farmingType
      * @param {number} time - animation time
+     * @param {number} quantity - today's expected quantity (0 = not producing)
+     * @param {boolean} collected - whether already collected today
      */
-    static draw(ctx, w, h, byproductType, animalName, farmingType, time) {
+    static draw(ctx, w, h, byproductType, animalName, farmingType, time, quantity, collected) {
         if (!byproductType || byproductType === 'NONE') return;
+        if (!quantity || quantity <= 0) return; // Not yet producing
+
+        if (collected) {
+            ByproductItems._drawCollectedBadge(ctx, w, h, byproductType);
+            return;
+        }
+
         switch (byproductType) {
             case 'EGGS': ByproductItems.drawEggs(ctx, w, h, animalName, farmingType, time); break;
             case 'MILK': ByproductItems.drawMilk(ctx, w, h, animalName, farmingType, time); break;
             case 'HONEY': ByproductItems.drawHoney(ctx, w, h, animalName, farmingType, time); break;
             case 'SILK': ByproductItems.drawSilk(ctx, w, h, animalName, farmingType, time); break;
         }
+        ByproductItems._drawQuantityBadge(ctx, w, h, byproductType, quantity);
+    }
+
+    static _drawQuantityBadge(ctx, w, h, byproductType, quantity) {
+        const unitMap = { 'EGGS': 'quả', 'MILK': 'lít', 'HONEY': 'kg', 'SILK': 'kg' };
+        const iconMap = { 'EGGS': '🥚', 'MILK': '🥛', 'HONEY': '🍯', 'SILK': '🧵' };
+        const label = `${iconMap[byproductType] || '📦'} ×${quantity} ${unitMap[byproductType] || ''}`;
+        ctx.font = '600 11px Manrope, sans-serif';
+        const tw = ctx.measureText(label).width;
+        const pw = tw + 18, ph = 22;
+        const px = w - pw - 8, py = 8;
+        // Pill background
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.85)';
+        ctx.beginPath();
+        ctx.roundRect(px, py, pw, ph, 11);
+        ctx.fill();
+        // Text
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, px + 9, py + ph / 2);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+    }
+
+    static _drawCollectedBadge(ctx, w, h, byproductType) {
+        const iconMap = { 'EGGS': '🥚', 'MILK': '🥛', 'HONEY': '🍯', 'SILK': '🧵' };
+        const label = `${iconMap[byproductType] || '✓'} Đã thu hôm nay`;
+        ctx.font = '600 11px Manrope, sans-serif';
+        const tw = ctx.measureText(label).width;
+        const pw = tw + 18, ph = 22;
+        const px = w - pw - 8, py = 8;
+        // Pill background (muted)
+        ctx.fillStyle = 'rgba(107, 114, 128, 0.75)';
+        ctx.beginPath();
+        ctx.roundRect(px, py, pw, ph, 11);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, px + 9, py + ph / 2);
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
     }
 
     static _drawSingleEgg(ctx, x, y, size, color, shadowColor) {
@@ -2382,6 +2434,8 @@ class PenSimulation {
         if (!this.canvas || !this.canvas.parentElement) return;
         const container = this.canvas.parentElement;
         const rect = container.getBoundingClientRect();
+        // Skip resize when container is hidden (dimensions 0) to preserve animal positions
+        if (rect.width === 0 || rect.height === 0) return;
         const dpr = window.devicePixelRatio || 1;
         this.canvas.width = rect.width * dpr;
         this.canvas.height = rect.height * dpr;
@@ -2409,6 +2463,28 @@ class PenSimulation {
         this.cleaningProgress = -1;
         this.animalName = pen?.animalDefinition?.name || '';
         this.byproductType = pen?.animalDefinition?.byproductType || 'NONE';
+
+        // Daily byproduct quantity & collection state
+        this.pendingByproductQty = 0;
+        this.byproductCollected = false;
+        if (this.byproductType !== 'NONE' && pen.animalCount > 0) {
+            const dailyAmt = parseFloat(pen?.animalDefinition?.byproductDailyAmount) || 0;
+            if (dailyAmt > 0) {
+                const todayKey = new Date().toISOString().slice(0, 10);
+                const qtyKey = `bp_qty_${pen.id}_${todayKey}`;
+                const collKey = `bp_collected_${pen.id}_${todayKey}`;
+                let qty = parseInt(localStorage.getItem(qtyKey));
+                if (!qty || isNaN(qty) || qty <= 0) {
+                    const [yr, mo, dy] = todayKey.split('-').map(Number);
+                    const seed = (pen.id * 2053 + yr * 366 + mo * 31 + dy) & 0x7FFF;
+                    const rand = (Math.sin(seed * 9301 + 49297) % 1 + 1) / 2;
+                    qty = Math.max(1, Math.round(dailyAmt * pen.animalCount * (0.6 + rand * 0.8)));
+                    localStorage.setItem(qtyKey, qty.toString());
+                }
+                this.pendingByproductQty = qty;
+                this.byproductCollected = localStorage.getItem(collKey) === 'true';
+            }
+        }
 
         if (!pen || !pen.animalCount || pen.animalCount <= 0) {
             this.emptyMessage = pen ? 'Chuồng trống — Chọn vật nuôi để bắt đầu' : 'Chọn một chuồng để xem mô phỏng';
@@ -2664,6 +2740,15 @@ class PenSimulation {
 
     toggleSound() { return this.ambientAudio.toggle(); }
 
+    /** Mark today's byproduct as collected for the given pen */
+    markCollected(penId) {
+        const todayKey = new Date().toISOString().slice(0, 10);
+        localStorage.setItem(`bp_collected_${penId}_${todayKey}`, 'true');
+        if (this.pen && this.pen.id === penId) {
+            this.byproductCollected = true;
+        }
+    }
+
     clear() {
         this.pen = null; this.animals = [];
         this.selectedAnimal = null; this.hoveredAnimal = null;
@@ -2768,7 +2853,7 @@ class PenSimulation {
         this.foodParticles.forEach(f => f.draw(ctx));
 
         // Byproduct items (eggs, milk, honey, silk — drawn under animals)
-        ByproductItems.draw(ctx, w, h, this.byproductType, this.animalName, this.pen.farmingType, Date.now() * 0.001);
+        ByproductItems.draw(ctx, w, h, this.byproductType, this.animalName, this.pen.farmingType, Date.now() * 0.001, this.pendingByproductQty, this.byproductCollected);
 
         // Animals
         this.animals.forEach(a => { if (!a.selected) a.draw(ctx); });

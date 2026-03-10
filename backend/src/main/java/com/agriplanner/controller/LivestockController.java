@@ -34,6 +34,7 @@ public class LivestockController {
     private final AssetTransactionRepository assetTransactionRepository;
     private final VaccinationScheduleRepository vaccinationScheduleRepository;
     private final HealthRecordRepository healthRecordRepository;
+    private final ByproductLogRepository byproductLogRepository;
     private final ObjectMapper objectMapper;
 
     // ==================== ANIMAL DEFINITIONS ====================
@@ -544,6 +545,81 @@ public class LivestockController {
     }
 
     /**
+     * Record mortality/loss for a pen
+     */
+    @PostMapping("/pens/{penId}/mortality")
+    public ResponseEntity<?> recordMortality(@PathVariable long penId, @RequestBody Map<String, Object> payload) {
+        try {
+            Pen pen = penRepository.findById(penId).orElse(null);
+            if (pen == null) return ResponseEntity.notFound().build();
+
+            int quantity = Integer.parseInt(payload.get("quantity").toString());
+            String cause = (String) payload.getOrDefault("cause", "Không rõ");
+            String causeType = (String) payload.getOrDefault("causeType", "DEATH");
+            String eventDateStr = (String) payload.get("eventDate");
+            String notes = (String) payload.getOrDefault("notes", "");
+            String animalName = (String) payload.getOrDefault("animalName", "Vật nuôi");
+
+            LocalDate eventDate = eventDateStr != null ? LocalDate.parse(eventDateStr) : LocalDate.now();
+
+            // Reduce animal count
+            int newCount = Math.max(0, pen.getAnimalCount() - quantity);
+            pen.setAnimalCount(newCount);
+            penRepository.save(pen);
+
+            // Save health record
+            HealthRecord record = HealthRecord.builder()
+                    .penId(penId)
+                    .eventType(causeType)
+                    .name(animalName + " - " + cause)
+                    .eventDate(eventDate)
+                    .status("COMPLETED")
+                    .notes(quantity + " con - " + cause + (notes.isEmpty() ? "" : " - " + notes))
+                    .build();
+            healthRecordRepository.save(record);
+
+            // Record loss as asset transaction
+            double estimatedLoss = payload.get("estimatedLoss") != null
+                    ? Double.parseDouble(payload.get("estimatedLoss").toString()) : 0;
+            if (estimatedLoss > 0) {
+                Farm farm = farmRepository.findById(pen.getFarmId()).orElse(null);
+                if (farm != null) {
+                    AssetTransaction tx = new AssetTransaction();
+                    tx.setUserId(farm.getOwnerId());
+                    tx.setTransactionType("EXPENSE");
+                    tx.setCategory("LIVESTOCK_LOSS");
+                    tx.setAmount(BigDecimal.valueOf(estimatedLoss));
+                    tx.setDescription(quantity + " con " + animalName + " - " + cause);
+                    assetTransactionRepository.save(tx);
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Đã ghi nhận " + quantity + " con hao hụt",
+                    "newAnimalCount", newCount
+            ));
+        } catch (Exception e) {
+            log.error("Error recording mortality: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get mortality history for a pen
+     */
+    @GetMapping("/pens/{penId}/mortality-history")
+    public ResponseEntity<?> getMortalityHistory(@PathVariable long penId) {
+        try {
+            List<HealthRecord> records = healthRecordRepository
+                    .findByPenIdAndEventTypeInOrderByEventDateDesc(penId,
+                            List.of("DEATH", "DISEASE", "ACCIDENT", "CULL"));
+            return ResponseEntity.ok(records);
+        } catch (Exception e) {
+            return ResponseEntity.ok(List.of());
+        }
+    }
+
+    /**
      * Get harvest history for a pen
      */
     @GetMapping("/pens/{penId}/harvest-history")
@@ -565,6 +641,124 @@ public class LivestockController {
                             farm.getOwnerId(), "INCOME", "LIVESTOCK");
 
             return ResponseEntity.ok(transactions);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ==================== BYPRODUCT MANAGEMENT ====================
+
+    /**
+     * Get all byproduct logs for a pen
+     */
+    @GetMapping("/pens/{penId}/byproduct")
+    public ResponseEntity<?> getByproductLogs(@PathVariable Long penId) {
+        try {
+            Pen pen = penRepository.findById(penId).orElse(null);
+            if (pen == null) return ResponseEntity.notFound().build();
+            List<ByproductLog> logs = byproductLogRepository.findByPenIdOrderByRecordedDateAsc(penId);
+            return ResponseEntity.ok(logs);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get total byproduct quantity for a pen
+     */
+    @GetMapping("/pens/{penId}/byproduct/total")
+    public ResponseEntity<?> getByproductTotal(@PathVariable Long penId) {
+        try {
+            Pen pen = penRepository.findById(penId).orElse(null);
+            if (pen == null) return ResponseEntity.notFound().build();
+
+            BigDecimal total = byproductLogRepository.getTotalQuantityByPenId(penId);
+            // Get unit from most recent log, fallback to animal unit
+            List<ByproductLog> logs = byproductLogRepository.findByPenIdOrderByRecordedDateAsc(penId);
+            String unit = "";
+            if (!logs.isEmpty()) {
+                ByproductLog last = logs.get(logs.size() - 1);
+                unit = last.getUnit() != null ? last.getUnit() : "";
+            } else {
+                AnimalDefinition animalDef = pen.getAnimalDefinition();
+                unit = animalDef != null && animalDef.getUnit() != null ? animalDef.getUnit() : "";
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "total", total != null ? total : BigDecimal.ZERO,
+                    "unit", unit != null ? unit : ""));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Record a byproduct output
+     */
+    @PostMapping("/pens/{penId}/byproduct")
+    public ResponseEntity<?> recordByproduct(@PathVariable Long penId, @RequestBody Map<String, Object> body) {
+        try {
+            Pen pen = penRepository.findById(penId).orElse(null);
+            if (pen == null) return ResponseEntity.notFound().build();
+
+            String productType = (String) body.getOrDefault("productType", "NONE");
+            BigDecimal quantity = new BigDecimal(String.valueOf(body.get("quantity")));
+            String unit = (String) body.getOrDefault("unit", "");
+            String dateStr = (String) body.get("date");
+            String notes = (String) body.getOrDefault("notes", "");
+
+            LocalDate recordedDate = dateStr != null ? LocalDate.parse(dateStr) : LocalDate.now();
+
+            ByproductLog log = ByproductLog.builder()
+                    .penId(penId)
+                    .productType(productType)
+                    .quantity(quantity)
+                    .unit(unit)
+                    .recordedDate(recordedDate)
+                    .notes(notes)
+                    .build();
+
+            byproductLogRepository.save(log);
+            return ResponseEntity.ok(log);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    /**
+     * Sell byproduct — records as INCOME transaction
+     */
+    @PostMapping("/pens/{penId}/sell-byproduct")
+    public ResponseEntity<?> sellByproduct(@PathVariable Long penId, @RequestBody Map<String, Object> body) {
+        try {
+            Pen pen = penRepository.findById(penId).orElse(null);
+            if (pen == null) return ResponseEntity.notFound().build();
+
+            Farm farm = farmRepository.findById(pen.getFarmId()).orElse(null);
+            if (farm == null) return ResponseEntity.notFound().build();
+
+            BigDecimal quantity = new BigDecimal(String.valueOf(body.get("quantity")));
+            BigDecimal pricePerUnit = new BigDecimal(String.valueOf(body.get("pricePerUnit")));
+            String buyer = (String) body.getOrDefault("buyer", "");
+            String notes = (String) body.getOrDefault("notes", "");
+            String productName = (String) body.getOrDefault("productName", "Sản phẩm phụ");
+
+            BigDecimal totalAmount = quantity.multiply(pricePerUnit);
+
+            AssetTransaction tx = new AssetTransaction();
+            tx.setUserId(farm.getOwnerId());
+            tx.setTransactionType("INCOME");
+            tx.setCategory("LIVESTOCK");
+            tx.setAmount(totalAmount);
+            tx.setDescription("Bán " + productName + " — " + quantity + " × " + pricePerUnit + " VNĐ"
+                    + (buyer != null && !buyer.isEmpty() ? " cho " + buyer : "")
+                    + (notes != null && !notes.isEmpty() ? " (" + notes + ")" : ""));
+
+            assetTransactionRepository.save(tx);
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Bán thành công",
+                    "totalRevenue", totalAmount));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

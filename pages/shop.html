@@ -47,6 +47,8 @@
                         class="material-symbols-outlined">egg</span><span>Chăn nuôi</span></a>
                 <a href="labor.html" class="sidebar__nav-link"><span
                         class="material-symbols-outlined">engineering</span><span>Nhân công</span></a>
+                <a href="inventory.html" class="sidebar__nav-link"><span
+                        class="material-symbols-outlined">warehouse</span><span>Kho</span></a>
                 <a href="shop.html" class="sidebar__nav-link active"><span
                         class="material-symbols-outlined">store</span><span>Cửa hàng</span></a>
                 <a href="cooperative.html" class="sidebar__nav-link"><span
@@ -87,10 +89,6 @@
                         <span class="material-symbols-outlined">shopping_cart</span>
                         <span class="header__notification-badge" id="cart-count">0</span>
                     </button>
-                    <button class="header__notification" onclick="toggleInventoryPanel()">
-                        <span class="material-symbols-outlined">inventory_2</span>
-                        <span class="header__notification-badge" id="inventory-count">0</span>
-                    </button>
                     <div class="balance-display" id="balance-display">
                         <span class="material-symbols-outlined">account_balance_wallet</span>
                         <span id="user-balance">0 VNĐ</span>
@@ -107,10 +105,6 @@
                             <p class="page-header__subtitle">Mua sắm hạt giống, phân bón, thức ăn chăn nuôi và dụng cụ
                             </p>
                         </div>
-                        <button class="btn btn--outline" onclick="toggleInventoryPanel()">
-                            <span class="material-symbols-outlined icon-sm">inventory_2</span>
-                            Kho của tôi
-                        </button>
                     </div>
 
                     <!-- Shop Layout -->
@@ -186,30 +180,6 @@
                             </div>
                         </div>
 
-                        <!-- Inventory Sidebar (collapsible) -->
-                        <aside class="inventory-panel card" id="inventory-panel">
-                            <div class="inventory-header">
-                                <h3><span class="material-symbols-outlined">inventory_2</span> Kho của tôi</h3>
-                                <button class="btn-icon" onclick="toggleInventoryPanel()">
-                                    <span class="material-symbols-outlined">close</span>
-                                </button>
-                            </div>
-
-                            <div class="inventory-summary">
-                                <div class="inventory-stat">
-                                    <span class="inventory-stat__value" id="inv-total-items">0</span>
-                                    <span class="inventory-stat__label">Mặt hàng</span>
-                                </div>
-                                <div class="inventory-stat">
-                                    <span class="inventory-stat__value" id="inv-total-value">0đ</span>
-                                    <span class="inventory-stat__label">Tổng giá trị</span>
-                                </div>
-                            </div>
-
-                            <div class="inventory-categories" id="inventory-categories">
-                                <!-- Inventory items by category -->
-                            </div>
-                        </aside>
                     </div>
                 </div>
             </main>

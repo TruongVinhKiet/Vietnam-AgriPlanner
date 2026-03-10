@@ -69,6 +69,7 @@ function handlePurchaseIntent() {
     const searchParam = urlParams.get('search');
     const productIdParam = urlParams.get('productId');
     const quantityParam = urlParams.get('quantity');
+    const feedDefIdParam = urlParams.get('feedDefinitionId');
     
     // Check localStorage for purchase intent
     const intentStr = localStorage.getItem('agriplanner_purchase_intent');
@@ -92,6 +93,7 @@ function handlePurchaseIntent() {
     const search = searchParam || (intent?.keyword);
     const productId = productIdParam || (intent?.productId);
     const quantity = parseInt(quantityParam || intent?.quantity || 1);
+    const feedDefinitionId = feedDefIdParam || (intent?.feedDefinitionId);
     
     if (category && category !== 'ALL') {
         setTimeout(() => {
@@ -109,27 +111,53 @@ function handlePurchaseIntent() {
         }, 200);
     }
     
-    // If specific product, open purchase modal
+    // Auto-open purchase modal for the right product
     if (productId) {
+        // Direct product ID match
         setTimeout(() => {
             const product = allProducts.find(p => p.id == productId);
             if (product) {
-                openPurchaseModal(product, quantity);
+                openPurchaseModal(product.id, quantity);
             }
-        }, 300);
+        }, 500);
+    } else if (feedDefinitionId) {
+        // Match by feedDefinitionId (from livestock redirect)
+        setTimeout(() => {
+            const product = allProducts.find(p => p.feedDefinitionId == feedDefinitionId);
+            if (product) {
+                openPurchaseModal(product.id, quantity);
+            }
+        }, 500);
+    } else if ((intent?.fromLivestock || intent?.fromCultivation) && search) {
+        // Match by keyword/name (fallback for cultivation or livestock without feedDefId)
+        setTimeout(() => {
+            const product = allProducts.find(p =>
+                p.name.toLowerCase() === search.toLowerCase()
+            ) || allProducts.find(p =>
+                p.name.toLowerCase().includes(search.toLowerCase())
+            );
+            if (product) {
+                openPurchaseModal(product.id, quantity);
+            }
+        }, 500);
     }
     
-    // Show advisor notification
+    // Show notification based on source
     if (intent?.fromAdvisor) {
         setTimeout(() => {
             showToast('Cố vấn thông minh', `Đã lọc sản phẩm theo gợi ý: ${search || category}`, 'info');
-        }, 500);
-        // Clear intent after using
+        }, 600);
+        localStorage.removeItem('agriplanner_purchase_intent');
+    } else if (intent?.fromLivestock || intent?.fromCultivation) {
+        setTimeout(() => {
+            const source = intent.fromLivestock ? 'chăn nuôi' : 'trồng trọt';
+            showToast('Mua vật tư', `Đã tìm sản phẩm từ trang ${source}`, 'info');
+        }, 600);
         localStorage.removeItem('agriplanner_purchase_intent');
     }
     
     // Clean up URL
-    if (categoryParam || searchParam || productIdParam) {
+    if (categoryParam || searchParam || productIdParam || feedDefIdParam) {
         const cleanUrl = window.location.pathname;
         window.history.replaceState({}, '', cleanUrl);
     }
@@ -376,57 +404,14 @@ function renderFeaturedItems(items) {
 }
 
 function renderInventory(data) {
-    const container = document.getElementById('inventory-categories');
-    const byCategory = data.byCategory || {};
-
-    // Update summary
-    document.getElementById('inv-total-items').textContent = data.totalItems || 0;
-    document.getElementById('inv-total-value').textContent = formatCurrency(data.totalValue || 0);
-
-    if (Object.keys(byCategory).length === 0) {
-        container.innerHTML = `
-            <div class="inventory-empty">
-                <span class="material-symbols-outlined">inventory_2</span>
-                <p>Kho hàng trống</p>
-                <small>Mua sắm để thêm vật phẩm vào kho</small>
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = Object.entries(byCategory).map(([category, items]) => `
-        <div class="inventory-category">
-            <div class="inventory-category__header">
-                <span class="material-symbols-outlined">${CATEGORY_ICONS[category] || 'inventory_2'}</span>
-                ${CATEGORY_LABELS[category] || category}
-                <span style="margin-left: auto; font-weight: normal; color: var(--color-text-muted);">(${items.length})</span>
-            </div>
-            ${items.map(item => createInventoryItem(item)).join('')}
-        </div>
-    `).join('');
+    // Inventory panel removed - now managed on dedicated inventory page
 }
 
 function createInventoryItem(item) {
-    const imageHtml = item.imageUrl
-        ? `<img src="${item.imageUrl}" alt="${item.effectiveName}">`
-        : `<span class="material-symbols-outlined">${item.iconName || 'inventory_2'}</span>`;
-
-    return `
-        <div class="inventory-item">
-            <div class="inventory-item__icon">${imageHtml}</div>
-            <div class="inventory-item__info">
-                <div class="inventory-item__name">${item.effectiveName}</div>
-                <div class="inventory-item__qty">${formatNumber(item.quantity)} ${item.effectiveUnit}</div>
-            </div>
-            <div class="inventory-item__value">${formatCurrency(item.totalValue)}</div>
-        </div>
-    `;
+    return '';
 }
 
 function updateInventoryCount(count) {
-    const badge = document.getElementById('inventory-count');
-    badge.textContent = count;
-    badge.style.display = count > 0 ? 'flex' : 'none';
 }
 
 // ==================== FILTERING & SORTING ====================
@@ -498,7 +483,7 @@ function sortProducts(sortBy) {
 
 // ==================== PURCHASE MODAL ====================
 
-function openPurchaseModal(productId) {
+function openPurchaseModal(productId, presetQuantity) {
     selectedProduct = allProducts.find(p => p.id === productId);
     if (!selectedProduct) return;
 
@@ -518,8 +503,8 @@ function openPurchaseModal(productId) {
     document.getElementById('purchase-item-price').textContent = formatCurrency(selectedProduct.price);
     document.getElementById('purchase-item-unit').textContent = '/' + selectedProduct.unit;
 
-    // Reset quantity
-    document.getElementById('purchase-quantity').value = 1;
+    // Set quantity (use preset from redirect if available, otherwise default to 1)
+    document.getElementById('purchase-quantity').value = presetQuantity || 1;
 
     // Check existing inventory
     checkExistingStock(productId);
@@ -673,7 +658,25 @@ async function confirmPurchase() {
             closePurchaseModal();
 
             // Animate balance change
-            gsap.from('.balance-display', { duration: 0.3, scale: 1.1, ease: 'elastic.out' });
+            if (typeof gsap !== 'undefined') {
+                gsap.from('.balance-display', { duration: 0.3, scale: 1.1, ease: 'elastic.out' });
+            }
+
+            // Auto-redirect back to livestock/cultivation if came from there
+            const feedingReturn = localStorage.getItem('agriplanner_feeding_return');
+            if (feedingReturn) {
+                try {
+                    const ctx = JSON.parse(feedingReturn);
+                    if (ctx.timestamp && Date.now() - ctx.timestamp < 10 * 60 * 1000) {
+                        showToast('Quay lại', 'Đang quay lại trang chăn nuôi...', 'info');
+                        setTimeout(() => {
+                            window.location.href = 'livestock.html?autoFeed=1&penId=' + ctx.penId;
+                        }, 1500);
+                        return;
+                    }
+                } catch(e) {}
+                localStorage.removeItem('agriplanner_feeding_return');
+            }
         } else {
             showToast('Lỗi', result.error || 'Không thể mua hàng', 'error');
         }
@@ -686,31 +689,7 @@ async function confirmPurchase() {
     }
 }
 
-// ==================== INVENTORY PANEL ====================
-
-function toggleInventoryPanel() {
-    const panel = document.getElementById('inventory-panel');
-    const isActive = panel.classList.contains('active');
-
-    if (isActive) {
-        gsap.to(panel, {
-            duration: 0.3,
-            x: '100%',
-            ease: 'power2.in',
-            onComplete: () => panel.classList.remove('active')
-        });
-    } else {
-        panel.classList.add('active');
-        gsap.fromTo(panel,
-            { x: '100%' },
-            { duration: 0.3, x: 0, ease: 'power2.out' }
-        );
-        // Reload inventory when opening
-        loadUserInventory();
-    }
-}
-
-// ==================== UTILITIES ====================
+// ==================== UTILITIES ======================================
 
 function formatCurrency(amount) {
     if (amount === null || amount === undefined) return '0 VNĐ';
@@ -1241,7 +1220,6 @@ window.openPurchaseModal = openPurchaseModal;
 window.closePurchaseModal = closePurchaseModal;
 window.confirmPurchase = confirmPurchase;
 window.adjustQuantity = adjustQuantity;
-window.toggleInventoryPanel = toggleInventoryPanel;
 window.toggleCartPanel = toggleCartPanel;
 window.addToCart = addToCart;
 window.addToCartFromModal = addToCartFromModal;

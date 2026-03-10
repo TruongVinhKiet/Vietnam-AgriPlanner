@@ -11,9 +11,9 @@
     z-index: 9998;
 }
 
-/* Special positioning for cultivation page (leaf tool on top) */
+/* Cultivation page - same positioning as other pages */
 body[data-page="cultivation"] .smart-advisor-container {
-    bottom: calc(var(--spacing-6) + 140px);
+    bottom: calc(var(--spacing-6) + 70px);
 }
 
 .smart-advisor-toggle {
@@ -508,7 +508,7 @@ body[data-page="cultivation"] .smart-advisor-container {
     }
 
     body[data-page="cultivation"] .smart-advisor-container {
-        bottom: calc(var(--spacing-4) + 130px);
+        bottom: calc(var(--spacing-4) + 60px);
     }
 
     .smart-advisor-toggle {

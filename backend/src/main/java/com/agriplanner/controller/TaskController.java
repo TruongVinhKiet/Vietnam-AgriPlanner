@@ -107,6 +107,7 @@ public class TaskController {
             task.setQuantityRequired(request.getQuantityRequired());
             task.setSalary(request.getSalary());
             task.setDueDate(request.getDueDate());
+            task.setWorkflowData(request.getWorkflowData());
 
             Task savedTask = taskService.assignTask(task);
             return ResponseEntity.ok(savedTask);
@@ -138,6 +139,16 @@ public class TaskController {
             }
 
             return ResponseEntity.ok().body(Map.of("message", "Task completed successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/{id}/approve")
+    public ResponseEntity<?> approveTask(@PathVariable Long id) {
+        try {
+            Map<String, Object> result = taskService.approveTask(id);
+            return ResponseEntity.ok(result);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }

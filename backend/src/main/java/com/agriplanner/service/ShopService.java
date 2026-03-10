@@ -302,4 +302,85 @@ public class ShopService {
         LocalDateTime since = LocalDateTime.now().minusDays(days);
         return inventoryTransactionRepository.findRecentByUserId(userId, since);
     }
+
+    public List<InventoryTransaction> getTransactionsByInventoryId(Long userId, Long inventoryId) {
+        // Verify user owns this inventory item
+        Optional<UserInventory> invOpt = userInventoryRepository.findById(inventoryId);
+        if (invOpt.isEmpty() || !invOpt.get().getUserId().equals(userId)) {
+            return List.of();
+        }
+        return inventoryTransactionRepository.findByInventoryIdOrderByCreatedAtDesc(inventoryId);
+    }
+
+    // ==================== INVENTORY ITEM MANAGEMENT ====================
+
+    public Map<String, Object> getInventoryItemDetail(Long userId, Long inventoryId) {
+        Map<String, Object> detail = new HashMap<>();
+
+        Optional<UserInventory> invOpt = userInventoryRepository.findById(inventoryId);
+        if (invOpt.isEmpty() || !invOpt.get().getUserId().equals(userId)) {
+            throw new RuntimeException("Không tìm thấy vật tư trong kho");
+        }
+
+        UserInventory inv = invOpt.get();
+        detail.put("inventory", inv);
+        detail.put("transactions", inventoryTransactionRepository.findByInventoryIdOrderByCreatedAtDesc(inventoryId));
+
+        return detail;
+    }
+
+    @Transactional
+    public Map<String, Object> updateInventoryQuantity(Long userId, Long inventoryId, BigDecimal newQuantity) {
+        Map<String, Object> result = new HashMap<>();
+
+        Optional<UserInventory> invOpt = userInventoryRepository.findById(inventoryId);
+        if (invOpt.isEmpty() || !invOpt.get().getUserId().equals(userId)) {
+            throw new RuntimeException("Không tìm thấy vật tư trong kho");
+        }
+
+        UserInventory inv = invOpt.get();
+        BigDecimal oldQuantity = inv.getQuantity();
+        inv.setQuantity(newQuantity);
+        userInventoryRepository.save(inv);
+
+        // Log transaction
+        BigDecimal diff = newQuantity.subtract(oldQuantity);
+        String desc = diff.compareTo(BigDecimal.ZERO) >= 0
+                ? "Điều chỉnh tăng " + inv.getEffectiveName() + " +" + diff
+                : "Điều chỉnh giảm " + inv.getEffectiveName() + " " + diff;
+
+        InventoryTransaction tx = new InventoryTransaction();
+        tx.setUserId(userId);
+        tx.setInventoryId(inventoryId);
+        tx.setQuantity(diff);
+        tx.setTransactionType("ADJUSTMENT");
+        tx.setNotes(desc);
+        inventoryTransactionRepository.save(tx);
+
+        result.put("success", true);
+        result.put("message", "Đã cập nhật số lượng");
+        result.put("inventory", inv);
+        return result;
+    }
+
+    @Transactional
+    public void deleteInventoryItem(Long userId, Long inventoryId) {
+        Optional<UserInventory> invOpt = userInventoryRepository.findById(inventoryId);
+        if (invOpt.isEmpty() || !invOpt.get().getUserId().equals(userId)) {
+            throw new RuntimeException("Không tìm thấy vật tư trong kho");
+        }
+
+        UserInventory inv = invOpt.get();
+        
+        // Log deletion transaction before deleting
+        InventoryTransaction tx = new InventoryTransaction();
+        tx.setUserId(userId);
+        tx.setInventoryId(inventoryId);
+        tx.setQuantity(inv.getQuantity().negate());
+        tx.setTransactionType("DELETION");
+        tx.setNotes("Xóa " + inv.getEffectiveName() + " khỏi kho");
+        inventoryTransactionRepository.save(tx);
+
+        userInventoryRepository.delete(inv);
+    }
 }

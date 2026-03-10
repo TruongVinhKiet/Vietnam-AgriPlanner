@@ -18,18 +18,42 @@
 </head>
 
 <body class="view-web">
-    <!-- Layout Toggle Button -->
-    <button class="layout-toggle" id="layout-toggle" onclick="toggleLayout()" title="Chuyển đổi giao diện">
-        <span class="material-symbols-outlined" id="toggle-icon">smartphone</span>
-        <span class="toggle-label" id="toggle-label">Mobile</span>
-    </button>
-
     <div class="page-wrapper" id="page-wrapper">
         <!-- ============ WEB LAYOUT ============ -->
         <!-- Hero Banner -->
         <section class="hero-banner" id="hero-banner">
+            <!-- Floating Controls / Weather Widget integrated into Hero -->
+            <div class="floating-controls" id="floating-controls">
+                <!-- Weather Widget -->
+                <div class="weather-widget" id="weather-widget">
+                    <div class="weather-icon-wrapper" id="weather-icon-wrapper">
+                        <span class="material-symbols-outlined" id="weather-icon">routine</span>
+                    </div>
+                    <div class="weather-info">
+                        <div class="weather-header">Thời tiết <span class="weather-badge">Hiện tại</span></div>
+                        <div class="weather-temp-row">
+                            <span class="weather-temp" id="weather-temp">--°C</span>
+                            <span class="weather-desc" id="weather-desc">Đang tải...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Toggle Weather Effect -->
+                <button class="layout-toggle active" id="weather-toggle" onclick="toggleWeatherEffect()"
+                    title="Bật/tắt hiệu ứng thời tiết">
+                    <span class="material-symbols-outlined">umbrella</span>
+                </button>
+
+                <!-- Toggle Layout -->
+                <button class="layout-toggle" id="layout-toggle" onclick="toggleLayout()" title="Chuyển đổi giao diện">
+                    <span class="material-symbols-outlined" id="toggle-icon">smartphone</span>
+                    <span class="toggle-label" id="toggle-label" style="display: none;">Mobile</span>
+                </button>
+            </div>
+
             <div class="hero-overlay"></div>
-            <img src="../assets/images/placeholder_crop.png" alt="Farm" id="hero-bg" class="hero-bg">
+            <img src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?q=80&w=2000&auto=format&fit=crop"
+                alt="Farm" id="hero-bg" class="hero-bg">
             <div class="hero-content">
                 <div class="hero-logo">
                     <img src="../images/logo.png" alt="AgriPlanner">
@@ -46,10 +70,6 @@
                     </p>
                 </div>
             </div>
-            <!-- Decorative leaves -->
-            <div class="hero-leaf hero-leaf--1">🌿</div>
-            <div class="hero-leaf hero-leaf--2">🍃</div>
-            <div class="hero-leaf hero-leaf--3">🌱</div>
         </section>
 
         <!-- Owner & Farm Overview -->
@@ -147,7 +167,8 @@
                 <!-- Fields Column -->
                 <div class="production-col" id="fields-section" style="display:none;">
                     <div class="section-header-bar">
-                        <div class="section-icon section-icon--green"><span class="material-symbols-outlined">eco</span></div>
+                        <div class="section-icon section-icon--green"><span class="material-symbols-outlined">eco</span>
+                        </div>
                         <h3>Khu vực Trồng trọt</h3>
                         <span class="section-count" id="fields-count">0</span>
                     </div>
@@ -157,7 +178,8 @@
                 <!-- Livestock Column -->
                 <div class="production-col" id="pens-section" style="display:none;">
                     <div class="section-header-bar">
-                        <div class="section-icon section-icon--amber"><span class="material-symbols-outlined">egg</span></div>
+                        <div class="section-icon section-icon--amber"><span class="material-symbols-outlined">egg</span>
+                        </div>
                         <h3>Khu vực Chăn nuôi</h3>
                         <span class="section-count" id="pens-count">0</span>
                     </div>
@@ -169,7 +191,8 @@
         <!-- Cooperative Section -->
         <section class="section-container" id="cooperative-section" style="display:none;">
             <div class="section-header-bar">
-                <div class="section-icon section-icon--blue"><span class="material-symbols-outlined">handshake</span></div>
+                <div class="section-icon section-icon--blue"><span class="material-symbols-outlined">handshake</span>
+                </div>
                 <h3>Hợp tác xã</h3>
             </div>
             <div class="card-list" id="coop-list"></div>
@@ -178,7 +201,8 @@
         <!-- Activity Timeline -->
         <section class="section-container" id="timeline-section">
             <div class="section-header-bar">
-                <div class="section-icon section-icon--purple"><span class="material-symbols-outlined">history</span></div>
+                <div class="section-icon section-icon--purple"><span class="material-symbols-outlined">history</span>
+                </div>
                 <h3>Nhật ký Canh tác</h3>
                 <span class="section-count" id="activity-count">0</span>
             </div>
@@ -193,10 +217,13 @@
         <!-- Footer -->
         <footer class="page-footer">
             <div class="footer-content">
-                <img src="../images/logo.png" alt="AgriPlanner" class="footer-logo">
-                <div class="blockchain-badge">
-                    <span class="material-symbols-outlined">link</span>
-                    <span>Minh bạch bởi AgriPlanner Blockchain</span>
+                <div
+                    style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 16px;">
+                    <img src="../images/logo.png" alt="AgriPlanner" class="footer-logo" style="margin-bottom: 0;">
+                    <div class="blockchain-badge" style="margin-bottom: 0;">
+                        <span class="material-symbols-outlined">link</span>
+                        <span>Minh bạch bởi AgriPlanner Blockchain</span>
+                    </div>
                 </div>
                 <p class="scan-time">Quét lúc: <span id="scan-time"></span></p>
                 <p class="copyright">&copy; 2025 AgriPlanner - Nền tảng Nông nghiệp thông minh</p>
@@ -244,6 +271,101 @@
             return new Intl.NumberFormat('vi-VN').format(amount) + ' VNĐ';
         }
 
+        // --- Dynamic Background & Weather Integration --- //
+        window.currentFarmData = null;
+
+        // OpenWeather API Key - use from config.js
+        const OPENWEATHER_API_KEY = CONFIG.OPENWEATHER_API_KEY;
+
+        async function loadWeather() {
+            try {
+                // Tọa độ demo (Hồ Chí Minh). Trong thực tế có thể lấy từ data.farm.latitude/longitude
+                const lat = 10.762622;
+                const lon = 106.660172;
+                const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${OPENWEATHER_API_KEY}&units=metric&lang=vi`;
+
+                const response = await fetch(url);
+                const weather = await response.json();
+
+                if (weather && weather.main) {
+                    const temp = Math.round(weather.main.temp);
+                    const desc = weather.weather[0].description;
+                    const mainWeather = weather.weather[0].main.toLowerCase(); // Rain, Clouds, Clear, Mist...
+
+                    document.getElementById('weather-temp').textContent = `${temp}°C`;
+                    // Viết hoa chữ cái đầu tiên
+                    document.getElementById('weather-desc').textContent = desc.charAt(0).toUpperCase() + desc.slice(1);
+
+                    // Cập nhật icon
+                    const wIcon = document.getElementById('weather-icon');
+                    if (mainWeather.includes('rain') || mainWeather.includes('drizzle')) {
+                        wIcon.textContent = 'rainy';
+                    } else if (mainWeather.includes('cloud')) {
+                        wIcon.textContent = 'cloudy';
+                    } else if (mainWeather.includes('mist') || mainWeather.includes('fog')) {
+                        wIcon.textContent = 'foggy';
+                    } else {
+                        wIcon.textContent = 'sunny';
+                    }
+
+                    // Áp dụng lớp phủ thời tiết lên nền trang
+                    if (weatherEffectActive) {
+                        applyWeatherEffects(mainWeather);
+                    }
+                }
+            } catch (err) {
+                console.warn("Lỗi tải thời tiết từ OpenWeather:", err);
+                document.getElementById('weather-desc').textContent = 'Không có dữ liệu';
+            }
+        }
+
+        function applyWeatherEffects(mainWeather) {
+            // Xóa hiệu ứng cũ nếu có
+            const oldLayer = document.querySelector('.weather-layer');
+            if (oldLayer) oldLayer.remove();
+
+            if (!weatherEffectActive) return;
+
+            const layer = document.createElement('div');
+            layer.className = 'weather-layer';
+
+            if (mainWeather.includes('rain') || mainWeather.includes('drizzle')) {
+                layer.classList.add('rain');
+                // Tạo các hạt mưa CSS
+                for (let i = 0; i < 60; i++) {
+                    const drop = document.createElement('div');
+                    drop.className = 'rain-drop';
+                    drop.style.left = Math.random() * 100 + '%';
+                    const duration = Math.random() * 0.4 + 0.6; // Nhanh hơn
+                    drop.style.animationDuration = duration + 's';
+                    drop.style.animationDelay = Math.random() * 2 + 's';
+                    drop.style.height = (Math.random() * 20 + 10) + 'px';
+                    layer.appendChild(drop);
+                }
+            } else if (mainWeather.includes('mist') || mainWeather.includes('fog') || mainWeather.includes('haze')) {
+                layer.classList.add('fog');
+            } else if (mainWeather.includes('clouds')) {
+                layer.style.background = 'linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0.05))';
+            }
+
+            document.body.appendChild(layer);
+        }
+
+        let weatherEffectActive = true;
+        function toggleWeatherEffect() {
+            weatherEffectActive = !weatherEffectActive;
+            const btn = document.getElementById('weather-toggle');
+            if (btn) btn.classList.toggle('active', weatherEffectActive);
+
+            if (!weatherEffectActive) {
+                const layer = document.querySelector('.weather-layer');
+                if (layer) layer.remove();
+            } else {
+                // Tải lại dữ liệu thời tiết để áp dụng hiệu ứng
+                loadWeather();
+            }
+        }
+
         // Layout toggle
         function toggleLayout() {
             const body = document.body;
@@ -264,7 +386,7 @@
         }
 
         // Auto-detect on small screens
-        (function() {
+        (function () {
             if (window.innerWidth <= 640) {
                 document.body.classList.remove('view-web');
                 document.body.classList.add('view-mobile');
@@ -296,12 +418,13 @@
         }
 
         function renderData(data) {
+            window.currentFarmData = data;
             // Hero
             document.getElementById('hero-title').textContent = data.farmName || 'Nông trại AgriPlanner';
             document.getElementById('hero-location').textContent = data.location || 'Việt Nam';
 
-            // Crop image
-            setCropImage(data);
+            // Tải widget thời tiết
+            loadWeather();
 
             // Owner info
             if (data.ownerName) {
@@ -350,22 +473,6 @@
             renderTimeline(data.activities || []);
         }
 
-        function setCropImage(data) {
-            const img = document.getElementById('hero-bg');
-            const cropImages = {
-                'Lúa': 'https://images.unsplash.com/photo-1536617621258-3011c7501a35?w=1200',
-                'Ngô': 'https://images.unsplash.com/photo-1551754655-244346eb4523?w=1200',
-                'Khoai lang': 'https://images.unsplash.com/photo-1596547610056-9a27b876fc15?w=1200'
-            };
-            const cropName = data.cropName || 'Nông sản';
-            const defaultUrl = 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=1200';
-
-            img.src = data.cropImage || cropImages[cropName] || defaultUrl;
-            img.onerror = () => {
-                if (img.src !== defaultUrl) img.src = defaultUrl;
-            };
-        }
-
         function renderFields(fields) {
             if (!fields.length) return;
             document.getElementById('fields-section').style.display = 'block';
@@ -406,7 +513,19 @@
             list.innerHTML = pens.map(p => {
                 const animalText = p.animalName ? escapeHtml(p.animalName) : 'Chưa xác định';
                 const countText = p.animalCount ? `${p.animalCount} con` : '';
-                const typeText = p.farmingType ? escapeHtml(p.farmingType) : '';
+
+                const farmingTypeMap = {
+                    'CAGED': 'Nuôi lồng',
+                    'POND': 'Ao hồ',
+                    'FREE_RANGE': 'Thả rông',
+                    'PENNED': 'Nuôi chuồng',
+                    'BARN': 'Nuôi nhốt',
+                    'SPECIAL': 'Đặc biệt',
+                    'PASTURE': 'Chăn thả'
+                };
+                const viType = farmingTypeMap[p.farmingType] || p.farmingType;
+                const typeText = viType ? `Kiểu nuôi: ${escapeHtml(viType)}` : '';
+
                 const dateText = p.startDate ? formatDate(p.startDate) : '';
                 return `
                     <div class="glass-card info-card pen-card">

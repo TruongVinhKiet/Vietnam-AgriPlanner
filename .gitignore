@@ -5,6 +5,7 @@ target/
 # Sensitive Environment Variables & Secrets
 backend/.env
 backend/src/main/resources/
+js/config.js
 
 # Database Data
 database/

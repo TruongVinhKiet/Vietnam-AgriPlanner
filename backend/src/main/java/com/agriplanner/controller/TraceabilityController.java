@@ -16,6 +16,7 @@ import lombok.NonNull;
 @RequestMapping("/api/traceability")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*") // Public access for QR scanning
+@SuppressWarnings("null")
 public class TraceabilityController {
 
     private final FieldRepository fieldRepository;

@@ -97,4 +97,30 @@ public class AnimalDefinition {
 
     @Column(name = "ideal_ph_max")
     private BigDecimal idealPhMax; // Maximum ideal water pH (aquatic)
+
+    // ====== BYPRODUCT & HARVEST FIELDS ======
+
+    // WEIGHT_ONLY | BYPRODUCT_ONLY | BOTH
+    @Column(name = "harvest_type")
+    @Builder.Default
+    private String harvestType = "WEIGHT_ONLY";
+
+    // NONE | EGGS | MILK | HONEY | SILK
+    @Column(name = "byproduct_type")
+    @Builder.Default
+    private String byproductType = "NONE";
+
+    @Column(name = "byproduct_name")
+    private String byproductName;
+
+    @Column(name = "byproduct_unit")
+    private String byproductUnit;
+
+    // Average daily byproduct per animal
+    @Column(name = "byproduct_daily_amount")
+    private BigDecimal byproductDailyAmount;
+
+    // Minimum age (days) before animal starts producing byproducts
+    @Column(name = "byproduct_start_age_days")
+    private Integer byproductStartAgeDays;
 }

@@ -305,15 +305,17 @@ async function loadTasks() {
         await ensureApprovedWorkersForAssignment();
 
         const res = await fetchAPI(`${LABOR_API_BASE}/tasks/owner/${ownerId}`);
-        // Filter Tasks Created Today or Due Today
-        const today = new Date().toISOString().split('T')[0];
+        // Filter: show active tasks + tasks created/completed today (local timezone)
+        const now = new Date();
+        const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const todaysTasks = res.filter(t => {
-            const created = t.createdAt ? t.createdAt.split('T')[0] : '';
             const active = t.status !== 'COMPLETED' && t.status !== 'CANCELLED';
-            const completedToday = t.status === 'COMPLETED' && t.completedAt && t.completedAt.startsWith(today);
+            if (active) return true;
 
-            // Show if created today OR active OR completed today
-            return created === today || active || completedToday;
+            // For completed/cancelled: show if created or completed today (local time)
+            const createdLocal = t.createdAt ? new Date(t.createdAt).toLocaleDateString('sv-SE') : '';
+            const completedLocal = t.completedAt ? new Date(t.completedAt).toLocaleDateString('sv-SE') : '';
+            return createdLocal === todayLocal || completedLocal === todayLocal;
         });
 
         // Store tasks by ID for detail view
@@ -340,6 +342,10 @@ function renderTasks(tasks) {
 
     tasks.forEach(task => {
         let statusBadge = getStatusBadge(task.status);
+        // Workflow tasks that are COMPLETED but not yet approved show "Chờ duyệt"
+        if (task.status === 'COMPLETED' && task.workflowData) {
+            statusBadge = '<span class="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">Chờ duyệt</span>';
+        }
 
         const dueText = task.dueDate
             ? new Date(task.dueDate).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -470,6 +476,23 @@ function buildInspectionResultsHtml(task) {
     if (!task) return '';
     const status = task.status ? String(task.status).toUpperCase() : '';
     if (status !== 'COMPLETED') return '';
+
+    // Material-consuming tasks: show material info instead of inspection results
+    const materialTaskTypes = ['FEED', 'VACCINATE', 'FERTILIZE', 'SEED', 'PEST_CONTROL'];
+    const taskType = task.taskType ? String(task.taskType).toUpperCase() : '';
+    if (materialTaskTypes.includes(taskType)) {
+        return buildOwnerMaterialResultsHtml(task);
+    }
+
+    // Byproduct collection tasks: show collected quantity info
+    if (taskType === 'HARVEST' && task.workflowData) {
+        try {
+            const wfData = typeof task.workflowData === 'string' ? JSON.parse(task.workflowData) : task.workflowData;
+            if (wfData.subType === 'BYPRODUCT_COLLECTION') {
+                return buildOwnerByproductResultsHtml(task, wfData);
+            }
+        } catch (e) { }
+    }
 
     // Parse inspection data from description (appended by worker)
     const desc = task.description || '';
@@ -607,6 +630,147 @@ function buildInspectionResultsHtml(task) {
     return html;
 }
 
+function buildOwnerMaterialResultsHtml(task) {
+    const taskType = task.taskType ? String(task.taskType).toUpperCase() : '';
+    const typeConfig = {
+        'FEED': { icon: 'restaurant', color: '#16a34a', label: 'Thức ăn' },
+        'VACCINATE': { icon: 'vaccines', color: '#7c3aed', label: 'Vắc-xin' },
+        'FERTILIZE': { icon: 'science', color: '#d97706', label: 'Phân bón' },
+        'SEED': { icon: 'grass', color: '#16a34a', label: 'Giống' },
+        'PEST_CONTROL': { icon: 'bug_report', color: '#dc2626', label: 'Thuốc BVTV' }
+    };
+    const cfg = typeConfig[taskType] || { icon: 'inventory_2', color: '#6b7280', label: 'Vật tư' };
+
+    // Try relatedItem first, then fall back to workflowData for livestock tasks
+    let materialName = 'Không xác định';
+    let qty = task.quantityRequired || 0;
+    let unit = 'đơn vị';
+    if (task.relatedItem) {
+        materialName = task.relatedItem.name || 'Không rõ';
+        unit = task.relatedItem.unit || 'đơn vị';
+    } else if (task.workflowData) {
+        try {
+            const wf = typeof task.workflowData === 'string' ? JSON.parse(task.workflowData) : task.workflowData;
+            if (wf.feedName) { materialName = wf.feedName; unit = 'kg'; qty = wf.amountKg || qty; }
+            else if (wf.vaccineName) { materialName = wf.vaccineName; unit = 'liều'; }
+            else if (wf.pesticideName) { materialName = wf.pesticideName; }
+        } catch (e) { /* ignore parse errors */ }
+    }
+
+    const _apiOrigin = new URL(LABOR_API_BASE).origin;
+    const serverImageUrl = task.reportImageUrl ? (_apiOrigin + task.reportImageUrl) : null;
+    const serverVideoUrl = task.reportVideoUrl ? (_apiOrigin + task.reportVideoUrl) : null;
+
+    let html = `<div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px; display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:18px; color:${cfg.color};">inventory_2</span>
+            Vật tư tiêu hao đã sử dụng
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; padding:12px 16px; border-radius:12px; background:${cfg.color}11; border:1px solid ${cfg.color}22;">
+            <span class="material-symbols-outlined" style="font-size:28px; color:${cfg.color};">${cfg.icon}</span>
+            <div style="flex:1;">
+                <div style="font-size:12px; color:#6b7280;">${cfg.label}</div>
+                <div style="font-size:16px; font-weight:700; color:${cfg.color};">${escapeHtml(materialName)}</div>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:12px; color:#6b7280;">Số lượng</div>
+                <div style="font-size:16px; font-weight:700; color:#1f2937;">${qty} ${escapeHtml(unit)}</div>
+            </div>
+        </div>`;
+
+    if (serverImageUrl || serverVideoUrl) {
+        html += `<div style="margin-bottom:14px;">
+            <div style="font-size:12px; font-weight:500; color:#6b7280; margin-bottom:8px;">Minh chứng đính kèm</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">`;
+        if (serverImageUrl) {
+            html += `<div style="border-radius:10px; background:#f0fdf4; border:1px solid #bbf7d0; overflow:hidden;">
+                <img src="${serverImageUrl}" style="width:100%; max-height:200px; object-fit:cover; cursor:pointer;" alt="Ảnh báo cáo" onclick="openMediaLightbox(this.src, 'image')">
+                <div style="padding:8px 12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:18px; color:#16a34a;">photo_camera</span>
+                    <span style="font-size:11px; font-weight:600; color:#15803d;">Ảnh báo cáo</span>
+                </div>
+            </div>`;
+        }
+        if (serverVideoUrl) {
+            html += `<div style="border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; overflow:hidden;">
+                <video src="${serverVideoUrl}" style="width:100%; max-height:200px; object-fit:cover; cursor:pointer;" onclick="openMediaLightbox(this.src, 'video')" preload="metadata"></video>
+                <div style="padding:8px 12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:18px; color:#2563eb;">videocam</span>
+                    <span style="font-size:11px; font-weight:600; color:#1e40af;">Video báo cáo</span>
+                </div>
+            </div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    html += `</div>`;
+    return html;
+}
+
+// ── Owner completed view for byproduct collection tasks ──
+function buildOwnerByproductResultsHtml(task, wfData) {
+    const byproductName = wfData.byproductName || 'Sản phẩm phụ';
+    const byproductUnit = wfData.byproductUnit || '';
+    const estimated = wfData.estimatedQuantity || 0;
+    const collected = wfData.collectedQuantity || 0;
+    const byproductType = wfData.byproductType || 'NONE';
+
+    const iconMap = { 'EGGS': 'egg_alt', 'MILK': 'water_drop', 'HONEY': 'emoji_nature', 'SILK': 'gesture' };
+    const colorMap = { 'EGGS': '#f59e0b', 'MILK': '#3b82f6', 'HONEY': '#eab308', 'SILK': '#8b5cf6' };
+    const icon = iconMap[byproductType] || 'eco';
+    const color = colorMap[byproductType] || '#f59e0b';
+
+    const _apiOrigin = new URL(LABOR_API_BASE).origin;
+    const serverImageUrl = task.reportImageUrl ? (_apiOrigin + task.reportImageUrl) : null;
+    const serverVideoUrl = task.reportVideoUrl ? (_apiOrigin + task.reportVideoUrl) : null;
+
+    let html = `<div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
+        <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px; display:flex; align-items:center; gap:6px;">
+            <span class="material-symbols-outlined" style="font-size:18px; color:${color};">${icon}</span>
+            Kết quả thu ${escapeHtml(byproductName.toLowerCase())}
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+            <div style="background:${color}11; border-radius:12px; padding:14px; text-align:center;">
+                <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">Ước tính</div>
+                <div style="font-size:20px; font-weight:700; color:${color};">${estimated}</div>
+                <div style="font-size:11px; color:#9ca3af;">${escapeHtml(byproductUnit)}</div>
+            </div>
+            <div style="background:#f0fdf4; border-radius:12px; padding:14px; text-align:center;">
+                <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">Thực tế</div>
+                <div style="font-size:20px; font-weight:700; color:#16a34a;">${collected}</div>
+                <div style="font-size:11px; color:#9ca3af;">${escapeHtml(byproductUnit)}</div>
+            </div>
+        </div>`;
+
+    if (serverImageUrl || serverVideoUrl) {
+        html += `<div style="margin-bottom:14px;">
+            <div style="font-size:12px; font-weight:500; color:#6b7280; margin-bottom:8px;">Minh chứng đính kèm</div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:10px;">`;
+        if (serverImageUrl) {
+            html += `<div style="border-radius:10px; background:#fffbeb; border:1px solid ${color}33; overflow:hidden;">
+                <img src="${serverImageUrl}" style="width:100%; max-height:200px; object-fit:cover; cursor:pointer;" alt="Ảnh" onclick="openMediaLightbox(this.src, 'image')">
+                <div style="padding:8px 12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:18px; color:${color};">photo_camera</span>
+                    <span style="font-size:11px; font-weight:600; color:#92400e;">Ảnh minh chứng</span>
+                </div>
+            </div>`;
+        }
+        if (serverVideoUrl) {
+            html += `<div style="border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; overflow:hidden;">
+                <video src="${serverVideoUrl}" style="width:100%; max-height:200px; object-fit:cover;" controls preload="metadata"></video>
+                <div style="padding:8px 12px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="font-size:18px; color:#2563eb;">videocam</span>
+                    <span style="font-size:11px; font-weight:600; color:#1e40af;">Video minh chứng</span>
+                </div>
+            </div>`;
+        }
+        html += `</div></div>`;
+    }
+
+    html += `</div>`;
+    return html;
+}
+
 function openOwnerTaskDetail(taskId) {
     const task = ownerTasksById && ownerTasksById[taskId] ? ownerTasksById[taskId] : null;
     if (!task) return;
@@ -637,13 +801,25 @@ function openOwnerTaskDetail(taskId) {
     const locationIcon = task.field ? 'grass' : (task.pen ? 'pets' : 'location_on');
 
     const salaryLabel = task.salary ? (new Intl.NumberFormat('vi-VN').format(Number(task.salary)) + ' VNĐ') : null;
-    const relatedItemName = task.relatedItem ? (task.relatedItem.name || '') : null;
-    const quantityLabel = task.quantityRequired ? String(task.quantityRequired) : null;
+    let relatedItemName = task.relatedItem ? (task.relatedItem.name || '') : null;
+    let quantityLabel = task.quantityRequired ? String(task.quantityRequired) : null;
+    let quantityUnit = task.relatedItem ? (task.relatedItem.unit || '') : '';
+
+    // Fall back to workflowData for livestock tasks
+    if (!relatedItemName && task.workflowData) {
+        try {
+            const wf = typeof task.workflowData === 'string' ? JSON.parse(task.workflowData) : task.workflowData;
+            if (wf.feedName) { relatedItemName = wf.feedName; quantityLabel = wf.amountKg ? String(wf.amountKg) : quantityLabel; quantityUnit = 'kg'; }
+            else if (wf.vaccineName) { relatedItemName = wf.vaccineName; quantityUnit = 'liều'; }
+            else if (wf.pesticideName) { relatedItemName = wf.pesticideName; }
+        } catch (e) { /* ignore */ }
+    }
     const typeLabel = getTaskTypeLabel(task.taskType);
 
     // Status config
     const statusCfg = {
         'COMPLETED': { icon: 'check_circle', label: 'Hoàn thành', color: '#16a34a', bg: '#f0fdf4' },
+        'APPROVED': { icon: 'verified', label: 'Đã duyệt', color: '#7c3aed', bg: '#f5f3ff' },
         'IN_PROGRESS': { icon: 'autorenew', label: 'Đang thực hiện', color: '#2563eb', bg: '#eff6ff' },
         'CANCELLED': { icon: 'cancel', label: 'Đã hủy', color: '#dc2626', bg: '#fef2f2' },
         'PENDING': { icon: 'pending', label: 'Chờ xử lý', color: '#d97706', bg: '#fffbeb' }
@@ -794,7 +970,7 @@ function openOwnerTaskDetail(taskId) {
                         </div>
                         <div>
                             <div style="font-weight:700; color:#111827; font-size:15px;">${escapeHtml(relatedItemName)}</div>
-                            ${quantityLabel ? `<div style="font-size:13px; color:#6b7280;">Số lượng: ${quantityLabel}</div>` : ''}
+                            ${quantityLabel ? `<div style="font-size:13px; color:#6b7280;">Số lượng: ${quantityLabel}${quantityUnit ? ' ' + escapeHtml(quantityUnit) : ''}</div>` : ''}
                         </div>
                     </div>
                     ` : `<div style="color:#9ca3af; font-size:14px;">Không có</div>`}
@@ -816,11 +992,33 @@ function openOwnerTaskDetail(taskId) {
             ${countdownHtml}
 
             <!-- Completion / Status Banner -->
-            ${status === 'COMPLETED' ? `
+            ${status === 'COMPLETED' && task.workflowData ? `
+            <div style="background:#fffbeb; border-radius:16px; border:1px solid #fde68a; padding:20px; margin-bottom:16px; text-align:center;">
+                <span class="material-symbols-outlined" style="font-size:48px; color:#d97706;">hourglass_top</span>
+                <div style="font-size:18px; font-weight:700; color:#d97706; margin-top:8px;">Chờ duyệt kết quả</div>
+                <div style="font-size:14px; color:#92400e; margin-top:4px;">Nhân công đã hoàn thành. Vui lòng xem xét và duyệt.</div>
+                ${completedAt ? `<div style="font-size:13px; color:#a16207; margin-top:4px;">Hoàn thành lúc: ${completedAt}</div>` : ''}
+            </div>
+            <div style="text-align:center; margin-bottom:16px;">
+                <button onclick="approveWorkflowTask(${task.id})" id="approve-btn-${task.id}"
+                    style="background:linear-gradient(135deg, #059669, #10b981); color:white; border:none; border-radius:12px; padding:14px 40px; font-size:16px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 14px rgba(5,150,105,0.3); transition:all 0.3s ease;"
+                    onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(5,150,105,0.4)'"
+                    onmouseleave="this.style.transform=''; this.style.boxShadow='0 4px 14px rgba(5,150,105,0.3)'">
+                    <span class="material-symbols-outlined" style="font-size:22px;">verified</span>
+                    Duyệt và thực thi
+                </button>
+            </div>
+            ` : status === 'COMPLETED' ? `
             <div style="background:#f0fdf4; border-radius:16px; border:1px solid #bbf7d0; padding:20px; margin-bottom:16px; text-align:center;">
                 <span class="material-symbols-outlined" style="font-size:48px; color:#16a34a;">task_alt</span>
                 <div style="font-size:18px; font-weight:700; color:#16a34a; margin-top:8px;">Công việc đã hoàn thành</div>
                 ${completedAt ? `<div style="font-size:14px; color:#15803d; margin-top:4px;">Lúc ${completedAt}</div>` : ''}
+            </div>
+            ` : status === 'APPROVED' ? `
+            <div style="background:#f5f3ff; border-radius:16px; border:1px solid #c4b5fd; padding:20px; margin-bottom:16px; text-align:center;">
+                <span class="material-symbols-outlined" style="font-size:48px; color:#7c3aed;">verified</span>
+                <div style="font-size:18px; font-weight:700; color:#7c3aed; margin-top:8px;">Đã duyệt và thực thi</div>
+                ${task.approvedAt ? `<div style="font-size:14px; color:#6d28d9; margin-top:4px;">Duyệt lúc ${new Date(task.approvedAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>` : ''}
             </div>
             ` : ''}
         </div>
@@ -829,6 +1027,28 @@ function openOwnerTaskDetail(taskId) {
 
 function closeOwnerTaskDetail() {
     loadTasks();
+}
+
+async function approveWorkflowTask(taskId) {
+    const btn = document.getElementById(`approve-btn-${taskId}`);
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined rotating" style="font-size:22px;">sync</span> Đang duyệt...';
+    }
+    try {
+        await fetchAPI(`${LABOR_API_BASE}/tasks/${taskId}/approve`, 'POST');
+        showToast('Thành công', 'Đã duyệt và thực thi công việc thành công!', 'success');
+        // Refresh task list and reopen detail
+        await loadTasks();
+        openOwnerTaskDetail(taskId);
+    } catch (error) {
+        console.error('Approve error:', error);
+        showToast('Lỗi', error.message || 'Lỗi khi duyệt công việc', 'error');
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:22px;">verified</span> Duyệt và thực thi';
+        }
+    }
 }
 
 // ... (Recruitment Logic omitted for brevity, keeping existing) ...
@@ -2392,6 +2612,7 @@ window.toggleShopOptions = toggleShopOptions;
 window.closeAssignTaskModal = closeAssignTaskModal;
 window.openAssignTaskModal = openAssignTaskModal;
 window.submitAssignTask = submitAssignTask;
+window.approveWorkflowTask = approveWorkflowTask;
 window.updateRecruitmentQuota = updateRecruitmentQuota;
 window.approveApplication = approveApplication;
 window.rejectApplication = rejectApplication;
@@ -3244,4 +3465,280 @@ function getPriorityBadge(priorityRaw) {
         return `<span style='font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569;'>Thấp</span>`;
     }
     return `<span style='font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af;'>Bình thường</span>`;
+}
+
+// ============ TASK HISTORY WITH CALENDAR ============
+let _historyAllTasks = [];
+let _historyCalendarDate = new Date();
+let _historySelectedDate = null;
+
+async function openTaskHistoryModal() {
+    const modal = document.getElementById('task-history-modal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+
+    // Load all tasks from API
+    try {
+        const ownerId = await getCurrentUserId();
+        if (!ownerId) return;
+        _historyAllTasks = await fetchAPI(`${LABOR_API_BASE}/tasks/owner/${ownerId}`) || [];
+    } catch (e) {
+        console.error('Error loading task history:', e);
+        _historyAllTasks = [];
+    }
+
+    _historyCalendarDate = new Date();
+    _historySelectedDate = null;
+    renderHistoryCalendar();
+    // Show today's tasks by default
+    const today = new Date();
+    _historySelectedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    renderHistoryCalendar();
+    renderHistoryTasksForDate(_historySelectedDate);
+}
+
+function closeTaskHistoryModal() {
+    const modal = document.getElementById('task-history-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function historyCalendarPrev() {
+    _historyCalendarDate.setMonth(_historyCalendarDate.getMonth() - 1);
+    renderHistoryCalendar();
+}
+
+function historyCalendarNext() {
+    _historyCalendarDate.setMonth(_historyCalendarDate.getMonth() + 1);
+    renderHistoryCalendar();
+}
+
+function _toLocalDateStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function _getTaskDateKeys(task) {
+    const keys = new Set();
+    if (task.createdAt) keys.add(new Date(task.createdAt).toLocaleDateString('sv-SE'));
+    if (task.completedAt) keys.add(new Date(task.completedAt).toLocaleDateString('sv-SE'));
+    return keys;
+}
+
+function renderHistoryCalendar() {
+    const titleEl = document.getElementById('history-calendar-title');
+    const gridEl = document.getElementById('history-calendar-grid');
+    if (!titleEl || !gridEl) return;
+
+    const year = _historyCalendarDate.getFullYear();
+    const month = _historyCalendarDate.getMonth();
+    const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+        'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+    titleEl.textContent = `${monthNames[month]} ${year}`;
+
+    // Count tasks per day for this month
+    const taskCountByDay = {};
+    _historyAllTasks.forEach(t => {
+        _getTaskDateKeys(t).forEach(key => {
+            if (key.startsWith(`${year}-${String(month + 1).padStart(2, '0')}`)) {
+                taskCountByDay[key] = (taskCountByDay[key] || 0) + 1;
+            }
+        });
+    });
+
+    const firstDay = new Date(year, month, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const todayStr = _toLocalDateStr(new Date());
+
+    let html = '';
+    // Day headers
+    const dayHeaders = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    dayHeaders.forEach(d => {
+        html += `<div style="font-size:11px; font-weight:700; color:#9ca3af; padding:6px 0;">${d}</div>`;
+    });
+
+    // Empty slots
+    for (let i = 0; i < firstDay; i++) {
+        html += '<div></div>';
+    }
+
+    // Days
+    for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const count = taskCountByDay[dateStr] || 0;
+        const isToday = dateStr === todayStr;
+        const isSelected = dateStr === _historySelectedDate;
+
+        let bgStyle = 'background:transparent;';
+        let textColor = 'color:#374151;';
+        let dotHtml = '';
+
+        if (isSelected) {
+            bgStyle = 'background:#2563eb;';
+            textColor = 'color:white;';
+        } else if (isToday) {
+            bgStyle = 'background:#dbeafe;';
+            textColor = 'color:#2563eb;';
+        }
+
+        if (count > 0 && !isSelected) {
+            dotHtml = `<div style="width:5px; height:5px; border-radius:50%; background:#10b981; margin:1px auto 0;"></div>`;
+        } else if (count > 0 && isSelected) {
+            dotHtml = `<div style="width:5px; height:5px; border-radius:50%; background:white; margin:1px auto 0;"></div>`;
+        }
+
+        html += `<div onclick="selectHistoryDate('${dateStr}')" style="cursor:pointer; padding:4px 0; border-radius:8px; ${bgStyle} ${textColor} font-size:13px; font-weight:600; transition:background 0.15s;"
+            onmouseenter="if(!this.classList.contains('selected'))this.style.background='#f3f4f6'"
+            onmouseleave="if(!this.classList.contains('selected'))this.style.background='${isSelected ? '#2563eb' : isToday ? '#dbeafe' : 'transparent'}'">
+            ${day}${dotHtml}</div>`;
+    }
+
+    gridEl.innerHTML = html;
+
+    // Update summary
+    renderHistorySummary();
+}
+
+function renderHistorySummary() {
+    const el = document.getElementById('history-summary');
+    if (!el) return;
+
+    const total = _historyAllTasks.length;
+    const completed = _historyAllTasks.filter(t => t.status === 'COMPLETED' || t.status === 'APPROVED').length;
+    const pending = _historyAllTasks.filter(t => t.status === 'PENDING' || t.status === 'IN_PROGRESS').length;
+    const cancelled = _historyAllTasks.filter(t => t.status === 'CANCELLED').length;
+
+    el.innerHTML = `
+        <div style="font-weight:700; color:#111827; margin-bottom:8px; font-size:14px;">Tổng quan</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+            <div style="display:flex; align-items:center; gap:6px;"><span style="width:8px; height:8px; border-radius:50%; background:#2563eb;"></span> Tổng: <strong>${total}</strong></div>
+            <div style="display:flex; align-items:center; gap:6px;"><span style="width:8px; height:8px; border-radius:50%; background:#10b981;"></span> Xong: <strong>${completed}</strong></div>
+            <div style="display:flex; align-items:center; gap:6px;"><span style="width:8px; height:8px; border-radius:50%; background:#f59e0b;"></span> Đang làm: <strong>${pending}</strong></div>
+            <div style="display:flex; align-items:center; gap:6px;"><span style="width:8px; height:8px; border-radius:50%; background:#ef4444;"></span> Đã hủy: <strong>${cancelled}</strong></div>
+        </div>
+    `;
+}
+
+function selectHistoryDate(dateStr) {
+    _historySelectedDate = dateStr;
+    renderHistoryCalendar();
+    renderHistoryTasksForDate(dateStr);
+}
+
+function renderHistoryTasksForDate(dateStr) {
+    const container = document.getElementById('history-task-list');
+    if (!container) return;
+
+    // Filter tasks for this date
+    const tasksForDate = _historyAllTasks.filter(t => {
+        return _getTaskDateKeys(t).has(dateStr);
+    });
+
+    // Sort: active first, then by createdAt desc
+    tasksForDate.sort((a, b) => {
+        const aActive = a.status !== 'COMPLETED' && a.status !== 'CANCELLED' && a.status !== 'APPROVED';
+        const bActive = b.status !== 'COMPLETED' && b.status !== 'CANCELLED' && b.status !== 'APPROVED';
+        if (aActive !== bActive) return aActive ? -1 : 1;
+        return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+
+    const dateDisplay = new Date(dateStr + 'T00:00:00').toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    if (tasksForDate.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center; padding:3rem; color:#9ca3af;">
+                <span class="material-symbols-outlined" style="font-size:48px; opacity:0.5;">event_busy</span>
+                <p style="margin-top:8px; font-size:14px;">Không có công việc ngày ${escapeHtml(dateDisplay)}</p>
+            </div>`;
+        return;
+    }
+
+    const completedCount = tasksForDate.filter(t => t.status === 'COMPLETED' || t.status === 'APPROVED').length;
+
+    let html = `<div style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+            <div style="font-weight:700; color:#111827; font-size:15px;">${escapeHtml(dateDisplay)}</div>
+            <div style="font-size:13px; color:#6b7280; margin-top:2px;">${tasksForDate.length} công việc · ${completedCount} hoàn thành</div>
+        </div>
+    </div>`;
+
+    tasksForDate.forEach(task => {
+        const statusCfg = {
+            'COMPLETED': { icon: 'check_circle', label: 'Hoàn thành', color: '#16a34a', bg: '#f0fdf4' },
+            'APPROVED': { icon: 'verified', label: 'Đã duyệt', color: '#7c3aed', bg: '#f5f3ff' },
+            'IN_PROGRESS': { icon: 'autorenew', label: 'Đang thực hiện', color: '#2563eb', bg: '#eff6ff' },
+            'CANCELLED': { icon: 'cancel', label: 'Đã hủy', color: '#dc2626', bg: '#fef2f2' },
+            'PENDING': { icon: 'pending', label: 'Chờ xử lý', color: '#d97706', bg: '#fffbeb' }
+        };
+        const status = task.status ? String(task.status).toUpperCase() : 'PENDING';
+        const sc = statusCfg[status] || statusCfg['PENDING'];
+
+        const workerName = task.worker
+            ? (task.worker.fullName || task.worker.email || 'Nhân công')
+            : (task.isAutoCreated ? 'Chưa phân công' : 'Tôi (Tự làm)');
+
+        const createdTime = task.createdAt
+            ? new Date(task.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+            : '--';
+
+        const completedTime = task.completedAt
+            ? new Date(task.completedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+            : null;
+
+        const typeLabel = getTaskTypeLabel(task.taskType);
+
+        const priority = (task.priority || 'NORMAL').toUpperCase();
+        let priLabel = 'Bình thường';
+        let priColor = '#6b7280';
+        if (priority === 'HIGH' || priority === 'URGENT') { priLabel = priority === 'URGENT' ? 'Khẩn cấp' : 'Cao'; priColor = '#dc2626'; }
+        else if (priority === 'LOW') { priLabel = 'Thấp'; priColor = '#16a34a'; }
+
+        const locationLabel = task.field ? (task.field.name || 'Ruộng') : (task.pen ? (task.pen.name || task.pen.code || 'Chuồng') : null);
+
+        html += `
+        <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:14px; cursor:pointer; transition:box-shadow 0.2s;"
+             onmouseenter="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'"
+             onmouseleave="this.style.boxShadow='none'"
+             onclick="closeTaskHistoryModal(); setTimeout(()=>openOwnerTaskDetail(${task.id}), 200)">
+            <!-- Header -->
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                        <span style="font-weight:700; color:#111827; font-size:14px;">${escapeHtml(task.name)}</span>
+                        <span style="font-size:11px; padding:2px 8px; border-radius:999px; background:${sc.bg}; color:${sc.color}; font-weight:600;">${sc.label}</span>
+                    </div>
+                    ${task.description ? `<p style="margin:4px 0 0; font-size:12px; color:#6b7280; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:350px;">${escapeHtml(task.description)}</p>` : ''}
+                </div>
+            </div>
+            <!-- Info grid -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:10px; font-size:12px; color:#6b7280;">
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <span class="material-symbols-outlined" style="font-size:15px; color:#9ca3af;">person</span>
+                    <span>${escapeHtml(workerName)}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <span class="material-symbols-outlined" style="font-size:15px; color:#9ca3af;">category</span>
+                    <span>${typeLabel}</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <span class="material-symbols-outlined" style="font-size:15px; color:#9ca3af;">schedule</span>
+                    <span>Giao: ${escapeHtml(createdTime)}</span>
+                </div>
+                ${completedTime ? `
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <span class="material-symbols-outlined" style="font-size:15px; color:#16a34a;">check_circle</span>
+                    <span style="color:#16a34a;">Xong: ${escapeHtml(completedTime)}</span>
+                </div>` : `
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <span class="material-symbols-outlined" style="font-size:15px; color:${priColor};">flag</span>
+                    <span style="color:${priColor};">${priLabel}</span>
+                </div>`}
+                ${locationLabel ? `
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <span class="material-symbols-outlined" style="font-size:15px; color:#9ca3af;">location_on</span>
+                    <span>${escapeHtml(locationLabel)}</span>
+                </div>` : ''}
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
 }

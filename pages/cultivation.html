@@ -28,7 +28,7 @@
     <link rel="stylesheet" href="../css/pages/cultivation.css">
     <link rel="stylesheet" href="../css/pages/pest-analysis.css">
     <link rel="stylesheet" href="../css/pages/financial-analysis.css">
-    <link rel="stylesheet" href="../css/pages/ai-agronomist.css">
+
     <link rel="stylesheet" href="../css/pages/inventory.css">
     <link rel="stylesheet" href="../css/pages/weather-logs.css">
     <link rel="stylesheet" href="../css/pages/traceability.css">
@@ -1705,6 +1705,10 @@
                     <span class="material-symbols-outlined">engineering</span>
                     <span>Nhân công</span>
                 </a>
+                <a href="inventory.html" class="sidebar__nav-link">
+                    <span class="material-symbols-outlined">warehouse</span>
+                    <span>Kho</span>
+                </a>
                 <a href="shop.html" class="sidebar__nav-link"><span
                         class="material-symbols-outlined">store</span><span>Cửa hàng</span></a>
                 <a href="cooperative.html" class="sidebar__nav-link"><span
@@ -1739,6 +1743,14 @@
                 <div class="header__search">
                     <span class="material-symbols-outlined header__search-icon">search</span>
                     <input type="text" class="header__search-input" placeholder="Tìm kiếm khu vực...">
+                </div>
+                <div class="view-toggle-group" id="cultivation-view-toggle">
+                    <button class="view-toggle-btn view-toggle-btn--active" data-view="map" onclick="toggleCultivationView('map')">
+                        <span class="material-symbols-outlined">map</span> Bản đồ
+                    </button>
+                    <button class="view-toggle-btn" data-view="grid" onclick="toggleCultivationView('grid')">
+                        <span class="material-symbols-outlined">grid_view</span> Sơ đồ
+                    </button>
                 </div>
                 <div class="header__actions">
                     <button class="header__notification" onclick="toggleNotificationDropdown()"><span
@@ -1788,7 +1800,8 @@
 
                     <div class="map-controls">
                         <button class="map-control-btn" id="btn-field-loss-analytics" title="Thống kê hao hụt"
-                            onclick="openFieldLossAnalytics()" style="background:linear-gradient(135deg, #dc2626, #991b1b); color:white;">
+                            onclick="openFieldLossAnalytics()"
+                            style="background:linear-gradient(135deg, #dc2626, #991b1b); color:white;">
                             <span class="material-symbols-outlined">warning</span>
                         </button>
                         <button class="map-control-btn" id="btn-financial-mode" title="Bản đồ tài chính"
@@ -2044,6 +2057,33 @@
                             Click vào thửa đất để xem cây trồng/vật nuôi phù hợp
                         </div>
                     </div>
+
+                    <!-- Field Grid View Container (initially hidden) -->
+                    <div class="field-grid-container view-hidden" id="field-grid-container" style="display:none;">
+                        <div class="field-grid-header">
+                            <div class="field-grid-header__title">
+                                <span class="material-symbols-outlined">grid_view</span>
+                                Sơ đồ ruộng
+                            </div>
+                            <div class="field-grid-legend">
+                                <div class="field-grid-legend__item">
+                                    <div class="field-grid-legend__dot field-grid-legend__dot--active"></div>
+                                    <span>Đang canh tác</span>
+                                </div>
+                                <div class="field-grid-legend__item">
+                                    <div class="field-grid-legend__dot field-grid-legend__dot--fallow"></div>
+                                    <span>Bỏ hoang</span>
+                                </div>
+                                <div class="field-grid-legend__item">
+                                    <div class="field-grid-legend__dot field-grid-legend__dot--empty"></div>
+                                    <span>Chưa trồng</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="field-grid-inner" id="field-grid-inner">
+                            <!-- Cards rendered by cultivation.js -->
+                        </div>
+                    </div>
                 </div>
 
                 <aside class="sensor-sidebar">
@@ -2267,11 +2307,6 @@
                                         <span
                                             class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--blue">qr_code_2</span>
                                         <span class="field-action-btn__label">Truy xuất</span>
-                                    </button>
-                                    <button class="field-action-btn" onclick="openInventoryModal()">
-                                        <span
-                                            class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--amber">inventory_2</span>
-                                        <span class="field-action-btn__label">Kho vật tư</span>
                                     </button>
                                     <button class="field-action-btn" onclick="openWeatherModal()">
                                         <span
@@ -2515,10 +2550,14 @@
                         <span id="fertilizer-cost" style="font-weight: bold; color: var(--color-primary);">0 VNĐ</span>
                     </div>
                 </div>
+                <div id="fertilizer-worker-select"></div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn--secondary" onclick="closeModal('fertilizer-modal')">Hủy</button>
-                <button class="btn btn--primary" onclick="confirmFertilizer()">Xác nhận bón phân</button>
+                <button class="btn btn--primary" onclick="confirmFertilizer()">
+                    <span class="material-symbols-outlined icon-sm">assignment</span>
+                    Giao việc bón phân
+                </button>
             </div>
         </div>
     </div>
@@ -2592,10 +2631,51 @@
                         <span id="seed-total-cost" style="font-weight: bold; color: #10b981;">500,000 VNĐ</span>
                     </div>
                 </div>
+                <div id="seed-worker-select"></div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn--secondary" onclick="closeModalById('seed-modal')">Hủy</button>
-                <button class="btn btn--primary" onclick="confirmSeed()">Xác nhận gieo hạt</button>
+                <button class="btn btn--primary" onclick="confirmSeed()">
+                    <span class="material-symbols-outlined icon-sm">assignment</span>
+                    Giao việc gieo hạt
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Water Modal (Workflow) -->
+    <div class="modal" id="water-modal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header"
+                style="background: linear-gradient(135deg, #3b82f6, #2563eb); color: white; border-radius: 16px 16px 0 0; padding: 20px 24px;">
+                <div>
+                    <h3 style="margin: 0; display: flex; align-items: center; gap: 10px;">
+                        <span class="material-symbols-outlined">water_drop</span>
+                        Tưới nước
+                    </h3>
+                    <p style="margin: 4px 0 0; opacity: 0.9; font-size: 14px;">Phân công nhân công tưới nước cho ruộng</p>
+                </div>
+                <span class="close-modal" onclick="closeModalById('water-modal')"
+                    style="position: absolute; right: 16px; top: 16px; cursor: pointer; font-size: 24px; opacity: 0.8; color: white;">&times;</span>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <div style="padding:16px; background:#eff6ff; border-radius:12px; border:1px solid #bfdbfe; margin-bottom:16px;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span class="material-symbols-outlined" style="font-size:32px; color:#2563eb;">grass</span>
+                        <div>
+                            <div id="water-field-name" style="font-weight:700; color:#1e40af; font-size:15px;">Ruộng</div>
+                            <div id="water-field-area" style="font-size:13px; color:#6b7280;">Diện tích: --</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="water-worker-select"></div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid #e5e7eb;">
+                <button class="btn btn--secondary" onclick="closeModalById('water-modal')">Hủy</button>
+                <button class="btn btn--primary" onclick="confirmWater()" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                    <span class="material-symbols-outlined icon-sm">assignment</span>
+                    Giao việc tưới nước
+                </button>
             </div>
         </div>
     </div>
@@ -2631,6 +2711,7 @@
                         <span id="harvest-cost" style="font-size: 20px; font-weight: 700; color: #b45309;">0 VNĐ</span>
                     </div>
                 </div>
+                <div id="harvest-worker-select"></div>
             </div>
             <div class="modal-footer"
                 style="padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: flex-end;">
@@ -2640,8 +2721,8 @@
                 </button>
                 <button class="btn btn--primary" onclick="confirmHarvest()"
                     style="min-width: 160px; background: linear-gradient(135deg, #f59e0b, #d97706);">
-                    <span class="material-symbols-outlined icon-sm">check</span>
-                    Tiến hành thu hoạch
+                    <span class="material-symbols-outlined icon-sm">assignment</span>
+                    Giao việc thu hoạch
                 </button>
             </div>
         </div>
@@ -2724,8 +2805,7 @@
         ...
     </div>
 
-    <!-- AI Agronomist Logic -->
-    <script src="../js/ai-agronomist.js?v=2"></script>
+
     <script src="../js/pest-analysis.js?v=2"></script>
 
     <script src="../js/features.js"></script>
@@ -2754,6 +2834,92 @@
         // API_BASE is globally defined in features.js -> var API_BASE
         // DO NOT redeclare it here with const/let
         let currentFarmId = null; // Will be loaded from /api/farms/my-farms
+
+        // === WORKFLOW TASK SYSTEM ===
+        let cultivationWorkers = []; // Cached approved workers
+
+        async function getCultivationUserId() {
+            const email = localStorage.getItem('userEmail');
+            if (!email) return null;
+            try {
+                const res = await fetch(`${API_BASE}/user/profile?email=${encodeURIComponent(email)}`);
+                if (res.ok) { const u = await res.json(); return u ? u.id : null; }
+            } catch (e) { console.error('Error getting user ID:', e); }
+            return null;
+        }
+
+        async function loadCultivationWorkers() {
+            if (cultivationWorkers.length > 0) return cultivationWorkers;
+            try {
+                const farmId = currentFarmId || 1;
+                const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+                const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+                const res = await fetch(`${API_BASE}/user/list?role=WORKER&farmId=${farmId}`, { headers });
+                if (res.ok) cultivationWorkers = await res.json();
+            } catch (e) { console.error('Error loading workers:', e); }
+            return cultivationWorkers;
+        }
+
+        function renderWorkerSelectHtml(selectId) {
+            let options = `<option value="">-- Chọn nhân công --</option>`;
+            cultivationWorkers.forEach(w => {
+                const name = w.fullName || w.email || `Worker #${w.id}`;
+                const avatar = w.avatarUrl ? `<img src="${w.avatarUrl}" style="width:20px;height:20px;border-radius:50%;vertical-align:middle;margin-right:4px;">` : '';
+                options += `<option value="${w.id}">${name}</option>`;
+            });
+            return `
+                <div class="workflow-worker-select" style="margin-top:16px; padding:16px; background:linear-gradient(135deg, #eff6ff, #dbeafe); border-radius:12px; border:1px solid #93c5fd;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                        <span class="material-symbols-outlined" style="color:#2563eb; font-size:20px;">person_add</span>
+                        <span style="font-weight:600; color:#1e40af; font-size:14px;">Phân công nhân công</span>
+                    </div>
+                    <select id="${selectId}" class="form-input" style="width:100%; padding:10px 14px; border-radius:8px; border:1px solid #93c5fd; font-size:14px;">
+                        ${options}
+                    </select>
+                    <p style="margin:8px 0 0; font-size:12px; color:#6b7280;">
+                        <span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle;">info</span>
+                        Nhân công sẽ nhận nhiệm vụ và báo cáo khi hoàn thành
+                    </p>
+                </div>`;
+        }
+
+        async function createWorkflowTask({ taskType, fieldId, workerId, name, description, workflowData, relatedShopItemId, quantityRequired }) {
+            const ownerId = await getCultivationUserId();
+            if (!ownerId) throw new Error('Không xác định được chủ trang trại');
+            if (!currentFarmId) await loadCurrentFarm();
+
+            const payload = {
+                farmId: currentFarmId || 1,
+                ownerId: ownerId,
+                workerId: workerId || null,
+                fieldId: fieldId,
+                name: name,
+                description: description || '',
+                priority: 'NORMAL',
+                taskType: taskType,
+                relatedShopItemId: relatedShopItemId || null,
+                quantityRequired: quantityRequired || 0,
+                salary: 0,
+                dueDate: null,
+                workflowData: JSON.stringify(workflowData)
+            };
+
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            const res = await fetch(`${API_BASE}/tasks`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || err.message || 'Lỗi tạo công việc');
+            }
+            return await res.json();
+        }
 
         // === 1. SOIL & CROP SUITABILITY DATA (User Map) ===
         // === 1. SOIL & CROP SUITABILITY DATA (User Map) ===
@@ -2903,8 +3069,10 @@
         // Check if user has enough items in inventory
         function checkInventory(category, productName, requiredQuantity) {
             const items = userInventoryCache.filter(item => {
-                const matchCategory = !category || item.category === category;
-                const matchName = !productName || (item.name && item.name.toLowerCase().includes(productName.toLowerCase()));
+                const itemCategory = item.effectiveCategory || item.itemCategory || item.category || '';
+                const itemName = item.effectiveName || item.itemName || item.name || '';
+                const matchCategory = !category || itemCategory === category;
+                const matchName = !productName || itemName.toLowerCase().includes(productName.toLowerCase());
                 return matchCategory && matchName;
             });
 
@@ -5954,6 +6122,10 @@
             list.innerHTML = '<div class="loading-spinner">Đang tải phân bón...</div>';
             list.className = 'item-grid';
 
+            // Load workers for selection
+            await loadCultivationWorkers();
+            document.getElementById('fertilizer-worker-select').innerHTML = renderWorkerSelectHtml('fertilizer-worker');
+
             try {
                 const response = await fetch(`${API_BASE}/fertilizers`);
                 if (response.ok) {
@@ -6074,11 +6246,17 @@
                 return;
             }
 
+            const workerId = document.getElementById('fertilizer-worker')?.value;
+            if (!workerId) {
+                alert('Vui lòng chọn nhân công thực hiện');
+                return;
+            }
+
             const quantity = Math.ceil(selectedField.areaSqm / 100);
             const cost = quantity * selectedFertilizerData.price;
 
             // Check inventory first
-            await loadUserInventory(); // Refresh inventory
+            await loadUserInventory();
             const invCheck = checkInventory('PHAN_BON', selectedFertilizerData.name, quantity);
 
             if (!invCheck.hasEnough) {
@@ -6093,30 +6271,23 @@
                 return;
             }
 
-            fetch(`${API_BASE}/fields/${selectedField.id}/fertilize`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    fertilizerId: selectedFertilizerData.id,
-                    cost: cost
-                })
-            })
-                .then(res => {
-                    if (res.ok) {
-                        closeModalById('fertilizer-modal');
-                        loadFieldsFromAPI();
-                        loadUserInventory(); // Refresh inventory after use
-                        if (selectedField) selectFieldFromAPI(selectedField.id);
-                        showToast('Thành công', `Đã bón ${selectedFertilizerData.name}`, 'success');
-                        selectedFertilizerData = null;
-                    } else {
-                        return res.json().then(err => { throw new Error(err.error || 'Lỗi bón phân'); });
-                    }
-                })
-                .catch(e => {
-                    console.error(e);
-                    showToast('Lỗi', e.message, 'error');
+            try {
+                await createWorkflowTask({
+                    taskType: 'FERTILIZE',
+                    fieldId: selectedField.id,
+                    workerId: workerId,
+                    name: `Bón phân ${selectedFertilizerData.name} - ${selectedField.name}`,
+                    description: `Bón ${selectedFertilizerData.name} cho ${selectedField.name}. Chi phí: ${cost.toLocaleString()} VNĐ`,
+                    workflowData: { fertilizerId: selectedFertilizerData.id, cost: cost }
                 });
+
+                closeModalById('fertilizer-modal');
+                showToast('Đã giao việc', `Nhiệm vụ bón ${selectedFertilizerData.name} đã được tạo`, 'success');
+                selectedFertilizerData = null;
+            } catch (e) {
+                console.error(e);
+                showToast('Lỗi', e.message, 'error');
+            }
         }
 
         // --- SEED ---
@@ -6132,6 +6303,11 @@
             document.getElementById('seed-price').textContent = seedPrice.toLocaleString() + ' VNĐ/kg';
             document.getElementById('seed-quantity').value = (selectedField.areaSqm / 1000 * 5).toFixed(1); // Mock 5kg/1000m2
             calculateSeedCost();
+
+            // Load workers for selection
+            loadCultivationWorkers().then(() => {
+                document.getElementById('seed-worker-select').innerHTML = renderWorkerSelectHtml('seed-worker');
+            });
         }
 
         function calculateSeedCost() {
@@ -6144,6 +6320,12 @@
             const quantity = parseFloat(document.getElementById('seed-quantity').value);
             const costString = document.getElementById('seed-total-cost').textContent;
             const cost = parseInt(costString.replace(/\D/g, ''));
+
+            const workerId = document.getElementById('seed-worker')?.value;
+            if (!workerId) {
+                alert('Vui lòng chọn nhân công thực hiện');
+                return;
+            }
 
             // Get crop name for inventory check
             const cropName = selectedField?.currentCrop?.name || 'hạt giống';
@@ -6164,29 +6346,22 @@
                 return;
             }
 
-            fetch(`${API_BASE}/fields/${selectedField.id}/seed`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    quantity: quantity,
-                    cost: cost
-                })
-            })
-                .then(res => {
-                    if (res.ok) {
-                        closeModalById('seed-modal');
-                        loadFieldsFromAPI(); // Reload to update status to ACTIVE
-                        loadUserInventory(); // Refresh inventory
-                        if (selectedField) selectFieldFromAPI(selectedField.id);
-                        showToast('Thành công', 'Đã gieo hạt, vụ mùa bắt đầu!', 'success');
-                    } else {
-                        return res.json().then(err => { throw new Error(err.error || 'Lỗi gieo hạt'); });
-                    }
-                })
-                .catch(e => {
-                    console.error(e);
-                    showToast('Lỗi', e.message, 'error');
+            try {
+                await createWorkflowTask({
+                    taskType: 'SEED',
+                    fieldId: selectedField.id,
+                    workerId: workerId,
+                    name: `Gieo hạt ${cropName} - ${selectedField.name}`,
+                    description: `Gieo ${quantity} kg hạt giống ${cropName} cho ${selectedField.name}. Chi phí: ${cost.toLocaleString()} VNĐ`,
+                    workflowData: { quantity: quantity, cost: cost }
                 });
+
+                closeModalById('seed-modal');
+                showToast('Đã giao việc', 'Nhiệm vụ gieo hạt đã được tạo', 'success');
+            } catch (e) {
+                console.error(e);
+                showToast('Lỗi', e.message, 'error');
+            }
         }
 
         // --- PESTICIDE ---
@@ -6195,6 +6370,9 @@
 
         async function openPesticideModal() {
             if (!selectedField) return;
+
+            // Load workers for selection
+            await loadCultivationWorkers();
 
             // Use dynamically created modal for better UI
             let modal = document.getElementById('pesticide-enhanced-modal');
@@ -6239,10 +6417,14 @@
                                     <input type="number" id="pesticide-cost-input" class="form-input" value="100000" min="0" step="10000">
                                 </div>
                             </div>
+                            <div id="pesticide-worker-select">${renderWorkerSelectHtml('pesticide-worker')}</div>
                         </div>
                         <div class="modal-footer">
                             <button class="btn btn--secondary" onclick="closeModalById('pesticide-enhanced-modal')">Hủy</button>
-                            <button class="btn btn--primary" onclick="confirmPesticideEnhanced()">Xác nhận phun thuốc</button>
+                            <button class="btn btn--primary" onclick="confirmPesticideEnhanced()">
+                                <span class="material-symbols-outlined icon-sm">assignment</span>
+                                Giao việc phun thuốc
+                            </button>
                         </div>
                     </div>`;
                 document.body.appendChild(modal);
@@ -6339,33 +6521,49 @@
             document.body.appendChild(modal);
         }
 
-        function confirmPesticideEnhanced() {
+        async function confirmPesticideEnhanced() {
             if (!selectedPestData) {
                 alert('Vui lòng chọn loại sâu bệnh');
+                return;
+            }
+
+            const workerId = document.getElementById('pesticide-worker')?.value;
+            if (!workerId) {
+                alert('Vui lòng chọn nhân công thực hiện');
                 return;
             }
 
             const cost = parseInt(document.getElementById('pesticide-cost-input')?.value) || 100000;
             const treatmentName = selectedPestData.treatment || selectedPestData.name;
 
-            fetch(`${API_BASE}/fields/${selectedField.id}/pesticide`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    pesticideName: treatmentName,
-                    cost: cost
-                })
+            // Check inventory for pesticide
+            await loadUserInventory();
+            const invCheck = checkInventory('THUOC_TRU_SAU', treatmentName, 1);
+
+            if (!invCheck.hasEnough) {
+                closeModalById('pesticide-enhanced-modal');
+                showInsufficientInventoryDialog(
+                    treatmentName,
+                    invCheck.available,
+                    1,
+                    'THUOC_TRU_SAU',
+                    treatmentName
+                );
+                return;
+            }
+
+            createWorkflowTask({
+                taskType: 'PEST_CONTROL',
+                fieldId: selectedField.id,
+                workerId: workerId,
+                name: `Phun thuốc trị ${selectedPestData.name} - ${selectedField.name}`,
+                description: `Phun ${treatmentName} trị ${selectedPestData.name} cho ${selectedField.name}. Chi phí: ${cost.toLocaleString()} VNĐ`,
+                workflowData: { pesticideName: treatmentName, cost: cost }
             })
-                .then(res => {
-                    if (res.ok) {
-                        closeModalById('pesticide-enhanced-modal');
-                        showToast('Thành công', `Đã phun thuốc trị ${selectedPestData.name}`, 'success');
-                        loadFieldsFromAPI();
-                        if (selectedField) selectFieldFromAPI(selectedField.id);
-                        selectedPestData = null;
-                    } else {
-                        return res.json().then(err => { throw new Error(err.error || 'Lỗi'); });
-                    }
+                .then(() => {
+                    closeModalById('pesticide-enhanced-modal');
+                    showToast('Đã giao việc', `Nhiệm vụ phun thuốc trị ${selectedPestData.name} đã được tạo`, 'success');
+                    selectedPestData = null;
                 })
                 .catch(e => {
                     showToast('Lỗi', e.message, 'error');
@@ -6410,6 +6608,11 @@
             const modal = document.getElementById('harvest-modal');
             modal.classList.add('open');
             modal.style.display = 'flex';
+
+            // Load workers for selection
+            loadCultivationWorkers().then(() => {
+                document.getElementById('harvest-worker-select').innerHTML = renderWorkerSelectHtml('harvest-worker');
+            });
 
             const list = document.getElementById('machinery-list');
             // machineryId: 1 = Máy gặt Kubota, 5 = Thu hoạch thủ công (based on DataInitializer)
@@ -6472,39 +6675,31 @@
                 return;
             }
 
+            const workerId = document.getElementById('harvest-worker')?.value;
+            if (!workerId) {
+                alert('Vui lòng chọn nhân công thực hiện');
+                return;
+            }
+
             const machineryId = selectedActivityOption.machineryId;
             const cost = selectedActivityOption.pricePerHa * (selectedField.areaSqm / 10000);
 
-            // Call start-harvest endpoint
-            fetch(`${API_BASE}/fields/${selectedField.id}/start-harvest`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    machineryId: machineryId,
-                    machineCost: cost
-                })
+            createWorkflowTask({
+                taskType: 'HARVEST',
+                fieldId: selectedField.id,
+                workerId: workerId,
+                name: `Thu hoạch - ${selectedField.name}`,
+                description: `Thu hoạch ${selectedField.currentCrop?.name || 'cây trồng'} tại ${selectedField.name}. Chi phí máy: ${cost.toLocaleString()} VNĐ`,
+                workflowData: { machineryId: machineryId, machineCost: cost }
             })
-                .then(res => res.json())
-                .then(data => {
+                .then(() => {
                     closeModalById('harvest-modal');
-
-                    if (data.status === 'HARVESTING') {
-                        // Timed harvest - show progress notification
-                        showToast('Đang thu hoạch', `Thu hoạch sẽ hoàn tất sau ${data.durationMinutes} phút`, 'success');
-                        loadFieldsFromAPI();
-                        if (selectedField) selectFieldFromAPI(selectedField.id);
-                    } else if (data.cropName) {
-                        // Instant harvest (Test crop) - show result immediately
-                        showHarvestResult(data);
-                        loadFieldsFromAPI();
-                        if (selectedField) selectFieldFromAPI(selectedField.id);
-                    } else if (data.error) {
-                        showToast('Lỗi', data.error, 'error');
-                    }
+                    showToast('Đã giao việc', 'Nhiệm vụ thu hoạch đã được tạo', 'success');
+                    selectedActivityOption = null;
                 })
                 .catch(e => {
                     console.error(e);
-                    showToast('Lỗi', 'Không thể thu hoạch', 'error');
+                    showToast('Lỗi', e.message, 'error');
                 });
         }
 
@@ -6618,19 +6813,43 @@
             modal.style.display = 'flex';
         }
 
-        function waterField() {
+        async function waterField() {
             if (!selectedField) return;
-            fetch(`${API_BASE}/fields/${selectedField.id}/water`, { method: 'POST' })
-                .then(res => {
-                    if (res.ok) {
-                        showToast('Thành công', 'Đã tưới nước', 'success');
-                        loadFieldsFromAPI();
-                        if (selectedField) selectFieldFromAPI(selectedField.id);
-                    } else {
-                        return res.json().then(err => { throw new Error(err.error || 'Lỗi tưới nước'); });
-                    }
-                })
-                .catch(e => showToast('Lỗi', e.message, 'error'));
+            const modal = document.getElementById('water-modal');
+            modal.classList.add('open');
+            modal.style.display = 'flex';
+
+            document.getElementById('water-field-name').textContent = selectedField.name;
+            document.getElementById('water-field-area').textContent = `Diện tích: ${(selectedField.areaSqm / 10000).toFixed(2)} ha`;
+
+            // Load workers for selection
+            await loadCultivationWorkers();
+            document.getElementById('water-worker-select').innerHTML = renderWorkerSelectHtml('water-worker');
+        }
+
+        async function confirmWater() {
+            const workerId = document.getElementById('water-worker')?.value;
+            if (!workerId) {
+                alert('Vui lòng chọn nhân công thực hiện');
+                return;
+            }
+
+            try {
+                await createWorkflowTask({
+                    taskType: 'WATER',
+                    fieldId: selectedField.id,
+                    workerId: workerId,
+                    name: `Tưới nước - ${selectedField.name}`,
+                    description: `Tưới nước cho ${selectedField.name}`,
+                    workflowData: {}
+                });
+
+                closeModalById('water-modal');
+                showToast('Đã giao việc', 'Nhiệm vụ tưới nước đã được tạo', 'success');
+            } catch (e) {
+                console.error(e);
+                showToast('Lỗi', e.message, 'error');
+            }
         }
 
         function openHarvestHistoryModal() {
@@ -7300,6 +7519,114 @@
             }
         }
 
+        // ==================== VIEW TOGGLE ====================
+        let currentCultivationView = localStorage.getItem('cultivationView') || 'map';
+
+        function toggleCultivationView(mode) {
+            currentCultivationView = mode;
+            localStorage.setItem('cultivationView', mode);
+
+            const mapEl = document.getElementById('leaflet-map');
+            const gridEl = document.getElementById('field-grid-container');
+            const toggleBtns = document.querySelectorAll('#cultivation-view-toggle .view-toggle-btn');
+
+            const overlays = document.querySelectorAll('#map-container > .drawing-indicator, #map-container > .location-search, #map-container > .map-controls, #map-container > .map-layers, #map-container > .weather-widget, #map-container > .ndvi-legend, #map-container > .planning-legend, #map-container > .planning-sync-bar, #map-container > .soil-legend');
+
+            toggleBtns.forEach(btn => {
+                btn.classList.toggle('view-toggle-btn--active', btn.dataset.view === mode);
+            });
+
+            if (mode === 'grid') {
+                if (mapEl) mapEl.style.display = 'none';
+                overlays.forEach(el => el.style.visibility = 'hidden');
+
+                gridEl.style.display = '';
+                gridEl.offsetHeight;
+                gridEl.classList.remove('view-hidden');
+
+                renderFieldGridView();
+            } else {
+                gridEl.classList.add('view-hidden');
+                setTimeout(() => { gridEl.style.display = 'none'; }, 300);
+
+                if (mapEl) {
+                    mapEl.style.display = '';
+                    setTimeout(() => { if (map) map.invalidateSize(); }, 50);
+                }
+                overlays.forEach(el => el.style.visibility = '');
+            }
+        }
+
+        function renderFieldGridView() {
+            const grid = document.getElementById('field-grid-inner');
+            if (!grid) return;
+            grid.innerHTML = '';
+
+            fieldsData.forEach((field, idx) => {
+                const card = document.createElement('div');
+                const status = String(field.status || '').toUpperCase();
+                const isSelected = selectedField && selectedField.id == field.id;
+                const hasCrop = field.currentCrop && field.currentCrop.name;
+
+                let cls = 'field-grid-card';
+                if (status === 'ACTIVE') cls += ' field-grid-card--active';
+                else if (status === 'FALLOW') cls += ' field-grid-card--fallow';
+                else cls += ' field-grid-card--empty';
+                if (isSelected) cls += ' field-grid-card--selected';
+
+                card.className = cls;
+                card.setAttribute('data-field-id', field.id);
+                card.style.animationDelay = `${idx * 40}ms`;
+
+                const areaSqm = Number(field.areaSqm) || 0;
+                const areaText = areaSqm < 10000
+                    ? `${areaSqm.toFixed(0)} m²`
+                    : `${(areaSqm / 10000).toFixed(2)} ha`;
+
+                let html = `<span class="field-grid-card__code">${field.name}</span>`;
+                html += `<span class="field-grid-card__area">${areaText}</span>`;
+
+                if (hasCrop) {
+                    const crop = field.currentCrop;
+                    const imageUrl = crop.imageUrl;
+                    const cropIcon = getCropIconForGrid(crop);
+                    let bodyContent = '';
+                    if (imageUrl) {
+                        bodyContent = `<img class="field-grid-card__img" src="${imageUrl}" alt="${crop.name}" onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+                            <span class="material-symbols-outlined field-grid-card__icon" style="display:none">${cropIcon}</span>`;
+                    } else {
+                        bodyContent = `<span class="material-symbols-outlined field-grid-card__icon">${cropIcon}</span>`;
+                    }
+                    bodyContent += `<span class="field-grid-card__label">${crop.name}</span>`;
+                    html += `<div class="field-grid-card__body">${bodyContent}</div>`;
+                } else {
+                    html += `<div class="field-grid-card__body">
+                        <span class="material-symbols-outlined field-grid-card__icon" style="color:#cbd5e1">grass</span>
+                        <span class="field-grid-card__empty-text">Chưa trồng</span>
+                    </div>`;
+                }
+
+                card.innerHTML = html;
+                card.addEventListener('click', () => {
+                    grid.querySelectorAll('.field-grid-card--selected').forEach(c => c.classList.remove('field-grid-card--selected'));
+                    card.classList.add('field-grid-card--selected');
+                    selectFieldFromAPI(field);
+                });
+                grid.appendChild(card);
+            });
+        }
+
+        function getCropIconForGrid(crop) {
+            if (!crop) return 'grass';
+            const name = (crop.name || '').toLowerCase();
+            if (name.includes('lúa') || name.includes('rice')) return 'grain';
+            if (name.includes('rau') || name.includes('vegetable')) return 'eco';
+            if (name.includes('trái') || name.includes('fruit') || name.includes('cây ăn')) return 'nutrition';
+            if (name.includes('dừa') || name.includes('coconut')) return 'park';
+            if (name.includes('hoa') || name.includes('flower')) return 'local_florist';
+            return 'grass';
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             initMap();
             fetchWeather();
@@ -7308,6 +7635,11 @@
 
             // Load field losses after a short delay to allow fields to load first
             setTimeout(() => { if (currentFarmId) loadFieldLosses(currentFarmId); }, 2000);
+
+            // Restore grid view if saved
+            if (currentCultivationView === 'grid') {
+                setTimeout(() => toggleCultivationView('grid'), 500);
+            }
         });
     </script>
 
@@ -8176,173 +8508,6 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
         </div>
     </div>
 </div>
-
-<!-- Inverse Inventory Modal -->
-<div class="modal" id="inventory-modal">
-    <div class="modal-content inventory-modal-content">
-        <div class="modal-header">
-            <h3><span class="material-symbols-outlined" style="font-size:20px;">warehouse</span> Kho vật tư</h3>
-            <span class="close-modal" onclick="closeInventoryModal()">&times;</span>
-        </div>
-        <div class="modal-body">
-            <!-- Summary Cards -->
-            <div class="inventory-summary" id="inventory-summary"></div>
-
-            <!-- Search & View Toggle -->
-            <div class="inventory-actions" style="margin-bottom: 16px;">
-                <div style="flex: 1; position: relative;">
-                    <span class="material-symbols-outlined"
-                        style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#9ca3af; font-size:20px;">search</span>
-                    <input type="text" id="inventory-search" placeholder="Tìm kiếm vật tư..." class="form-input"
-                        style="padding-left: 38px;">
-                </div>
-                <div style="display:flex; gap:4px; margin-left:8px;">
-                    <button class="inv-view-btn active" data-view="grid" onclick="toggleInventoryView('grid')"
-                        title="Dạng lưới"
-                        style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:8px; cursor:pointer; color:#059669;">
-                        <span class="material-symbols-outlined" style="font-size:20px;">grid_view</span>
-                    </button>
-                    <button class="inv-view-btn" data-view="table" onclick="toggleInventoryView('table')"
-                        title="Dạng bảng"
-                        style="background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:8px; cursor:pointer; color:#6b7280;">
-                        <span class="material-symbols-outlined" style="font-size:20px;">table_rows</span>
-                    </button>
-                </div>
-                <button class="btn btn--primary" onclick="showAddInventoryForm()" style="margin-left:8px;">
-                    <span class="material-symbols-outlined">add</span> Nhập kho
-                </button>
-            </div>
-
-            <!-- Category Tabs -->
-            <div class="inv-category-tabs" id="inventory-category-tabs"></div>
-
-            <!-- Grid View -->
-            <div class="inventory-grid-container">
-                <div class="inventory-grid" id="inventory-grid-view"></div>
-            </div>
-
-            <!-- Table View (hidden by default) -->
-            <div class="inventory-list-container" style="display:none;">
-                <table class="inventory-table">
-                    <thead>
-                        <tr>
-                            <th>Tên vật tư</th>
-                            <th>Loại</th>
-                            <th>Tồn kho</th>
-                            <th>Đơn giá</th>
-                            <th>Trạng thái</th>
-                            <th>Giá trị</th>
-                        </tr>
-                    </thead>
-                    <tbody id="inventory-table-body"></tbody>
-                </table>
-            </div>
-
-            <!-- Add/Edit Form (Hidden by default) -->
-            <div id="inventory-form-overlay" class="inventory-overlay" style="display: none;">
-                <div class="inventory-form-card">
-                    <h4 id="inv-form-title"><span class="material-symbols-outlined">add_shopping_cart</span> Nhập kho
-                        vật tư mới</h4>
-
-                    <div class="inv-tabs" style="display: flex; gap: 8px; margin-bottom: 16px;">
-                        <button type="button" id="tab-catalog" class="inv-tab active"
-                            onclick="switchInventoryTab('catalog')">
-                            <span class="material-symbols-outlined">storefront</span>
-                            Chọn từ Catalog
-                        </button>
-                        <button type="button" id="tab-custom" class="inv-tab" onclick="switchInventoryTab('custom')">
-                            <span class="material-symbols-outlined">edit_note</span>
-                            Tự nhập
-                        </button>
-                    </div>
-
-                    <form id="inventory-form" onsubmit="handleInventorySubmit(event)">
-                        <input type="hidden" id="inv-id">
-                        <div id="catalog-mode">
-                            <div class="form-group">
-                                <label>Loại vật tư</label>
-                                <select id="inv-catalog-type" class="form-select" onchange="loadCatalogItems()">
-                                    <option value="FERTILIZER">🌱 Phân bón</option>
-                                    <option value="PESTICIDE">🦟 Thuốc BVTV</option>
-                                    <option value="SEED">🌾 Hạt giống</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Chọn sản phẩm</label>
-                                <select id="inv-catalog-product" class="form-select" onchange="fillProductInfo()">
-                                    <option value="">-- Đang tải --</option>
-                                </select>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Số lượng nhập</label>
-                                    <input type="number" id="inv-catalog-quantity" required class="form-input" min="1"
-                                        step="0.1" value="1">
-                                </div>
-                                <div class="form-group">
-                                    <label>Đơn giá (VNĐ)</label>
-                                    <input type="number" id="inv-catalog-cost" required class="form-input" min="0"
-                                        readonly>
-                                </div>
-                            </div>
-                            <div class="inv-product-preview" id="inv-product-preview" style="display: none;">
-                                <div class="preview-name" id="preview-name"></div>
-                                <div class="preview-desc" id="preview-desc"></div>
-                            </div>
-                        </div>
-                        <div id="custom-mode" style="display: none;">
-                            <div class="form-group">
-                                <label>Tên vật tư</label>
-                                <input type="text" id="inv-name" class="form-input" placeholder="VD: Phân NPK 20-20-15">
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Loại</label>
-                                    <select id="inv-type" class="form-select">
-                                        <option value="FERTILIZER">Phân bón</option>
-                                        <option value="PESTICIDE">Thuốc BVTV</option>
-                                        <option value="SEED">Hạt giống</option>
-                                        <option value="OTHER">Khác</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>Đơn vị tính</label>
-                                    <input type="text" id="inv-unit" class="form-input" placeholder="kg, chai, bao">
-                                </div>
-                            </div>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label>Số lượng</label>
-                                    <input type="number" id="inv-quantity" class="form-input" min="0" step="0.1">
-                                </div>
-                                <div class="form-group">
-                                    <label>Đơn giá/đơn vị</label>
-                                    <input type="number" id="inv-cost" class="form-input" min="0">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Ngưỡng cảnh báo (Min)</label>
-                            <input type="number" id="inv-threshold" class="form-input" value="10">
-                        </div>
-                        <div class="form-actions">
-                            <button type="button" class="btn btn--secondary"
-                                onclick="hideAddInventoryForm()">Hủy</button>
-                            <button type="submit" class="btn btn--primary">
-                                <span class="material-symbols-outlined">add_shopping_cart</span>
-                                Nhập kho
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Inventory Logic -->
-<script src="../js/inventory.js"></script>
 
 <!-- Weather Logs Modal -->
 <div class="modal" id="weather-modal">

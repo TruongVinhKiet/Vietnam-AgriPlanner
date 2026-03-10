@@ -60,38 +60,110 @@ body {
     overflow-x: hidden;
 }
 
-/* ==================== LAYOUT TOGGLE BUTTON ==================== */
-.layout-toggle {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 1000;
+/* ==================== FLOATING CONTROLS (Integrated into Hero) ==================== */
+.floating-controls {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+    z-index: 100;
     display: flex;
     align-items: center;
-    gap: 6px;
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--border-color);
-    color: var(--green-700);
-    padding: 10px 16px;
+    gap: 12px;
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Animations for Mobile switch */
+.view-mobile .floating-controls {
+    top: 16px;
+    right: 16px;
+    transform: scale(0.9);
+}
+
+.layout-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 10px 18px;
     border-radius: 30px;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 500;
     font-family: inherit;
     cursor: pointer;
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
     transition: var(--transition);
 }
 
 .layout-toggle:hover {
-    background: var(--green-600);
-    color: white;
+    background: rgba(255, 255, 255, 0.25);
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(22, 163, 74, 0.3);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+.layout-toggle.active {
+    background: var(--green-500);
+    border-color: var(--green-400);
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+}
+
+/* Hide toggle label in Hero integration for cleaner look by default */
+.toggle-label {
+    display: none;
 }
 
 .layout-toggle .material-symbols-outlined {
-    font-size: 18px;
+    font-size: 20px;
+}
+
+/* Weather Widget integration */
+.weather-widget {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    transition: var(--transition);
+}
+
+.weather-widget:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+}
+
+.weather-icon-wrapper {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+}
+
+.weather-temp {
+    color: white;
+    font-size: 24px;
+}
+
+.weather-header,
+.weather-desc {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.weather-badge {
+    background: transparent;
+    color: white;
+    font-weight: 400;
+    padding: 0;
+    opacity: 0.8;
 }
 
 /* ==================== PAGE WRAPPER ==================== */
@@ -121,9 +193,9 @@ body {
     position: absolute;
     inset: 0;
     background: linear-gradient(180deg,
-        rgba(5, 46, 22, 0.3) 0%,
-        rgba(5, 46, 22, 0.5) 50%,
-        rgba(5, 46, 22, 0.85) 100%);
+            rgba(5, 46, 22, 0.3) 0%,
+            rgba(5, 46, 22, 0.5) 50%,
+            rgba(5, 46, 22, 0.85) 100%);
     z-index: 1;
 }
 
@@ -197,22 +269,84 @@ body {
     font-size: 18px;
 }
 
-/* Decorative Leaves */
-.hero-leaf {
-    position: absolute;
-    z-index: 1;
-    font-size: 40px;
-    opacity: 0.15;
-    animation: float 6s ease-in-out infinite;
+/* ==================== WEATHER WIDGET & EFFECTS ==================== */
+/* Clean up old individual styles if they interfere */
+.weather-temp-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
 }
 
-.hero-leaf--1 { top: 20px; right: 60px; animation-delay: 0s; }
-.hero-leaf--2 { bottom: 40px; right: 120px; animation-delay: 2s; font-size: 30px; }
-.hero-leaf--3 { top: 60px; left: 40px; animation-delay: 4s; font-size: 35px; }
+.weather-temp {
+    font-weight: 600;
+    line-height: 1;
+}
 
-@keyframes float {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-12px) rotate(8deg); }
+.weather-desc {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Weather Overlays (Rain/Fog) */
+.weather-layer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+/* Rain Effect */
+.weather-layer.rain {
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+}
+
+.rain-drop {
+    position: absolute;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.7));
+    width: 2px;
+    animation: rainDropAnim linear infinite;
+}
+
+@keyframes rainDropAnim {
+    0% {
+        transform: translateY(-100px);
+        opacity: 0;
+    }
+
+    10% {
+        opacity: 1;
+    }
+
+    90% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(110vh);
+        opacity: 0;
+    }
+}
+
+/* Fog Effect */
+.weather-layer.fog {
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.05));
+    animation: fogMove 15s ease-in-out infinite alternate;
+}
+
+@keyframes fogMove {
+    0% {
+        transform: scale(1.1) translateX(-2%);
+        opacity: 0.9;
+    }
+
+    100% {
+        transform: scale(1.1) translateX(2%);
+        opacity: 0.5;
+    }
 }
 
 /* ==================== SECTION CONTAINER ==================== */
@@ -253,10 +387,21 @@ body {
     color: white;
 }
 
-.section-icon--green { background: linear-gradient(135deg, var(--green-500), var(--green-600)); }
-.section-icon--amber { background: linear-gradient(135deg, var(--amber-500), var(--amber-600)); }
-.section-icon--blue { background: linear-gradient(135deg, var(--blue-500), var(--blue-600)); }
-.section-icon--purple { background: linear-gradient(135deg, var(--purple-500), var(--purple-600)); }
+.section-icon--green {
+    background: linear-gradient(135deg, var(--green-500), var(--green-600));
+}
+
+.section-icon--amber {
+    background: linear-gradient(135deg, var(--amber-500), var(--amber-600));
+}
+
+.section-icon--blue {
+    background: linear-gradient(135deg, var(--blue-500), var(--blue-600));
+}
+
+.section-icon--purple {
+    background: linear-gradient(135deg, var(--purple-500), var(--purple-600));
+}
 
 .section-count {
     background: var(--green-100);
@@ -376,10 +521,21 @@ body {
     color: white;
 }
 
-.stat-icon--area { background: linear-gradient(135deg, var(--green-400), var(--green-600)); }
-.stat-icon--fields { background: linear-gradient(135deg, var(--blue-500), var(--blue-600)); }
-.stat-icon--animals { background: linear-gradient(135deg, var(--amber-500), var(--amber-600)); }
-.stat-icon--workers { background: linear-gradient(135deg, var(--purple-500), var(--purple-600)); }
+.stat-icon--area {
+    background: linear-gradient(135deg, var(--green-400), var(--green-600));
+}
+
+.stat-icon--fields {
+    background: linear-gradient(135deg, var(--blue-500), var(--blue-600));
+}
+
+.stat-icon--animals {
+    background: linear-gradient(135deg, var(--amber-500), var(--amber-600));
+}
+
+.stat-icon--workers {
+    background: linear-gradient(135deg, var(--purple-500), var(--purple-600));
+}
 
 .stat-value {
     font-size: 22px;
@@ -419,10 +575,21 @@ body {
     height: 4px;
 }
 
-.finance-card--balance::before { background: linear-gradient(90deg, var(--green-400), var(--green-600)); }
-.finance-card--income::before { background: linear-gradient(90deg, #10b981, #059669); }
-.finance-card--expense::before { background: linear-gradient(90deg, var(--red-500), #dc2626); }
-.finance-card--monthly::before { background: linear-gradient(90deg, var(--amber-500), var(--amber-600)); }
+.finance-card--balance::before {
+    background: linear-gradient(90deg, var(--green-400), var(--green-600));
+}
+
+.finance-card--income::before {
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.finance-card--expense::before {
+    background: linear-gradient(90deg, var(--red-500), #dc2626);
+}
+
+.finance-card--monthly::before {
+    background: linear-gradient(90deg, var(--amber-500), var(--amber-600));
+}
 
 .finance-icon {
     width: 44px;
@@ -434,10 +601,25 @@ body {
     margin: 0 auto 12px;
 }
 
-.finance-card--balance .finance-icon { background: rgba(34, 197, 94, 0.12); color: var(--green-600); }
-.finance-card--income .finance-icon { background: rgba(16, 185, 129, 0.12); color: #059669; }
-.finance-card--expense .finance-icon { background: rgba(239, 68, 68, 0.12); color: var(--red-500); }
-.finance-card--monthly .finance-icon { background: rgba(245, 158, 11, 0.12); color: var(--amber-600); }
+.finance-card--balance .finance-icon {
+    background: rgba(34, 197, 94, 0.12);
+    color: var(--green-600);
+}
+
+.finance-card--income .finance-icon {
+    background: rgba(16, 185, 129, 0.12);
+    color: #059669;
+}
+
+.finance-card--expense .finance-icon {
+    background: rgba(239, 68, 68, 0.12);
+    color: var(--red-500);
+}
+
+.finance-card--monthly .finance-icon {
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--amber-600);
+}
 
 .finance-icon .material-symbols-outlined {
     font-size: 22px;
@@ -501,9 +683,17 @@ body {
     color: white;
 }
 
-.field-icon { background: linear-gradient(135deg, var(--green-400), var(--green-600)); }
-.pen-icon { background: linear-gradient(135deg, var(--amber-500), var(--amber-600)); }
-.coop-icon { background: linear-gradient(135deg, var(--blue-500), var(--blue-600)); }
+.field-icon {
+    background: linear-gradient(135deg, var(--green-400), var(--green-600));
+}
+
+.pen-icon {
+    background: linear-gradient(135deg, var(--amber-500), var(--amber-600));
+}
+
+.coop-icon {
+    background: linear-gradient(135deg, var(--blue-500), var(--blue-600));
+}
 
 .card-body {
     flex: 1;
@@ -553,9 +743,20 @@ body {
     flex-shrink: 0;
 }
 
-.condition-badge--good { background: var(--green-100); color: var(--green-700); }
-.condition-badge--warn { background: var(--earth-100); color: var(--amber-600); }
-.condition-badge--bad { background: #fee2e2; color: var(--red-500); }
+.condition-badge--good {
+    background: var(--green-100);
+    color: var(--green-700);
+}
+
+.condition-badge--warn {
+    background: var(--earth-100);
+    color: var(--amber-600);
+}
+
+.condition-badge--bad {
+    background: #fee2e2;
+    color: var(--red-500);
+}
 
 /* Role Badges */
 .role-badge {
@@ -566,8 +767,15 @@ body {
     flex-shrink: 0;
 }
 
-.role-badge--leader { background: rgba(245, 158, 11, 0.15); color: var(--amber-600); }
-.role-badge--member { background: rgba(59, 130, 246, 0.12); color: var(--blue-600); }
+.role-badge--leader {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--amber-600);
+}
+
+.role-badge--member {
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--blue-600);
+}
 
 /* ==================== TIMELINE ==================== */
 .timeline {
@@ -594,8 +802,15 @@ body {
 }
 
 @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .timeline-dot {
@@ -617,13 +832,33 @@ body {
     color: white;
 }
 
-.timeline-dot.planting { background: linear-gradient(135deg, var(--green-400), var(--green-600)); }
-.timeline-dot.fertilize { background: linear-gradient(135deg, var(--amber-500), var(--amber-600)); }
-.timeline-dot.watering { background: linear-gradient(135deg, var(--blue-500), var(--blue-600)); }
-.timeline-dot.pesticide { background: linear-gradient(135deg, var(--red-500), #dc2626); }
-.timeline-dot.seeding { background: linear-gradient(135deg, var(--purple-500), var(--purple-600)); }
-.timeline-dot.harvest { background: linear-gradient(135deg, var(--green-400), var(--green-600)); }
-.timeline-dot.default { background: linear-gradient(135deg, #94a3b8, #64748b); }
+.timeline-dot.planting {
+    background: linear-gradient(135deg, var(--green-400), var(--green-600));
+}
+
+.timeline-dot.fertilize {
+    background: linear-gradient(135deg, var(--amber-500), var(--amber-600));
+}
+
+.timeline-dot.watering {
+    background: linear-gradient(135deg, var(--blue-500), var(--blue-600));
+}
+
+.timeline-dot.pesticide {
+    background: linear-gradient(135deg, var(--red-500), #dc2626);
+}
+
+.timeline-dot.seeding {
+    background: linear-gradient(135deg, var(--purple-500), var(--purple-600));
+}
+
+.timeline-dot.harvest {
+    background: linear-gradient(135deg, var(--green-400), var(--green-600));
+}
+
+.timeline-dot.default {
+    background: linear-gradient(135deg, #94a3b8, #64748b);
+}
 
 .timeline-card {
     padding: 16px 18px;
@@ -638,7 +873,9 @@ body {
     gap: 6px;
 }
 
-.timeline-date .material-symbols-outlined { font-size: 14px; }
+.timeline-date .material-symbols-outlined {
+    font-size: 14px;
+}
 
 .timeline-title {
     font-size: 15px;
@@ -656,7 +893,9 @@ body {
     gap: 4px;
 }
 
-.timeline-subtitle .material-symbols-outlined { font-size: 14px; }
+.timeline-subtitle .material-symbols-outlined {
+    font-size: 14px;
+}
 
 .timeline-description {
     font-size: 13px;
@@ -680,9 +919,17 @@ body {
     color: var(--text-light);
 }
 
-.meta-chip .material-symbols-outlined { font-size: 14px; }
-.meta-chip.cost { color: var(--amber-600); }
-.meta-chip.quantity { color: var(--blue-600); }
+.meta-chip .material-symbols-outlined {
+    font-size: 14px;
+}
+
+.meta-chip.cost {
+    color: var(--amber-600);
+}
+
+.meta-chip.quantity {
+    color: var(--blue-600);
+}
 
 /* Empty State */
 .timeline-empty {
@@ -697,7 +944,9 @@ body {
     margin-bottom: 12px;
 }
 
-.timeline-empty p { font-size: 14px; }
+.timeline-empty p {
+    font-size: 14px;
+}
 
 /* Loading State */
 .timeline-loader {
@@ -719,7 +968,11 @@ body {
     animation: spin 1s linear infinite;
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
 
 /* ==================== FOOTER ==================== */
 .page-footer {
@@ -756,7 +1009,9 @@ body {
     margin-bottom: 12px;
 }
 
-.blockchain-badge .material-symbols-outlined { font-size: 18px; }
+.blockchain-badge .material-symbols-outlined {
+    font-size: 18px;
+}
 
 .scan-time {
     font-size: 12px;
@@ -815,10 +1070,12 @@ body {
 }
 
 .view-mobile .hero-content {
-    padding: 20px;
+    padding: 20px 20px 45px 20px;
     flex-direction: column;
     align-items: flex-start;
+    justify-content: flex-end;
     gap: 16px;
+    height: 100%;
 }
 
 .view-mobile .hero-logo img {
@@ -834,6 +1091,12 @@ body {
 .view-mobile .section-container {
     padding: 0 16px;
     margin-bottom: 24px;
+}
+
+.view-mobile #overview-section {
+    margin-top: -32px;
+    position: relative;
+    z-index: 10;
 }
 
 .view-mobile .section-header-bar h3 {
@@ -889,9 +1152,6 @@ body {
 }
 
 .view-mobile .layout-toggle {
-    top: 12px;
-    right: 12px;
-    padding: 8px 12px;
     font-size: 12px;
 }
 
@@ -944,8 +1204,20 @@ body {
 
 /* ==================== PRINT STYLES ==================== */
 @media print {
-    .layout-toggle { display: none; }
-    .hero-leaf { display: none; }
-    body { background: white; }
-    .glass-card { box-shadow: none; border: 1px solid #e5e7eb; }
+    .layout-toggle {
+        display: none;
+    }
+
+    .hero-leaf {
+        display: none;
+    }
+
+    body {
+        background: white;
+    }
+
+    .glass-card {
+        box-shadow: none;
+        border: 1px solid #e5e7eb;
+    }
 }

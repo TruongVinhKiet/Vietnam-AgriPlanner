@@ -30,6 +30,8 @@ public class OrderService {
     private final MarketPriceTrackingRepository marketPriceRepository;
     private final UserRepository userRepository;
     private final UserInventoryRepository userInventoryRepository;
+    private final InventoryTransactionRepository inventoryTransactionRepository;
+    private final AssetTransactionRepository assetTransactionRepository;
 
     // Warehouse location (default origin for shipping calculation)
     private static final BigDecimal WAREHOUSE_LAT = new BigDecimal("10.8589");
@@ -403,6 +405,7 @@ public class OrderService {
         userRepository.save(user);
     }
 
+    @SuppressWarnings("null")
     private void addToInventory(Long userId, Long shopItemId, Integer quantity) {
         ShopItem shopItem = shopItemRepository
                 .findById(Objects.requireNonNull(shopItemId, "Shop item ID cannot be null")).orElse(null);
@@ -422,7 +425,28 @@ public class OrderService {
         }
 
         userInventoryRepository.save(inventory);
-        log.info("[ORDER] Added {} x {} to user {} inventory", quantity, shopItem.getName(), userId);
+
+        // Log inventory transaction
+        Long inventoryId = inventory.getId();
+        if (inventoryId != null) {
+            InventoryTransaction invTx = InventoryTransaction.createPurchase(
+                userId, inventoryId, BigDecimal.valueOf(quantity), shopItem.getFinalPrice(),
+                "Đơn hàng - " + shopItem.getName() + " x" + quantity
+            );
+            inventoryTransactionRepository.save(invTx);
+        }
+
+        // Log asset transaction
+        BigDecimal totalCost = shopItem.getFinalPrice().multiply(BigDecimal.valueOf(quantity));
+        AssetTransaction assetTx = new AssetTransaction();
+        assetTx.setUserId(userId);
+        assetTx.setAmount(totalCost.negate());
+        assetTx.setTransactionType("EXPENSE");
+        assetTx.setCategory("ORDER_PURCHASE");
+        assetTx.setDescription("Đơn hàng - " + shopItem.getName() + " (" + quantity + " " + shopItem.getUnit() + ")");
+        assetTransactionRepository.save(assetTx);
+
+        log.info("[ORDER] Added {} x {} to user {} inventory with transaction logged", quantity, shopItem.getName(), userId);
     }
 
     private BigDecimal calculateDistance(BigDecimal lat1, BigDecimal lng1, BigDecimal lat2, BigDecimal lng2) {
