@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="../css/components.css">
     <link rel="stylesheet" href="../css/pages/livestock.css">
     <link rel="stylesheet" href="../css/pages/inventory.css">
+    <link rel="stylesheet" href="../css/pages/data-export.css">
     <link rel="stylesheet" href="../css/chatbot.css">
     <link rel="stylesheet" href="../css/smart-advisor.css">
 
@@ -89,13 +90,18 @@
                         class="material-symbols-outlined header__search-icon">search</span><input type="text"
                         class="header__search-input" placeholder="Tìm kiếm chuồng trại..."></div>
                 <div class="view-toggle-group" id="livestock-view-toggle">
-                    <button class="view-toggle-btn view-toggle-btn--active" data-view="canvas" onclick="toggleLivestockView('canvas')">
+                    <button class="view-toggle-btn view-toggle-btn--active" data-view="canvas"
+                        onclick="toggleLivestockView('canvas')">
                         <span class="material-symbols-outlined">video_camera_front</span> Mô phỏng
                     </button>
                     <button class="view-toggle-btn" data-view="grid" onclick="toggleLivestockView('grid')">
                         <span class="material-symbols-outlined">grid_view</span> Sơ đồ
                     </button>
                 </div>
+                <button class="view-toggle-btn" onclick="openDataExportPanel()" title="Xem báo cáo tổng hợp"
+                    style="margin-left: 10px;">
+                    <span class="material-symbols-outlined">summarize</span> Báo cáo
+                </button>
                 <div class="header__actions">
                     <button class="header__notification" onclick="toggleNotificationPanel()"><span
                             class="material-symbols-outlined">notifications</span><span id="notification-badge"
@@ -290,7 +296,8 @@
                                         <button class="action-btn" id="btn-mortality" disabled
                                             onclick="openMortalityReport()">
                                             <div class="action-btn__icon-wrap action-btn__icon-wrap--orange">
-                                                <span class="material-symbols-outlined action-btn__icon">monitoring</span>
+                                                <span
+                                                    class="material-symbols-outlined action-btn__icon">monitoring</span>
                                             </div>
                                             <span class="action-btn__label">Hao hụt</span>
                                         </button>
@@ -318,7 +325,8 @@
                                         <button class="action-btn" id="btn-utility" disabled
                                             onclick="openUtilityModal()">
                                             <div class="action-btn__icon-wrap action-btn__icon-wrap--cyan">
-                                                <span class="material-symbols-outlined action-btn__icon">electrical_services</span>
+                                                <span
+                                                    class="material-symbols-outlined action-btn__icon">electrical_services</span>
                                             </div>
                                             <span class="action-btn__label">Điện nước</span>
                                         </button>
@@ -381,7 +389,8 @@
                                             Xu hướng cân nặng
                                             <span id="weight-reminder-badge"></span>
                                         </div>
-                                        <button class="sidebar-section__action" onclick="openWeightRecordModal()" title="Ghi nhận cân nặng">
+                                        <button class="sidebar-section__action" onclick="openWeightRecordModal()"
+                                            title="Ghi nhận cân nặng">
                                             <span class="material-symbols-outlined">add_circle</span>
                                         </button>
                                     </div>
@@ -398,7 +407,8 @@
                                             <span id="byproduct-title">Xu hướng sản phẩm phụ</span>
                                             <span id="byproduct-reminder-badge"></span>
                                         </div>
-                                        <button class="sidebar-section__action" onclick="openByproductRecordModal()" title="Ghi nhận sản lượng">
+                                        <button class="sidebar-section__action" onclick="openByproductRecordModal()"
+                                            title="Ghi nhận sản lượng">
                                             <span class="material-symbols-outlined">add_circle</span>
                                         </button>
                                     </div>
@@ -535,7 +545,8 @@
         <div class="modal__content" style="max-width: 560px;">
             <div class="modal__header">
                 <h3 class="modal__title">
-                    <span class="material-symbols-outlined" id="harvest-modal-icon" style="color: var(--color-success);">payments</span>
+                    <span class="material-symbols-outlined" id="harvest-modal-icon"
+                        style="color: var(--color-success);">payments</span>
                     <span id="harvest-modal-title">Thu hoạch / Bán vật nuôi</span>
                 </h3>
                 <button class="modal__close" onclick="closeHarvestModal()">
@@ -545,11 +556,13 @@
             <div class="modal__body">
                 <!-- Harvest Type Toggle (BOTH only) -->
                 <div class="harvest-type-toggle" id="harvest-type-toggle" style="display:none;">
-                    <button class="harvest-toggle-btn active" id="harvest-toggle-animal" onclick="switchHarvestTab('animal')">
+                    <button class="harvest-toggle-btn active" id="harvest-toggle-animal"
+                        onclick="switchHarvestTab('animal')">
                         <span class="material-symbols-outlined">pets</span>
                         Bán vật nuôi
                     </button>
-                    <button class="harvest-toggle-btn" id="harvest-toggle-byproduct" onclick="switchHarvestTab('byproduct')">
+                    <button class="harvest-toggle-btn" id="harvest-toggle-byproduct"
+                        onclick="switchHarvestTab('byproduct')">
                         <span class="material-symbols-outlined" id="harvest-toggle-bp-icon">egg</span>
                         <span id="harvest-toggle-bp-label">Bán sản phẩm phụ</span>
                     </button>
@@ -592,14 +605,16 @@
                     <div class="form-group">
                         <label class="form-label">Giá bán thực tế <span class="text-error">*</span></label>
                         <div class="input-with-suffix">
-                            <input type="number" id="harvest-price" class="form-input" min="0" step="1000" placeholder="0">
+                            <input type="number" id="harvest-price" class="form-input" min="0" step="1000"
+                                placeholder="0">
                             <span class="input-suffix" id="harvest-price-unit">₫/con</span>
                         </div>
                         <div class="form-hint">Nhập giá bán thực tế tại thời điểm giao dịch</div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Ghi chú</label>
-                        <textarea id="harvest-notes" class="form-input" rows="2" placeholder="Ghi chú thêm về giao dịch..."></textarea>
+                        <textarea id="harvest-notes" class="form-input" rows="2"
+                            placeholder="Ghi chú thêm về giao dịch..."></textarea>
                     </div>
                     <!-- Revenue Preview -->
                     <div class="harvest-preview">
@@ -634,21 +649,24 @@
                     <div class="form-group">
                         <label class="form-label">Sản lượng bán <span class="text-error">*</span></label>
                         <div class="input-with-suffix">
-                            <input type="number" id="harvest-bp-quantity" class="form-input" min="0" step="0.1" placeholder="0">
+                            <input type="number" id="harvest-bp-quantity" class="form-input" min="0" step="0.1"
+                                placeholder="0">
                             <span class="input-suffix" id="harvest-bp-unit">quả</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Giá bán <span class="text-error">*</span></label>
                         <div class="input-with-suffix">
-                            <input type="number" id="harvest-bp-price" class="form-input" min="0" step="100" placeholder="0">
+                            <input type="number" id="harvest-bp-price" class="form-input" min="0" step="100"
+                                placeholder="0">
                             <span class="input-suffix" id="harvest-bp-price-unit">₫/quả</span>
                         </div>
                         <div class="form-hint">Nhập giá tại thời điểm giao dịch</div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Ghi chú</label>
-                        <textarea id="harvest-bp-notes" class="form-input" rows="2" placeholder="Ghi chú thêm..."></textarea>
+                        <textarea id="harvest-bp-notes" class="form-input" rows="2"
+                            placeholder="Ghi chú thêm..."></textarea>
                     </div>
                     <!-- Byproduct preview -->
                     <div class="harvest-preview">
@@ -721,19 +739,23 @@
                     <div class="form-group">
                         <label class="form-label">Loại hao hụt <span class="text-error">*</span></label>
                         <div class="mortality-cause-tabs">
-                            <button class="mortality-cause-tab active" data-cause="DEATH" onclick="selectMortalityCauseType('DEATH')">
+                            <button class="mortality-cause-tab active" data-cause="DEATH"
+                                onclick="selectMortalityCauseType('DEATH')">
                                 <span class="material-symbols-outlined">skull</span>
                                 Chết
                             </button>
-                            <button class="mortality-cause-tab" data-cause="DISEASE" onclick="selectMortalityCauseType('DISEASE')">
+                            <button class="mortality-cause-tab" data-cause="DISEASE"
+                                onclick="selectMortalityCauseType('DISEASE')">
                                 <span class="material-symbols-outlined">coronavirus</span>
                                 Bệnh
                             </button>
-                            <button class="mortality-cause-tab" data-cause="ACCIDENT" onclick="selectMortalityCauseType('ACCIDENT')">
+                            <button class="mortality-cause-tab" data-cause="ACCIDENT"
+                                onclick="selectMortalityCauseType('ACCIDENT')">
                                 <span class="material-symbols-outlined">warning</span>
                                 Tai nạn
                             </button>
-                            <button class="mortality-cause-tab" data-cause="CULL" onclick="selectMortalityCauseType('CULL')">
+                            <button class="mortality-cause-tab" data-cause="CULL"
+                                onclick="selectMortalityCauseType('CULL')">
                                 <span class="material-symbols-outlined">remove_circle</span>
                                 Loại thải
                             </button>
@@ -763,7 +785,8 @@
                     <div class="form-group">
                         <label class="form-label">Ước tính thiệt hại (₫)</label>
                         <div class="input-with-suffix">
-                            <input type="number" id="mortality-loss" class="form-input" min="0" step="1000" placeholder="0">
+                            <input type="number" id="mortality-loss" class="form-input" min="0" step="1000"
+                                placeholder="0">
                             <span class="input-suffix">₫</span>
                         </div>
                         <div class="form-hint">Chi phí thiệt hại sẽ được ghi nhận vào sổ chi</div>
@@ -898,7 +921,8 @@
                 <span class="notif-panel-header__count" id="notif-header-count"></span>
             </div>
             <div class="notif-panel-header__actions">
-                <button class="notif-panel-header__btn" onclick="markAllNotificationsRead()" title="Đánh dấu tất cả đã đọc">
+                <button class="notif-panel-header__btn" onclick="markAllNotificationsRead()"
+                    title="Đánh dấu tất cả đã đọc">
                     <span class="material-symbols-outlined">done_all</span>
                 </button>
                 <button class="notif-panel-header__btn" onclick="toggleNotificationPanel()" title="Đóng">
@@ -935,8 +959,7 @@
                 <!-- Sidebar: Tickers -->
                 <div class="market-sidebar">
                     <div style="padding:12px; border-bottom:1px solid #334155;">
-                        <input type="text" placeholder="Tìm vật nuôi..."
-                            oninput="filterAnimalTickers(this.value)"
+                        <input type="text" placeholder="Tìm vật nuôi..." oninput="filterAnimalTickers(this.value)"
                             style="width:100%; background:#0f172a; border:1px solid #334155; padding:8px; border-radius:4px; color:white;">
                     </div>
                     <div class="market-ticker-list" id="market-ticker-list">
@@ -952,7 +975,8 @@
                                 <div class="coin-icon" id="detail-icon">🐔</div>
                                 <div class="coin-details">
                                     <h2 id="detail-name">Gà</h2>
-                                    <span id="detail-category" style="color:#94a3b8; font-size:13px;">Gia súc/gia cầm</span>
+                                    <span id="detail-category" style="color:#94a3b8; font-size:13px;">Gia súc/gia
+                                        cầm</span>
                                 </div>
                             </div>
                             <div class="coin-stats">
@@ -1001,6 +1025,7 @@
     <script src="../js/ai_analysis.js"></script>
     <script src="../js/pen-simulation.js"></script>
     <script src="../js/features.js"></script>
+    <script src="../js/data-export.js"></script>
     <script src="../js/livestock.js"></script>
     <script src="../js/main.js"></script>
 
@@ -1024,14 +1049,16 @@
                 <div class="form-group">
                     <label class="form-label">Cân nặng trung bình <span class="text-error">*</span></label>
                     <div class="input-with-suffix">
-                        <input type="number" id="weight-record-value" class="form-input" min="0.01" step="0.01" placeholder="0.00">
+                        <input type="number" id="weight-record-value" class="form-input" min="0.01" step="0.01"
+                            placeholder="0.00">
                         <span class="input-suffix">kg</span>
                     </div>
                     <div class="form-hint" id="weight-record-hint">Cân nặng trung bình mỗi con</div>
                     <div class="form-suggestion" id="weight-suggestion" style="display:none;">
                         <span class="material-symbols-outlined icon-sm">lightbulb</span>
                         <span id="weight-suggestion-text"></span>
-                        <button type="button" class="btn-suggestion-apply" id="weight-suggestion-apply" title="Áp dụng gợi ý">
+                        <button type="button" class="btn-suggestion-apply" id="weight-suggestion-apply"
+                            title="Áp dụng gợi ý">
                             <span class="material-symbols-outlined icon-sm">check_circle</span>
                         </button>
                     </div>
@@ -1042,7 +1069,8 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Ghi chú</label>
-                    <textarea id="weight-record-notes" class="form-input" rows="2" placeholder="Ghi chú thêm..."></textarea>
+                    <textarea id="weight-record-notes" class="form-input" rows="2"
+                        placeholder="Ghi chú thêm..."></textarea>
                 </div>
             </div>
             <div class="modal__footer">
@@ -1060,7 +1088,8 @@
         <div class="modal__content" style="max-width: 450px;">
             <div class="modal__header">
                 <h3 class="modal__title">
-                    <span class="material-symbols-outlined" style="color: var(--color-warning);" id="byproduct-modal-icon">egg</span>
+                    <span class="material-symbols-outlined" style="color: var(--color-warning);"
+                        id="byproduct-modal-icon">egg</span>
                     <span id="byproduct-modal-title">Ghi nhận sản lượng</span>
                 </h3>
                 <button class="modal__close" onclick="closeByproductRecordModal()">
@@ -1075,14 +1104,16 @@
                 <div class="form-group">
                     <label class="form-label">Sản lượng <span class="text-error">*</span></label>
                     <div class="input-with-suffix">
-                        <input type="number" id="byproduct-record-value" class="form-input" min="0.01" step="0.01" placeholder="0">
+                        <input type="number" id="byproduct-record-value" class="form-input" min="0.01" step="0.01"
+                            placeholder="0">
                         <span class="input-suffix" id="byproduct-record-unit">quả</span>
                     </div>
                     <div class="form-hint" id="byproduct-record-hint">Sản lượng thu được trong ngày</div>
                     <div class="form-suggestion" id="byproduct-suggestion" style="display:none;">
                         <span class="material-symbols-outlined icon-sm">lightbulb</span>
                         <span id="byproduct-suggestion-text"></span>
-                        <button type="button" class="btn-suggestion-apply" id="byproduct-suggestion-apply" title="Áp dụng gợi ý">
+                        <button type="button" class="btn-suggestion-apply" id="byproduct-suggestion-apply"
+                            title="Áp dụng gợi ý">
                             <span class="material-symbols-outlined icon-sm">check_circle</span>
                         </button>
                     </div>
@@ -1093,7 +1124,8 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Ghi chú</label>
-                    <textarea id="byproduct-record-notes" class="form-input" rows="2" placeholder="Ghi chú thêm..."></textarea>
+                    <textarea id="byproduct-record-notes" class="form-input" rows="2"
+                        placeholder="Ghi chú thêm..."></textarea>
                 </div>
             </div>
             <div class="modal__footer">
@@ -1150,7 +1182,8 @@
 
                 <!-- Filter Tabs -->
                 <div class="vaccine-filter-tabs">
-                    <button class="vaccine-filter-tab vaccine-filter-tab--active" data-filter="all" onclick="filterVaccineList('all')">
+                    <button class="vaccine-filter-tab vaccine-filter-tab--active" data-filter="all"
+                        onclick="filterVaccineList('all')">
                         Tất cả
                     </button>
                     <button class="vaccine-filter-tab" data-filter="overdue" onclick="filterVaccineList('overdue')">
@@ -1214,7 +1247,8 @@
                 </div>
                 <div class="form-group">
                     <label class="form-label">Ghi chú</label>
-                    <textarea id="vaccine-record-notes" class="form-input" rows="2" placeholder="VD: Tiêm mũi 1, liều 2ml..."></textarea>
+                    <textarea id="vaccine-record-notes" class="form-input" rows="2"
+                        placeholder="VD: Tiêm mũi 1, liều 2ml..."></textarea>
                 </div>
                 <!-- Worker Selection -->
                 <div id="vaccine-worker-select"></div>
@@ -1262,20 +1296,23 @@
                     <div class="form-group">
                         <label class="form-label">Số lượng bán <span class="text-error">*</span></label>
                         <div class="input-with-suffix">
-                            <input type="number" id="sell-bp-quantity" class="form-input" min="0.01" step="0.01" placeholder="0">
+                            <input type="number" id="sell-bp-quantity" class="form-input" min="0.01" step="0.01"
+                                placeholder="0">
                             <span class="input-suffix" id="sell-bp-unit">quả</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Đơn giá <span class="text-error">*</span></label>
                         <div class="input-with-suffix">
-                            <input type="number" id="sell-bp-price" class="form-input" min="0" step="100" placeholder="0">
+                            <input type="number" id="sell-bp-price" class="form-input" min="0" step="100"
+                                placeholder="0">
                             <span class="input-suffix" id="sell-bp-price-unit">₫/quả</span>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Ghi chú</label>
-                        <textarea id="sell-bp-notes" class="form-input" rows="2" placeholder="Ghi chú thêm..."></textarea>
+                        <textarea id="sell-bp-notes" class="form-input" rows="2"
+                            placeholder="Ghi chú thêm..."></textarea>
                     </div>
                 </div>
                 <div class="harvest-preview">
@@ -1319,7 +1356,8 @@
                 <button class="modal__close" onclick="closeUtilityModal()">&times;</button>
             </div>
             <div class="modal__body">
-                <div class="utility-pen-info" id="utility-pen-info" style="background: #f0fdfa; border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; display: flex; align-items: center; gap: 12px;">
+                <div class="utility-pen-info" id="utility-pen-info"
+                    style="background: #f0fdfa; border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; display: flex; align-items: center; gap: 12px;">
                     <span class="material-symbols-outlined" style="color: #06b6d4; font-size: 28px;">home</span>
                     <div>
                         <div style="font-weight: 600; color: #111827;" id="utility-pen-name">Chuồng --</div>
@@ -1330,43 +1368,53 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                     <div class="form-group">
                         <label class="form-label">
-                            <span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle; color: #f59e0b;">bolt</span>
+                            <span class="material-symbols-outlined"
+                                style="font-size: 16px; vertical-align: middle; color: #f59e0b;">bolt</span>
                             Công suất điện (kW)
                         </label>
-                        <input type="number" class="form-input" id="utility-power-kw" min="0" step="0.1" placeholder="VD: 2.5" value="0">
+                        <input type="number" class="form-input" id="utility-power-kw" min="0" step="0.1"
+                            placeholder="VD: 2.5" value="0">
                     </div>
                     <div class="form-group">
                         <label class="form-label">
-                            <span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle; color: #f59e0b;">payments</span>
+                            <span class="material-symbols-outlined"
+                                style="font-size: 16px; vertical-align: middle; color: #f59e0b;">payments</span>
                             Giá điện (VNĐ/kWh)
                         </label>
-                        <input type="number" class="form-input" id="utility-elec-rate" min="0" step="100" placeholder="VD: 3000" value="3000">
+                        <input type="number" class="form-input" id="utility-elec-rate" min="0" step="100"
+                            placeholder="VD: 3000" value="3000">
                     </div>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                     <div class="form-group">
                         <label class="form-label">
-                            <span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle; color: #3b82f6;">water_drop</span>
+                            <span class="material-symbols-outlined"
+                                style="font-size: 16px; vertical-align: middle; color: #3b82f6;">water_drop</span>
                             Lượng nước sử dụng (m³/ngày)
                         </label>
-                        <input type="number" class="form-input" id="utility-water-m3" min="0" step="0.1" placeholder="VD: 1.5" value="0">
+                        <input type="number" class="form-input" id="utility-water-m3" min="0" step="0.1"
+                            placeholder="VD: 1.5" value="0">
                     </div>
                     <div class="form-group">
                         <label class="form-label">
-                            <span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle; color: #3b82f6;">payments</span>
+                            <span class="material-symbols-outlined"
+                                style="font-size: 16px; vertical-align: middle; color: #3b82f6;">payments</span>
                             Giá nước (VNĐ/m³)
                         </label>
-                        <input type="number" class="form-input" id="utility-water-rate" min="0" step="100" placeholder="VD: 12000" value="12000">
+                        <input type="number" class="form-input" id="utility-water-rate" min="0" step="100"
+                            placeholder="VD: 12000" value="12000">
                     </div>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 16px;">
                     <label class="form-label">
-                        <span class="material-symbols-outlined" style="font-size: 16px; vertical-align: middle; color: #8b5cf6;">schedule</span>
+                        <span class="material-symbols-outlined"
+                            style="font-size: 16px; vertical-align: middle; color: #8b5cf6;">schedule</span>
                         Số giờ hoạt động/ngày
                     </label>
-                    <input type="range" id="utility-hours" min="1" max="24" value="12" style="width: 100%;" oninput="updateUtilityPreview()">
+                    <input type="range" id="utility-hours" min="1" max="24" value="12" style="width: 100%;"
+                        oninput="updateUtilityPreview()">
                     <div style="display: flex; justify-content: space-between; font-size: 12px; color: #9ca3af;">
                         <span>1 giờ</span>
                         <span id="utility-hours-label" style="font-weight: 600; color: #111827;">12 giờ</span>
@@ -1375,24 +1423,30 @@
                 </div>
 
                 <!-- Cost Preview -->
-                <div style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-radius: 12px; padding: 16px; margin-top: 12px;">
-                    <div style="font-weight: 600; color: #0369a1; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <div
+                    style="background: linear-gradient(135deg, #f0f9ff, #e0f2fe); border-radius: 12px; padding: 16px; margin-top: 12px;">
+                    <div
+                        style="font-weight: 600; color: #0369a1; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
                         <span class="material-symbols-outlined" style="font-size: 18px;">analytics</span>
                         Dự tính chi phí hàng tháng
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                         <div style="background: white; border-radius: 8px; padding: 12px; text-align: center;">
                             <div style="font-size: 12px; color: #6b7280;">Tiền điện</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #f59e0b;" id="utility-elec-cost">0 VNĐ</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #f59e0b;" id="utility-elec-cost">0 VNĐ
+                            </div>
                         </div>
                         <div style="background: white; border-radius: 8px; padding: 12px; text-align: center;">
                             <div style="font-size: 12px; color: #6b7280;">Tiền nước</div>
-                            <div style="font-size: 20px; font-weight: 700; color: #3b82f6;" id="utility-water-cost">0 VNĐ</div>
+                            <div style="font-size: 20px; font-weight: 700; color: #3b82f6;" id="utility-water-cost">0
+                                VNĐ</div>
                         </div>
                     </div>
-                    <div style="background: white; border-radius: 8px; padding: 12px; text-align: center; margin-top: 12px;">
+                    <div
+                        style="background: white; border-radius: 8px; padding: 12px; text-align: center; margin-top: 12px;">
                         <div style="font-size: 12px; color: #6b7280;">Tổng chi phí điện nước/tháng</div>
-                        <div style="font-size: 24px; font-weight: 800; color: #dc2626;" id="utility-total-cost">0 VNĐ</div>
+                        <div style="font-size: 24px; font-weight: 800; color: #dc2626;" id="utility-total-cost">0 VNĐ
+                        </div>
                     </div>
                 </div>
             </div>

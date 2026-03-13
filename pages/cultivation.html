@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="../css/pages/cultivation.css">
     <link rel="stylesheet" href="../css/pages/pest-analysis.css">
     <link rel="stylesheet" href="../css/pages/financial-analysis.css">
+    <link rel="stylesheet" href="../css/pages/data-export.css">
 
     <link rel="stylesheet" href="../css/pages/inventory.css">
     <link rel="stylesheet" href="../css/pages/weather-logs.css">
@@ -1745,13 +1746,18 @@
                     <input type="text" class="header__search-input" placeholder="Tìm kiếm khu vực...">
                 </div>
                 <div class="view-toggle-group" id="cultivation-view-toggle">
-                    <button class="view-toggle-btn view-toggle-btn--active" data-view="map" onclick="toggleCultivationView('map')">
+                    <button class="view-toggle-btn view-toggle-btn--active" data-view="map"
+                        onclick="toggleCultivationView('map')">
                         <span class="material-symbols-outlined">map</span> Bản đồ
                     </button>
                     <button class="view-toggle-btn" data-view="grid" onclick="toggleCultivationView('grid')">
                         <span class="material-symbols-outlined">grid_view</span> Sơ đồ
                     </button>
                 </div>
+                <button class="view-toggle-btn" onclick="openDataExportPanel()" title="Xem báo cáo tổng hợp"
+                    style="margin-left: 10px;">
+                    <span class="material-symbols-outlined">summarize</span> Báo cáo
+                </button>
                 <div class="header__actions">
                     <button class="header__notification" onclick="toggleNotificationDropdown()"><span
                             class="material-symbols-outlined">notifications</span><span
@@ -2653,17 +2659,20 @@
                         <span class="material-symbols-outlined">water_drop</span>
                         Tưới nước
                     </h3>
-                    <p style="margin: 4px 0 0; opacity: 0.9; font-size: 14px;">Phân công nhân công tưới nước cho ruộng</p>
+                    <p style="margin: 4px 0 0; opacity: 0.9; font-size: 14px;">Phân công nhân công tưới nước cho ruộng
+                    </p>
                 </div>
                 <span class="close-modal" onclick="closeModalById('water-modal')"
                     style="position: absolute; right: 16px; top: 16px; cursor: pointer; font-size: 24px; opacity: 0.8; color: white;">&times;</span>
             </div>
             <div class="modal-body" style="padding: 24px;">
-                <div style="padding:16px; background:#eff6ff; border-radius:12px; border:1px solid #bfdbfe; margin-bottom:16px;">
+                <div
+                    style="padding:16px; background:#eff6ff; border-radius:12px; border:1px solid #bfdbfe; margin-bottom:16px;">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <span class="material-symbols-outlined" style="font-size:32px; color:#2563eb;">grass</span>
                         <div>
-                            <div id="water-field-name" style="font-weight:700; color:#1e40af; font-size:15px;">Ruộng</div>
+                            <div id="water-field-name" style="font-weight:700; color:#1e40af; font-size:15px;">Ruộng
+                            </div>
                             <div id="water-field-area" style="font-size:13px; color:#6b7280;">Diện tích: --</div>
                         </div>
                     </div>
@@ -2672,7 +2681,8 @@
             </div>
             <div class="modal-footer" style="padding: 16px 24px; border-top: 1px solid #e5e7eb;">
                 <button class="btn btn--secondary" onclick="closeModalById('water-modal')">Hủy</button>
-                <button class="btn btn--primary" onclick="confirmWater()" style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                <button class="btn btn--primary" onclick="confirmWater()"
+                    style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
                     <span class="material-symbols-outlined icon-sm">assignment</span>
                     Giao việc tưới nước
                 </button>
@@ -2793,6 +2803,7 @@
 
     <script src="../js/config.js"></script>
     <script src="../js/auth.js"></script>
+    <script src="../js/data-export.js"></script>
     <!-- cultivation.js disabled - using inline script instead to avoid duplicate map initialization -->
     <!-- <script src="../js/cultivation.js?v=2"></script> -->
     <!-- Cultivation Map Layers - WMS Land Parcels + Suitability -->
