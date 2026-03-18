@@ -717,7 +717,7 @@
 
         async function requestForgotOtp() {
             const email = document.getElementById('forgot-email').value;
-            if (!email) return alert("Vui lòng nhập email");
+            if (!email) return agriAlert("Vui lòng nhập email", 'warning');
 
             try {
                 const response = await fetch(`${API_URL}/forgot-password`, {
@@ -862,7 +862,7 @@
                 window.location.href = 'worker_dashboard.html';
             } else {
                 // OWNER and any other role → main dashboard
-                window.location.href = '../index.html';
+                window.location.href = '../dashboard.html';
             }
         }
 

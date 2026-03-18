@@ -228,7 +228,7 @@ async function savePestResult() {
     // If no fieldId, we might still want to allow saving if the backend supports it, 
     // but the requirement says "lưu vào csdl về tình trang của mảnh ruộng đó".
     if (!fieldId) {
-        alert("Lỗi: Không xác định được ruộng để lưu kết quả!");
+        agriAlert("Lỗi: Không xác định được ruộng để lưu kết quả!", 'error');
         return;
     }
 
@@ -278,28 +278,21 @@ async function applyTreatment() {
     // Pre-fill "Phun thuoc" activity
     const treatmentName = detectedPestResult.treatment.split(',')[0].trim(); // Take first suggestion
 
-    if (confirm(`Bạn có muốn tạo lịch hoạt động "Phun thuốc" với: ${treatmentName}?`)) {
-        // We can open the Pesticide Modal and prefill it, or call API directly.
-        // Let's try to open Pesticide Modal if available and prefill.
-        // Assuming openPesticideModal exists in cultivation.js
-
+    agriConfirm('Tạo lịch phun thuốc', `Bạn có muốn tạo lịch hoạt động "Phun thuốc" với: ${treatmentName}?`, () => {
         closeModalById('pest-analysis-modal');
 
-        // Check if function exists globally
         if (typeof openPesticideModal === 'function') {
-            // We need a way to prefill. Let's set values to DOM elements directly then open.
             try {
                 const nameInput = document.getElementById('pesticide-name');
                 if (nameInput) nameInput.value = treatmentName;
 
-                // Open modal
                 openPesticideModal();
                 showToast('Đề xuất thuốc', `Đã đề xuất thuốc: ${treatmentName}`, 'info');
             } catch (e) {
                 console.error(e);
             }
         }
-    }
+    }, { confirmText: 'Đồng ý', type: 'primary' });
 }
 
 // Legacy function (unused but kept for reference if needed)

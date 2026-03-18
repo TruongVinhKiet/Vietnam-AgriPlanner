@@ -929,20 +929,20 @@ async function clearCart() {
     const userEmail = localStorage.getItem('userEmail');
     if (!userEmail) return;
 
-    if (!confirm('Bạn có chắc muốn xóa tất cả sản phẩm trong giỏ hàng?')) return;
+    agriConfirm('Xóa giỏ hàng', 'Bạn có chắc muốn xóa tất cả sản phẩm trong giỏ hàng?', async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/cart/clear?userEmail=${encodeURIComponent(userEmail)}`, {
+                method: 'DELETE'
+            });
 
-    try {
-        const response = await fetch(`${API_BASE_URL}/cart/clear?userEmail=${encodeURIComponent(userEmail)}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
-            showToast('Đã xóa', 'Giỏ hàng đã được làm trống', 'info');
-            await loadCart();
+            if (response.ok) {
+                showToast('Đã xóa', 'Giỏ hàng đã được làm trống', 'info');
+                await loadCart();
+            }
+        } catch (error) {
+            console.error('Error clearing cart:', error);
         }
-    } catch (error) {
-        console.error('Error clearing cart:', error);
-    }
+    }, { confirmText: 'Xóa tất cả', type: 'danger' });
 }
 
 async function checkoutCart() {
@@ -957,34 +957,34 @@ async function checkoutCart() {
         return;
     }
 
-    if (!confirm(`Xác nhận thanh toán ${formatCurrency(totalValue)}?`)) return;
+    agriConfirm('Xác nhận thanh toán', `Xác nhận thanh toán ${formatCurrency(totalValue)}?`, async () => {
+        try {
+            // Purchase each item
+            for (const item of cartItems) {
+                const userId = localStorage.getItem('userId');
+                await fetch(`${API_BASE_URL}/shop/purchase`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: parseInt(userId),
+                        shopItemId: item.shopItemId,
+                        quantity: item.quantity
+                    })
+                });
+            }
 
-    try {
-        // Purchase each item
-        for (const item of cartItems) {
-            const userId = localStorage.getItem('userId');
-            await fetch(`${API_BASE_URL}/shop/purchase`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: parseInt(userId),
-                    shopItemId: item.shopItemId,
-                    quantity: item.quantity
-                })
-            });
+            // Clear cart after successful checkout
+            await clearCartSilent();
+            await loadUserBalance();
+            await loadUserInventory();
+
+            showToast('Thành công', 'Thanh toán thành công! Kiểm tra kho hàng của bạn.', 'success');
+            toggleCartPanel();
+        } catch (error) {
+            console.error('Error during checkout:', error);
+            showToast('Lỗi', 'Không thể hoàn tất thanh toán', 'error');
         }
-
-        // Clear cart after successful checkout
-        await clearCartSilent();
-        await loadUserBalance();
-        await loadUserInventory();
-
-        showToast('Thành công', 'Thanh toán thành công! Kiểm tra kho hàng của bạn.', 'success');
-        toggleCartPanel();
-    } catch (error) {
-        console.error('Error during checkout:', error);
-        showToast('Lỗi', 'Không thể hoàn tất thanh toán', 'error');
-    }
+    }, { confirmText: 'Thanh toán', type: 'success' });
 }
 
 async function clearCartSilent() {
@@ -1240,6 +1240,10 @@ window.closeCheckoutModal = closeCheckoutModal;
 window.selectPurchaseType = selectPurchaseType;
 window.selectShippingOption = selectShippingOption;
 window.selectPaymentMethod = selectPaymentMethod;
+window.selectGateway = selectGateway;
+window.toggleLoyaltyPoints = toggleLoyaltyPoints;
+window.updateLoyaltyDiscount = updateLoyaltyDiscount;
+window.useAllLoyaltyPoints = useAllLoyaltyPoints;
 window.openAddressSelector = openAddressSelector;
 window.closeAddressSelector = closeAddressSelector;
 window.selectAddress = selectAddress;
@@ -1256,6 +1260,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimeout(loadCart, 500);
     setTimeout(loadOrders, 600);
     setTimeout(loadAddresses, 700);
+    setTimeout(loadLoyaltyPoints, 800);
+    // Handle payment return URL
+    handlePaymentReturn();
 });
 
 // ==================== ORDER SYSTEM ====================
@@ -1266,12 +1273,15 @@ let addresses = [];
 let selectedAddress = null;
 let selectedShipping = 'EXPRESS';
 let selectedPayment = 'PAY_NOW';
+let selectedGateway = 'MOMO'; // MOMO or VNPAY
 let selectedPurchaseType = 'WEBSITE_ORDER';
 let shippingOptions = [];
 let trackingMap = null;
 let trackingMarker = null;
 let trackingInterval = null;
 let currentTrackingOrder = null;
+let userLoyaltyPoints = 0;
+let loyaltyPointsToUse = 0;
 
 // Orders Panel
 function toggleOrdersPanel() {
@@ -1570,7 +1580,21 @@ function selectPaymentMethod(method) {
     document.querySelectorAll('.payment-option').forEach(opt => {
         opt.classList.toggle('active', opt.querySelector('input').value === method);
     });
+
+    // Show/hide gateway sub-options
+    const gatewaySection = document.getElementById('gateway-suboptions');
+    if (gatewaySection) {
+        gatewaySection.style.display = (method === 'PAY_NOW') ? 'flex' : 'none';
+    }
+
     updateCheckoutSummary();
+}
+
+function selectGateway(gateway) {
+    selectedGateway = gateway;
+    document.querySelectorAll('.gateway-option').forEach(opt => {
+        opt.classList.toggle('active', opt.dataset.gateway === gateway);
+    });
 }
 
 function updateCheckoutSummary() {
@@ -1586,7 +1610,7 @@ function updateCheckoutSummary() {
     }
     document.getElementById('checkout-shipping').textContent = formatCurrency(shippingFee);
 
-    // Calculate discount (5% for PAY_NOW)
+    // Calculate discount (5% for PAY_NOW / MOMO / VNPAY)
     let discount = 0;
     const discountRow = document.getElementById('discount-row');
     if (selectedPurchaseType === 'WEBSITE_ORDER' && selectedPayment === 'PAY_NOW') {
@@ -1597,14 +1621,31 @@ function updateCheckoutSummary() {
         discountRow.style.display = 'none';
     }
 
+    // Calculate loyalty discount
+    let loyaltyDiscount = 0;
+    const loyaltyDiscountRow = document.getElementById('loyalty-discount-row');
+    if (loyaltyPointsToUse > 0) {
+        loyaltyDiscount = loyaltyPointsToUse; // 1 point = 1 VND
+        loyaltyDiscountRow.style.display = 'flex';
+        document.getElementById('checkout-loyalty-discount').textContent = `-${formatCurrency(loyaltyDiscount)}`;
+    } else {
+        loyaltyDiscountRow.style.display = 'none';
+    }
+
+    // Calculate earned points preview
+    const earnedPoints = Math.floor(subtotal / 1000);
+    const earnEl = document.getElementById('loyalty-earn-amount');
+    if (earnEl) earnEl.textContent = earnedPoints;
+
     // Calculate total
     let total = subtotal;
     if (selectedPurchaseType === 'WEBSITE_ORDER') {
-        total = subtotal + shippingFee - discount;
+        total = subtotal + shippingFee - discount - loyaltyDiscount;
     } else if (selectedPurchaseType === 'SELF_PURCHASE') {
         const selfPrice = parseFloat(document.getElementById('self-purchase-price')?.value) || 0;
         total = selfPrice;
     }
+    if (total < 0) total = 0;
     document.getElementById('checkout-total').textContent = formatCurrency(total);
 
     // Balance
@@ -1614,10 +1655,11 @@ function updateCheckoutSummary() {
     remainingEl.textContent = formatCurrency(remaining);
     remainingEl.style.color = remaining < 0 ? 'var(--color-error)' : 'var(--color-success)';
 
-    // Disable place order button if insufficient balance
+    // Disable place order button if insufficient balance (only for PAY_NOW balance deduction)
     const placeOrderBtn = document.getElementById('place-order-btn');
     if (placeOrderBtn) {
-        placeOrderBtn.disabled = remaining < 0 || (selectedPurchaseType === 'WEBSITE_ORDER' && !selectedAddress);
+        const needsBalance = selectedPayment === 'PAY_NOW';
+        placeOrderBtn.disabled = (needsBalance && remaining < 0) || (selectedPurchaseType === 'WEBSITE_ORDER' && !selectedAddress);
     }
 }
 
@@ -1822,13 +1864,22 @@ async function placeOrder() {
     btn.innerHTML = '<span class="material-symbols-outlined rotating">sync</span> Đang xử lý...';
 
     try {
+        // Determine actual payment method
+        let actualPaymentMethod = selectedPayment;
+        if (selectedPayment === 'PAY_NOW') {
+            // PAY_NOW uses selected gateway (MOMO/VNPAY)
+            actualPaymentMethod = selectedGateway;
+        }
+
         let orderData = {
             purchaseType: selectedPurchaseType,
             items: cartItems.map(item => ({
                 shopItemId: item.shopItemId,
                 quantity: item.quantity,
                 unitPrice: item.unitPrice
-            }))
+            })),
+            paymentMethod: actualPaymentMethod,
+            loyaltyPointsUsed: loyaltyPointsToUse > 0 ? loyaltyPointsToUse : null
         };
 
         if (selectedPurchaseType === 'SELF_PURCHASE') {
@@ -1845,15 +1896,12 @@ async function placeOrder() {
                 return;
             }
             orderData.shippingType = selectedShipping;
-            orderData.paymentMethod = selectedPayment;
 
             if (selectedAddress.isFromProfile) {
-                // Address from user profile - send address text and coordinates
                 orderData.shippingAddressText = selectedAddress.fullAddress;
                 orderData.destLat = selectedAddress.latitude;
                 orderData.destLng = selectedAddress.longitude;
             } else {
-                // Address from database
                 orderData.shippingAddressId = selectedAddress.id;
             }
         }
@@ -1869,20 +1917,65 @@ async function placeOrder() {
 
         if (response.ok) {
             const order = await response.json();
-            showToast('Thành công', `Đã đặt hàng ${order.orderCode}`, 'success');
 
-            // Clear cart
-            await clearCartSilent();
+            // If MOMO/VNPAY, create payment URL and redirect
+            if (actualPaymentMethod === 'MOMO' || actualPaymentMethod === 'VNPAY') {
+                btn.innerHTML = '<span class="material-symbols-outlined rotating">sync</span> Đang tạo link thanh toán...';
 
-            // Reload data
-            await loadUserBalance();
-            await loadOrders();
-            if (selectedPurchaseType === 'SELF_PURCHASE') {
-                await loadUserInventory();
+                // Save orderCode for return URL handling
+                localStorage.setItem('pendingPaymentOrder', order.orderCode);
+                localStorage.setItem('pendingPaymentGateway', actualPaymentMethod);
+
+                const paymentResponse = await fetch(`${API_BASE_URL}/payment/create`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        orderCode: order.orderCode,
+                        gateway: actualPaymentMethod
+                    })
+                });
+
+                if (paymentResponse.ok) {
+                    const paymentData = await paymentResponse.json();
+                    showToast('Đang chuyển hướng', 'Đang chuyển đến trang thanh toán ' + actualPaymentMethod, 'info');
+                    // Redirect to payment gateway
+                    setTimeout(() => {
+                        window.location.href = paymentData.paymentUrl;
+                    }, 500);
+                    return; // Do not clear cart yet, it will be cleared on return URL
+                } else {
+                    const error = await paymentResponse.json();
+                    showToast('Lỗi', 'Không thể tạo link thanh toán, vui lòng thử lại trong mục Đơn hàng. ' + (error.message || ''), 'error');
+                    
+                    // The order was created successfully, so we must clean up the UI
+                    await clearCartSilent();
+                    await loadUserBalance();
+                    await loadOrders();
+                    await loadLoyaltyPoints();
+                    if (selectedPurchaseType === 'SELF_PURCHASE') {
+                        await loadUserInventory();
+                    }
+                    closeCheckoutModal();
+                    toggleCartPanel();
+                }
+            } else {
+                // PAY_ON_DELIVERY or legacy PAY_NOW
+                showToast('Thành công', `Đã đặt hàng ${order.orderCode}`, 'success');
+
+                await clearCartSilent();
+                await loadUserBalance();
+                await loadOrders();
+                await loadLoyaltyPoints();
+                if (selectedPurchaseType === 'SELF_PURCHASE') {
+                    await loadUserInventory();
+                }
+
+                closeCheckoutModal();
+                toggleCartPanel();
             }
-
-            closeCheckoutModal();
-            toggleCartPanel();
         } else {
             const error = await response.json();
             showToast('Lỗi', error.message || 'Không thể đặt hàng', 'error');
@@ -1894,6 +1987,214 @@ async function placeOrder() {
         btn.disabled = false;
         btn.innerHTML = '<span class="material-symbols-outlined icon-sm">shopping_cart_checkout</span> Đặt hàng';
     }
+}
+
+// ==================== PAYMENT RETURN URL HANDLER ====================
+
+async function handlePaymentReturn() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentType = urlParams.get('payment');
+
+    if (!paymentType) return;
+
+    const orderCode = localStorage.getItem('pendingPaymentOrder');
+    const gateway = localStorage.getItem('pendingPaymentGateway');
+
+    if (!orderCode) return;
+
+    // Clean up localStorage
+    localStorage.removeItem('pendingPaymentOrder');
+    localStorage.removeItem('pendingPaymentGateway');
+
+    // Clean up URL
+    const cleanUrl = window.location.pathname;
+    history.replaceState({}, document.title, cleanUrl);
+
+    // Determine result
+    let resultCode, responseCode, transactionId;
+
+    if (paymentType === 'momo-return') {
+        resultCode = urlParams.get('resultCode');
+        transactionId = urlParams.get('transId');
+    } else if (paymentType === 'vnpay-return') {
+        responseCode = urlParams.get('vnp_ResponseCode');
+        transactionId = urlParams.get('vnp_TransactionNo');
+    }
+
+    // Show processing modal
+    showPaymentResultModal('processing');
+
+    try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE_URL}/payment/confirm`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                orderCode: orderCode,
+                gateway: gateway,
+                resultCode: resultCode,
+                responseCode: responseCode,
+                transactionId: transactionId
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showPaymentResultModal('success', orderCode, data.earnedPoints);
+            // Reload data
+            await loadUserBalance();
+            await loadOrders();
+            await loadLoyaltyPoints();
+            await clearCartSilent();
+        } else {
+            showPaymentResultModal('failed', orderCode);
+        }
+    } catch (error) {
+        console.error('Error confirming payment:', error);
+        showPaymentResultModal('failed', orderCode);
+    }
+}
+
+function showPaymentResultModal(status, orderCode, earnedPoints) {
+    // Remove existing modal if any
+    const existing = document.getElementById('payment-result-modal');
+    if (existing) existing.remove();
+
+    let content;
+    if (status === 'processing') {
+        content = `
+            <div class="payment-result processing">
+                <div class="payment-result__icon">
+                    <span class="material-symbols-outlined rotating">sync</span>
+                </div>
+                <h3>Đang xử lý thanh toán...</h3>
+                <p>Vui lòng đợi trong giây lát</p>
+            </div>`;
+    } else if (status === 'success') {
+        content = `
+            <div class="payment-result success">
+                <div class="payment-result__icon success-icon">
+                    <span class="material-symbols-outlined">check_circle</span>
+                </div>
+                <h3>Thanh toán thành công!</h3>
+                <p>Đơn hàng <strong>${orderCode}</strong> đã được thanh toán</p>
+                ${earnedPoints > 0 ? `<p class="earned-points"><span class="material-symbols-outlined">stars</span> Bạn sẽ nhận <strong>${earnedPoints}</strong> điểm tích lũy khi nhận hàng</p>` : ''}
+                <button class="btn btn--primary" onclick="document.getElementById('payment-result-modal').remove()">
+                    <span class="material-symbols-outlined icon-sm">done</span> Xong
+                </button>
+            </div>`;
+    } else {
+        content = `
+            <div class="payment-result failed">
+                <div class="payment-result__icon failed-icon">
+                    <span class="material-symbols-outlined">error</span>
+                </div>
+                <h3>Thanh toán thất bại</h3>
+                <p>Đơn hàng <strong>${orderCode || ''}</strong> chưa được thanh toán</p>
+                <p class="text-muted">Vui lòng thử lại hoặc chọn phương thức khác</p>
+                <button class="btn btn--primary" onclick="document.getElementById('payment-result-modal').remove()">
+                    <span class="material-symbols-outlined icon-sm">close</span> Đóng
+                </button>
+            </div>`;
+    }
+
+    const modal = document.createElement('div');
+    modal.id = 'payment-result-modal';
+    modal.className = 'modal active';
+    modal.innerHTML = `
+        <div class="modal__overlay"></div>
+        <div class="modal__content payment-result-modal-content">
+            ${content}
+        </div>`;
+
+    document.body.appendChild(modal);
+}
+
+// ==================== LOYALTY POINTS ====================
+
+async function loadLoyaltyPoints() {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/loyalty/points`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            userLoyaltyPoints = data.currentPoints || 0;
+            updateLoyaltyDisplay();
+        }
+    } catch (error) {
+        console.error('Error loading loyalty points:', error);
+    }
+}
+
+function updateLoyaltyDisplay() {
+    // Header display
+    const headerPoints = document.getElementById('user-loyalty-points');
+    if (headerPoints) headerPoints.textContent = userLoyaltyPoints;
+
+    // Checkout display
+    const availableEl = document.getElementById('loyalty-available');
+    if (availableEl) availableEl.textContent = userLoyaltyPoints;
+
+    // Show/hide toggle
+    const toggleRow = document.getElementById('loyalty-toggle-row');
+    if (toggleRow) {
+        toggleRow.style.display = userLoyaltyPoints > 0 ? 'flex' : 'none';
+    }
+}
+
+function toggleLoyaltyPoints() {
+    const checkbox = document.getElementById('use-loyalty-points');
+    const inputRow = document.getElementById('loyalty-input-row');
+    const input = document.getElementById('loyalty-points-input');
+
+    if (checkbox.checked) {
+        inputRow.style.display = 'flex';
+        input.max = userLoyaltyPoints;
+        input.value = userLoyaltyPoints;
+        loyaltyPointsToUse = userLoyaltyPoints;
+    } else {
+        inputRow.style.display = 'none';
+        input.value = '';
+        loyaltyPointsToUse = 0;
+    }
+    updateCheckoutSummary();
+}
+
+function updateLoyaltyDiscount() {
+    const input = document.getElementById('loyalty-points-input');
+    let points = parseInt(input.value) || 0;
+
+    // Clamp to available points
+    if (points > userLoyaltyPoints) {
+        points = userLoyaltyPoints;
+        input.value = points;
+    }
+    if (points < 0) {
+        points = 0;
+        input.value = 0;
+    }
+
+    loyaltyPointsToUse = points;
+    updateCheckoutSummary();
+}
+
+function useAllLoyaltyPoints() {
+    const input = document.getElementById('loyalty-points-input');
+    input.value = userLoyaltyPoints;
+    loyaltyPointsToUse = userLoyaltyPoints;
+    updateCheckoutSummary();
 }
 
 // Tracking Modal

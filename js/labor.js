@@ -309,13 +309,14 @@ async function loadTasks() {
         const now = new Date();
         const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const todaysTasks = res.filter(t => {
-            const active = t.status !== 'COMPLETED' && t.status !== 'CANCELLED';
+            const active = !['COMPLETED', 'CANCELLED', 'APPROVED'].includes(t.status);
             if (active) return true;
 
-            // For completed/cancelled: show if created or completed today (local time)
+            // For completed/cancelled/approved: show if created, completed, or approved today (local time)
             const createdLocal = t.createdAt ? new Date(t.createdAt).toLocaleDateString('sv-SE') : '';
             const completedLocal = t.completedAt ? new Date(t.completedAt).toLocaleDateString('sv-SE') : '';
-            return createdLocal === todayLocal || completedLocal === todayLocal;
+            const approvedLocal = t.approvedAt ? new Date(t.approvedAt).toLocaleDateString('sv-SE') : '';
+            return createdLocal === todayLocal || completedLocal === todayLocal || approvedLocal === todayLocal;
         });
 
         // Store tasks by ID for detail view
@@ -979,13 +980,13 @@ function openOwnerTaskDetail(taskId) {
 
             <!-- Description (filter AI: lines) -->
             ${(() => {
-                const cleanDesc = (taskDesc || '').split('\n').filter(l => !l.startsWith('AI:')).join('\n').trim();
-                return cleanDesc ? `
+            const cleanDesc = (taskDesc || '').split('\n').filter(l => !l.startsWith('AI:')).join('\n').trim();
+            return cleanDesc ? `
                 <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-bottom:16px;">
                     <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px;">Mô tả công việc</div>
                     <p style="margin:0; color:#374151; line-height:1.7; white-space:pre-wrap;">${escapeHtml(cleanDesc)}</p>
                 </div>` : '';
-            })()}
+        })()}
 
             ${buildInspectionResultsHtml(task)}
 
@@ -1169,7 +1170,7 @@ async function submitAssignTask(e) {
     // Validation
     const workerId = document.getElementById('task-worker').value;
     if (!workerId) {
-        alert("Vui lòng chọn người thực hiện!");
+        agriAlert("Vui lòng chọn người thực hiện!", 'warning');
         submitBtn.disabled = false;
         submitBtn.innerText = 'Giao việc';
         return;
@@ -1207,12 +1208,12 @@ async function submitAssignTask(e) {
 
     try {
         await fetchAPI(`${LABOR_API_BASE}/tasks`, 'POST', payload);
-        alert("Giao việc thành công!");
+        agriAlert("Giao việc thành công!", 'success');
         closeAssignTaskModal();
         loadTasks(); // Reload list
         e.target.reset();
     } catch (error) {
-        alert("Lỗi: " + error.message);
+        agriAlert("Lỗi: " + error.message, 'error');
     } finally {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<span class="material-symbols-outlined">check</span> Giao việc';
@@ -1566,11 +1567,11 @@ async function submitQuickAddTasks() {
         const msg = fail === 0
             ? `✅ Đã giao ${success} công việc thành công!`
             : `⚠️ Giao ${success} thành công, ${fail} thất bại.`;
-        alert(msg);
+        agriAlert(msg, 'warning');
 
     } catch (err) {
         console.error('Submit quick add error:', err);
-        alert('Lỗi: ' + err.message);
+        agriAlert('Lỗi: ' + err.message, 'error');
     } finally {
         if (btn) {
             btn.disabled = false;
@@ -2461,7 +2462,7 @@ async function updateRecruitmentQuota() {
     const newQuota = parseInt(quotaInput.value) || 0;
 
     if (!myFarmId) {
-        alert('Không xác định được nông trại');
+        agriAlert('Không xác định được nông trại', 'warning');
         return;
     }
 
@@ -2469,10 +2470,10 @@ async function updateRecruitmentQuota() {
         await fetchAPI(`${LABOR_API_BASE}/farms/${myFarmId}/recruitment`, 'PUT', {
             quota: newQuota
         });
-        alert('Đã cập nhật hạn mức tuyển dụng!');
+        agriAlert('Đã cập nhật hạn mức tuyển dụng!', 'success');
         loadRecruitmentInfo(); // Reload
     } catch (e) {
-        alert('Lỗi: ' + e.message);
+        agriAlert('Lỗi: ' + e.message, 'error');
     }
 }
 
@@ -2548,7 +2549,7 @@ async function approveApplication(applicationId) {
                 loadRecruitmentInfo();
                 loadApprovedWorkers();
             } catch (e) {
-                alert('Lỗi: ' + e.message);
+                agriAlert('Lỗi: ' + e.message, 'error');
             }
         },
         'Duyệt'
@@ -2565,7 +2566,7 @@ async function rejectApplication(applicationId) {
                 showToast && showToast('Đã từ chối', 'Hồ sơ đã bị từ chối', 'info');
                 loadRecruitmentInfo();
             } catch (e) {
-                alert('Lỗi: ' + e.message);
+                agriAlert('Lỗi: ' + e.message, 'error');
             }
         },
         'Từ chối',
@@ -2574,7 +2575,7 @@ async function rejectApplication(applicationId) {
 }
 
 function openCreatePostModal() {
-    alert("Tính năng Đăng tuyển đang phát triển");
+    agriAlert("Tính năng Đăng tuyển đang phát triển", 'info');
 }
 
 // Toggle shop options visibility based on task type
@@ -3520,6 +3521,7 @@ function _getTaskDateKeys(task) {
     const keys = new Set();
     if (task.createdAt) keys.add(new Date(task.createdAt).toLocaleDateString('sv-SE'));
     if (task.completedAt) keys.add(new Date(task.completedAt).toLocaleDateString('sv-SE'));
+    if (task.approvedAt) keys.add(new Date(task.approvedAt).toLocaleDateString('sv-SE'));
     return keys;
 }
 

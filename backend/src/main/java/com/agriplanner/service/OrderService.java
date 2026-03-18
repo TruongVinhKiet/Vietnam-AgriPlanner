@@ -32,6 +32,7 @@ public class OrderService {
     private final UserInventoryRepository userInventoryRepository;
     private final InventoryTransactionRepository inventoryTransactionRepository;
     private final AssetTransactionRepository assetTransactionRepository;
+    private final LoyaltyService loyaltyService;
 
     // Warehouse location (default origin for shipping calculation)
     private static final BigDecimal WAREHOUSE_LAT = new BigDecimal("10.8589");
@@ -174,7 +175,7 @@ public class OrderService {
             BigDecimal totalBeforeDiscount = subtotal.add(shippingFee);
 
             if (request.getPaymentMethod() == Order.PaymentMethod.PAY_NOW) {
-                // 5% discount for pay now
+                // 5% discount for pay now (legacy balance deduction)
                 order.setDiscountPercent(DISCOUNT_PERCENT);
                 BigDecimal discountAmount = totalBeforeDiscount.multiply(DISCOUNT_PERCENT)
                         .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
@@ -185,11 +186,46 @@ public class OrderService {
                 deductFromBalance(user, order.getTotalAmount());
                 order.setIsPaid(true);
                 order.setPaidAt(ZonedDateTime.now());
+            } else if (request.getPaymentMethod() == Order.PaymentMethod.MOMO
+                    || request.getPaymentMethod() == Order.PaymentMethod.VNPAY) {
+                // MoMo/VNPay: 5% discount, don't deduct balance yet (PaymentController handles it)
+                order.setDiscountPercent(DISCOUNT_PERCENT);
+                BigDecimal discountAmount = totalBeforeDiscount.multiply(DISCOUNT_PERCENT)
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                order.setDiscountAmount(discountAmount);
+                order.setTotalAmount(totalBeforeDiscount.subtract(discountAmount));
+                order.setPaymentGateway(request.getPaymentMethod().name());
+                order.setIsPaid(false); // Will be set true after gateway confirmation
             } else {
                 // Pay on delivery - no discount
                 order.setTotalAmount(totalBeforeDiscount);
                 order.setIsPaid(false);
             }
+
+            // Handle loyalty points usage
+            if (request.getLoyaltyPointsUsed() != null && request.getLoyaltyPointsUsed() > 0) {
+                int pointsToUse = request.getLoyaltyPointsUsed();
+                BigDecimal pointsDiscount = BigDecimal.valueOf(pointsToUse); // 1 point = 1 VND
+                BigDecimal currentTotal = order.getTotalAmount();
+
+                // Don't let discount exceed total
+                if (pointsDiscount.compareTo(currentTotal) > 0) {
+                    pointsToUse = currentTotal.intValue();
+                    pointsDiscount = BigDecimal.valueOf(pointsToUse);
+                }
+
+                order.setLoyaltyPointsUsed(pointsToUse);
+                order.setLoyaltyPointsDiscount(pointsDiscount);
+                order.setTotalAmount(currentTotal.subtract(pointsDiscount));
+
+                // Deduct loyalty points
+                loyaltyService.spendPoints(userId, pointsToUse, null,
+                        "Sử dụng điểm cho đơn hàng");
+            }
+
+            // Calculate earned points preview (will be awarded on delivery)
+            int earnedPoints = loyaltyService.calculateEarnedPoints(subtotal);
+            order.setLoyaltyPointsEarned(earnedPoints);
 
             order.setStatus(Order.OrderStatus.PROCESSING);
         }
@@ -264,6 +300,12 @@ public class OrderService {
                     item.getQuantity());
         }
 
+        // Award loyalty points on successful delivery
+        if (order.getLoyaltyPointsEarned() != null && order.getLoyaltyPointsEarned() > 0) {
+            loyaltyService.earnPoints(userId, order.getLoyaltyPointsEarned(), order.getId(),
+                    "Điểm tích lũy từ đơn hàng " + order.getOrderCode());
+        }
+
         return mapToResponse(orderRepository.save(order));
     }
 
@@ -282,6 +324,12 @@ public class OrderService {
             User user = order.getUser();
             user.setBalance(user.getBalance().add(order.getTotalAmount()));
             userRepository.save(user);
+        }
+
+        // Refund loyalty points if used
+        if (order.getLoyaltyPointsUsed() != null && order.getLoyaltyPointsUsed() > 0) {
+            loyaltyService.refundPoints(order.getUser().getId(),
+                    order.getLoyaltyPointsUsed(), order.getId());
         }
 
         order.setStatus(Order.OrderStatus.CANCELLED);
@@ -547,6 +595,10 @@ public class OrderService {
                 .createdAt(order.getCreatedAt())
                 .items(items)
                 .tracking(tracking)
+                .paymentGateway(order.getPaymentGateway())
+                .loyaltyPointsUsed(order.getLoyaltyPointsUsed())
+                .loyaltyPointsDiscount(order.getLoyaltyPointsDiscount())
+                .loyaltyPointsEarned(order.getLoyaltyPointsEarned())
                 .build();
     }
 }

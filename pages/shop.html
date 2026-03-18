@@ -39,7 +39,7 @@
                 <h1 class="sidebar__logo-text">AgriPlanner</h1>
             </div>
             <nav class="sidebar__nav">
-                <a href="../index.html" class="sidebar__nav-link"><span
+                <a href="../dashboard.html" class="sidebar__nav-link"><span
                         class="material-symbols-outlined">home</span><span>Trang chủ</span></a>
                 <a href="cultivation.html" class="sidebar__nav-link"><span
                         class="material-symbols-outlined">potted_plant</span><span>Trồng trọt</span></a>
@@ -92,6 +92,10 @@
                     <div class="balance-display" id="balance-display">
                         <span class="material-symbols-outlined">account_balance_wallet</span>
                         <span id="user-balance">0 VNĐ</span>
+                    </div>
+                    <div class="loyalty-display" id="loyalty-display" title="Điểm tích lũy">
+                        <span class="material-symbols-outlined">stars</span>
+                        <span id="user-loyalty-points">0</span>
                     </div>
                 </div>
             </header>
@@ -503,18 +507,49 @@
                             Hình thức thanh toán
                         </h4>
                         <div class="payment-options">
-                            <label class="payment-option active">
+                            <label class="payment-option active" data-gateway="none">
                                 <input type="radio" name="payment" value="PAY_NOW" checked
                                     onchange="selectPaymentMethod('PAY_NOW')">
                                 <span class="option-content">
                                     <span class="material-symbols-outlined">credit_card</span>
                                     <span class="option-info">
                                         <span class="option-name">Thanh toán ngay</span>
-                                        <span class="option-desc">Giảm 5% tổng đơn hàng</span>
+                                        <span class="option-desc">Giảm 5% - Trừ số dư nội bộ</span>
                                     </span>
                                     <span class="option-badge">-5%</span>
                                 </span>
                             </label>
+
+                            <!-- MoMo/VNPay Sub-options (shown when PAY_NOW is selected) -->
+                            <div class="gateway-suboptions" id="gateway-suboptions">
+                                <label class="gateway-option active" data-gateway="MOMO">
+                                    <input type="radio" name="gateway" value="MOMO" checked
+                                        onchange="selectGateway('MOMO')">
+                                    <span class="gateway-content">
+                                        <span class="gateway-logo momo-logo">
+                                            <svg viewBox="0 0 24 24" width="24" height="24"><circle cx="12" cy="12" r="11" fill="#A50064"/><text x="12" y="16" text-anchor="middle" fill="white" font-size="9" font-weight="bold">M</text></svg>
+                                        </span>
+                                        <span class="gateway-info">
+                                            <span class="gateway-name">MoMo</span>
+                                            <span class="gateway-desc">Ví điện tử MoMo</span>
+                                        </span>
+                                    </span>
+                                </label>
+                                <label class="gateway-option" data-gateway="VNPAY">
+                                    <input type="radio" name="gateway" value="VNPAY"
+                                        onchange="selectGateway('VNPAY')">
+                                    <span class="gateway-content">
+                                        <span class="gateway-logo vnpay-logo">
+                                            <svg viewBox="0 0 24 24" width="24" height="24"><rect width="24" height="24" rx="4" fill="#0060AF"/><text x="12" y="16" text-anchor="middle" fill="white" font-size="7" font-weight="bold">VN</text></svg>
+                                        </span>
+                                        <span class="gateway-info">
+                                            <span class="gateway-name">VNPay</span>
+                                            <span class="gateway-desc">Cổng thanh toán VNPay</span>
+                                        </span>
+                                    </span>
+                                </label>
+                            </div>
+
                             <label class="payment-option">
                                 <input type="radio" name="payment" value="PAY_ON_DELIVERY"
                                     onchange="selectPaymentMethod('PAY_ON_DELIVERY')">
@@ -526,6 +561,41 @@
                                     </span>
                                 </span>
                             </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loyalty Points Section -->
+                <div class="checkout-section loyalty-section" id="loyalty-section">
+                    <h4>
+                        <span class="material-symbols-outlined">stars</span>
+                        Điểm tích lũy
+                    </h4>
+                    <div class="loyalty-info">
+                        <div class="loyalty-balance">
+                            <span class="loyalty-icon">
+                                <span class="material-symbols-outlined">toll</span>
+                            </span>
+                            <span class="loyalty-text">
+                                Bạn có <strong id="loyalty-available">0</strong> điểm
+                                <small>(1 điểm = 1 VNĐ)</small>
+                            </span>
+                        </div>
+                        <div class="loyalty-toggle-row" id="loyalty-toggle-row" style="display: none;">
+                            <label class="loyalty-toggle">
+                                <input type="checkbox" id="use-loyalty-points" onchange="toggleLoyaltyPoints()">
+                                <span class="toggle-slider"></span>
+                                <span>Sử dụng điểm tích lũy</span>
+                            </label>
+                        </div>
+                        <div class="loyalty-input-row" id="loyalty-input-row" style="display: none;">
+                            <input type="number" id="loyalty-points-input" min="0" placeholder="Nhập số điểm"
+                                oninput="updateLoyaltyDiscount()">
+                            <button class="btn btn--outline btn--sm" onclick="useAllLoyaltyPoints()">Dùng hết</button>
+                        </div>
+                        <div class="loyalty-earn-preview" id="loyalty-earn-preview">
+                            <span class="material-symbols-outlined">trending_up</span>
+                            <span>Đơn này sẽ nhận <strong id="loyalty-earn-amount">0</strong> điểm tích lũy</span>
                         </div>
                     </div>
                 </div>
@@ -545,6 +615,10 @@
                         <div class="summary-row discount-row" id="discount-row" style="display: none;">
                             <span>Giảm giá (5%):</span>
                             <span id="checkout-discount">-0 VNĐ</span>
+                        </div>
+                        <div class="summary-row loyalty-discount-row" id="loyalty-discount-row" style="display: none;">
+                            <span>Giảm từ điểm:</span>
+                            <span id="checkout-loyalty-discount" class="text-success">-0 VNĐ</span>
                         </div>
                         <div class="summary-row total-row">
                             <span>Tổng cộng:</span>

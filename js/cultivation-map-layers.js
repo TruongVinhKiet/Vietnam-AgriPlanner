@@ -1087,7 +1087,7 @@ async function confirmParcelFieldCreation() {
 
     const name = document.getElementById('parcel-field-name').value.trim();
     if (!name) {
-        alert('Vui lòng nhập tên mảnh ruộng');
+        agriAlert('Vui lòng nhập tên mảnh ruộng', 'warning');
         return;
     }
 

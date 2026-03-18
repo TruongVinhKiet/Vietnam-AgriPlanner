@@ -101,4 +101,17 @@ public class Task {
 
     @Column(name = "approved_at")
     private LocalDateTime approvedAt;
+
+    // Harvest workflow fields
+    @Column(name = "harvest_category", length = 30)
+    private String harvestCategory; // ANIMAL_COUNT, ANIMAL_WEIGHT, BYPRODUCT, CROP_HECTARE
+
+    @Column(name = "harvest_product_name", length = 150)
+    private String harvestProductName; // e.g. "Gà", "Mật ong", "Lúa"
+
+    @Column(name = "harvest_product_unit", length = 30)
+    private String harvestProductUnit; // e.g. "con", "tấn", "kg", "lít"
+
+    @Column(name = "harvest_ref_price")
+    private BigDecimal harvestRefPrice; // Giá tham khảo tại thời điểm giao việc
 }

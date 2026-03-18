@@ -456,11 +456,11 @@
                 if (data.success) {
                     showSuccessModal();
                 } else {
-                    alert(data.message || 'Xác thực thất bại');
+                    agriAlert(data.message || 'Xác thực thất bại', 'error');
                 }
             } catch (error) {
                 console.error('Verify error:', error);
-                alert('Lỗi kết nối');
+                agriAlert('Lỗi kết nối', 'error');
             }
         }
 
@@ -478,13 +478,13 @@
             const submitBtn = document.querySelector('.auth-form__submit');
 
             if (!role) {
-                alert('Vui lòng chọn vai trò của bạn');
+                agriAlert('Vui lòng chọn vai trò của bạn', 'warning');
                 return;
             }
 
             // Validate password match
             if (password !== confirmPassword) {
-                alert('Mật khẩu nhập lại không khớp!');
+                agriAlert('Mật khẩu nhập lại không khớp!', 'warning');
                 return;
             }
 
@@ -531,20 +531,20 @@
                         showSuccessModal(data.message, true);
                     } else if (data.requiresVerification) {
                         // SYSTEM_ADMIN registration - needs OTP
-                        alert(data.message);
+                        agriAlert(data.message, 'success');
                         handleVerification(email);
                     } else {
                         // OWNER registration - direct success
                         showSuccessModal();
                     }
                 } else {
-                    alert(data.message || 'Đăng ký thất bại');
+                    agriAlert(data.message || 'Đăng ký thất bại', 'error');
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Tạo tài khoản';
                 }
             } catch (error) {
                 console.error('Register error:', error);
-                alert('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.');
+                agriAlert('Không thể kết nối đến máy chủ. Vui lòng thử lại sau.', 'error');
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Tạo tài khoản';
             }
@@ -919,7 +919,7 @@
             if (selectedSocialRole === 'OWNER') {
                 body.farmName = document.getElementById('social-farm-name')?.value || '';
                 if (!body.farmName) {
-                    alert('Vui lòng nhập tên nông trại');
+                    agriAlert('Vui lòng nhập tên nông trại', 'warning');
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Đăng ký';
                     return;
@@ -928,7 +928,7 @@
                 body.farmId = document.getElementById('social-farm-select')?.value;
                 body.cvProfile = document.getElementById('social-cv')?.value || '';
                 if (!body.farmId) {
-                    alert('Vui lòng chọn nông trại');
+                    agriAlert('Vui lòng chọn nông trại', 'warning');
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Đăng ký';
                     return;
@@ -968,11 +968,11 @@
                         showSuccessModal('Đăng ký thành công! Bạn có thể đăng nhập ngay.', false);
                     }
                 } else {
-                    alert(data.message || 'Đăng ký thất bại');
+                    agriAlert(data.message || 'Đăng ký thất bại', 'error');
                 }
             } catch (error) {
                 console.error('Social register error:', error);
-                alert('Không thể kết nối đến máy chủ.');
+                agriAlert('Không thể kết nối đến máy chủ.', 'error');
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Đăng ký';
             }

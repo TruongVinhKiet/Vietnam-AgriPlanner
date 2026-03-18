@@ -610,7 +610,7 @@ async function addAiTask() {
         });
 
         if (response.ok) {
-            alert("Đã thêm công việc vào danh sách hôm nay!");
+            agriAlert("Đã thêm công việc vào danh sách hôm nay!", 'success');
             closeAiModal();
         } else {
             throw new Error("Failed to create task");
@@ -618,7 +618,7 @@ async function addAiTask() {
 
     } catch (e) {
         console.error(e);
-        alert("Lỗi khi thêm công việc: " + e.message);
+        agriAlert("Lỗi khi thêm công việc: " + e.message, 'error');
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<span class="material-symbols-outlined">assignment_add</span> Thêm vào công việc hôm nay';

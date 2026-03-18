@@ -86,6 +86,10 @@ public class SecurityConfig {
                         // Orders & Addresses
                         .requestMatchers("/api/orders/**").permitAll()
                         .requestMatchers("/api/addresses/**").permitAll()
+                        // Payment Gateway (MoMo/VNPay callbacks + API)
+                        .requestMatchers("/api/payment/**").permitAll()
+                        // Loyalty Points
+                        .requestMatchers("/api/loyalty/**").permitAll()
                         // Cooperatives
                         .requestMatchers("/api/cooperatives/**").permitAll()
                         // Community features

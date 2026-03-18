@@ -109,6 +109,12 @@ public class TaskController {
             task.setDueDate(request.getDueDate());
             task.setWorkflowData(request.getWorkflowData());
 
+            // Harvest workflow fields
+            task.setHarvestCategory(request.getHarvestCategory());
+            task.setHarvestProductName(request.getHarvestProductName());
+            task.setHarvestProductUnit(request.getHarvestProductUnit());
+            task.setHarvestRefPrice(request.getHarvestRefPrice());
+
             Task savedTask = taskService.assignTask(task);
             return ResponseEntity.ok(savedTask);
         } catch (Exception e) {

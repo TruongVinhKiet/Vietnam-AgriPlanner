@@ -97,7 +97,7 @@ async function loadCooperatives() {
         }
     } catch (error) {
         console.error('Error loading cooperatives:', error);
-        alert('Lỗi khi tải dữ liệu Hợp tác xã: ' + error.message);
+        agriAlert('Lỗi khi tải dữ liệu Hợp tác xã: ' + error.message, 'error');
         showNoCooperativeState();
     }
 }
@@ -194,7 +194,7 @@ function showCooperativeDashboard() {
         }
     } catch (e) {
         console.error('Error rendering dashboard:', e);
-        alert('Lỗi hiển thị dashboard: ' + e.message);
+        agriAlert('Lỗi hiển thị dashboard: ' + e.message, 'error');
     }
 }
 

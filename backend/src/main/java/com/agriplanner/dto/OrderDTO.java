@@ -23,6 +23,8 @@ public class OrderDTO {
         private BigDecimal selfPurchasePrice;
         private String notes;
         private List<OrderItemRequest> items;
+        // Loyalty points
+        private Integer loyaltyPointsUsed;
     }
 
     @Data
@@ -63,6 +65,12 @@ public class OrderDTO {
         private List<OrderItemResponse> items;
         // Tracking info
         private TrackingInfo tracking;
+        // Payment Gateway
+        private String paymentGateway;
+        // Loyalty Points
+        private Integer loyaltyPointsUsed;
+        private BigDecimal loyaltyPointsDiscount;
+        private Integer loyaltyPointsEarned;
     }
 
     @Data

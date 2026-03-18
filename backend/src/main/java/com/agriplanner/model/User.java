@@ -135,6 +135,10 @@ public class User implements org.springframework.security.core.userdetails.UserD
     @Builder.Default
     private java.math.BigDecimal balance = java.math.BigDecimal.ZERO;
 
+    @Column(name = "loyalty_points")
+    @Builder.Default
+    private Integer loyaltyPoints = 0;
+
     // Address fields
     @Column(name = "default_address", columnDefinition = "TEXT")
     private String defaultAddress;

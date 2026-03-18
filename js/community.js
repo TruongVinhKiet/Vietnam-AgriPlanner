@@ -999,7 +999,7 @@ function handleVideosSelect(e) {
 async function submitPost() {
     const content = document.getElementById('post-content').value.trim();
     if (!content) {
-        alert('Vui lòng nhập nội dung bài viết');
+        agriAlert('Vui lòng nhập nội dung bài viết', 'warning');
         return;
     }
 
@@ -1263,28 +1263,27 @@ function togglePostMenu(event, postId) {
 }
 
 async function deletePost(postId) {
-    if (!confirm('Bạn có chắc muốn xóa bài viết này?')) return;
+    agriConfirm('Xóa bài viết', 'Bạn có chắc muốn xóa bài viết này?', async () => {
+        try {
+            const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+                }
+            });
 
-    try {
-        const response = await fetch(`${API_BASE_URL}/posts/${postId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            if (response.ok) {
+                showToast('Đã xóa bài viết', 'success');
+                const postCard = document.querySelector(`.post-card[data-post-id="${postId}"]`);
+                if (postCard) postCard.remove();
+            } else {
+                showToast('Không thể xóa bài viết', 'error');
             }
-        });
-
-        if (response.ok) {
-            showToast('Đã xóa bài viết', 'success');
-            // Remove the post card from DOM
-            const postCard = document.querySelector(`.post-card[data-post-id="${postId}"]`);
-            if (postCard) postCard.remove();
-        } else {
-            showToast('Không thể xóa bài viết', 'error');
+        } catch (error) {
+            console.error('Error deleting post:', error);
+            showToast('Lỗi kết nối', 'error');
         }
-    } catch (error) {
-        console.error('Error deleting post:', error);
-        showToast('Lỗi kết nối', 'error');
-    }
+    }, { confirmText: 'Xóa', type: 'danger' });
 }
 
 function reportPost(postId) {

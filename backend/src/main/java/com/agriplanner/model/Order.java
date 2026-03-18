@@ -120,6 +120,29 @@ public class Order {
     @Column(name = "paid_at")
     private ZonedDateTime paidAt;
 
+    // Payment Gateway fields
+    @Column(name = "payment_gateway")
+    private String paymentGateway; // MOMO, VNPAY
+
+    @Column(name = "gateway_order_id")
+    private String gatewayOrderId;
+
+    @Column(name = "gateway_transaction_id")
+    private String gatewayTransactionId;
+
+    // Loyalty Points fields
+    @Column(name = "loyalty_points_used")
+    @Builder.Default
+    private Integer loyaltyPointsUsed = 0;
+
+    @Column(name = "loyalty_points_discount")
+    @Builder.Default
+    private BigDecimal loyaltyPointsDiscount = BigDecimal.ZERO;
+
+    @Column(name = "loyalty_points_earned")
+    @Builder.Default
+    private Integer loyaltyPointsEarned = 0;
+
     private String notes;
 
     @Column(name = "created_at")
@@ -150,7 +173,9 @@ public class Order {
 
     public enum PaymentMethod {
         PAY_NOW,
-        PAY_ON_DELIVERY
+        PAY_ON_DELIVERY,
+        MOMO,
+        VNPAY
     }
 
     public enum OrderStatus {

@@ -12,7 +12,8 @@ import java.util.Optional;
 
 @Repository
 public interface UserInventoryRepository extends JpaRepository<UserInventory, Long> {
-    
+    List<UserInventory> findByUserId(Long userId);
+
     List<UserInventory> findByUserIdAndQuantityGreaterThan(Long userId, BigDecimal minQuantity);
     
     default List<UserInventory> findByUserIdWithStock(Long userId) {

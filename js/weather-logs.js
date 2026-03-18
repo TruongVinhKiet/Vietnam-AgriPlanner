@@ -221,7 +221,7 @@ function getConditionIcon(condition) {
 // Log today's weather
 async function logTodayWeather() {
     if (!weatherFarmId) {
-        alert('Chưa có nông trại được chọn!');
+        agriAlert('Chưa có nông trại được chọn!', 'warning');
         return;
     }
 
@@ -244,10 +244,10 @@ async function logTodayWeather() {
         });
 
         if (response.ok) {
-            alert('Đã lưu thời tiết hôm nay!');
+            agriAlert('Đã lưu thời tiết hôm nay!', 'success');
             fetchWeatherHistory();
         } else {
-            alert('Lỗi khi lưu thời tiết.');
+            agriAlert('Lỗi khi lưu thời tiết.', 'error');
         }
     } catch (error) {
         console.error('Error logging weather:', error);

@@ -1,644 +1,886 @@
 <!DOCTYPE html>
 <html lang="vi">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AgriPlanner - Trang chủ</title>
-    <meta name="description" content="AgriPlanner - Hệ thống quản lý nông trại thông minh">
-    <link rel="icon" type="image/x-icon" href="images/logo.png">
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>AgriPlanner - Hệ thống quản lý nông trại thông minh</title>
+    <meta name="description" content="AgriPlanner - Nền tảng quản trị nông nghiệp kỹ thuật số toàn diện"/>
+    <link rel="icon" type="image/x-icon" href="images/logo.png"/>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
-
-    <!-- Material Symbols -->
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-        rel="stylesheet">
-
-    <!-- Styles -->
-    <link rel="stylesheet" href="css/variables.css">
-    <link rel="stylesheet" href="css/base.css">
-    <link rel="stylesheet" href="css/layout.css">
-    <link rel="stylesheet" href="css/components.css">
-    <link rel="stylesheet" href="css/pages/dashboard.css">
-    <link rel="stylesheet" href="css/chatbot.css">
-    <link rel="stylesheet" href="css/smart-advisor.css">
-
-    <!-- GSAP Animation Library -->
+    <!-- GSAP cho hiệu ứng cuộn trang -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-    <!-- Chart.js for Financial Forecast -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
 
-<body data-page="dashboard">
-    <div class="app-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar__header">
-                <div class="sidebar__logo-icon" style="background: none; padding: 0;">
-                    <img src="images/logo.png" alt="AgriPlanner Logo"
-                        style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
-                </div>
-                <h1 class="sidebar__logo-text">AgriPlanner</h1>
-            </div>
-
-            <nav class="sidebar__nav">
-                <a href="index.html" class="sidebar__nav-link active">
-                    <span class="material-symbols-outlined">home</span>
-                    <span>Trang chủ</span>
-                </a>
-                <a href="pages/cultivation.html" class="sidebar__nav-link">
-                    <span class="material-symbols-outlined">potted_plant</span>
-                    <span>Trồng trọt</span>
-                </a>
-                <a href="pages/livestock.html" class="sidebar__nav-link">
-                    <span class="material-symbols-outlined">egg</span>
-                    <span>Chăn nuôi</span>
-                </a>
-                <a href="pages/labor.html" class="sidebar__nav-link">
-                    <span class="material-symbols-outlined">engineering</span>
-                    <span>Nhân công</span>
-                </a>
-                <a href="pages/inventory.html" class="sidebar__nav-link">
-                    <span class="material-symbols-outlined">warehouse</span>
-                    <span>Kho</span>
-                </a>
-                <a href="pages/shop.html" class="sidebar__nav-link">
-                    <span class="material-symbols-outlined">store</span>
-                    <span>Cửa hàng</span>
-                </a>
-                <a href="pages/cooperative.html" class="sidebar__nav-link">
-                    <span class="material-symbols-outlined">groups</span>
-                    <span>Hợp tác xã</span>
-                </a>
-                <a href="pages/community.html" class="sidebar__nav-link">
-                    <span class="material-symbols-outlined">forum</span>
-                    <span>Cộng đồng</span>
-                </a>
-                <a href="pages/analytics.html" class="sidebar__nav-link">
-                    <span class="material-symbols-outlined">account_balance_wallet</span>
-                    <span>Tài sản</span>
-                </a>
-                <a href="pages/settings.html" class="sidebar__nav-link">
-                    <span class="material-symbols-outlined">settings</span>
-                    <span>Cài đặt</span>
-                </a>
-
-                <div class="sidebar__spacer"></div>
-
-                <a href="pages/help.html" class="sidebar__nav-link">
-                    <span class="material-symbols-outlined">help</span>
-                    <span>Trợ giúp</span>
-                </a>
-            </nav>
-
-            <div class="sidebar__footer">
-                <div class="sidebar__user">
-                    <div class="sidebar__user-avatar" id="sidebar-avatar"></div>
-                    <div class="sidebar__user-info">
-                        <p class="sidebar__user-name" id="sidebar-name">Đang tải...</p>
-                        <p class="sidebar__user-email" id="sidebar-email"></p>
-                    </div>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Content Wrapper -->
-        <div class="main-wrapper">
-            <!-- Header -->
-            <header class="header">
-                <div class="header__search">
-                    <span class="material-symbols-outlined header__search-icon">search</span>
-                    <input type="text" class="header__search-input" placeholder="Tìm kiếm dữ liệu nông trại...">
-                </div>
-
-                <div class="header__actions">
-                    <button class="header__notification">
-                        <span class="material-symbols-outlined">notifications</span>
-                        <span class="header__notification-badge"></span>
-                    </button>
-
-                    <div class="header__user">
-                        <div class="header__user-info">
-                            <p class="header__user-name" id="header-name">Đang tải...</p>
-                            <p class="header__user-role">Chủ trang trại</p>
-                        </div>
-                        <div class="header__user-avatar" id="header-avatar"></div>
-                    </div>
-                </div>
-            </header>
-
-            <!-- Main Content -->
-            <main class="main-content">
-                <div class="main-content__container">
-                    <!-- Page Header -->
-                    <div class="page-header">
-                        <div>
-                            <h2 class="page-header__title">Tổng quan nông trại</h2>
-                            <p class="page-header__subtitle">Đây là những gì đang diễn ra tại nông trại của bạn hôm nay.
-                            </p>
-                        </div>
-                        <div class="date-badge">
-                            <span class="material-symbols-outlined date-badge__icon">calendar_today</span>
-                            <span class="date-badge__text" id="current-date">Đang tải...</span>
-                        </div>
-                    </div>
-
-                    <!-- KPI Cards Grid -->
-                    <div class="dashboard-grid">
-                        <!-- Card 1: Total Area -->
-                        <div class="card kpi-card fade-in">
-                            <div class="kpi-card__header">
-                                <div class="kpi-card__icon kpi-card__icon--green">
-                                    <span class="material-symbols-outlined">landscape</span>
-                                </div>
-                                <span class="badge badge--neutral">Tổng</span>
-                            </div>
-                            <p class="kpi-card__label">Tổng diện tích</p>
-                            <h3 class="kpi-card__value" id="kpi-total-area">-- <span class="kpi-card__unit">Hecta</span>
-                            </h3>
-                        </div>
-
-                        <!-- Card 2: Capital -->
-                        <div class="card kpi-card fade-in">
-                            <div class="kpi-card__header">
-                                <div class="kpi-card__icon kpi-card__icon--blue">
-                                    <span class="material-symbols-outlined">account_balance_wallet</span>
-                                </div>
-                                <span class="badge badge--neutral">Số dư</span>
-                            </div>
-                            <p class="kpi-card__label">Vốn</p>
-                            <h3 class="kpi-card__value" id="kpi-balance">--</h3>
-                        </div>
-
-                        <!-- Card 3: Profit -->
-                        <div class="card kpi-card fade-in">
-                            <div class="kpi-card__header">
-                                <div class="kpi-card__icon kpi-card__icon--emerald">
-                                    <span class="material-symbols-outlined">payments</span>
-                                </div>
-                                <span class="badge badge--success" id="profit-badge">
-                                    <span class="material-symbols-outlined icon-sm">trending_up</span>
-                                    Lãi
-                                </span>
-                            </div>
-                            <p class="kpi-card__label">Lợi nhuận</p>
-                            <h3 class="kpi-card__value" id="kpi-profit" style="color: var(--color-primary);">--</h3>
-                        </div>
-
-                        <!-- Card 4: Weather -->
-                        <div class="card kpi-card fade-in">
-                            <div class="kpi-card__header">
-                                <div class="kpi-card__icon kpi-card__icon--orange" id="weather-icon-bg">
-                                    <span class="material-symbols-outlined" id="weather-icon">sunny</span>
-                                </div>
-                                <span class="badge badge--neutral">Hiện tại</span>
-                            </div>
-                            <p class="kpi-card__label">Thời tiết</p>
-                            <h3 class="kpi-card__value" id="kpi-weather">--°C <span class="kpi-card__unit"
-                                    id="weather-desc">Đang tải...</span></h3>
-                        </div>
-                    </div>
-
-                    <!-- Charts & Tasks Section -->
-                    <div class="chart-section" style="margin-top: var(--spacing-6);">
-                        <!-- Financial Forecast Chart -->
-                        <div class="card fade-in">
-                            <div class="card__header">
-                                <div>
-                                    <h3 class="card__title">Dự báo tài chính</h3>
-                                    <p class="card__subtitle" id="forecast-subtitle">Doanh thu vs Chi phí dự kiến</p>
-                                </div>
-                                <div class="chart-legend">
-                                    <div class="chart-legend__item">
-                                        <span class="chart-legend__dot"
-                                            style="background-color: var(--color-primary);"></span>
-                                        <span class="chart-legend__label">Doanh thu dự kiến</span>
-                                    </div>
-                                    <div class="chart-legend__item">
-                                        <span class="chart-legend__dot" style="background-color: #ef4444;"></span>
-                                        <span class="chart-legend__label">Chi phí</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="card__body">
-                                <div style="height: 300px; position: relative;">
-                                    <canvas id="forecastChart"></canvas>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Daily Tasks Widget -->
-                        <div class="card fade-in">
-                            <div class="card__header">
-                                <h3 class="card__title">Công việc hôm nay</h3>
-                                <a href="pages/labor.html#tasks" class="btn btn--secondary"
-                                    style="padding: 4px 12px; font-size: 12px; text-decoration:none;">Xem tất cả</a>
-                            </div>
-                            <div class="card__body" style="padding: 8px;">
-                                <div id="tasks-container">
-                                    <!-- Loading skeleton -->
-                                    <div style="display:flex; flex-direction:column; gap:8px; padding:8px;">
-                                        <div
-                                            style="height:56px; background:#f3f4f6; border-radius:10px; animation:pulse 1.5s infinite;">
-                                        </div>
-                                        <div
-                                            style="height:56px; background:#f3f4f6; border-radius:10px; animation:pulse 1.5s infinite; animation-delay:0.2s;">
-                                        </div>
-                                        <div
-                                            style="height:56px; background:#f3f4f6; border-radius:10px; animation:pulse 1.5s infinite; animation-delay:0.4s;">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
-        </div>
-    </div>
-
-    <!-- Scripts -->
-    <script src="js/auth.js"></script>
-    <script src="js/config.js"></script>
-    <script src="js/utils.js"></script>
-    <script src="js/animations.js"></script>
-    <script src="js/sidebar.js"></script>
-    <script src="js/chatbot.js"></script>
-    <script src="js/smart-advisor.js"></script>
-    <script src="js/main.js"></script>
-
-    <script>
-        const API_BASE = CONFIG.API_BASE_URL || 'http://localhost:8080/api';
-        let forecastChart = null;
-
-        document.addEventListener('DOMContentLoaded', async () => {
-            // Redirect based on role
-            const userRole = localStorage.getItem('userRole');
-            if (userRole === 'SYSTEM_ADMIN') {
-                window.location.href = 'pages/admin.html'; // Correct path from root
-                return;
-            }
-            if (userRole === 'WORKER') {
-                window.location.href = 'pages/worker_dashboard.html'; // Correct path from root
-                return;
-            }
-
-            updateCurrentDate();
-            await loadDashboardData();
-            await loadWeather();
-            await loadTodaysTasks();
-        });
-
-        // Update current date in real-time
-        function updateCurrentDate() {
-            const now = new Date();
-            const options = {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            };
-            document.getElementById('current-date').textContent = now.toLocaleDateString('vi-VN', options);
-
-            // Update every minute
-            setTimeout(updateCurrentDate, 60000);
-        }
-
-        // Get user email from JWT token or localStorage
-        function getUserEmail() {
-            // Try JWT token first
-            const token = localStorage.getItem('token');
-            if (token) {
-                try {
-                    const payload = JSON.parse(atob(token.split('.')[1]));
-                    if (payload.sub || payload.email) {
-                        return payload.sub || payload.email;
-                    }
-                } catch (e) {
-                    console.warn('Could not decode token, trying localStorage');
-                }
-            }
-            // Fallback to localStorage
-            const storedEmail = localStorage.getItem('userEmail');
-            if (storedEmail) {
-                return storedEmail;
-            }
-            return null;
-        }
-
-        // Load dashboard data from API
-        async function loadDashboardData() {
-            const email = getUserEmail();
-            if (!email) {
-                console.warn('No user email found');
-                return;
-            }
-
-            try {
-                const res = await fetch(`${API_BASE}/dashboard/stats?email=${encodeURIComponent(email)}`, {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-                });
-
-                if (res.ok) {
-                    const data = await res.json();
-
-                    // Update KPI cards
-                    document.getElementById('kpi-total-area').innerHTML =
-                        `${formatNumber(data.totalAreaHectares || 0)} <span class="kpi-card__unit">Hecta</span>`;
-
-                    document.getElementById('kpi-balance').textContent = formatCurrency(data.balance || 0);
-
-                    const profit = data.profit || 0;
-                    document.getElementById('kpi-profit').textContent = formatCurrency(profit);
-
-                    // Update profit badge
-                    const profitBadge = document.getElementById('profit-badge');
-                    if (profit >= 0) {
-                        profitBadge.className = 'badge badge--success';
-                        profitBadge.innerHTML = '<span class="material-symbols-outlined icon-sm">trending_up</span>Lãi';
-                        document.getElementById('kpi-profit').style.color = 'var(--color-primary)';
-                    } else {
-                        profitBadge.className = 'badge badge--danger';
-                        profitBadge.innerHTML = '<span class="material-symbols-outlined icon-sm">trending_down</span>Lỗ';
-                        document.getElementById('kpi-profit').style.color = '#dc2626';
-                    }
-
-                    // Update forecast chart
-                    if (data.harvestForecast) {
-                        updateForecastChart(data.harvestForecast);
-                    }
-                }
-            } catch (e) {
-                console.error('Error loading dashboard:', e);
-            }
-        }
-
-        // Load weather from OpenWeather API using CONFIG
-        async function loadWeather() {
-            try {
-                // Use same location as cultivation page from CONFIG
-                const lat = CONFIG.DEFAULT_LOCATION?.lat || 10.045162;
-                const lon = CONFIG.DEFAULT_LOCATION?.lng || 105.746857;
-                const apiKey = CONFIG.OPENWEATHER_API_KEY;
-
-                if (!apiKey) {
-                    console.warn('OpenWeather API key not configured');
-                    return;
-                }
-
-                const res = await fetch(
-                    `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric&lang=vi`
-                );
-
-                if (res.ok) {
-                    const weather = await res.json();
-                    const temp = Math.round(weather.main.temp);
-                    const desc = weather.weather[0].description;
-                    const icon = getWeatherIcon(weather.weather[0].main);
-
-                    document.getElementById('kpi-weather').innerHTML =
-                        `${temp}°C <span class="kpi-card__unit">${capitalizeFirst(desc)}</span>`;
-                    document.getElementById('weather-icon').textContent = icon;
-                }
-            } catch (e) {
-                console.error('Error loading weather:', e);
-            }
-        }
-
-        // Get Material icon for weather
-        function getWeatherIcon(main) {
-            const icons = {
-                'Clear': 'sunny',
-                'Clouds': 'cloud',
-                'Rain': 'rainy',
-                'Drizzle': 'grain',
-                'Thunderstorm': 'thunderstorm',
-                'Snow': 'ac_unit',
-                'Mist': 'mist',
-                'Fog': 'foggy'
-            };
-            return icons[main] || 'sunny';
-        }
-
-        // Update forecast chart with real data
-        function updateForecastChart(forecast) {
-            const ctx = document.getElementById('forecastChart').getContext('2d');
-
-            const labels = forecast.map(f => f.month);
-            const incomeData = forecast.map(f => f.expectedIncome || 0);
-            const expenseData = forecast.map(f => f.expense || 0);
-
-            // Find max value for scale
-            const maxValue = Math.max(...incomeData, ...expenseData) || 1000000;
-
-            if (forecastChart) {
-                forecastChart.destroy();
-            }
-
-            forecastChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Doanh thu dự kiến',
-                            data: incomeData,
-                            backgroundColor: 'rgba(16, 185, 129, 0.8)',
-                            borderColor: '#10b981',
-                            borderWidth: 1,
-                            borderRadius: 4
-                        },
-                        {
-                            label: 'Chi phí',
-                            data: expenseData,
-                            backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                            borderColor: '#ef4444',
-                            borderWidth: 1,
-                            borderRadius: 4
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => `${ctx.dataset.label}: ${formatCurrency(ctx.raw)}`
-                            }
-                        }
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary-container": "#3eb686",
+                        "tertiary": "#006c4a",
+                        "surface-bright": "#f8f9fb",
+                        "on-tertiary-fixed": "#002114",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed-variant": "#005137",
+                        "error": "#ba1a1a",
+                        "outline": "#6c7a71",
+                        "background": "#f8f9fb",
+                        "secondary-container": "#2170e4",
+                        "surface-variant": "#e1e2e4",
+                        "secondary-fixed-dim": "#adc6ff",
+                        "inverse-on-surface": "#f0f1f3",
+                        "surface-container-low": "#f3f4f6",
+                        "surface-container-high": "#e7e8ea",
+                        "tertiary-fixed": "#85f8c4",
+                        "on-background": "#191c1e",
+                        "on-secondary-fixed-variant": "#004395",
+                        "on-primary-container": "#00422b",
+                        "on-surface": "#191c1e",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed": "#d8e2ff",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#e1e2e4",
+                        "surface-container": "#edeef0",
+                        "surface-dim": "#d9dadc",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f8f9fb",
+                        "on-tertiary-container": "#00422c",
+                        "primary-fixed": "#6ffbbe",
+                        "on-surface-variant": "#3c4a42",
+                        "tertiary-fixed-dim": "#68dba9",
+                        "on-primary-fixed-variant": "#005236",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed": "#001a42",
+                        "on-error-container": "#93000a",
+                        "on-secondary-container": "#fefcff",
+                        "on-primary-fixed": "#002113",
+                        "inverse-surface": "#2e3132",
+                        "primary-fixed-dim": "#4edea3",
+                        "inverse-primary": "#4edea3",
+                        "primary": "#006c49",
+                        "surface-tint": "#006c49",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#10b981",
+                        "outline-variant": "#bbcabf",
+                        "secondary": "#0058be"
                     },
-                    scales: {
-                        x: {
-                            grid: {
-                                display: false
-                            }
-                        },
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: (value) => formatCompact(value)
-                            }
-                        }
-                    }
-                }
-            });
-
-            // Update subtitle with current year
-            const now = new Date();
-            document.getElementById('forecast-subtitle').textContent =
-                `Doanh thu vs Chi phí dự kiến (${now.getFullYear()})`;
-        }
-
-        // Format currency
-        function formatCurrency(amount) {
-            return new Intl.NumberFormat('vi-VN').format(amount) + ' VNĐ';
-        }
-
-        // Format number
-        function formatNumber(num) {
-            return new Intl.NumberFormat('vi-VN').format(num);
-        }
-
-        // Format compact
-        function formatCompact(num) {
-            if (num >= 1000000000) return (num / 1000000000).toFixed(1) + 'B';
-            if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-            if (num >= 1000) return (num / 1000).toFixed(0) + 'K';
-            return num;
-        }
-
-        // Capitalize first letter
-        function capitalizeFirst(str) {
-            return str.charAt(0).toUpperCase() + str.slice(1);
-        }
-
-        // ============ TODAY'S TASKS WIDGET ============
-        function escapeHtmlDash(text) {
-            if (text == null) return '';
-            const div = document.createElement('div');
-            div.textContent = String(text);
-            return div.innerHTML;
-        }
-
-        function getStatusInfo(status) {
-            const s = (status || '').toUpperCase();
-            if (s === 'COMPLETED') return { label: 'Hoàn thành', color: '#16a34a', bg: '#f0fdf4', icon: 'check_circle' };
-            if (s === 'IN_PROGRESS') return { label: 'Đang làm', color: '#2563eb', bg: '#eff6ff', icon: 'autorenew' };
-            if (s === 'CANCELLED') return { label: 'Đã hủy', color: '#dc2626', bg: '#fef2f2', icon: 'cancel' };
-            return { label: 'Chờ xử lý', color: '#d97706', bg: '#fffbeb', icon: 'pending' };
-        }
-
-        async function loadTodaysTasks() {
-            const container = document.getElementById('tasks-container');
-            if (!container) return;
-
-            try {
-                // Get user ID
-                const email = localStorage.getItem('userEmail');
-                const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-                if (!email || !token) {
-                    container.innerHTML = '<div style="text-align:center; padding:24px; color:#9ca3af;"><span class="material-symbols-outlined" style="font-size:36px;">assignment</span><p style="margin-top:8px; font-size:13px;">Đăng nhập để xem công việc</p></div>';
-                    return;
-                }
-
-                const profileRes = await fetch(`${API_BASE}/user/profile?email=${encodeURIComponent(email)}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!profileRes.ok) throw new Error('Cannot get user ID');
-                const profile = await profileRes.json();
-                const ownerId = profile.id;
-                if (!ownerId) throw new Error('No user ID');
-
-                // Fetch tasks
-                const tasksRes = await fetch(`${API_BASE}/tasks/owner/${ownerId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!tasksRes.ok) throw new Error('Cannot load tasks');
-                const allTasks = await tasksRes.json();
-
-                // Filter today's tasks
-                const today = new Date().toISOString().split('T')[0];
-                const todaysTasks = allTasks.filter(t => {
-                    const created = t.createdAt ? t.createdAt.split('T')[0] : '';
-                    const active = t.status !== 'COMPLETED' && t.status !== 'CANCELLED';
-                    const completedToday = t.status === 'COMPLETED' && t.completedAt && t.completedAt.startsWith(today);
-                    return created === today || active || completedToday;
-                });
-
-                if (!todaysTasks.length) {
-                    container.innerHTML = '<div style="text-align:center; padding:32px; color:#9ca3af;"><span class="material-symbols-outlined" style="font-size:40px; opacity:0.5;">task_alt</span><p style="margin-top:8px; font-size:13px;">Không có công việc nào hôm nay</p></div>';
-                    return;
-                }
-
-                // Show max 5 tasks
-                const displayTasks = todaysTasks.slice(0, 5);
-                let html = '<div style="display:flex; flex-direction:column; gap:6px;">';
-
-                displayTasks.forEach(task => {
-                    const si = getStatusInfo(task.status);
-                    const taskName = escapeHtmlDash(task.name || '');
-                    const workerName = task.worker ? escapeHtmlDash(task.worker.fullName || task.worker.email || 'Nhân công') : (task.isAutoCreated ? 'Chưa phân công' : 'Tự làm');
-                    const workerAvatar = task.worker && task.worker.avatarUrl ? task.worker.avatarUrl : null;
-                    const avatarChar = task.worker ? (workerName || 'N').charAt(0).toUpperCase() : '?';
-
-                    const dueText = task.dueDate
-                        ? new Date(task.dueDate).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
-                        : '';
-
-                    const avatarHtml = workerAvatar
-                        ? `<img src="${workerAvatar}" alt="" style="width:24px; height:24px; border-radius:50%; object-fit:cover; flex-shrink:0;">`
-                        : `<div style="width:24px; height:24px; border-radius:50%; background:#dbeafe; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0;">${avatarChar}</div>`;
-
-                    html += `
-                        <div onclick="window.location.href='pages/labor.html?taskDetail=${task.id}'" style="display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; cursor:pointer; transition:all 0.2s; border:1px solid transparent;"
-                             onmouseenter="this.style.background='#f9fafb'; this.style.borderColor='#e5e7eb'" onmouseleave="this.style.background='transparent'; this.style.borderColor='transparent'">
-                            <div style="width:8px; height:8px; border-radius:50%; background:${si.color}; flex-shrink:0;"></div>
-                            <div style="flex:1; min-width:0;">
-                                <div style="font-weight:600; font-size:13px; color:#111827; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${taskName}</div>
-                                <div style="display:flex; align-items:center; gap:6px; margin-top:2px; font-size:11px; color:#6b7280;">
-                                    ${avatarHtml}
-                                    <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100px;">${workerName}</span>
-                                    ${dueText ? `<span style="color:#d1d5db;">·</span><span>${dueText}</span>` : ''}
-                                </div>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:4px; font-size:11px; font-weight:600; color:${si.color}; background:${si.bg}; padding:3px 8px; border-radius:6px; white-space:nowrap; flex-shrink:0;">
-                                <span class="material-symbols-outlined" style="font-size:14px;">${si.icon}</span>
-                                ${si.label}
-                            </div>
-                        </div>
-                    `;
-                });
-
-                // Show remaining count
-                if (todaysTasks.length > 5) {
-                    html += `<div style="text-align:center; padding:8px; font-size:12px; color:#6b7280;">+ ${todaysTasks.length - 5} công việc khác</div>`;
-                }
-
-                html += '</div>';
-                container.innerHTML = html;
-
-                // Animate items
-                if (typeof gsap !== 'undefined') {
-                    gsap.from(container.querySelectorAll('[onclick]'), {
-                        y: 12, opacity: 0, duration: 0.35, stagger: 0.06, ease: 'power2.out'
-                    });
-                }
-
-            } catch (e) {
-                console.error('Error loading today tasks:', e);
-                container.innerHTML = '<div style="text-align:center; padding:24px; color:#9ca3af;"><span class="material-symbols-outlined" style="font-size:36px;">assignment</span><p style="margin-top:8px; font-size:13px;">Không thể tải công việc</p></div>';
-            }
+                    fontFamily: {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Manrope", "sans-serif"],
+                        "label": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
         }
     </script>
-</body>
+    <style>
+        body { font-family: 'Manrope', sans-serif; background-color: #191c1e; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .emerald-gradient {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        .text-glow {
+            text-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+        .isometric-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        /* Liquid Glass hiệu ứng kính lỏng */
+        .liquid-btn {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .liquid-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.25);
+            transition: all 0.08s;
+        }
+        /* Gợn sóng khi nhấn */
+        .liquid-btn::after {
+            content: '';
+            position: absolute;
+            top: 50%; left: 50%;
+            width: 0; height: 0;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s, opacity 0.6s;
+            opacity: 0;
+        }
+        .liquid-btn:active::after {
+            width: 400px; height: 400px;
+            opacity: 1;
+            transition: width 0s, height 0s, opacity 0s;
+        }
+        /* Hiệu ứng fade-up khi cuộn */
+        .gs-reveal {
+            opacity: 0;
+            transform: translateY(40px);
+        }
+        /* Ẩn scrollbar cho khu vực gợi ý chat */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="text-white selection:bg-primary-container selection:text-white">
 
+<!-- Nền cố định - Ảnh gốc Stitch (cánh đồng lúa mì hoàng hôn) -->
+<div class="fixed inset-0 -z-10 overflow-hidden">
+    <div class="absolute inset-0 bg-black/40 z-10"></div>
+    <img alt="Cánh đồng lúa mì vàng lúc hoàng hôn" class="w-full h-full object-cover scale-110" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNKaeT-yQxl3Irpr2pATmtwl8W9lAMHBvTn8P20MIus_HsSHLV2F4r3CRamzFBflgDYyR4heItkvaEs1RPECQNxrKX8axcfjlO5EGJyfqPTQioyhQ5jYRv6hEtlnD05G9Qq0P1_YmPCbWrGmoLKpAxwfT3eHAtoIEC7PYwF3PvyzYEOOZf372aBtJ0OXvzEdEwylpzhlJn6aBZShYWChGxhfIkAhyoIc3A-_Q-koC-Q0JbSs3ZVpS7qsezbBtprmyxFuHZEp52bGaC"/>
+</div>
+
+<!-- Thanh điều hướng -->
+<nav class="sticky top-0 z-50 px-6 py-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between glass-panel rounded-full px-8 py-3">
+        <div class="flex items-center gap-3">
+            <img src="images/logo.png" alt="AgriPlanner Logo" class="w-10 h-10 object-contain rounded-full" style="box-shadow: 0 0 12px rgba(16,185,129,0.6);">
+            <span class="text-xl font-extrabold tracking-tight">AgriPlanner</span>
+        </div>
+        <div class="hidden md:flex items-center gap-8 text-sm font-semibold uppercase tracking-wider">
+            <a class="hover:text-primary-container transition-colors" href="#tinh-nang">Tính năng</a>
+            <a class="hover:text-primary-container transition-colors" href="#thong-ke">Thống kê</a>
+            <a class="hover:text-primary-container transition-colors" href="#lien-he">Liên hệ</a>
+        </div>
+        <div class="flex items-center gap-4">
+            <a href="pages/login.html" class="liquid-btn px-6 py-2 rounded-full border border-white/20 hover:bg-white/10 transition-all text-sm font-bold">Đăng nhập</a>
+            <a href="pages/register.html" class="liquid-btn px-6 py-2 rounded-full emerald-gradient hover:opacity-90 transition-all text-sm font-bold shadow-lg shadow-primary/20">Đăng ký ngay</a>
+        </div>
+    </div>
+</nav>
+
+<!-- Phần Hero -->
+<section class="relative min-h-[90vh] flex items-center px-6 overflow-hidden">
+    <div class="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+        <div class="space-y-8 gs-reveal">
+            <div class="inline-flex items-center gap-2 px-4 py-1 rounded-full glass-card border-primary/30 text-primary-container text-xs font-bold uppercase tracking-widest">
+                <span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+                Hệ sinh thái Nông Nghiệp 4.0
+            </div>
+            <h1 class="text-5xl lg:text-7xl font-extrabold leading-[1.1] tracking-tight">
+                Định Vị Tương Lai <br/>
+                <span class="text-transparent bg-clip-text emerald-gradient">Nông Nghiệp Kỹ Thuật Số</span> <br/>
+                Cùng AgriPlanner
+            </h1>
+            <p class="text-lg text-white/70 max-w-xl leading-relaxed">
+                Tối ưu hóa năng suất cây trồng với bản đồ vệ tinh Leaflet chính xác, mô phỏng chăn nuôi 2D/3D trực quan và tự động hóa quy trình nhân sự. AgriPlanner mang đến cái nhìn toàn cảnh về trang trại của bạn thông qua dữ liệu thời gian thực.
+            </p>
+            <div class="flex flex-wrap gap-4">
+                <a href="pages/register.html" class="liquid-btn px-8 py-4 rounded-xl emerald-gradient text-lg font-bold flex items-center gap-3 group">
+                    Khám phá nền tảng ngay
+                    <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                </a>
+                <a href="pages/login.html" class="liquid-btn px-8 py-4 rounded-xl glass-card text-lg font-bold border-white/10 hover:bg-white/5 transition-all">
+                    Xem bản trình diễn
+                </a>
+            </div>
+        </div>
+        <div class="relative isometric-float gs-reveal">
+            <!-- Ảnh gốc Stitch (nhà kính) -->
+            <div class="relative w-full aspect-square rounded-[3rem] overflow-hidden glass-card p-4">
+                <img alt="Nhà kính thông minh công nghệ cao" class="w-full h-full object-cover rounded-[2.5rem] opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsHs8tLEdWuDyQg4tO3abri770jtxneEqUYqVOGIDbG-XrZhz2nIlpfdOiF0e5Q9BxDiPgRLao7qhfl4q2Lxg-7UkIlz2Xmhmseq7ZpDjxqRB5fz4v8l3-LLDMmkBHhT85kJ1iu6HyvVBBVOkSYecu7ea4KxhW7MeN2zczvvPwoAUGznq6FFzn72g0l8z-COtwppWKA9JNqrOEIZoBcskhlVeV9XFFLWltI83iNh3C4AyIqqbMdgzna_4Mu5HxSYjHj6ODQzxFZ7ia"/>
+                <!-- Thẻ dữ liệu nổi -->
+                <div class="absolute top-12 -left-8 glass-card p-4 rounded-2xl border-l-4 border-l-primary-container shadow-2xl animate-bounce" style="animation-duration: 4s;">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-primary-container">trending_up</span>
+                        <div>
+                            <p class="text-xs text-white/60 font-bold uppercase">Sản lượng dự kiến</p>
+                            <p class="text-xl font-bold">Tăng +35%</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="absolute bottom-20 -right-4 glass-card p-4 rounded-2xl border-l-4 border-l-secondary shadow-2xl">
+                    <div class="flex items-center gap-3">
+                        <span class="material-symbols-outlined text-secondary">cleaning_services</span>
+                        <div>
+                            <p class="text-xs text-white/60 font-bold uppercase">Chuồng số #04</p>
+                            <p class="text-sm font-bold">Cần dọn dẹp</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass-panel p-4 rounded-2xl border-white/20 shadow-2xl flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
+                        <span class="material-symbols-outlined text-white">check_circle</span>
+                    </div>
+                    <div>
+                        <p class="text-xs text-white/60 uppercase">Quản lý nhân công</p>
+                        <p class="text-sm font-bold">Nhiệm vụ: Bón phân hoàn tất</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Dải thống kê -->
+<section id="thong-ke" class="py-12 px-6">
+    <div class="max-w-7xl mx-auto glass-panel rounded-[2rem] p-10 grid md:grid-cols-3 gap-8 text-center border-white/5 gs-reveal">
+        <div class="space-y-2">
+            <h3 class="text-4xl font-black text-transparent bg-clip-text emerald-gradient">1.500+</h3>
+            <p class="text-white/60 font-semibold uppercase tracking-widest text-sm">Nông trại kết nối</p>
+        </div>
+        <div class="space-y-2 border-x border-white/10">
+            <h3 class="text-4xl font-black text-transparent bg-clip-text emerald-gradient">50.000+</h3>
+            <p class="text-white/60 font-semibold uppercase tracking-widest text-sm">Hecta đang quản lý</p>
+        </div>
+        <div class="space-y-2">
+            <h3 class="text-4xl font-black text-secondary">-35%</h3>
+            <p class="text-white/60 font-semibold uppercase tracking-widest text-sm">Giảm hao hụt tài nguyên</p>
+        </div>
+    </div>
+</section>
+
+<!-- Phần Tính năng: Bố cục lưới Bento -->
+<section id="tinh-nang" class="py-24 px-6 max-w-7xl mx-auto">
+    <div class="mb-16 text-center max-w-3xl mx-auto space-y-4 gs-reveal">
+        <h2 class="text-4xl font-extrabold">Công Nghệ Dẫn Đầu Thị Trường</h2>
+        <p class="text-white/60">Giải pháp toàn diện giúp chuyển đổi số mọi khía cạnh của nông trại, từ quản lý đất đai đến điều hành nhân sự tập trung.</p>
+    </div>
+    <div class="grid lg:grid-cols-3 gap-6">
+
+        <!-- Tính năng 1: Trồng trọt - Bản đồ -->
+        <div class="lg:col-span-2 glass-panel rounded-[2.5rem] p-10 overflow-hidden relative group gs-reveal">
+            <div class="relative z-10 flex flex-col h-full justify-between gap-12">
+                <div>
+                    <div class="w-14 h-14 rounded-2xl emerald-gradient flex items-center justify-center mb-6">
+                        <span class="material-symbols-outlined text-3xl">map</span>
+                    </div>
+                    <h3 class="text-3xl font-bold mb-4">Trồng Trọt Thông Minh Trên Bản Đồ Số</h3>
+                    <p class="text-white/70 max-w-md leading-relaxed">
+                        Áp dụng công nghệ bản đồ vệ tinh Leaflet để khoanh vùng và quản lý diện tích chính xác. Hệ thống tự động thiết lập quy trình 5 bước chuẩn hóa: chuẩn bị hạt giống, bón lót, gieo sạ, chăm sóc và thu hoạch dựa trên dữ liệu vệ tinh.
+                    </p>
+                </div>
+                <div class="rounded-2xl overflow-hidden glass-card border-white/5 h-48">
+                    <!-- Ảnh gốc Stitch (bản đồ nông nghiệp) -->
+                    <img alt="Bản đồ nông nghiệp số" class="w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-700" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQcUpy9tG1i5yIDuSu8PKA3l5rq8HozGqBmMICY62wx8Qg4nGKU08z7RdmTf-YaflFwjtWCrctMUjKkiV5X9Lqj8LQCTrf0Q0NIr-PJ3mIwJmtVONYuomYVxWCx9m7RyPyKAs56LnFiYd3MEZg489uJwyGYrLzCUOT6GNfG1O_xm5Di59lqJT0tX9z560Lidxe7A4BES3maZA0AzLl1alOsqZ-Zz8NfBTxV92BABJpWDuWIfpZZ3J-TFQkPDtC_Eh6Iwak8wovNBz_"/>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tính năng 2: Chăn nuôi -->
+        <div class="glass-panel rounded-[2.5rem] p-10 flex flex-col justify-between border-white/10 gs-reveal">
+            <div>
+                <div class="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mb-6">
+                    <span class="material-symbols-outlined text-3xl">view_in_ar</span>
+                </div>
+                <h3 class="text-3xl font-bold mb-4">Mô Phỏng Chăn Nuôi Trực Quan</h3>
+                <p class="text-white/70 leading-relaxed">
+                    Theo dõi sức khỏe vật nuôi qua mô phỏng chuồng trại 2D/3D. Tự động kết nối với kho vật tư để cảnh báo thiếu hụt thức ăn và thuốc thú y ngay lập tức.
+                </p>
+            </div>
+            <div class="mt-8 space-y-4">
+                <div class="p-4 glass-card rounded-xl flex items-center justify-between">
+                    <span class="text-xs font-bold">Giám sát sức khỏe</span>
+                    <span class="px-2 py-1 bg-primary-container/20 text-primary-container rounded text-[10px] font-bold">TỐI ƯU</span>
+                </div>
+                <div class="p-4 glass-card rounded-xl flex items-center justify-between">
+                    <span class="text-xs font-bold">Đồng bộ kho vật tư</span>
+                    <span class="px-2 py-1 bg-secondary/20 text-secondary rounded text-[10px] font-bold">ĐÃ ĐỒNG BỘ</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tính năng 3: Quản lý Kho (MỚI) -->
+        <div class="lg:col-span-3 glass-panel rounded-[2.5rem] p-12 grid md:grid-cols-2 items-center gap-12 border-white/10 gs-reveal">
+            <div>
+                <div class="w-14 h-14 rounded-2xl bg-amber-600 flex items-center justify-center mb-6">
+                    <span class="material-symbols-outlined text-3xl">warehouse</span>
+                </div>
+                <h3 class="text-3xl font-bold mb-4">Quản Lý Kho Vật Tư Nông Nghiệp</h3>
+                <p class="text-white/70 leading-relaxed mb-8">
+                    Kiểm soát từng bao phân bón, hạt giống hay lít thuốc bảo vệ thực vật. Hệ thống kho thông minh giúp định vị chính xác vị trí lưu trữ hàng hóa, tự động cảnh báo khi sắp hết hàng và quản lý lô, hạn sử dụng rõ ràng.
+                </p>
+                <ul class="space-y-4">
+                    <li class="flex items-center gap-3 text-sm font-medium text-white/80">
+                        <span class="material-symbols-outlined text-amber-500">inventory_2</span>
+                        Tự động cảnh báo khi sắp hết hàng
+                    </li>
+                    <li class="flex items-center gap-3 text-sm font-medium text-white/80">
+                        <span class="material-symbols-outlined text-amber-500">qr_code_scanner</span>
+                        Quản lý lô hàng &amp; hạn sử dụng rõ ràng
+                    </li>
+                    <li class="flex items-center gap-3 text-sm font-medium text-white/80">
+                        <span class="material-symbols-outlined text-amber-500">sync_alt</span>
+                        Đồng bộ mức độ tiêu thụ toàn nông trại
+                    </li>
+                </ul>
+            </div>
+            <div class="relative">
+                <div class="glass-card rounded-2xl p-6 border-white/10">
+                    <div class="flex items-center justify-between mb-6">
+                        <h4 class="font-bold">Tổng quan kho</h4>
+                        <span class="material-symbols-outlined text-white/40">more_horiz</span>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="p-4 bg-white/5 rounded-xl border border-white/5 flex gap-4 items-center">
+                            <div class="w-2 h-12 rounded-full bg-amber-500"></div>
+                            <div class="flex-1">
+                                <p class="text-sm font-bold">Phân bón NPK (Kho A)</p>
+                                <p class="text-xs text-white/40">Còn lại: 450 bao · Hạn dùng: 12/2026</p>
+                            </div>
+                            <span class="px-2 py-1 bg-primary-container/20 text-primary-container rounded text-[10px] font-bold">ĐỦ</span>
+                        </div>
+                        <div class="p-4 bg-white/5 rounded-xl border border-white/5 flex gap-4 items-center">
+                            <div class="w-2 h-12 rounded-full bg-red-500"></div>
+                            <div class="flex-1">
+                                <p class="text-sm font-bold">Thuốc trừ sâu sinh học (Kho B)</p>
+                                <p class="text-xs text-white/40">Còn lại: 12 lít · Sắp hết</p>
+                            </div>
+                            <span class="px-2 py-1 bg-red-500/20 text-red-400 rounded text-[10px] font-bold">SẮP HẾT</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tính năng 4: Nhân sự & Giao việc -->
+        <div class="lg:col-span-3 glass-panel rounded-[2.5rem] p-12 grid md:grid-cols-2 items-center gap-12 border-white/10 gs-reveal">
+            <div>
+                <div class="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mb-6">
+                    <span class="material-symbols-outlined text-3xl">groups</span>
+                </div>
+                <h3 class="text-3xl font-bold mb-4">Quản Trị Nhân Sự &amp; Phân Công Nhiệm Vụ Khoa Học</h3>
+                <p class="text-white/70 leading-relaxed mb-8">
+                    Hệ thống quản lý CV nhân công tập trung, phân quyền thông minh qua bảng Kanban. Công nhân báo cáo tiến độ trực tiếp bằng hình ảnh/video qua ứng dụng di động, giúp giám sát từ xa mọi hoạt động ngoài cánh đồng.
+                </p>
+                <ul class="space-y-4">
+                    <li class="flex items-center gap-3 text-sm font-medium text-white/80">
+                        <span class="material-symbols-outlined text-primary-container">check_circle</span>
+                        Quản lý hồ sơ &amp; kỹ năng chuyên môn
+                    </li>
+                    <li class="flex items-center gap-3 text-sm font-medium text-white/80">
+                        <span class="material-symbols-outlined text-primary-container">check_circle</span>
+                        Giao việc theo Kanban &amp; ưu tiên
+                    </li>
+                    <li class="flex items-center gap-3 text-sm font-medium text-white/80">
+                        <span class="material-symbols-outlined text-primary-container">check_circle</span>
+                        Báo cáo đa phương tiện thời gian thực
+                    </li>
+                </ul>
+            </div>
+            <div class="relative">
+                <div class="glass-card rounded-2xl p-6 border-white/10">
+                    <div class="flex items-center justify-between mb-6">
+                        <h4 class="font-bold">Bảng công việc</h4>
+                        <span class="material-symbols-outlined text-white/40">more_horiz</span>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="p-4 bg-white/5 rounded-xl border border-white/5 flex gap-4 items-center">
+                            <div class="w-2 h-12 rounded-full bg-primary-container"></div>
+                            <div>
+                                <p class="text-sm font-bold">Thu hoạch khu vực A4</p>
+                                <p class="text-xs text-white/40">Giao cho: Trần Văn An</p>
+                            </div>
+                        </div>
+                        <div class="p-4 bg-white/5 rounded-xl border border-white/5 flex gap-4 items-center opacity-50">
+                            <div class="w-2 h-12 rounded-full bg-secondary"></div>
+                            <div>
+                                <p class="text-sm font-bold">Kiểm tra độ ẩm đất</p>
+                                <p class="text-xs text-white/40">Hoàn thành bởi: Lê Thị Bình</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tính năng 5: Cửa hàng (Shop) -->
+        <div class="glass-panel rounded-[2.5rem] p-10 flex flex-col justify-between border-white/10 gs-reveal">
+            <div>
+                <div class="w-14 h-14 rounded-2xl bg-teal-600 flex items-center justify-center mb-6">
+                    <span class="material-symbols-outlined text-3xl text-white">store</span>
+                </div>
+                <h3 class="text-3xl font-bold mb-4">Sàn Thương Mại Vật Tư</h3>
+                <p class="text-white/70 leading-relaxed">
+                    Nguồn cung đa dạng các mặt hàng: Hạt giống, phân bón, thuốc bảo vệ thực vật, máy móc. Đặc biệt ưu đãi giảm 5% khi thanh toán nội bộ.
+                </p>
+            </div>
+            <div class="mt-8 space-y-4">
+                <div class="p-4 glass-card rounded-xl flex items-center justify-between">
+                    <span class="text-xs font-bold">Thanh toán đa nền tảng</span>
+                    <span class="px-2 py-1 bg-teal-500/20 text-teal-300 rounded text-[10px] font-bold">MoMo / VNPay</span>
+                </div>
+                <div class="p-4 glass-card rounded-xl flex items-center justify-between">
+                    <span class="text-xs font-bold">Giao hàng tận nơi</span>
+                    <span class="px-2 py-1 bg-teal-500/20 text-teal-300 rounded text-[10px] font-bold">ĐỊNH VỊ GPS</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tính năng 6: Hợp tác xã (Cooperative) -->
+        <div class="lg:col-span-2 glass-panel rounded-[2.5rem] p-12 grid md:grid-cols-2 items-center gap-12 border-white/10 gs-reveal">
+            <div>
+                <div class="w-14 h-14 rounded-2xl bg-indigo-600 flex items-center justify-center mb-6">
+                    <span class="material-symbols-outlined text-3xl">groups</span>
+                </div>
+                <h3 class="text-3xl font-bold mb-4">Mô Hình Hợp Tác Xã Kiểu Mới</h3>
+                <p class="text-white/70 leading-relaxed mb-8">
+                    Chúng tôi có một cộng đồng HTX dành riêng cho các chủ trang trại, nơi bạn có thể liên kết sức mạnh tập thể. Tổ chức <strong>Gom mua</strong> vật tư nông nghiệp để hưởng giá sỉ từ nhà máy, và <strong>Gom bán</strong> nông sản số lượng lớn trực tiếp tới thương lái, bỏ qua thương lái trung gian.
+                </p>
+                <ul class="space-y-4">
+                    <li class="flex items-center gap-3 text-sm font-medium text-white/80">
+                        <span class="material-symbols-outlined text-indigo-400">group_work</span>
+                        Quản lý quỹ chung & minh bạch thu chi
+                    </li>
+                    <li class="flex items-center gap-3 text-sm font-medium text-white/80">
+                        <span class="material-symbols-outlined text-indigo-400">pie_chart</span>
+                        Biểu đồ phân chia đóng góp tự động
+                    </li>
+                </ul>
+            </div>
+            <div class="relative">
+                <div class="glass-card rounded-2xl p-6 border-white/10">
+                    <div class="flex items-center justify-between mb-6">
+                        <h4 class="font-bold">Đợt Gom Mua Đang Mở</h4>
+                        <span class="material-symbols-outlined text-white/40">shopping_cart</span>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="p-4 bg-white/5 rounded-xl border border-indigo-500/20 flex gap-4 items-center">
+                            <div class="w-2 h-12 rounded-full bg-indigo-500"></div>
+                            <div class="flex-1">
+                                <p class="text-sm font-bold">Gom mua phân NPK tháng này</p>
+                                <p class="text-xs text-white/40">Mục tiêu: 500 bao · Đã có 320 bao</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tính năng 7: Cộng đồng (Community) -->
+        <div class="lg:col-span-3 glass-panel rounded-[2.5rem] p-12 flex flex-col md:flex-row items-center justify-between border-white/10 gs-reveal bg-gradient-to-r from-primary-container/10 to-transparent">
+            <div class="md:w-2/3 mb-8 md:mb-0 md:pr-12">
+                <div class="w-14 h-14 rounded-2xl bg-cyan-600 flex items-center justify-center mb-6">
+                    <span class="material-symbols-outlined text-3xl">forum</span>
+                </div>
+                <h3 class="text-3xl font-bold mb-4">Mạng Xã Hội Chuyên Trách Nông Nghiệp</h3>
+                <p class="text-white/70 leading-relaxed text-lg">
+                    Tạo lập không gian trao đổi nghiệp vụ, với bảng tin chuyên sâu về kỹ thuật trồng trọt và chăn nuôi. Đặt câu hỏi và đính kèm video từ điện thoại ngay ngoài đồng ruộng để nhận tư vấn từ các chuyên gia và những người nông dân giàu kinh nghiệm khác.
+                </p>
+                <div class="flex gap-4 mt-8 flex-wrap">
+                    <span class="px-4 py-2 glass-card rounded-full text-sm font-bold flex items-center gap-2 border-white/10">
+                        <span class="material-symbols-outlined text-cyan-400 size-4">dynamic_feed</span> Bảng tin
+                    </span>
+                    <span class="px-4 py-2 glass-card rounded-full text-sm font-bold flex items-center gap-2 border-white/10">
+                        <span class="material-symbols-outlined text-cyan-400 size-4">menu_book</span> Hướng dẫn
+                    </span>
+                    <span class="px-4 py-2 glass-card rounded-full text-sm font-bold flex items-center gap-2 border-white/10">
+                        <span class="material-symbols-outlined text-cyan-400 size-4">chat</span> Chat Nhóm
+                    </span>
+                </div>
+            </div>
+            
+            <div class="md:w-1/3 w-full flex justify-center">
+                <div class="w-full max-w-sm glass-card rounded-[2rem] p-6 border-white/20 shadow-2xl relative">
+                    <div class="flex items-center gap-3 mb-6">
+                        <div class="w-10 h-10 rounded-full emerald-gradient"></div>
+                        <div>
+                            <p class="text-sm font-bold">Kỹ sư Minh Tâm</p>
+                            <p class="text-[10px] text-white/60">Vừa xong • <span class="material-symbols-outlined text-[10px]">public</span></p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-white/80 mb-4">Chú ý nhé bà con, độ ẩm đất liên tục sụt giảm, cần tăng lưu lượng tưới nhỏ giọt lúc chập tối!</p>
+                    <div class="w-full h-32 rounded-xl bg-black/20 mb-4 flex items-center justify-center border border-white/5">
+                        <span class="material-symbols-outlined text-white/20 text-4xl">thermometer</span>
+                    </div>
+                    <div class="flex justify-between text-white/60 text-xs px-2 cursor-pointer font-bold">
+                        <span class="flex items-center gap-1 hover:text-cyan-400"><span class="material-symbols-outlined text-[16px]">thumb_up</span> Thích</span>
+                        <span class="flex items-center gap-1 hover:text-cyan-400"><span class="material-symbols-outlined text-[16px]">comment</span> Bình luận</span>
+                        <span class="flex items-center gap-1 hover:text-cyan-400"><span class="material-symbols-outlined text-[16px]">share</span> Chia sẻ</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- Phần Kêu gọi hành động cuối -->
+<section id="lien-he" class="py-24 px-6">
+    <div class="max-w-5xl mx-auto glass-panel rounded-[3rem] p-16 text-center relative overflow-hidden gs-reveal">
+        <div class="absolute inset-0 emerald-gradient opacity-10"></div>
+        <div class="relative z-10 space-y-8">
+            <h2 class="text-4xl md:text-5xl font-extrabold">Sẵn Sàng Chuyển Đổi Số Nông Trại?</h2>
+            <p class="text-xl text-white/70 max-w-2xl mx-auto">
+                Đăng ký hoàn toàn miễn phí ngay hôm nay và trải nghiệm sức mạnh của dữ liệu thời gian thực trong quản lý nông trại!
+            </p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a href="pages/register.html" class="liquid-btn px-10 py-5 rounded-2xl emerald-gradient text-lg font-bold shadow-2xl shadow-primary/40 hover:scale-105 transition-transform">
+                    Đăng ký miễn phí ngay
+                </a>
+                <button onclick="toggleChat()" class="liquid-btn px-10 py-5 rounded-2xl glass-card text-lg font-bold border-white/20 hover:bg-white/10 transition-all cursor-pointer">
+                    Trò chuyện với chuyên gia
+                </button>
+            </div>
+            <p class="text-sm text-white/40 font-medium">Tham gia cùng 10.000+ nông dân hiện đại trên toàn quốc.</p>
+        </div>
+    </div>
+</section>
+
+<!-- Chân trang -->
+<footer class="py-12 px-6 border-t border-white/5 mt-12 glass-panel">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+        <div class="flex flex-col gap-4">
+            <div class="flex items-center gap-3">
+                <img src="images/logo.png" alt="AgriPlanner Logo" class="w-8 h-8 object-contain rounded-full">
+                <span class="text-xl font-extrabold tracking-tight">AgriPlanner</span>
+            </div>
+            <p class="text-white/40 text-sm">© 2026 AgriPlanner. Bản quyền thuộc về nhóm phát triển.</p>
+        </div>
+        <div class="flex flex-wrap gap-8 text-sm font-bold text-white/60">
+            <a class="hover:text-primary-container transition-colors" href="#">Chính sách bảo mật</a>
+            <a class="hover:text-primary-container transition-colors" href="#">Điều khoản sử dụng</a>
+            <a class="hover:text-primary-container transition-colors" href="#">Hỗ trợ</a>
+        </div>
+    </div>
+</footer>
+
+<!-- Khung Chat Chuyên Gia (ẩn mặc định, mở bằng nút CTA) -->
+<div id="ai-chat-window" class="fixed bottom-6 right-6 w-[380px] max-w-[92vw] h-[520px] max-h-[75vh] glass-panel border border-white/20 rounded-2xl flex flex-col z-[100] scale-0 origin-bottom-right transition-transform duration-300 shadow-2xl">
+    <div class="p-4 border-b border-white/10 flex items-center justify-between emerald-gradient rounded-t-2xl">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-inner transition-transform duration-300" id="bot-avatar">
+                <span class="material-symbols-outlined text-emerald-700 text-2xl" style="font-variation-settings: 'FILL' 1;">support_agent</span>
+            </div>
+            <div>
+                <h4 class="font-bold text-white leading-tight">Chuyên Gia AgriPlanner</h4>
+                <p class="text-[10px] text-white/80 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-400"></span> Sẵn sàng giải đáp</p>
+            </div>
+        </div>
+        <button onclick="toggleChat()" class="text-white hover:text-white/70 transition-colors p-1 cursor-pointer"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 bg-black/40">
+        <!-- Tin nhắn chào mừng -->
+        <div class="flex gap-2">
+            <div class="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-emerald-400 text-lg" style="font-variation-settings: 'FILL' 1;">support_agent</span>
+            </div>
+            <div class="bg-white/10 border border-white/10 rounded-2xl rounded-tl-sm p-3 text-[14px] text-white/90 leading-relaxed shadow-lg">
+                Chào bạn, tôi là chuyên gia tư vấn AgriPlanner! 👋<br><br>Hãy chọn một câu hỏi bên dưới để tôi giải đáp chi tiết cho bạn nhé.
+            </div>
+        </div>
+    </div>
+    <!-- Nút mở danh sách câu hỏi -->
+    <div class="border-t border-white/10 bg-white/5 rounded-b-2xl">
+        <button id="toggle-questions-btn" onclick="toggleQuestions()" class="w-full flex items-center justify-center gap-2 py-3 text-[13px] font-bold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer">
+            <span class="material-symbols-outlined text-[18px]" id="toggle-q-icon">quiz</span>
+            <span id="toggle-q-text">Hiện danh sách câu hỏi</span>
+        </button>
+        <div class="overflow-hidden transition-all duration-300 ease-in-out" id="questions-wrapper" style="max-height: 0;">
+            <div class="p-3 max-h-[180px] overflow-y-auto flex flex-col gap-2 hide-scrollbar" id="chat-suggestions">
+                <!-- Rendered by JS -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- GSAP: Hiệu ứng cuộn trang -->
+<script>
+    gsap.registerPlugin(ScrollTrigger);
+
+    // AI Chatbox Logic — Bộ Q&A toàn diện cho Owner & Worker
+    const faqs = [
+        // ═══════════ ĐĂNG KÝ & ĐĂNG NHẬP ═══════════
+        { q: "Làm sao để đăng ký tài khoản AgriPlanner?",
+          a: "Rất đơn giản! Bạn nhấn nút <b>'Đăng ký miễn phí'</b> trên trang chủ. Điền đầy đủ: Họ tên, Số điện thoại, Email, Mật khẩu (tối thiểu 8 ký tự). Sau đó chọn vai trò — <b>Chủ trang trại (Owner)</b> nếu bạn sở hữu nông trại, hoặc <b>Công nhân (Worker)</b> nếu bạn muốn làm việc cho một trang trại. Hệ thống sẽ gửi mã OTP 6 số về email để xác minh, nhập đúng mã là hoàn tất!" },
+        { q: "Tôi có thể đăng nhập bằng Google, Facebook hoặc GitHub không?",
+          a: "Hoàn toàn được! AgriPlanner hỗ trợ đăng nhập nhanh qua <b>3 nền tảng</b>:<br>• <b>Google</b>: Nhấn nút 'Đăng nhập với Google', chọn tài khoản Gmail của bạn.<br>• <b>Facebook</b>: Nhấn nút 'Đăng nhập với Facebook', xác nhận quyền truy cập.<br>• <b>GitHub</b>: Dành cho người dùng kỹ thuật, nhấn biểu tượng GitHub để đăng nhập nhanh.<br><br>Nếu tài khoản mạng xã hội chưa liên kết với AgriPlanner, hệ thống sẽ tự động chuyển sang bước đăng ký nhanh — bạn chỉ cần chọn vai trò (Owner/Worker) là xong!" },
+        { q: "Đăng nhập bằng khuôn mặt hoạt động thế nào?",
+          a: "Đây là tính năng bảo mật sinh trắc học tiên tiến! <b>Cách kích hoạt:</b><br>1. Đăng nhập bình thường vào hệ thống trước.<br>2. Vào <b>Cài đặt → Bảo mật → Đăng nhập bằng khuôn mặt</b>.<br>3. Bật webcam, hệ thống sẽ chụp và mã hóa đặc điểm khuôn mặt của bạn.<br><br><b>Lần đăng nhập sau:</b> Tại trang đăng nhập, nhấn nút <b>'Đăng nhập bằng khuôn mặt'</b> → hệ thống mở camera, quét mặt trong 2-3 giây, nếu khớp sẽ đăng nhập tự động mà không cần gõ mật khẩu. Cực kỳ nhanh và bảo mật!" },
+        { q: "Tôi quên mật khẩu thì phải làm sao?",
+          a: "Đừng lo! Tại trang đăng nhập, nhấn vào link <b>'Quên mật khẩu?'</b>. Nhập email đã đăng ký, hệ thống sẽ gửi mã OTP xác thực về email. Nhập mã OTP + mật khẩu mới là xong. Mã OTP có thời hạn giới hạn nên hãy thực hiện nhanh nhé!" },
+
+        // ═══════════ TRANG CHỦ (OWNER) ═══════════
+        { q: "Trang Tổng quan (Dashboard) của Chủ trang trại hiển thị gì?",
+          a: "Dashboard là trung tâm điều hành của bạn! Hiển thị real-time:<br>• <b>Tổng diện tích</b> nông trại (hecta).<br>• <b>Số dư vốn</b> hiện tại (VNĐ).<br>• <b>Lợi nhuận</b> = Tổng thu nhập − Tổng chi phí.<br>• <b>Biểu đồ Dự báo tài chính</b> 6 tháng tới (doanh thu dự kiến vs chi phí).<br>• <b>Thời tiết hôm nay</b> tại vị trí nông trại.<br>• <b>Danh sách công việc</b> hôm nay cần xử lý.<br>Tất cả đều tự động cập nhật, giúp bạn nắm bắt tình hình chỉ trong vài giây!" },
+
+        // ═══════════ TRỒNG TRỌT ═══════════
+        { q: "Quản lý trồng trọt trên AgriPlanner có những tính năng gì?",
+          a: "Trang Trồng trọt cung cấp hệ thống quản lý cánh đồng toàn diện:<br>• <b>Bản đồ số</b>: Tích hợp Leaflet, hiển thị từng thửa ruộng với tọa độ GPS chính xác. Hỗ trợ tải bản đồ KMZ từ Google Earth.<br>• <b>Quản lý cây trồng</b>: Theo dõi ngày gieo trồng, loại cây, giai đoạn sinh trưởng, ngày thu hoạch dự kiến.<br>• <b>Tưới tiêu thông minh</b>: Lên lịch tưới theo vùng, theo dõi lượng nước thực tế.<br>• <b>Phân tích đất</b>: Hệ thống AI phân tích loại đất, pH, dinh dưỡng qua ảnh chụp.<br>• <b>Dự báo sản lượng</b>: Tính toán năng suất dự kiến dựa trên diện tích và chủng loại cây." },
+        { q: "AgriPlanner có hỗ trợ phát hiện sâu bệnh không?",
+          a: "Có! Tính năng <b>AI Nhận diện sâu bệnh</b> (Gemini Vision) cực kỳ mạnh mẽ. Bạn chỉ cần:<br>1. Chụp ảnh lá cây/quả bị bệnh bằng điện thoại.<br>2. Tải lên mục <b>Sâu bệnh</b> trên trang Trồng trọt.<br>3. AI sẽ phân tích hình ảnh và trả về: <b>Tên bệnh</b>, <b>mức độ nghiêm trọng</b>, <b>nguyên nhân</b>, và <b>phương pháp điều trị chi tiết</b> (bao gồm cả khuyến nghị thuốc BVTV).<br><br>Ngoài ra, bạn cũng có thể đăng ảnh lên <b>Cộng đồng</b> để nhận tư vấn trực tiếp từ các kỹ sư nông nghiệp." },
+
+        // ═══════════ CHĂN NUÔI ═══════════
+        { q: "Trang Chăn nuôi quản lý những gì?",
+          a: "Mô-đun Chăn nuôi hỗ trợ toàn diện:<br>• <b>Quản lý chuồng trại</b>: Thêm/sửa/xóa chuồng, ghi nhận số lượng gia súc/gia cầm theo từng chuồng.<br>• <b>Lịch cho ăn tự động</b>: Hệ thống tạo lịch cho ăn hàng ngày, tính toán lượng thức ăn cần dùng, tự động trừ kho.<br>• <b>Theo dõi sức khỏe</b>: Ghi nhận trọng lượng, tiêm phòng, bệnh lý theo từng đợt.<br>• <b>Báo cáo trực quan</b>: Biểu đồ tăng trưởng, chi phí thức ăn, tỷ lệ hao hụt.<br>• <b>Mô phỏng 2D/3D</b>: Hiển thị bản đồ chuồng trại trực quan trên canvas." },
+
+        // ═══════════ KHO ═══════════
+        { q: "Hệ thống cảnh báo vật tư sắp hết hoạt động thế nào?",
+          a: "Hệ thống Kho cực kỳ thông minh! Khi lượng phân bón, hạt giống hay thức ăn chăn nuôi tụt dưới mức an toàn bạn đã định, AgriPlanner sẽ:<br>• Hiển thị thẻ <b style='color:#ef4444;'>Đỏ (SẮP HẾT)</b> ngay trên bảng điều khiển.<br>• Quản lý theo <b>lô hàng</b> và <b>hạn sử dụng</b> riêng biệt.<br>• Ghi nhận lịch sử xuất/nhập kho chính xác đến từng giao dịch.<br>• Đồng bộ mức tiêu thụ tự động khi lịch cho ăn chăn nuôi hoặc bón phân trồng trọt được thực hiện." },
+
+        // ═══════════ NHÂN CÔNG & GIAO VIỆC ═══════════
+        { q: "Chủ trang trại giao việc cho công nhân thế nào?",
+          a: "Sử dụng trang <b>Nhân công</b> với bảng Kanban trực quan:<br>1. Nhấn <b>'Tạo công việc'</b>, chọn loại (trồng trọt/chăn nuôi/khác).<br>2. Gán <b>Worker</b> cụ thể, đặt <b>mức độ ưu tiên</b> (Cao/Trung bình/Thấp) và <b>hạn chót</b>.<br>3. Gắn liên kết tới thửa ruộng hoặc chuồng trại cụ thể.<br>4. Có thể đính kèm <b>vật tư từ Kho</b> (ví dụ: cần dùng 50kg phân NPK).<br>5. Đặt mức <b>lương cho nhiệm vụ</b> này.<br><br>Ngoài ra, hệ thống còn hỗ trợ <b>tự động tạo công việc hàng ngày</b> dựa trên lịch trình đã thiết lập (lịch cho ăn, lịch tưới, lịch bón phân)." },
+        { q: "Tôi là công nhân, phải làm gì khi nhận được công việc?",
+          a: "Khi chủ trang trại giao việc, bạn sẽ thấy nhiệm vụ trong mục <b>'Công việc'</b> bên thanh menu trái. Các bước thực hiện:<br>1. Mở nhiệm vụ, đọc <b>mô tả và hướng dẫn</b> chi tiết.<br>2. Tiến hành làm việc thực tế ngoài đồng/chuồng trại.<br>3. Nhấn <b>'Hoàn thành'</b>, chụp ảnh hoặc quay video bằng camera điện thoại làm bằng chứng.<br>4. Ghi nhận <b>tình trạng</b> (tốt/bình thường/cần xem xét) kèm ghi chú nếu có.<br><br>Chủ trang trại sẽ nhận báo cáo ngay lập tức kèm ảnh/video và tiến hành <b>duyệt công việc</b>. Sau khi duyệt, lương sẽ được tính tự động vào bảng lương của bạn." },
+
+        // ═══════════ CỬA HÀNG ═══════════
+        { q: "Mua vật tư trên Cửa hàng AgriPlanner như thế nào?",
+          a: "Trang <b>Cửa hàng</b> hoạt động như một sàn thương mại thu nhỏ:<br>1. Duyệt sản phẩm theo danh mục: Hạt giống, Phân bón, Thuốc BVTV, Thức ăn chăn nuôi, Máy móc...<br>2. Lọc theo giá, đánh giá, thương hiệu.<br>3. Thêm vào <b>Giỏ hàng</b>, chỉnh số lượng.<br>4. Thanh toán qua <b>MoMo</b> hoặc <b>VNPay</b> (quét QR cực nhanh), hoặc sử dụng <b>số dư ví nội bộ</b>.<br>5. Đơn hàng sẽ được giao tận nơi kèm <b>định vị GPS</b> nông trại.<br><br>Đặc biệt: Thành viên Hợp tác xã được giảm thêm <b>5% giá sỉ</b> trên mọi đơn nội bộ!" },
+
+        // ═══════════ HỢP TÁC XÃ ═══════════
+        { q: "Hợp tác xã 'Gom mua - Gom bán' lợi ích gì?",
+          a: "Đây là tính năng kết nối sức mạnh tập thể, dành riêng cho các chủ trang trại:<br>• <b>Gom mua</b>: Nhiều trang trại cùng đặt mua chung vật tư (ví dụ: 500 bao phân NPK) trực tiếp từ nhà máy → nhận <b>giá sỉ</b> rẻ hơn 15-30% so với mua lẻ.<br>• <b>Gom bán</b>: Gộp nông sản từ nhiều trang trại thành lô lớn → bán trực tiếp cho <b>thương lái/nhà máy chế biến</b>, bỏ qua trung gian, lợi nhuận cao hơn.<br>• <b>Quỹ chung</b>: Minh bạch 100% bằng biểu đồ thu/chi, mỗi thành viên thấy rõ phần đóng góp của mình.<br>• <b>Kho chung</b>: Quản lý hàng hóa HTX tập trung, phân phối đều cho thành viên." },
+        { q: "Làm sao để tạo hoặc tham gia Hợp tác xã?",
+          a: "Rất dễ dàng!<br><b>Tạo mới HTX:</b> Vào trang Hợp tác xã → nhấn <b>'Đăng ký HTX'</b> → điền tên, mô tả, địa chỉ, số điện thoại liên lạc → Hệ thống tạo mã HTX duy nhất cho bạn.<br><br><b>Tham gia HTX có sẵn:</b> Nhập <b>mã mời</b> mà chủ HTX gửi, hoặc tìm kiếm tên HTX trong danh sách công khai → gửi yêu cầu tham gia → chờ chủ HTX duyệt.<br><br>Sau khi tham gia, bạn có thể tham gia các đợt gom mua/bán, truy cập kho chung, và xem sổ tài chính HTX." },
+
+        // ═══════════ CỘNG ĐỒNG ═══════════
+        { q: "Cộng đồng AgriPlanner hoạt động giống mạng xã hội không?",
+          a: "Đúng vậy! Cộng đồng AgriPlanner là một mạng xã hội chuyên biệt cho nông nghiệp, bao gồm:<br>• <b>Bảng tin</b>: Đăng bài chia sẻ kinh nghiệm, kèm ảnh/video trực tiếp từ đồng ruộng. Mọi người có thể <b>thích, bình luận, chia sẻ</b>.<br>• <b>Hướng dẫn kỹ thuật</b>: Kho bài viết hướng dẫn chuyên sâu về trồng trọt, chăn nuôi do chuyên gia biên soạn.<br>• <b>Kết bạn</b>: Tìm kiếm và kết nối với các nông dân, kỹ sư nông nghiệp khác.<br>• <b>Chat nhóm</b>: Nhắn tin trực tiếp hoặc tạo nhóm chat để trao đổi nhanh.<br><br>Đây là nơi lý tưởng để hỏi đáp kỹ thuật, chia sẻ mẹo canh tác và mở rộng mối quan hệ trong ngành!" },
+
+        // ═══════════ TÀI CHÍNH & LƯƠNG ═══════════
+        { q: "Hệ thống tính lương cho công nhân thế nào?",
+          a: "AgriPlanner tự động hóa bảng lương:<br>• Mỗi nhiệm vụ được giao có thể gắn <b>mức lương riêng</b> (ví dụ: thu hoạch khu A = 200.000đ).<br>• Khi Owner <b>duyệt hoàn thành</b> nhiệm vụ, số tiền tự động cộng vào <b>bảng lương tháng</b> của Worker.<br>• Owner xem tổng hợp chi phí nhân công tại mục <b>Tài sản → Bảng lương</b>.<br>• Worker xem thu nhập tháng ngay trên Dashboard cá nhân.<br>• Hỗ trợ <b>chuyển tiền nội bộ</b> từ ví Owner sang ví Worker nhanh chóng." },
+
+        // ═══════════ THỜI TIẾT ═══════════
+        { q: "Dữ liệu thời tiết trên AgriPlanner lấy từ đâu?",
+          a: "AgriPlanner tích hợp API thời tiết thời gian thực, hiển thị ngay trên Dashboard:<br>• <b>Nhiệt độ</b> hiện tại (°C).<br>• <b>Mô tả</b> tình trạng (nắng, mây, mưa, bão...).<br>• Dữ liệu được cập nhật tự động theo <b>vị trí GPS</b> của nông trại bạn đăng ký.<br><br>Thông tin này giúp bạn chủ động lên kế hoạch tưới tiêu, thu hoạch, và bảo vệ mùa vụ trước thời tiết xấu." },
+
+        // ═══════════ AI CỐ VẤN ═══════════
+        { q: "AI Cố vấn nông nghiệp là gì?",
+          a: "AgriPlanner tích hợp trí tuệ nhân tạo đa năng:<br>• <b>AI Nhận diện bản đồ</b>: Tải ảnh vệ tinh hoặc file KMZ lên, AI sẽ phân tích loại đất, phân vùng quy hoạch, đề xuất cây trồng phù hợp cho từng khu vực.<br>• <b>AI Sâu bệnh</b> (Gemini Vision): Chụp ảnh lá cây bị bệnh → AI nhận diện tên bệnh, nguyên nhân và phương pháp xử lý.<br>• <b>AI Tư vấn</b>: Hỏi đáp tự nhiên về kỹ thuật canh tác, thời điểm gieo trồng lý tưởng, cách bón phân tối ưu.<br><br>Tất cả đều miễn phí cho người dùng AgriPlanner!" },
+
+        // ═══════════ BẢO MẬT ═══════════
+        { q: "Tài khoản AgriPlanner có an toàn không?",
+          a: "Tuyệt đối an toàn! AgriPlanner áp dụng nhiều lớp bảo mật:<br>• <b>JWT Token</b>: Phiên đăng nhập được mã hóa, tự động hết hạn sau thời gian nhất định.<br>• <b>Xác thực OTP qua email</b>: Khi đăng ký hoặc reset mật khẩu.<br>• <b>Đăng nhập khuôn mặt</b>: Sinh trắc học tiên tiến, mã hóa dữ liệu khuôn mặt an toàn.<br>• <b>OAuth 2.0</b>: Đăng nhập qua Google/Facebook/GitHub không lưu mật khẩu bên thứ 3.<br>• <b>Phân quyền nghiêm ngặt</b>: Owner chỉ xem dữ liệu trang trại của mình, Worker chỉ thấy công việc được giao." },
+
+        // ═══════════ WORKER CỤ THỂ ═══════════
+        { q: "Công nhân có thể xem những gì trên hệ thống?",
+          a: "Giao diện Worker được thiết kế tối giản và dễ sử dụng:<br>• <b>Trang chủ</b>: Tổng quan công việc hôm nay, thu nhập tháng, thời tiết.<br>• <b>Công việc</b>: Danh sách nhiệm vụ được giao, sắp xếp theo ưu tiên. Nhấn vào để xem chi tiết, hoàn thành và upload ảnh/video báo cáo.<br>• <b>Tài sản</b>: Xem lịch sử thu nhập, giao dịch ví cá nhân.<br>• <b>Cài đặt</b>: Cập nhật thông tin cá nhân, bật/tắt đăng nhập khuôn mặt.<br>• <b>Trợ giúp</b>: Gửi yêu cầu hỗ trợ tới chủ trang trại." },
+        { q: "Công nhân đăng ký tài khoản cần điều kiện gì?",
+          a: "Khi đăng ký với vai trò <b>Worker</b>, bạn cần:<br>1. Điền thông tin cá nhân như bình thường.<br>2. Chọn <b>trang trại muốn gia nhập</b> từ danh sách hoặc nhập mã trang trại do chủ cung cấp.<br>3. Có thể điền <b>Hồ sơ CV</b> (kinh nghiệm làm nông, chuyên môn).<br>4. Tài khoản sẽ ở trạng thái <b>'Chờ duyệt'</b> — chủ trang trại sẽ xét duyệt để đảm bảo đúng người.<br>5. Sau khi được duyệt, bạn mới có thể nhận công việc và sử dụng hệ thống.<br><br>Đăng ký qua Google/Facebook/GitHub cũng hỗ trợ tương tự!" },
+
+        // ═══════════ BẢN ĐỒ & KMZ ═══════════
+        { q: "Tải bản đồ KMZ lên hệ thống để làm gì?",
+          a: "File KMZ (từ Google Earth) chứa dữ liệu bản đồ chi tiết về nông trại của bạn. Khi tải lên AgriPlanner:<br>• Hệ thống sẽ <b>phân tích tự động</b> các vùng đất, ranh giới thửa ruộng.<br>• <b>AI quy hoạch</b> sẽ đề xuất phân vùng: khu trồng lúa, khu rau màu, khu chăn nuôi, khu trữ nước...<br>• Hiển thị bản đồ tương tác Leaflet ngay trên trình duyệt với đầy đủ <b>tọa độ GPS, diện tích, loại đất</b>.<br>• Kết hợp phân tích ảnh vệ tinh để đo <b>chỉ số thực vật NDVI</b>, đánh giá sức khỏe cây trồng toàn nông trại." },
+
+        // ═══════════ TRUY XUẤT NGUỒN GỐC ═══════════
+        { q: "AgriPlanner có hỗ trợ truy xuất nguồn gốc nông sản không?",
+          a: "Có! Hệ thống <b>Truy xuất nguồn gốc (Traceability)</b> ghi lại toàn bộ vòng đời sản phẩm:<br>• <b>Gieo trồng</b>: Ngày giống, loại giống, nguồn gốc hạt giống.<br>• <b>Chăm sóc</b>: Lịch sử bón phân, phun thuốc, tưới tiêu (gắn với từng thửa ruộng).<br>• <b>Thu hoạch</b>: Ngày thu hoạch, sản lượng thực tế, chất lượng.<br>• <b>Mã QR</b>: Tạo mã QR cho từng lô nông sản, người tiêu dùng quét là thấy toàn bộ quá trình sản xuất.<br><br>Đây là yêu cầu bắt buộc cho xuất khẩu nông sản và xây dựng thương hiệu uy tín!" },
+
+        // ═══════════ CÀI ĐẶT & TIỆN ÍCH ═══════════
+        { q: "Tôi muốn thay đổi thông tin cá nhân hoặc avatar thì vào đâu?",
+          a: "Vào mục <b>Cài đặt</b> trong menu bên trái:<br>• <b>Hồ sơ</b>: Cập nhật họ tên, số điện thoại, email, ảnh đại diện (avatar).<br>• <b>Bảo mật</b>: Đổi mật khẩu, bật/tắt đăng nhập khuôn mặt, xem lịch sử đăng nhập.<br>• <b>Tiện ích</b>: Cấu hình đơn vị đo lường, múi giờ, ngôn ngữ hiển thị.<br>• <b>Thông báo</b>: Bật/tắt thông báo email, thông báo đẩy trên trình duyệt." },
+
+        // ═══════════ TUYỂN DỤNG ═══════════
+        { q: "Tôi cần tuyển thêm nhân công, AgriPlanner hỗ trợ không?",
+          a: "Có! Mô-đun <b>Tuyển dụng</b> cho phép chủ trang trại:<br>• Đăng tin tuyển dụng công nhân nông nghiệp với mô tả công việc, mức lương, yêu cầu kinh nghiệm.<br>• Người lao động đăng ký tài khoản Worker có thể xem tin và <b>gửi CV trực tuyến</b>.<br>• Owner duyệt hồ sơ, chấp nhận hoặc từ chối trực tiếp trên hệ thống.<br>• Sau khi duyệt, Worker tự động được gắn vào nông trại và sẵn sàng nhận việc." },
+
+        // ═══════════ CHUYỂN TIỀN ═══════════
+        { q: "Có thể chuyển tiền giữa các tài khoản trên AgriPlanner không?",
+          a: "Được! AgriPlanner có hệ thống <b>ví điện tử nội bộ</b>:<br>• Owner có thể <b>nạp tiền</b> vào ví thông qua MoMo hoặc VNPay.<br>• <b>Chuyển tiền nội bộ</b> từ ví Owner sang ví Worker (trả lương, thưởng).<br>• Xem lịch sử mọi giao dịch chi tiết tại mục <b>Tài sản</b>.<br>• Worker dùng số dư ví để mua hàng tại Cửa hàng AgriPlanner nếu muốn." },
+
+        // ═══════════ TỔNG QUAN ═══════════
+        { q: "AgriPlanner hoàn toàn miễn phí hay phải trả phí?",
+          a: "AgriPlanner hiện tại <b>hoàn toàn miễn phí</b> cho mọi người dùng — kể cả Owner lẫn Worker! Bạn có thể sử dụng tất cả các tính năng: quản lý trồng trọt, chăn nuôi, kho, nhân công, cửa hàng, hợp tác xã, cộng đồng, AI cố vấn... mà không mất bất kỳ chi phí nào. Hãy <b>đăng ký ngay</b> để trải nghiệm!" }
+    ];
+
+    function toggleChat() {
+        const chatWin = document.getElementById('ai-chat-window');
+        const isClosed = chatWin.classList.contains('scale-0');
+        if (isClosed) {
+            chatWin.classList.remove('scale-0');
+            chatWin.classList.add('scale-100');
+        } else {
+            chatWin.classList.remove('scale-100');
+            chatWin.classList.add('scale-0');
+        }
+    }
+
+    let questionsOpen = false;
+
+    function toggleQuestions() {
+        const wrapper = document.getElementById('questions-wrapper');
+        const icon = document.getElementById('toggle-q-icon');
+        const text = document.getElementById('toggle-q-text');
+        questionsOpen = !questionsOpen;
+        if (questionsOpen) {
+            wrapper.style.maxHeight = '180px';
+            icon.textContent = 'expand_more';
+            text.textContent = 'Ẩn danh sách câu hỏi';
+        } else {
+            wrapper.style.maxHeight = '0';
+            icon.textContent = 'quiz';
+            text.textContent = 'Hiện danh sách câu hỏi';
+        }
+    }
+
+    function collapseQuestions() {
+        const wrapper = document.getElementById('questions-wrapper');
+        const icon = document.getElementById('toggle-q-icon');
+        const text = document.getElementById('toggle-q-text');
+        questionsOpen = false;
+        wrapper.style.maxHeight = '0';
+        icon.textContent = 'quiz';
+        text.textContent = 'Hiện danh sách câu hỏi';
+    }
+
+    function renderSuggestions() {
+        const container = document.getElementById('chat-suggestions');
+        container.innerHTML = '';
+        faqs.forEach(function(faq, index) {
+            const btn = document.createElement('button');
+            btn.className = 'w-full text-left px-4 py-2 bg-white/10 hover:bg-emerald-500/30 border border-white/20 hover:border-emerald-400/50 rounded-xl text-[13px] font-medium transition-all cursor-pointer shadow-sm';
+            btn.innerText = faq.q;
+            btn.onclick = function() { handleQuestionClick(index); };
+            container.appendChild(btn);
+        });
+    }
+
+    function handleQuestionClick(index) {
+        const qa = faqs[index];
+        const msgContainer = document.getElementById('chat-messages');
+
+        // Thu gọn danh sách câu hỏi
+        collapseQuestions();
+
+        // Thêm tin nhắn người dùng
+        const userDiv = document.createElement('div');
+        userDiv.className = 'flex gap-2 justify-end mt-4';
+        const userBubble = document.createElement('div');
+        userBubble.className = 'bg-emerald-600/40 rounded-2xl rounded-tr-sm p-3 text-[14px] text-white border border-emerald-500/30 shadow-lg max-w-[85%]';
+        userBubble.textContent = qa.q;
+        userDiv.appendChild(userBubble);
+        msgContainer.appendChild(userDiv);
+
+        // Thêm chỉ báo đang gõ
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'flex gap-2 mt-4 opacity-70';
+        typingDiv.innerHTML = '<div class="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-emerald-400 text-lg" style="font-variation-settings: \'FILL\' 1;">support_agent</span></div>' +
+            '<div class="bg-white/10 border border-white/10 rounded-full py-2 px-4 flex items-center">' +
+            '<span class="flex gap-1">' +
+            '<span class="w-1.5 h-1.5 bg-white/50 rounded-full animate-bounce" style="animation-delay:0ms"></span>' +
+            '<span class="w-1.5 h-1.5 bg-white/50 rounded-full animate-bounce" style="animation-delay:150ms"></span>' +
+            '<span class="w-1.5 h-1.5 bg-white/50 rounded-full animate-bounce" style="animation-delay:300ms"></span>' +
+            '</span></div>';
+        msgContainer.appendChild(typingDiv);
+        scrollToBottom();
+
+        // Vô hiệu hoá nút toggle tạm thời
+        document.getElementById('toggle-questions-btn').disabled = true;
+        document.getElementById('toggle-questions-btn').style.opacity = '0.4';
+
+        // Giả lập trễ mạng rồi gõ typewriter
+        setTimeout(function() {
+            typingDiv.remove();
+
+            // Tạo khung trả lời
+            const botDiv = document.createElement('div');
+            botDiv.className = 'flex gap-2 mt-4';
+            const botAvatar = document.createElement('div');
+            botAvatar.className = 'w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0 shadow-inner';
+            botAvatar.innerHTML = '<span class="material-symbols-outlined text-emerald-400 text-lg" style="font-variation-settings: \'FILL\' 1;">support_agent</span>';
+            const botBubble = document.createElement('div');
+            botBubble.className = 'bg-white/10 border border-white/10 rounded-2xl rounded-tl-sm p-3 text-[14px] text-white/90 leading-relaxed shadow-lg';
+            botDiv.appendChild(botAvatar);
+            botDiv.appendChild(botBubble);
+            msgContainer.appendChild(botDiv);
+
+            // Typewriter effect
+            typewriterHTML(botBubble, qa.a, function() {
+                // Khi gõ xong, khôi phục nút toggle
+                document.getElementById('toggle-questions-btn').disabled = false;
+                document.getElementById('toggle-questions-btn').style.opacity = '1';
+            });
+        }, 1000);
+    }
+
+    /**
+     * Hiệu ứng đánh máy từng ký tự (hỗ trợ HTML tags)
+     */
+    function typewriterHTML(element, html, onComplete) {
+        element.innerHTML = '';
+        var i = 0;
+        var speed = 12; // ms mỗi ký tự
+        var insideTag = false;
+        var buffer = '';
+
+        function typeNext() {
+            if (i >= html.length) {
+                element.innerHTML = html; // Đảm bảo HTML cuối cùng hoàn chỉnh
+                scrollToBottom();
+                if (onComplete) onComplete();
+                return;
+            }
+            var char = html[i];
+            if (char === '<') {
+                insideTag = true;
+            }
+            buffer += char;
+            if (char === '>' && insideTag) {
+                insideTag = false;
+            }
+            if (!insideTag) {
+                element.innerHTML = buffer;
+                // Cuộn mỗi 5 ký tự để mượt
+                if (i % 5 === 0) scrollToBottom();
+            }
+            i++;
+            setTimeout(typeNext, insideTag ? 0 : speed);
+        }
+        typeNext();
+    }
+
+    function scrollToBottom() {
+        var msgContainer = document.getElementById('chat-messages');
+        msgContainer.scrollTo({
+            top: msgContainer.scrollHeight,
+            behavior: 'smooth'
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        renderSuggestions();
+    });
+
+    // Hiệu ứng xuất hiện từ dưới lên khi cuộn
+    gsap.utils.toArray('.gs-reveal').forEach(function(elem) {
+        gsap.to(elem, {
+            y: 0,
+            opacity: 1,
+            duration: 1,
+            ease: "power3.out",
+            scrollTrigger: {
+                trigger: elem,
+                start: "top 85%",
+                toggleActions: "play none none reverse"
+            }
+        });
+    });
+
+    // Hiệu ứng Parallax cho ảnh nền cố định
+    gsap.to(".fixed img", {
+        yPercent: 15,
+        ease: "none",
+        scrollTrigger: {
+            trigger: "body",
+            start: "top top",
+            end: "bottom top",
+            scrub: true
+        }
+    });
+</script>
+
+</body>
 </html>

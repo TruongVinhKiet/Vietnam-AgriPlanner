@@ -381,9 +381,11 @@ async function loadHomeData() {
 
         // Filter Today's Tasks (simplified check)
         const todaysTasks = sortWorkerTasks((Array.isArray(tasks) ? tasks : []).filter(t => {
-            const createdAt = t && t.createdAt ? String(t.createdAt) : '';
             const status = t && t.status ? String(t.status).toUpperCase() : '';
-            return createdAt.startsWith(today) || status === 'PENDING' || status === 'IN_PROGRESS';
+            const active = status === 'PENDING' || status === 'IN_PROGRESS';
+            const createdToday = t.createdAt ? String(t.createdAt).startsWith(today) : false;
+            const completedToday = (status === 'COMPLETED' || status === 'APPROVED') && ((t.completedAt && String(t.completedAt).startsWith(today)) || (t.approvedAt && String(t.approvedAt).startsWith(today)));
+            return active || createdToday || completedToday;
         })).slice(0, 5);
 
         document.getElementById('home-today-count').textContent = todaysTasks.length;
@@ -437,7 +439,7 @@ async function loadTasksList() {
             const status = t && t.status ? String(t.status).toUpperCase() : '';
             const active = status === 'PENDING' || status === 'IN_PROGRESS';
             const createdToday = t.createdAt ? String(t.createdAt).split('T')[0] === today : false;
-            const completedToday = status === 'COMPLETED' && t.completedAt && String(t.completedAt).startsWith(today);
+            const completedToday = (status === 'COMPLETED' || status === 'APPROVED') && ((t.completedAt && String(t.completedAt).startsWith(today)) || (t.approvedAt && String(t.approvedAt).startsWith(today)));
             return active || createdToday || completedToday;
         });
 
@@ -573,8 +575,7 @@ async function completeTask(taskId) {
             return;
         }
 
-        if (!confirm('Xác nhận hoàn thành công việc?')) return;
-
+        agriConfirm('Xác nhận hoàn thành', 'Bạn có chắc chắn muốn hoàn thành công việc này?', async () => {
         try {
             await stopActiveWorkLogIfNeeded(taskId);
 
@@ -633,6 +634,7 @@ async function completeTask(taskId) {
             console.error('Complete task error:', err);
             showNotification('error', 'Lỗi', err.message || 'Không thể hoàn thành công việc.');
         }
+        }, { confirmText: 'Hoàn thành', type: 'success' });
         return;
     }
 
@@ -654,7 +656,7 @@ async function completeTask(taskId) {
                     return;
                 }
 
-                if (!confirm(`Xác nhận đã thu ${collectedQty} ${wfData.byproductUnit || ''}?`)) return;
+                agriConfirm('Xác nhận thu hoạch', `Xác nhận đã thu ${collectedQty} ${wfData.byproductUnit || ''}?`, async () => {
 
                 try {
                     await stopActiveWorkLogIfNeeded(taskId);
@@ -711,6 +713,7 @@ async function completeTask(taskId) {
                     console.error('Complete byproduct task error:', err);
                     showNotification('error', 'Lỗi', err.message || 'Không thể hoàn thành công việc.');
                 }
+                }, { confirmText: 'Xác nhận', type: 'success' });
                 return;
             }
         } catch (e) { /* not a byproduct collection task, continue */ }
@@ -768,7 +771,7 @@ async function completeTask(taskId) {
             }
         }
 
-        if (!confirm('Xác nhận hoàn thành công việc?')) return;
+        agriConfirm('Xác nhận hoàn thành', 'Bạn có chắc chắn muốn hoàn thành công việc này?', async () => {
 
         try {
             await stopActiveWorkLogIfNeeded(taskId);
@@ -937,9 +940,10 @@ async function completeTask(taskId) {
                 errorEl.textContent = 'Lỗi: ' + msg;
                 errorEl.classList.remove('hidden');
             } else {
-                alert('Lỗi: ' + msg);
+                agriAlert('Lỗi: ' + msg, 'error');
             }
         }
+        }, { confirmText: 'Hoàn thành', type: 'success' });
         return;
     }
 
@@ -974,7 +978,7 @@ async function completeTask(taskId) {
             }
         }
 
-        if (!confirm('Xác nhận hoàn thành công việc?')) return;
+        agriConfirm('Xác nhận hoàn thành', 'Bạn có chắc chắn muốn hoàn thành công việc này?', async () => {
 
         try {
             await stopActiveWorkLogIfNeeded(taskId);
@@ -1124,15 +1128,15 @@ async function completeTask(taskId) {
                 errorEl.textContent = 'Lỗi: ' + msg;
                 errorEl.classList.remove('hidden');
             } else {
-                alert('Lỗi: ' + msg);
+                agriAlert('Lỗi: ' + msg, 'error');
             }
         }
+        }, { confirmText: 'Hoàn thành', type: 'success' });
         return;
     }
 
     // Non-pen, non-field tasks: simple confirmation
-    if (!confirm('Xác nhận hoàn thành công việc?')) return;
-
+    agriConfirm('Xác nhận hoàn thành', 'Bạn có chắc chắn muốn hoàn thành công việc này?', async () => {
     try {
         await stopActiveWorkLogIfNeeded(taskId);
         await fetchAPI(`${API_BASE}/tasks/${taskId}/complete`, 'POST');
@@ -1152,8 +1156,9 @@ async function completeTask(taskId) {
         if (msg.includes('Không đủ vật tư')) {
             msg = 'Kho không đủ vật tư để thực hiện công việc này. Vui lòng liên hệ chủ trang trại.';
         }
-        alert('Lỗi: ' + msg);
+        agriAlert('Lỗi: ' + msg, 'error');
     }
+    }, { confirmText: 'Hoàn thành', type: 'success' });
 }
 
 function getInspectionTaskInfo(task) {
@@ -5019,7 +5024,7 @@ async function startWorkLog(taskId) {
             openTaskDetail(taskId);
         }
     } catch (e) {
-        alert('Lỗi: ' + (e.message || 'Không thể bắt đầu chấm công'));
+        agriAlert('Lỗi: ' + (e.message || 'Không thể bắt đầu chấm công'), 'error');
     }
 }
 
@@ -5037,7 +5042,7 @@ async function stopWorkLog(taskId) {
             openTaskDetail(taskId);
         }
     } catch (e) {
-        alert('Lỗi: ' + (e.message || 'Không thể dừng chấm công'));
+        agriAlert('Lỗi: ' + (e.message || 'Không thể dừng chấm công'), 'error');
     }
 }
 

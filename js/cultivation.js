@@ -104,7 +104,7 @@ async function searchLocation(query) {
             const lng = parseFloat(data[0].lon);
             updateLocation(lat, lng, data[0].display_name.split(',')[0]);
         } else {
-            alert('Không tìm thấy địa điểm này');
+            agriAlert('Không tìm thấy địa điểm này', 'warning');
         }
     } catch (error) {
         console.error('Search error:', error);
@@ -194,7 +194,7 @@ async function saveField(name, coordinates, areaSqm, layer) {
         const farms = await farmsResponse.json();
 
         if (farms.length === 0) {
-            alert("Bạn cần tạo nông trại trước khi vẽ ruộng!");
+            agriAlert("Bạn cần tạo nông trại trước khi vẽ ruộng!", 'warning');
             drawnItems.removeLayer(layer);
             return;
         }
@@ -225,7 +225,7 @@ async function saveField(name, coordinates, areaSqm, layer) {
         }
     } catch (error) {
         console.error('Save field error:', error);
-        alert('Lỗi khi lưu mảnh ruộng');
+        agriAlert('Lỗi khi lưu mảnh ruộng', 'error');
         drawnItems.removeLayer(layer);
     }
 }
@@ -381,7 +381,7 @@ async function loadFieldLosses(farmId) {
 async function openFieldLossAnalytics() {
     const farmId = window._cultivationFarmId;
     if (!farmId) {
-        alert('Chưa có trang trại.');
+        agriAlert('Chưa có trang trại.', 'warning');
         return;
     }
 
@@ -542,7 +542,7 @@ async function openFieldLossAnalytics() {
         }
     } catch (err) {
         console.error('Error loading field loss stats:', err);
-        alert('Không thể tải thống kê hao hụt: ' + err.message);
+        agriAlert('Không thể tải thống kê hao hụt: ' + err.message, 'error');
     }
 }
 
@@ -851,7 +851,7 @@ async function plantCrop(cropId) {
             showNotification('Đã chọn cây trồng thành công', 'success');
         }
     } catch (e) {
-        alert('Lỗi khi chọn cây trồng');
+        agriAlert('Lỗi khi chọn cây trồng', 'error');
     }
 }
 
@@ -859,7 +859,7 @@ async function plantCrop(cropId) {
 function openFertilizerModal() {
     // Safety check: Field must be selected
     if (!currentFieldData) {
-        alert("Vui lòng chọn mảnh ruộng trước!");
+        agriAlert("Vui lòng chọn mảnh ruộng trước!", 'warning');
         return;
     }
 
@@ -1027,7 +1027,7 @@ function selectFertilizer(el, id, price, name) {
 }
 
 async function confirmFertilizer() {
-    if (!selectedFertilizer) { alert('Vui lòng chọn loại phân bón'); return; }
+    if (!selectedFertilizer) { agriAlert('Vui lòng chọn loại phân bón', 'warning'); return; }
 
     try {
         const costStr = document.getElementById('fertilizer-cost').textContent.replace(/[^\d]/g, '');
@@ -1048,7 +1048,7 @@ async function confirmFertilizer() {
             fetchFieldStatus(currentFieldId);
             showNotification('Đã bón phân thành công', 'success');
         }
-    } catch (e) { alert('Lỗi xử lý'); }
+    } catch (e) { agriAlert('Lỗi xử lý', 'error'); }
 }
 
 
@@ -1074,7 +1074,7 @@ async function confirmSeed() {
     const costStr = document.getElementById('seed-total-cost').textContent.replace(/[^\d]/g, '');
     const cost = parseFloat(costStr);
 
-    if (!qty || qty <= 0) { alert('Nhập số lượng hạt giống'); return; }
+    if (!qty || qty <= 0) { agriAlert('Nhập số lượng hạt giống', 'warning'); return; }
 
     try {
         const token = localStorage.getItem('token');
@@ -1090,21 +1090,22 @@ async function confirmSeed() {
             fetchFieldStatus(currentFieldId);
             showNotification('Gieo hạt thành công', 'success');
         }
-    } catch (e) { alert('Lỗi xử lý'); }
+    } catch (e) { agriAlert('Lỗi xử lý', 'error'); }
 }
 
 // WATER & PESTICIDE
 async function waterField() {
-    if (!confirm('Xác nhận tưới nước cho ruộng này?')) return;
-    try {
-        const token = localStorage.getItem('token');
-        await fetch(`${API_BASE_URL}/fields/${currentFieldId}/water`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        fetchFieldStatus(currentFieldId);
-        showNotification('Đã tưới nước', 'success');
-    } catch (e) { alert('Lỗi'); }
+    agriConfirm('Tưới nước', 'Xác nhận tưới nước cho ruộng này?', async () => {
+        try {
+            const token = localStorage.getItem('token');
+            await fetch(`${API_BASE_URL}/fields/${currentFieldId}/water`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            fetchFieldStatus(currentFieldId);
+            showNotification('Đã tưới nước', 'success');
+        } catch (e) { agriAlert('Lỗi', 'error'); }
+    }, { confirmText: 'Tưới nước', type: 'success' });
 }
 
 function openPesticideModal() {
@@ -1114,7 +1115,7 @@ function openPesticideModal() {
 async function confirmPesticide() {
     const name = document.getElementById('pesticide-name').value;
     const cost = parseFloat(document.getElementById('pesticide-cost').value) || 0;
-    if (!name) { alert('Nhập tên thuốc'); return; }
+    if (!name) { agriAlert('Nhập tên thuốc', 'warning'); return; }
 
     try {
         const token = localStorage.getItem('token');
@@ -1126,7 +1127,7 @@ async function confirmPesticide() {
         closeModal('pesticide-modal');
         fetchFieldStatus(currentFieldId);
         showNotification('Đã phun thuốc', 'success');
-    } catch (e) { alert('Lỗi'); }
+    } catch (e) { agriAlert('Lỗi', 'error'); }
 }
 
 // HARVEST
@@ -1170,26 +1171,81 @@ function selectMachinery(el, id, price, name) {
 }
 
 async function confirmHarvest() {
-    if (!selectedMachinery) { alert('Vui lòng chọn máy thu hoạch'); return; }
+    if (!selectedMachinery) { agriAlert('Vui lòng chọn máy thu hoạch', 'warning'); return; }
 
     try {
         const costStr = document.getElementById('harvest-cost').textContent.replace(/[^\d]/g, '');
         const cost = parseFloat(costStr);
         const token = localStorage.getItem('token');
+        const crop = currentFieldData.currentCrop;
+        const cropName = crop ? crop.name : 'Cây trồng';
+        const fieldName = currentFieldData.name || `Ruộng #${currentFieldId}`;
+        const areaSqm = currentFieldData.areaSqm || 0;
+        const areaHa = (areaSqm / 10000).toFixed(2);
 
-        const response = await fetch(`${API_BASE_URL}/fields/${currentFieldId}/harvest-complete`, {
+        // Get harvest hectare input (default to full field)
+        const harvestHaInput = document.getElementById('harvest-hectare');
+        const harvestHa = harvestHaInput ? parseFloat(harvestHaInput.value) || parseFloat(areaHa) : parseFloat(areaHa);
+
+        // Get user info for owner
+        const userStr = localStorage.getItem('user');
+        const user = userStr ? JSON.parse(userStr) : {};
+        const ownerId = user.id;
+
+        if (!ownerId) {
+            agriAlert('Không xác định được chủ trang trại', 'warning');
+            return;
+        }
+
+        // Estimate yield: use crop's yieldPerHectare if available
+        const yieldPerHa = crop?.yieldPerHectare || crop?.estimatedYieldPerHa || 5000; // kg/ha default
+        const estimatedYield = harvestHa * yieldPerHa;
+        const refPrice = crop?.marketPrice || crop?.pricePerKg || 0;
+
+        // Create a harvest TASK instead of direct harvest
+        const payload = {
+            farmId: currentFieldData.farmId || 1,
+            ownerId: ownerId,
+            workerId: null, // Owner can assign later or do it themselves
+            fieldId: currentFieldId,
+            name: `Thu hoạch ${cropName} - ${fieldName}`,
+            description: `Thu hoạch ${harvestHa} ha ${cropName} tại ${fieldName}. Máy: ${selectedMachinery.name}. Chi phí máy: ${formatCurrency(cost)}. Sản lượng ước tính: ${estimatedYield.toFixed(0)} kg.`,
+            priority: 'HIGH',
+            taskType: 'HARVEST',
+            salary: 0,
+            dueDate: null,
+            workflowData: JSON.stringify({
+                harvestHectare: harvestHa,
+                machineryId: selectedMachinery.id,
+                machineryName: selectedMachinery.name,
+                machineCost: cost,
+                estimatedYieldKg: estimatedYield,
+                cropName: cropName
+            }),
+            harvestCategory: 'CROP_HECTARE',
+            harvestProductName: cropName,
+            harvestProductUnit: 'kg',
+            harvestRefPrice: refPrice
+        };
+
+        const response = await fetch(`${API_BASE_URL}/tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ machineryId: selectedMachinery.id, machineCost: cost })
+            body: JSON.stringify(payload)
         });
 
         if (response.ok) {
-            const result = await response.json();
             closeModal('harvest-modal');
-            showHarvestResult(result);
+            showNotification(`✅ Đã tạo công việc thu hoạch ${cropName}. Sản phẩm sẽ được nhập vào kho sau khi duyệt.`, 'success');
             fetchFieldStatus(currentFieldId);
+        } else {
+            const err = await response.json().catch(() => ({}));
+            agriAlert(err.error || err.message || 'Lỗi tạo công việc thu hoạch', 'error');
         }
-    } catch (e) { alert('Lỗi xử lý thu hoạch'); }
+    } catch (e) {
+        console.error('Harvest task error:', e);
+        agriAlert('Lỗi xử lý thu hoạch', 'error');
+    }
 }
 
 function showHarvestResult(data) {
@@ -1232,7 +1288,7 @@ async function confirmDeleteField() {
             document.querySelector('.sensor-sidebar').classList.remove('active');
             showNotification('Đã xóa mảnh ruộng', 'success');
         }
-    } catch (e) { alert('Lỗi xóa ruộng'); }
+    } catch (e) { agriAlert('Lỗi xóa ruộng', 'error'); }
 }
 
 // Helpers
@@ -1247,7 +1303,7 @@ function showNotification(msg, type) {
         showToast(title, msg, type);
     } else {
         // Fallback to alert
-        alert(msg);
+        agriAlert(msg, 'success');
     }
 }
 

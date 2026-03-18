@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Only SYSTEM_ADMIN can access the admin page
         // OWNER → index.html, WORKER → worker_dashboard.html
         if (token && role) {
-            if (role === 'OWNER') { window.location.href = '../index.html'; }
+            if (role === 'OWNER') { window.location.href = '../dashboard.html'; }
             else if (role === 'WORKER') { window.location.href = 'worker_dashboard.html'; }
             else { window.location.href = 'login.html'; }
         } else {
@@ -261,7 +261,7 @@ async function loadDashboard() {
     const data = await fetchAllData();
 
     // Cleanup previous charts
-    dashboardCharts.forEach(c => { try { c.destroy(); } catch(_){} });
+    dashboardCharts.forEach(c => { try { c.destroy(); } catch (_) { } });
     dashboardCharts = [];
 
     const activeUsers = data.users.filter(u => !u.accountLocked).length;
@@ -387,12 +387,12 @@ async function loadDashboard() {
 
 function _statCard(label, value, icon, color, subtitle, percentage, isText) {
     const cm = {
-        blue:    { bg: 'bg-blue-50',    text: 'text-blue-600',    ring: 'ring-blue-200/50',    accent: 'text-blue-500' },
+        blue: { bg: 'bg-blue-50', text: 'text-blue-600', ring: 'ring-blue-200/50', accent: 'text-blue-500' },
         emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', ring: 'ring-emerald-200/50', accent: 'text-emerald-500' },
-        violet:  { bg: 'bg-violet-50',  text: 'text-violet-600',  ring: 'ring-violet-200/50',  accent: 'text-violet-500' },
-        amber:   { bg: 'bg-amber-50',   text: 'text-amber-600',   ring: 'ring-amber-200/50',   accent: 'text-amber-500' },
-        indigo:  { bg: 'bg-indigo-50',  text: 'text-indigo-600',  ring: 'ring-indigo-200/50',  accent: 'text-indigo-500' },
-        rose:    { bg: 'bg-rose-50',    text: 'text-rose-600',    ring: 'ring-rose-200/50',    accent: 'text-rose-500' }
+        violet: { bg: 'bg-violet-50', text: 'text-violet-600', ring: 'ring-violet-200/50', accent: 'text-violet-500' },
+        amber: { bg: 'bg-amber-50', text: 'text-amber-600', ring: 'ring-amber-200/50', accent: 'text-amber-500' },
+        indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', ring: 'ring-indigo-200/50', accent: 'text-indigo-500' },
+        rose: { bg: 'bg-rose-50', text: 'text-rose-600', ring: 'ring-rose-200/50', accent: 'text-rose-500' }
     };
     const c = cm[color] || cm.blue;
     const pctHtml = (percentage != null && percentage !== undefined) ? `
@@ -436,19 +436,19 @@ async function fetchAllData() {
 
 function _getMonthlyRevenue(orders) {
     const months = {};
-    const monthNames = ['Thg 1','Thg 2','Thg 3','Thg 4','Thg 5','Thg 6','Thg 7','Thg 8','Thg 9','Thg 10','Thg 11','Thg 12'];
+    const monthNames = ['Thg 1', 'Thg 2', 'Thg 3', 'Thg 4', 'Thg 5', 'Thg 6', 'Thg 7', 'Thg 8', 'Thg 9', 'Thg 10', 'Thg 11', 'Thg 12'];
     const now = new Date();
     const labels = [];
     for (let i = 5; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         months[key] = 0;
         labels.push(monthNames[d.getMonth()] + ' ' + d.getFullYear());
     }
     (orders || []).forEach(o => {
         if (o.status === 'DELIVERED' && o.createdAt) {
             const d = new Date(o.createdAt);
-            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
             if (key in months) months[key] += (o.totalAmount || 0);
         }
     });
@@ -457,9 +457,9 @@ function _getMonthlyRevenue(orders) {
 
 function renderDashboardCharts(data) {
     const P = {
-        mixed: ['#10b981','#3b82f6','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16','#f97316','#14b8a6'],
-        order: ['#f59e0b','#3b82f6','#8b5cf6','#10b981','#ef4444'],
-        user: ['#3b82f6','#10b981','#8b5cf6','#f59e0b']
+        mixed: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#14b8a6'],
+        order: ['#f59e0b', '#3b82f6', '#8b5cf6', '#10b981', '#ef4444'],
+        user: ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b']
     };
 
     const commonTooltip = {
@@ -470,13 +470,17 @@ function renderDashboardCharts(data) {
     };
 
     const legendRight = {
-        position: 'right', labels: { padding: 14, usePointStyle: true, pointStyle: 'circle',
-        font: { size: 11, weight: '500', family: 'Inter' } }
+        position: 'right', labels: {
+            padding: 14, usePointStyle: true, pointStyle: 'circle',
+            font: { size: 11, weight: '500', family: 'Inter' }
+        }
     };
 
     const animDoughnut = { animateRotate: true, duration: 1400, easing: 'easeOutQuart' };
-    const animBar = { duration: 1200, easing: 'easeOutQuart',
-        delay: (ctx) => ctx.type === 'data' ? ctx.dataIndex * 120 : 0 };
+    const animBar = {
+        duration: 1200, easing: 'easeOutQuart',
+        delay: (ctx) => ctx.type === 'data' ? ctx.dataIndex * 120 : 0
+    };
 
     // === 1. Crop Chart (Doughnut) ===
     const cropGroups = groupBy(data.crops, 'category');
@@ -485,13 +489,19 @@ function renderDashboardCharts(data) {
         type: 'doughnut',
         data: {
             labels: cropKeys.map(k => getViLabel(VI_LABELS.cropCategory, k)),
-            datasets: [{ data: cropKeys.map(k => cropGroups[k].length),
-                backgroundColor: P.mixed.slice(0, cropKeys.length), borderWidth: 3, borderColor: '#fff', hoverOffset: 10 }]
+            datasets: [{
+                data: cropKeys.map(k => cropGroups[k].length),
+                backgroundColor: P.mixed.slice(0, cropKeys.length), borderWidth: 3, borderColor: '#fff', hoverOffset: 10
+            }]
         },
-        options: { responsive: true, maintainAspectRatio: false, cutout: '52%',
+        options: {
+            responsive: true, maintainAspectRatio: false, cutout: '52%',
             animation: animDoughnut,
-            plugins: { legend: legendRight, tooltip: { ...commonTooltip,
-                callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} loại (${Math.round(ctx.raw / ctx.dataset.data.reduce((a,b)=>a+b,0)*100)}%)` } }
+            plugins: {
+                legend: legendRight, tooltip: {
+                    ...commonTooltip,
+                    callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} loại (${Math.round(ctx.raw / ctx.dataset.data.reduce((a, b) => a + b, 0) * 100)}%)` }
+                }
             }
         },
         plugins: [chartDatalabelsPlugin]
@@ -506,13 +516,18 @@ function renderDashboardCharts(data) {
         type: 'bar',
         data: {
             labels: itemKeys.map(k => getViLabel(VI_LABELS.itemCategory, k)),
-            datasets: [{ label: 'Số lượng', data: itemKeys.map(k => itemGroups[k].length),
+            datasets: [{
+                label: 'Số lượng', data: itemKeys.map(k => itemGroups[k].length),
                 backgroundColor: P.mixed.slice(0, itemKeys.length).map(c => c + 'cc'),
-                borderColor: P.mixed.slice(0, itemKeys.length), borderWidth: 2, borderRadius: 10, barPercentage: 0.7 }]
+                borderColor: P.mixed.slice(0, itemKeys.length), borderWidth: 2, borderRadius: 10, barPercentage: 0.7
+            }]
         },
-        options: { responsive: true, maintainAspectRatio: false, animation: animBar,
-            scales: { y: { beginAtZero: true, suggestedMax: itemYMax, ticks: { font: { size: 11 } }, grid: { color: '#f3f4f6' } },
-                x: { ticks: { font: { size: 10, weight: '500' } }, grid: { display: false } } },
+        options: {
+            responsive: true, maintainAspectRatio: false, animation: animBar,
+            scales: {
+                y: { beginAtZero: true, suggestedMax: itemYMax, ticks: { font: { size: 11 } }, grid: { color: '#f3f4f6' } },
+                x: { ticks: { font: { size: 10, weight: '500' } }, grid: { display: false } }
+            },
             plugins: { legend: { display: false }, tooltip: commonTooltip }
         },
         plugins: [chartDatalabelsPlugin]
@@ -525,13 +540,19 @@ function renderDashboardCharts(data) {
         type: 'doughnut',
         data: {
             labels: animalKeys.map(k => getViLabel(VI_LABELS.animalCategory, k)),
-            datasets: [{ data: animalKeys.map(k => animalGroups[k].length),
-                backgroundColor: P.mixed.slice(0, animalKeys.length), borderWidth: 3, borderColor: '#fff', hoverOffset: 10 }]
+            datasets: [{
+                data: animalKeys.map(k => animalGroups[k].length),
+                backgroundColor: P.mixed.slice(0, animalKeys.length), borderWidth: 3, borderColor: '#fff', hoverOffset: 10
+            }]
         },
-        options: { responsive: true, maintainAspectRatio: false, cutout: '48%',
+        options: {
+            responsive: true, maintainAspectRatio: false, cutout: '48%',
             animation: animDoughnut,
-            plugins: { legend: legendRight, tooltip: { ...commonTooltip,
-                callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} loại (${Math.round(ctx.raw / ctx.dataset.data.reduce((a,b)=>a+b,0)*100)}%)` } }
+            plugins: {
+                legend: legendRight, tooltip: {
+                    ...commonTooltip,
+                    callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} loại (${Math.round(ctx.raw / ctx.dataset.data.reduce((a, b) => a + b, 0) * 100)}%)` }
+                }
             }
         },
         plugins: [chartDatalabelsPlugin]
@@ -550,14 +571,20 @@ function renderDashboardCharts(data) {
         type: 'doughnut',
         data: {
             labels: hasOrderData ? orderStatusData.map(d => getViLabel(VI_LABELS.orderStatus, d.key)) : ['Chưa có dữ liệu'],
-            datasets: [{ data: hasOrderData ? orderStatusData.map(d => d.val) : [1],
-                backgroundColor: hasOrderData ? orderStatusData.map((d,i) => P.order[['PENDING','PROCESSING','SHIPPING','DELIVERED','CANCELLED'].indexOf(d.key)] || P.mixed[i]) : ['#e5e7eb'],
-                borderWidth: 3, borderColor: '#fff', hoverOffset: 10 }]
+            datasets: [{
+                data: hasOrderData ? orderStatusData.map(d => d.val) : [1],
+                backgroundColor: hasOrderData ? orderStatusData.map((d, i) => P.order[['PENDING', 'PROCESSING', 'SHIPPING', 'DELIVERED', 'CANCELLED'].indexOf(d.key)] || P.mixed[i]) : ['#e5e7eb'],
+                borderWidth: 3, borderColor: '#fff', hoverOffset: 10
+            }]
         },
-        options: { responsive: true, maintainAspectRatio: false, cutout: '55%',
+        options: {
+            responsive: true, maintainAspectRatio: false, cutout: '55%',
             animation: animDoughnut,
-            plugins: { legend: legendRight, tooltip: { ...commonTooltip, enabled: hasOrderData,
-                callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} đơn` } }
+            plugins: {
+                legend: legendRight, tooltip: {
+                    ...commonTooltip, enabled: hasOrderData,
+                    callbacks: { label: ctx => ` ${ctx.label}: ${ctx.raw} đơn` }
+                }
             }
         },
         plugins: [chartDatalabelsPlugin]
@@ -570,13 +597,18 @@ function renderDashboardCharts(data) {
         type: 'bar',
         data: {
             labels: userKeys.map(r => getRoleLabel(r)),
-            datasets: [{ label: 'Số lượng', data: userKeys.map(k => userGroups[k].length),
+            datasets: [{
+                label: 'Số lượng', data: userKeys.map(k => userGroups[k].length),
                 backgroundColor: P.user.slice(0, userKeys.length).map(c => c + 'cc'),
-                borderColor: P.user.slice(0, userKeys.length), borderWidth: 2, borderRadius: 10, barPercentage: 0.6 }]
+                borderColor: P.user.slice(0, userKeys.length), borderWidth: 2, borderRadius: 10, barPercentage: 0.6
+            }]
         },
-        options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', animation: animBar,
-            scales: { x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f3f4f6' } },
-                y: { ticks: { font: { size: 12, weight: '600' } }, grid: { display: false } } },
+        options: {
+            responsive: true, maintainAspectRatio: false, indexAxis: 'y', animation: animBar,
+            scales: {
+                x: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: '#f3f4f6' } },
+                y: { ticks: { font: { size: 12, weight: '600' } }, grid: { display: false } }
+            },
             plugins: { legend: { display: false }, tooltip: commonTooltip }
         },
         plugins: [chartDatalabelsPlugin]
@@ -607,17 +639,23 @@ function renderDashboardCharts(data) {
                 pointBackgroundColor: '#fff', pointBorderColor: '#10b981', pointBorderWidth: 2.5
             }]
         },
-        options: { responsive: true, maintainAspectRatio: false,
+        options: {
+            responsive: true, maintainAspectRatio: false,
             animation: { duration: 1600, easing: 'easeOutQuart' },
             scales: {
-                y: { beginAtZero: true, ticks: { font: { size: 10 },
-                        callback: v => formatShortCurrency(v) },
-                    grid: { color: '#f3f4f680' } },
+                y: {
+                    beginAtZero: true, ticks: {
+                        font: { size: 10 },
+                        callback: v => formatShortCurrency(v)
+                    },
+                    grid: { color: '#f3f4f680' }
+                },
                 x: { ticks: { font: { size: 10, weight: '500' } }, grid: { display: false } }
             },
             plugins: {
                 legend: { display: false },
-                tooltip: { ...commonTooltip,
+                tooltip: {
+                    ...commonTooltip,
                     callbacks: { label: ctx => ` Doanh thu: ${formatVNCurrency(ctx.raw)}` }
                 }
             },
@@ -768,13 +806,13 @@ function renderUsersTable(users) {
             <td class="px-6 py-4 text-right" onclick="event.stopPropagation()">
                 <div class="flex items-center justify-end gap-2 action-btn">
                     ${isActive
-            ? `<button onclick="showLockModal(${u.id}, '${(u.fullName || u.email || '').replace(/'/g, "\\'")}')" class="p-1.5 text-gray-400 hover:text-red-500 rounded-md transition-colors" title="Khóa tài khoản">
+                ? `<button onclick="showLockModal(${u.id}, '${(u.fullName || u.email || '').replace(/'/g, "\\'")}')" class="p-1.5 text-gray-400 hover:text-red-500 rounded-md transition-colors" title="Khóa tài khoản">
                             <span class="material-icons-round text-lg">lock</span>
                         </button>`
-            : `<button onclick="unlockUser(${u.id})" class="p-1.5 text-gray-400 hover:text-green-500 rounded-md transition-colors" title="Mở khóa tài khoản">
+                : `<button onclick="unlockUser(${u.id})" class="p-1.5 text-gray-400 hover:text-green-500 rounded-md transition-colors" title="Mở khóa tài khoản">
                             <span class="material-icons-round text-lg">lock_open</span>
                         </button>`
-        }
+            }
                     <button onclick="showUserDetail(${u.id})" class="p-1.5 text-gray-400 hover:text-blue-500 rounded-md transition-colors" title="Xem chi tiết">
                         <span class="material-icons-round text-lg">visibility</span>
                     </button>
@@ -889,7 +927,7 @@ async function loadUnlockRequests() {
 
     try {
         const requests = await fetchAPI(`${API_BASE_URL}/admin/unlock-requests`) || [];
-        
+
         if (requests.length === 0) {
             area.innerHTML = `
                 <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
@@ -1979,7 +2017,7 @@ async function saveCrop(id) {
         closeModal();
         loadCrops();
     } catch (err) {
-        alert('Lỗi: ' + (err.message || 'Không thể lưu dữ liệu'));
+        agriAlert('Lỗi: ' + (err.message || 'Không thể lưu dữ liệu'), 'error');
     }
 }
 
@@ -2810,7 +2848,7 @@ async function saveAnimal(id) {
         closeModal();
         loadAnimals();
     } catch (err) {
-        alert('Lỗi: ' + (err.message || 'Không thể lưu dữ liệu'));
+        agriAlert('Lỗi: ' + (err.message || 'Không thể lưu dữ liệu'), 'error');
     }
 }
 
@@ -3253,7 +3291,7 @@ async function showCropDetail(id) {
                                     <span class="text-sm text-gray-500">Nhu cầu ánh sáng</span>
                                     <span class="text-sm font-medium text-gray-800 flex items-center gap-1">
                                         <span class="material-icons-round text-base ${crop.lightRequirement === 'FULL_SUN' ? 'text-yellow-500' : crop.lightRequirement === 'PARTIAL_SHADE' ? 'text-orange-400' : 'text-gray-400'}">${crop.lightRequirement === 'SHADE' ? 'cloud' : crop.lightRequirement === 'PARTIAL_SHADE' ? 'partly_cloudy_day' : 'light_mode'}</span>
-                                        ${{FULL_SUN: 'Ánh sáng đầy đủ', PARTIAL_SHADE: 'Bán râm', SHADE: 'Che bóng'}[crop.lightRequirement] || '-'}
+                                        ${{ FULL_SUN: 'Ánh sáng đầy đủ', PARTIAL_SHADE: 'Bán râm', SHADE: 'Che bóng' }[crop.lightRequirement] || '-'}
                                     </span>
                                 </div>
                                 <div class="flex justify-between items-center">
@@ -3321,14 +3359,14 @@ async function showCropDetail(id) {
                         <div class="p-6">
                             <div class="flex flex-wrap gap-2">
                                 ${commonPests.map(pest => {
-                                    const pestName = typeof pest === 'object' ? (pest.name || 'Không rõ') : pest;
-                                    const pestTreatment = typeof pest === 'object' ? (pest.treatment || '') : '';
-                                    return `
+            const pestName = typeof pest === 'object' ? (pest.name || 'Không rõ') : pest;
+            const pestTreatment = typeof pest === 'object' ? (pest.treatment || '') : '';
+            return `
                                     <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium bg-red-50 text-red-700 border border-red-200" ${pestTreatment ? `title="Xử lý: ${pestTreatment}"` : ''}>
                                         <span class="material-icons-round text-sm">bug_report</span>
                                         ${pestName}
                                     </span>`;
-                                }).join('')}
+        }).join('')}
                             </div>
                         </div>
                     </div>
@@ -3992,7 +4030,7 @@ async function showAnimalDetail(id) {
                         <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-amber-50 to-white">
                             <div class="flex items-center gap-3">
                                 <div class="p-1.5 bg-amber-100 rounded-lg text-amber-600">
-                                    <span class="material-icons-round">${{'EGGS':'egg','MILK':'water_drop','HONEY':'sports_handball','SILK':'gesture'}[animal.byproductType] || 'eco'}</span>
+                                    <span class="material-icons-round">${{ 'EGGS': 'egg', 'MILK': 'water_drop', 'HONEY': 'sports_handball', 'SILK': 'gesture' }[animal.byproductType] || 'eco'}</span>
                                 </div>
                                 <h4 class="text-base font-semibold text-gray-800">Sản phẩm thu hoạch</h4>
                             </div>
@@ -4481,11 +4519,11 @@ function showActivityLog() {
 }
 
 function clearActivityLog() {
-    if (confirm('Bạn có chắc muốn xóa toàn bộ lịch sử hoạt động?')) {
+    agriConfirm('Xóa lịch sử', 'Bạn có chắc muốn xóa toàn bộ lịch sử hoạt động?', () => {
         activityLog = [];
         localStorage.setItem('adminActivityLog', '[]');
         showActivityLog();
-    }
+    }, { confirmText: 'Xóa tất cả', type: 'danger' });
 }
 
 // ============ ORDERS MANAGEMENT ============
@@ -4824,7 +4862,7 @@ async function loadStoreConfig() {
         };
 
         await fetchAPI(`${API_BASE_URL}/admin/store-config`, 'PUT', data);
-        alert('Đã lưu cấu hình cửa hàng!');
+        agriAlert('Đã lưu cấu hình cửa hàng!', 'success');
         logActivity('UPDATE', 'store-config', `Cập nhật vị trí cửa hàng: ${data.address}`);
     });
 
@@ -5653,7 +5691,7 @@ async function approveCooperative(id) {
             } catch (error) {
                 console.error('Error approving cooperative:', error);
                 // Simple toast or alert fallback for error
-                alert('Không thể duyệt hợp tác xã [' + error.message + ']');
+                agriAlert('Không thể duyệt hợp tác xã [' + error.message + ']', 'error');
             }
         }
     });
@@ -5685,7 +5723,7 @@ async function rejectCooperative(id) {
                 }
             } catch (error) {
                 console.error('Error rejecting cooperative:', error);
-                alert('Không thể từ chối hợp tác xã [' + error.message + ']');
+                agriAlert('Không thể từ chối hợp tác xã [' + error.message + ']', 'error');
             }
         }
     });
@@ -5767,7 +5805,7 @@ async function approveDissolution(id, name) {
                 }
             } catch (error) {
                 console.error('Error approving dissolution:', error);
-                alert('Không thể phê duyệt giải thể: ' + error.message);
+                agriAlert('Không thể phê duyệt giải thể: ' + error.message, 'error');
             }
         }
     });
@@ -5799,7 +5837,7 @@ async function rejectDissolution(id) {
                 }
             } catch (error) {
                 console.error('Error rejecting dissolution:', error);
-                alert('Không thể từ chối yêu cầu: ' + error.message);
+                agriAlert('Không thể từ chối yêu cầu: ' + error.message, 'error');
             }
         }
     });
@@ -6366,7 +6404,7 @@ async function publishGuide(id) {
         loadCommunityGuides();
     } catch (error) {
         console.error('Error publishing guide:', error);
-        alert('Không thể xuất bản hướng dẫn');
+        agriAlert('Không thể xuất bản hướng dẫn', 'error');
     }
 }
 
@@ -6377,7 +6415,7 @@ async function unpublishGuide(id) {
         loadCommunityGuides();
     } catch (error) {
         console.error('Error unpublishing guide:', error);
-        alert('Không thể bỏ xuất bản');
+        agriAlert('Không thể bỏ xuất bản', 'error');
     }
 }
 
@@ -6394,7 +6432,7 @@ async function deleteGuide(id) {
                 loadCommunityGuides();
             } catch (error) {
                 console.error('Error deleting guide:', error);
-                alert('Không thể xóa hướng dẫn');
+                agriAlert('Không thể xóa hướng dẫn', 'error');
             }
         }
     });
@@ -6414,7 +6452,7 @@ async function deleteCategory(id) {
                 loadCommunityCategories();
             } catch (error) {
                 console.error('Error deleting category:', error);
-                alert('Không thể xóa danh mục');
+                agriAlert('Không thể xóa danh mục', 'error');
             }
         }
     });
@@ -6440,7 +6478,7 @@ async function hidePost(id) {
         loadCommunityPosts();
     } catch (error) {
         console.error('Error hiding post:', error);
-        alert('Không thể ẩn bài đăng');
+        agriAlert('Không thể ẩn bài đăng', 'error');
     }
 }
 
@@ -6451,20 +6489,21 @@ async function unhidePost(id) {
         loadCommunityPosts();
     } catch (error) {
         console.error('Error unhiding post:', error);
-        alert('Không thể hiện bài đăng');
+        agriAlert('Không thể hiện bài đăng', 'error');
     }
 }
 
 async function deletePost(id) {
-    if (!confirm('Bạn có chắc muốn xóa bài đăng này?')) return;
-    try {
-        await fetchAPI(`${API_BASE_URL}/admin/community/posts/${id}`, 'DELETE');
-        logActivity('delete', 'post', `Deleted post ID: ${id}`);
-        loadCommunityPosts();
-    } catch (error) {
-        console.error('Error deleting post:', error);
-        alert('Không thể xóa bài đăng');
-    }
+    agriConfirm('Xóa bài đăng', 'Bạn có chắc muốn xóa bài đăng này?', async () => {
+        try {
+            await fetchAPI(`${API_BASE_URL}/admin/community/posts/${id}`, 'DELETE');
+            logActivity('delete', 'post', `Deleted post ID: ${id}`);
+            loadCommunityPosts();
+        } catch (error) {
+            console.error('Error deleting post:', error);
+            agriAlert('Không thể xóa bài đăng', 'error');
+        }
+    }, { confirmText: 'Xóa', type: 'danger' });
 }
 
 // Create Guide Modal
@@ -6539,7 +6578,7 @@ async function createGuide(authorId) {
     const isFeatured = document.getElementById('guide-featured').checked;
 
     if (!title || !slug || !content) {
-        alert('Vui lòng điền đầy đủ thông tin bắt buộc');
+        agriAlert('Vui lòng điền đầy đủ thông tin bắt buộc', 'warning');
         return;
     }
 
@@ -6562,7 +6601,7 @@ async function createGuide(authorId) {
         loadCommunityGuides();
     } catch (error) {
         console.error('Error creating guide:', error);
-        alert('Không thể tạo hướng dẫn: ' + error.message);
+        agriAlert('Không thể tạo hướng dẫn: ' + error.message, 'error');
     }
 }
 
@@ -6571,7 +6610,7 @@ async function editGuide(id) {
     // Find guide data
     const guide = communityGuides.find(g => g.id === id);
     if (!guide) {
-        alert('Không tìm thấy hướng dẫn');
+        agriAlert('Không tìm thấy hướng dẫn', 'warning');
         return;
     }
 
@@ -6665,7 +6704,7 @@ async function saveGuide(id) {
     const isFeatured = document.getElementById('edit-guide-featured').checked;
 
     if (!title || !content) {
-        alert('Vui lòng điền tiêu đề và nội dung');
+        agriAlert('Vui lòng điền tiêu đề và nội dung', 'warning');
         return;
     }
 
@@ -6685,7 +6724,7 @@ async function saveGuide(id) {
         loadCommunityGuides();
     } catch (error) {
         console.error('Error saving guide:', error);
-        alert('Không thể lưu hướng dẫn: ' + error.message);
+        agriAlert('Không thể lưu hướng dẫn: ' + error.message, 'error');
     }
 }
 
@@ -6734,7 +6773,7 @@ async function createCategory() {
     const description = document.getElementById('cat-description').value.trim();
 
     if (!name || !slug) {
-        alert('Vui lòng điền tên và slug');
+        agriAlert('Vui lòng điền tên và slug', 'warning');
         return;
     }
 
@@ -6750,7 +6789,7 @@ async function createCategory() {
         loadCommunityCategories();
     } catch (error) {
         console.error('Error creating category:', error);
-        alert('Không thể tạo danh mục: ' + error.message);
+        agriAlert('Không thể tạo danh mục: ' + error.message, 'error');
     }
 }
 
@@ -6758,7 +6797,7 @@ async function createCategory() {
 function openEditCategoryDialog(id) {
     const category = communityCategories.find(c => c.id === id);
     if (!category) {
-        alert('Không tìm thấy danh mục');
+        agriAlert('Không tìm thấy danh mục', 'warning');
         return;
     }
 
@@ -6807,7 +6846,7 @@ async function updateCategory(id) {
     const description = document.getElementById('edit-cat-description').value.trim();
 
     if (!name || !slug) {
-        alert('Vui lòng điền tên và slug');
+        agriAlert('Vui lòng điền tên và slug', 'warning');
         return;
     }
 
@@ -6823,7 +6862,7 @@ async function updateCategory(id) {
         loadCommunityCategories();
     } catch (error) {
         console.error('Error updating category:', error);
-        alert('Không thể cập nhật danh mục: ' + error.message);
+        agriAlert('Không thể cập nhật danh mục: ' + error.message, 'error');
     }
 }
 
@@ -6844,7 +6883,7 @@ async function editGuide(id) {
         openGuideEditor(guide);
     } catch (error) {
         console.error('Error loading guide:', error);
-        alert('Không thể tải hướng dẫn: ' + error.message);
+        agriAlert('Không thể tải hướng dẫn: ' + error.message, 'error');
     }
 }
 
@@ -7002,7 +7041,7 @@ async function saveGuideFromEditor(publish = false) {
     }
 
     if (!title || !slug || !content) {
-        alert('Vui lòng điền đầy đủ tiêu đề, slug và nội dung');
+        agriAlert('Vui lòng điền đầy đủ tiêu đề, slug và nội dung', 'warning');
         return;
     }
 
@@ -7035,13 +7074,13 @@ async function saveGuideFromEditor(publish = false) {
         setTimeout(() => loadCommunityGuides(), 100);
     } catch (error) {
         console.error('Error saving guide:', error);
-        alert('Không thể lưu hướng dẫn: ' + error.message);
+        agriAlert('Không thể lưu hướng dẫn: ' + error.message, 'error');
     }
 }
 
 function editCategory(id) {
     // TODO: Implement category editing modal
-    alert('Tính năng chỉnh sửa danh mục đang được phát triển');
+    agriAlert('Tính năng chỉnh sửa danh mục đang được phát triển', 'info');
 }
 
 // ============ SUPPORT REQUESTS MANAGEMENT ============
@@ -7256,7 +7295,7 @@ function showAdminRespondModal(requestId) {
 async function submitAdminResponse(requestId) {
     const responseText = document.getElementById('admin-response-text')?.value?.trim();
     if (!responseText) {
-        alert('Vui lòng nhập nội dung phản hồi');
+        agriAlert('Vui lòng nhập nội dung phản hồi', 'warning');
         return;
     }
 
@@ -7271,7 +7310,7 @@ async function submitAdminResponse(requestId) {
         logActivity('respond', 'support-request', `Responded to support request #${requestId}`);
     } catch (error) {
         console.error('Error responding to support request:', error);
-        alert('Không thể gửi phản hồi: ' + error.message);
+        agriAlert('Không thể gửi phản hồi: ' + error.message, 'error');
     }
 }
 
@@ -7297,7 +7336,7 @@ async function closeSupportRequest(requestId) {
                 logActivity('close', 'support-request', `Closed support request #${requestId}`);
             } catch (error) {
                 console.error('Error closing support request:', error);
-                alert('Không thể đóng yêu cầu: ' + error.message);
+                agriAlert('Không thể đóng yêu cầu: ' + error.message, 'error');
             }
         }
     });
@@ -7312,7 +7351,7 @@ async function reopenSupportRequest(requestId) {
         loadSupportRequests(currentSupportFilter);
     } catch (error) {
         console.error('Error reopening support request:', error);
-        alert('Không thể mở lại yêu cầu: ' + error.message);
+        agriAlert('Không thể mở lại yêu cầu: ' + error.message, 'error');
     }
 }
 
@@ -7432,7 +7471,7 @@ async function approveMoneyRequest(id, senderName, receiverName, amount) {
                 }
             } catch (error) {
                 console.error('Error approving:', error);
-                alert('Không thể duyệt yêu cầu: ' + error.message);
+                agriAlert('Không thể duyệt yêu cầu: ' + error.message, 'error');
             }
         }
     });
@@ -7464,7 +7503,7 @@ function showRejectModal(id, senderName) {
 async function rejectMoneyRequest(id, senderName) {
     const reason = document.getElementById('reject-reason')?.value?.trim();
     if (!reason) {
-        alert('Vui lòng nhập lý do từ chối');
+        agriAlert('Vui lòng nhập lý do từ chối', 'warning');
         return;
     }
 
@@ -7490,7 +7529,7 @@ async function rejectMoneyRequest(id, senderName) {
         }
     } catch (error) {
         console.error('Error rejecting:', error);
-        alert('Không thể từ chối yêu cầu: ' + error.message);
+        agriAlert('Không thể từ chối yêu cầu: ' + error.message, 'error');
     }
 }
 
@@ -7958,7 +7997,7 @@ function validateBuyPrice() {
 
 async function createBuySession() {
     if (!validateBuyPrice()) {
-        alert('Giá gom phải nhỏ hơn giá thị trường!');
+        agriAlert('Giá gom phải nhỏ hơn giá thị trường!', 'warning');
         return;
     }
 
@@ -7972,7 +8011,7 @@ async function createBuySession() {
     };
 
     if (!data.shopItemId || !data.title || !data.targetQuantity || !data.wholesalePrice) {
-        alert('Vui lòng điền đầy đủ thông tin bắt buộc!');
+        agriAlert('Vui lòng điền đầy đủ thông tin bắt buộc!', 'warning');
         return;
     }
 
@@ -7995,7 +8034,7 @@ async function createBuySession() {
 
         logActivity('CREATE', 'group-buy', `Created buy session: ${data.title}`);
     } catch (error) {
-        alert('Lỗi: ' + error.message);
+        agriAlert('Lỗi: ' + error.message, 'error');
     }
 }
 
@@ -8259,7 +8298,7 @@ async function createSellSession() {
     }
 
     if (!productValue || !data.targetQuantity || !data.minPrice) {
-        alert('Vui lòng điền đầy đủ thông tin bắt buộc!');
+        agriAlert('Vui lòng điền đầy đủ thông tin bắt buộc!', 'warning');
         return;
     }
 
@@ -8269,7 +8308,7 @@ async function createSellSession() {
         loadAdminGroupSell();
         logActivity('CREATE', 'group-sell', `Created sell session: ${data.productName}`);
     } catch (error) {
-        alert('Lỗi: ' + error.message);
+        agriAlert('Lỗi: ' + error.message, 'error');
     }
 }
 
@@ -8724,7 +8763,7 @@ async function confirmForceClose(type, sessionId) {
     const reason = document.getElementById('force-close-reason').value.trim();
 
     if (!reason || reason.length < 10) {
-        alert('Vui lòng nhập lý do chi tiết (ít nhất 10 ký tự)');
+        agriAlert('Vui lòng nhập lý do chi tiết (ít nhất 10 ký tự)', 'warning');
         return;
     }
 
@@ -8798,7 +8837,7 @@ async function createBuySession() {
     const note = document.getElementById('buy-session-note').value.trim();
 
     if (!title || !shopItemId || !targetQuantity || !wholesalePrice) {
-        alert('Vui lòng điền đầy đủ thông tin');
+        agriAlert('Vui lòng điền đầy đủ thông tin', 'warning');
         return;
     }
 
@@ -9023,17 +9062,17 @@ async function createSellSession() {
     const description = document.getElementById('sell-session-desc').value.trim();
 
     if (!targetQuantity || !unit || !minPrice) {
-        alert('Vui lòng điền đầy đủ thông tin');
+        agriAlert('Vui lòng điền đầy đủ thông tin', 'warning');
         return;
     }
 
     if (type === 'crop' && !cropId) {
-        alert('Vui lòng chọn cây trồng');
+        agriAlert('Vui lòng chọn cây trồng', 'warning');
         return;
     }
 
     if (type === 'animal' && !animalId) {
-        alert('Vui lòng chọn vật nuôi');
+        agriAlert('Vui lòng chọn vật nuôi', 'warning');
         return;
     }
 
@@ -10344,7 +10383,7 @@ Chỉ trả lời tên, không giải thích.`
                 if (normalizedItem === normalizedAI || normalizedItem.includes(normalizedAI) || normalizedAI.includes(normalizedItem)) {
                     const fullData = item.type === 'crop' ? cropsData.find(c => c.id === item.id)
                         : item.type === 'animal' ? animalsData.find(a => a.id === item.id)
-                        : itemsData.find(i => i.id === item.id);
+                            : itemsData.find(i => i.id === item.id);
                     if (fullData && !matches.some(m => m.id === item.id && m.type === item.type)) {
                         matches.push({ ...fullData, type: item.type, score: 90, displayName: item.name });
                     }
@@ -10994,13 +11033,13 @@ function initAdmin2FA() {
         if (u.twoFactorEnabled) {
             toggle.checked = true;
         }
-    } catch {}
+    } catch { }
 
     // Clone to remove old listeners  
     const newToggle = toggle.cloneNode(true);
     toggle.parentNode.replaceChild(newToggle, toggle);
 
-    newToggle.addEventListener('change', async function() {
+    newToggle.addEventListener('change', async function () {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
         if (this.checked) {
             this.checked = false; // Wait for verification
@@ -11059,7 +11098,7 @@ async function verifyAdmin2FA() {
             const toggle = document.getElementById('admin-two-factor-toggle');
             if (toggle) toggle.checked = true;
             // Update stored user
-            try { const u = JSON.parse(localStorage.getItem('user') || '{}'); u.twoFactorEnabled = true; localStorage.setItem('user', JSON.stringify(u)); } catch {}
+            try { const u = JSON.parse(localStorage.getItem('user') || '{}'); u.twoFactorEnabled = true; localStorage.setItem('user', JSON.stringify(u)); } catch { }
             showAdminToast('Đã bật xác thực 2 bước!', 'success');
         } else {
             showAdminToast('Mã xác thực không đúng', 'error');
@@ -11095,7 +11134,7 @@ async function processAdminDisable2FA() {
         });
         const toggle = document.getElementById('admin-two-factor-toggle');
         if (toggle) toggle.checked = false;
-        try { const u = JSON.parse(localStorage.getItem('user') || '{}'); u.twoFactorEnabled = false; localStorage.setItem('user', JSON.stringify(u)); } catch {}
+        try { const u = JSON.parse(localStorage.getItem('user') || '{}'); u.twoFactorEnabled = false; localStorage.setItem('user', JSON.stringify(u)); } catch { }
         document.querySelector('#modal-container .fixed')?.remove();
         showAdminToast('Đã tắt xác thực 2 bước', 'info');
     } catch {
@@ -11108,7 +11147,7 @@ function showAdminSessions() {
     const mc = document.getElementById('modal-container');
     const currentBrowser = navigator.userAgent.includes('Edg') ? 'Microsoft Edge' :
         navigator.userAgent.includes('Chrome') ? 'Google Chrome' :
-        navigator.userAgent.includes('Firefox') ? 'Firefox' : 'Trình duyệt';
+            navigator.userAgent.includes('Firefox') ? 'Firefox' : 'Trình duyệt';
     const currentOS = navigator.userAgent.includes('Windows') ? 'Windows' :
         navigator.userAgent.includes('Mac') ? 'macOS' : 'Hệ điều hành';
     const loginTime = localStorage.getItem('loginTime') || new Date().toISOString();
@@ -11158,10 +11197,10 @@ function initAdminPreferences() {
     if (notifToggle) {
         const saved = localStorage.getItem('adminNotifications');
         if (saved !== null) notifToggle.checked = saved === 'true';
-        
+
         const newToggle = notifToggle.cloneNode(true);
         notifToggle.parentNode.replaceChild(newToggle, notifToggle);
-        newToggle.addEventListener('change', function() {
+        newToggle.addEventListener('change', function () {
             localStorage.setItem('adminNotifications', this.checked);
             showAdminToast(this.checked ? 'Đã bật thông báo' : 'Đã tắt thông báo', 'success');
         });
@@ -11173,7 +11212,7 @@ function initAdminPreferences() {
         const saved = localStorage.getItem('adminAutoLogout');
         if (saved !== null) logoutSelect.value = saved;
 
-        logoutSelect.addEventListener('change', function() {
+        logoutSelect.addEventListener('change', function () {
             localStorage.setItem('adminAutoLogout', this.value);
             showAdminToast('Đã cập nhật thời gian tự động đăng xuất', 'success');
         });
@@ -11244,22 +11283,22 @@ function initAdminFaceSetup() {
         fetch('http://localhost:8080/api/auth/me', {
             headers: { 'Authorization': 'Bearer ' + token }
         })
-        .then(r => r.json())
-        .then(data => {
-            if (data.faceEnabled) {
-                newToggle.checked = true;
-                if (statusText) { statusText.textContent = 'Đã đăng ký khuôn mặt ✓'; statusText.style.color = '#10b981'; }
-            } else {
-                newToggle.checked = false;
-                if (statusText) { statusText.textContent = 'Chưa kích hoạt'; statusText.style.color = '#6b7280'; }
-            }
-        })
-        .catch(() => {
-            if (statusText) { statusText.textContent = 'Không thể kiểm tra trạng thái'; statusText.style.color = '#ef4444'; }
-        });
+            .then(r => r.json())
+            .then(data => {
+                if (data.faceEnabled) {
+                    newToggle.checked = true;
+                    if (statusText) { statusText.textContent = 'Đã đăng ký khuôn mặt ✓'; statusText.style.color = '#10b981'; }
+                } else {
+                    newToggle.checked = false;
+                    if (statusText) { statusText.textContent = 'Chưa kích hoạt'; statusText.style.color = '#6b7280'; }
+                }
+            })
+            .catch(() => {
+                if (statusText) { statusText.textContent = 'Không thể kiểm tra trạng thái'; statusText.style.color = '#ef4444'; }
+            });
     }
 
-    newToggle.addEventListener('change', function() {
+    newToggle.addEventListener('change', function () {
         if (this.checked) {
             panel.style.display = 'block';
             const opts = document.getElementById('admin-face-setup-options');
@@ -11271,20 +11310,18 @@ function initAdminFaceSetup() {
             if (proc) proc.style.display = 'none';
             if (succ) succ.style.display = 'none';
         } else {
-            if (confirm('Bạn có chắc chắn muốn tắt đăng nhập bằng khuôn mặt?')) {
+            agriConfirm('Tắt đăng nhập khuôn mặt', 'Bạn có chắc chắn muốn tắt đăng nhập bằng khuôn mặt?', () => {
                 panel.style.display = 'none';
                 adminStopFaceCamera();
                 adminDisableFaceLogin();
-            } else {
-                this.checked = true;
-            }
+            }, { confirmText: 'Tắt', type: 'danger', onCancel: () => { toggle.checked = true; } });
         }
     });
 
     if (fileInput) {
         const newFileInput = fileInput.cloneNode(true);
         fileInput.parentNode.replaceChild(newFileInput, fileInput);
-        newFileInput.addEventListener('change', function(e) {
+        newFileInput.addEventListener('change', function (e) {
             if (e.target.files && e.target.files[0]) {
                 adminRegisterFace(e.target.files[0]);
             }
@@ -11309,7 +11346,7 @@ async function adminLoadFaceModels() {
     }
 }
 
-window.adminStartFaceCamera = async function() {
+window.adminStartFaceCamera = async function () {
     const camDiv = document.getElementById('admin-face-setup-camera');
     const video = document.getElementById('admin-face-setup-video');
     const statusEl = document.getElementById('admin-face-setup-status');
@@ -11373,7 +11410,7 @@ function adminDetectFaceLoop() {
     });
 }
 
-window.adminCaptureFaceSetup = function() {
+window.adminCaptureFaceSetup = function () {
     const video = document.getElementById('admin-face-setup-video');
     const canvas = document.getElementById('admin-face-setup-canvas');
     if (!video || !canvas) return;
@@ -11390,7 +11427,7 @@ window.adminCaptureFaceSetup = function() {
     }, 'image/jpeg', 0.92);
 };
 
-window.adminUploadFacePhoto = function() {
+window.adminUploadFacePhoto = function () {
     document.getElementById('admin-face-setup-file')?.click();
 };
 
@@ -11507,7 +11544,7 @@ async function adminDisableFaceLogin() {
     }
 }
 
-window.adminStopFaceCamera = function() {
+window.adminStopFaceCamera = function () {
     if (adminFaceStream) { adminFaceStream.getTracks().forEach(t => t.stop()); adminFaceStream = null; }
 };
 

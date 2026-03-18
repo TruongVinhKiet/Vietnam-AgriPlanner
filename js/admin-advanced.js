@@ -48,7 +48,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // Only SYSTEM_ADMIN can access admin-advanced page
     if (role !== 'SYSTEM_ADMIN') {
-        if (role === 'OWNER') { window.location.href = '../index.html'; }
+        if (role === 'OWNER') { window.location.href = '../dashboard.html'; }
         else if (role === 'WORKER') { window.location.href = 'worker_dashboard.html'; }
         else { window.location.href = 'login.html'; }
         return;
@@ -591,17 +591,17 @@ async function viewUploadZones(uploadId) {
 }
 
 async function deleteUpload(uploadId) {
-    if (!confirm('Xóa file upload này và tất cả vùng quy hoạch liên quan?')) return;
-
-    try {
-        const response = await fetchAPI(`/admin/kmz/uploads/${uploadId}`, 'DELETE');
-        showToast('Thành công', 'Đã xóa upload', 'success');
-        await loadUploads();
-        await loadPlanningZones();
-    } catch (error) {
-        console.error('Error deleting upload:', error);
-        showToast('Lỗi', 'Không thể xóa upload', 'error');
-    }
+    agriConfirm('Xóa Upload', 'Xóa file upload này và tất cả vùng quy hoạch liên quan?', async () => {
+        try {
+            const response = await fetchAPI(`/admin/kmz/uploads/${uploadId}`, 'DELETE');
+            showToast('Thành công', 'Đã xóa upload', 'success');
+            await loadUploads();
+            await loadPlanningZones();
+        } catch (error) {
+            console.error('Error deleting upload:', error);
+            showToast('Lỗi', 'Không thể xóa upload', 'error');
+        }
+    }, { confirmText: 'Xóa', type: 'danger' });
 }
 
 // ============ PLANNING ZONES ============
@@ -956,17 +956,17 @@ async function saveZoneEdit() {
 }
 
 async function deleteZone(zoneId) {
-    if (!confirm('Xác nhận xóa vùng quy hoạch này?')) return;
-
-    try {
-        await fetchAPI(`/planning-zones/${zoneId}`, 'DELETE');
-        showToast('Thành công', 'Đã xóa vùng quy hoạch', 'success');
-        closeZoneInfo();
-        await loadPlanningZones();
-    } catch (error) {
-        console.error('Error deleting zone:', error);
-        showToast('Lỗi', 'Không thể xóa', 'error');
-    }
+    agriConfirm('Xóa vùng', 'Xác nhận xóa vùng quy hoạch này?', async () => {
+        try {
+            await fetchAPI(`/planning-zones/${zoneId}`, 'DELETE');
+            showToast('Thành công', 'Đã xóa vùng quy hoạch', 'success');
+            closeZoneInfo();
+            await loadPlanningZones();
+        } catch (error) {
+            console.error('Error deleting zone:', error);
+            showToast('Lỗi', 'Không thể xóa', 'error');
+        }
+    }, { confirmText: 'Xóa', type: 'danger' });
 }
 
 // ============ LEGEND ============
@@ -1337,20 +1337,21 @@ async function confirmRollback() {
 }
 
 async function deleteSnapshot(snapshotId) {
-    if (!confirm('Bạn có chắc muốn xóa snapshot này?')) return;
+    agriConfirm('Xóa Snapshot', 'Bạn có chắc muốn xóa snapshot này?', async () => {
+        try {
+            const response = await fetchAPI(`/planning-zones/snapshots/${snapshotId}`, 'DELETE');
 
-    try {
-        const response = await fetchAPI(`/planning-zones/snapshots/${snapshotId}`, 'DELETE');
-
-        if (response.success) {
-            showToast('Thành công', 'Đã xóa snapshot', 'success');
-            await loadSnapshots();
-        } else {
-            showToast('Lỗi', response.error || 'Không thể xóa snapshot', 'error');
+            if (response.success) {
+                showToast('Thành công', 'Đã xóa snapshot', 'success');
+                await loadSnapshots();
+            } else {
+                showToast('Lỗi', response.error || 'Không thể xóa snapshot', 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Lỗi', 'Không thể xóa snapshot', 'error');
         }
-    } catch (error) {
-        showToast('Lỗi', error.message, 'error');
-    }
+    }, { confirmText: 'Xóa', type: 'danger' });
 }
 
 // ============ POLYGON EDITING ============
@@ -1473,22 +1474,23 @@ function cancelPolygonEdit() {
 // ============ DELETE BY UPLOAD ============
 
 async function deleteZonesByUpload(uploadId) {
-    if (!confirm('Bạn có chắc muốn xóa TẤT CẢ zones từ upload này?')) return;
+    agriConfirm('Xóa Zones', 'Bạn có chắc muốn xóa TẤT CẢ zones từ upload này?', async () => {
+        try {
+            const response = await fetchAPI(`/planning-zones/by-upload/${uploadId}`, 'DELETE');
 
-    try {
-        const response = await fetchAPI(`/planning-zones/by-upload/${uploadId}`, 'DELETE');
-
-        if (response.success) {
-            showToast('Thành công', response.message, 'success');
-            await loadPlanningZones();
-            await loadUploads();
-            renderZonesList();
-        } else {
-            showToast('Lỗi', response.error || 'Không thể xóa', 'error');
+            if (response.success) {
+                showToast('Thành công', response.message, 'success');
+                await loadPlanningZones();
+                await loadUploads();
+                renderZonesList();
+            } else {
+                showToast('Lỗi', response.message || 'Không thể xóa', 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('Lỗi', 'Lỗi không thể xóa', 'error');
         }
-    } catch (error) {
-        showToast('Lỗi', error.message, 'error');
-    }
+    }, { confirmText: 'Xóa', type: 'danger' });
 }
 
 // Make functions global
@@ -2267,12 +2269,12 @@ function findSoilZoneAtPoint(layerGroup, latlng) {
         // Recursively find all rings in the nested array structure
         // and check each one with ray-casting
         if (!allLatLngs || allLatLngs.length === 0) return false;
-        
+
         // If the first element has .lat, this is a ring of LatLngs
         if (allLatLngs[0] && allLatLngs[0].lat !== undefined) {
             return allLatLngs.length >= 3 && raycastPointInPolygon(lat, lng, allLatLngs);
         }
-        
+
         // Otherwise, recurse into each sub-array (handles MultiPolygon: [[[LatLng]]])
         for (let i = 0; i < allLatLngs.length; i++) {
             if (Array.isArray(allLatLngs[i]) && checkAllRings(allLatLngs[i], lat, lng)) {
@@ -3146,31 +3148,30 @@ async function viewAnalysisZones(analysisId) {
  * Delete analysis from history and associated zones
  */
 async function deleteAnalysisHistory(analysisId) {
-    if (!confirm(`Xóa kết quả phân tích #${analysisId}?\n\nLưu ý: Tất cả các vùng đất được tạo từ phân tích này cũng sẽ bị xóa.`)) return;
+    agriConfirm('Xóa phân tích', `Xóa kết quả phân tích #${analysisId}?\n\nLưu ý: Tất cả các vùng đất được tạo từ phân tích này cũng sẽ bị xóa.`, async () => {
+        try {
+            const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+            const response = await fetch(`${API_BASE_URL}/admin/map-image/analyze/${analysisId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
 
-    try {
-        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-        const response = await fetch(`${API_BASE_URL}/admin/map-image/analyze/${analysisId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            const deletedZones = result.deletedZones || 0;
-            showToast('Thành công', `Đã xóa phân tích${deletedZones > 0 ? ` và ${deletedZones} vùng liên quan` : ''}`, 'success');
-            loadAnalysisHistory();
-            // Reload zones on map if any were deleted
-            if (deletedZones > 0) {
-                await loadPlanningZones();
+            if (response.ok) {
+                const result = await response.json();
+                const deletedZones = result.deletedZones || 0;
+                showToast('Thành công', `Đã xóa phân tích${deletedZones > 0 ? ` và ${deletedZones} vùng liên quan` : ''}`, 'success');
+                loadAnalysisHistory();
+                if (deletedZones > 0) {
+                    await loadPlanningZones();
+                }
+            } else {
+                throw new Error('Không thể xóa');
             }
-        } else {
-            throw new Error('Không thể xóa');
+        } catch (error) {
+            console.error('Delete error:', error);
+            showToast('Lỗi', 'Không thể xóa kết quả phân tích', 'error');
         }
-    } catch (error) {
-        console.error('Delete error:', error);
-        showToast('Lỗi', 'Không thể xóa kết quả phân tích', 'error');
-    }
+    }, { confirmText: 'Xóa', type: 'danger' });
 }
 
 // Export functions
@@ -4875,9 +4876,9 @@ async function loadAnalysisHistory() {
 }
 
 function confirmRollbackAnalysis(analysisId) {
-    if (confirm('CẢNH BÁO: Hành động này sẽ xóa toàn bộ các vùng quy hoạch và dữ liệu liên quan đến lần phân tích này.\n\nBạn có chắc chắn muốn tiếp tục?')) {
+    agriConfirm('Xóa dữ liệu phân tích', 'CẢNH BÁO: Hành động này sẽ xóa toàn bộ các vùng quy hoạch và dữ liệu liên quan đến lần phân tích này.\n\nBạn có chắc chắn muốn tiếp tục?', () => {
         rollbackAnalysis(analysisId);
-    }
+    }, { confirmText: 'Xóa', type: 'danger' });
 }
 
 async function rollbackAnalysis(analysisId) {

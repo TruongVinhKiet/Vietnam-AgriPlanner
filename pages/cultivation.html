@@ -1694,7 +1694,7 @@
                 <h1 class="sidebar__logo-text">AgriPlanner</h1>
             </div>
             <nav class="sidebar__nav">
-                <a href="../index.html" class="sidebar__nav-link"><span
+                <a href="../dashboard.html" class="sidebar__nav-link"><span
                         class="material-symbols-outlined">home</span><span>Trang chủ</span></a>
                 <a href="cultivation.html" class="sidebar__nav-link active"><span
                         class="material-symbols-outlined">potted_plant</span><span>Trồng trọt</span></a>
@@ -4299,11 +4299,11 @@
             const zoneCode = document.getElementById('pz-zone-code').value;
 
             if (!name) {
-                alert('Vui lòng nhập tên vùng quy hoạch');
+                agriAlert('Vui lòng nhập tên vùng quy hoạch', 'warning');
                 return;
             }
             if (!zoneCode) {
-                alert('Vui lòng chọn loại đất');
+                agriAlert('Vui lòng chọn loại đất', 'warning');
                 return;
             }
 
@@ -5447,17 +5447,18 @@
                 if (res.ok) {
                     loadFieldZones(selectedField.id);
                 } else {
-                    alert('Lỗi khi tạo vùng trồng: ' + res.statusText);
+                    agriAlert('Lỗi khi tạo vùng trồng: ' + res.statusText, 'error');
                 }
             } catch (e) { console.error(e); }
         }
 
         async function deleteFieldZone(id) {
-            if (!confirm('Bạn có chắc muốn xóa vùng này?')) return;
-            try {
-                await fetch(`${API_BASE}/field-zones/${id}`, { method: 'DELETE' });
-                loadFieldZones(selectedField.id);
-            } catch (e) { console.error(e); }
+            agriConfirm('Xóa vùng', 'Bạn có chắc muốn xóa vùng này?', async () => {
+                try {
+                    await fetch(`${API_BASE}/field-zones/${id}`, { method: 'DELETE' });
+                    loadFieldZones(selectedField.id);
+                } catch (e) { console.error(e); }
+            }, { confirmText: 'Xóa', type: 'danger' });
         }
 
         // Helper: check if a timing value is due (handles both number and object from calculateDaysRemaining)
@@ -5787,7 +5788,7 @@
         async function confirmFieldCreation() {
             const name = document.getElementById('field-name-input').value.trim();
             if (!name) {
-                alert('Vui lòng nhập tên mảnh ruộng');
+                agriAlert('Vui lòng nhập tên mảnh ruộng', 'warning');
                 return;
             }
 
@@ -6112,9 +6113,9 @@
         }
 
         function showAvoidWarning(cropId, cropName) {
-            if (confirm(`Cây ${cropName} không phù hợp với thời tiết hiện tại. Bạn vẫn muốn tiếp tục?`)) {
+            agriConfirm('Cảnh báo thời tiết', `Cây ${cropName} không phù hợp với thời tiết hiện tại. Bạn vẫn muốn tiếp tục?`, () => {
                 selectCrop(cropId);
-            }
+            }, { confirmText: 'Tiếp tục', type: 'warning' });
         }
 
         // ==================== FARM ACTIVITIES ====================
@@ -6253,13 +6254,13 @@
 
         async function confirmFertilizer() {
             if (!selectedFertilizerData) {
-                alert('Vui lòng chọn loại phân bón');
+                agriAlert('Vui lòng chọn loại phân bón', 'warning');
                 return;
             }
 
             const workerId = document.getElementById('fertilizer-worker')?.value;
             if (!workerId) {
-                alert('Vui lòng chọn nhân công thực hiện');
+                agriAlert('Vui lòng chọn nhân công thực hiện', 'warning');
                 return;
             }
 
@@ -6334,7 +6335,7 @@
 
             const workerId = document.getElementById('seed-worker')?.value;
             if (!workerId) {
-                alert('Vui lòng chọn nhân công thực hiện');
+                agriAlert('Vui lòng chọn nhân công thực hiện', 'warning');
                 return;
             }
 
@@ -6442,7 +6443,7 @@
                 selectedPestData = null;
             } catch (e) {
                 console.error('Pest load error:', e);
-                alert('Lỗi tải danh sách sâu bệnh');
+                agriAlert('Lỗi tải danh sách sâu bệnh', 'error');
             }
         }
 
@@ -6534,13 +6535,13 @@
 
         async function confirmPesticideEnhanced() {
             if (!selectedPestData) {
-                alert('Vui lòng chọn loại sâu bệnh');
+                agriAlert('Vui lòng chọn loại sâu bệnh', 'warning');
                 return;
             }
 
             const workerId = document.getElementById('pesticide-worker')?.value;
             if (!workerId) {
-                alert('Vui lòng chọn nhân công thực hiện');
+                agriAlert('Vui lòng chọn nhân công thực hiện', 'warning');
                 return;
             }
 
@@ -6587,7 +6588,7 @@
             const cost = parseInt(document.getElementById('pesticide-cost')?.value) || 0;
 
             if (!name) {
-                alert('Vui lòng nhập tên thuốc');
+                agriAlert('Vui lòng nhập tên thuốc', 'warning');
                 return;
             }
 
@@ -6682,13 +6683,13 @@
 
         function confirmHarvest() {
             if (!selectedActivityOption) {
-                alert('Vui lòng chọn phương thức thu hoạch');
+                agriAlert('Vui lòng chọn phương thức thu hoạch', 'warning');
                 return;
             }
 
             const workerId = document.getElementById('harvest-worker')?.value;
             if (!workerId) {
-                alert('Vui lòng chọn nhân công thực hiện');
+                agriAlert('Vui lòng chọn nhân công thực hiện', 'warning');
                 return;
             }
 
@@ -6841,7 +6842,7 @@
         async function confirmWater() {
             const workerId = document.getElementById('water-worker')?.value;
             if (!workerId) {
-                alert('Vui lòng chọn nhân công thực hiện');
+                agriAlert('Vui lòng chọn nhân công thực hiện', 'warning');
                 return;
             }
 
@@ -6902,22 +6903,22 @@
         async function harvestField() {
             if (!selectedField) return;
 
-            if (!confirm(`Xác nhận thu hoạch ${selectedField.name}?`)) return;
+            agriConfirm('Xác nhận thu hoạch', `Xác nhận thu hoạch ${selectedField.name}?`, async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/fields/${selectedField.id}/harvest`, {
+                        method: 'POST'
+                    });
 
-            try {
-                const response = await fetch(`${API_BASE}/fields/${selectedField.id}/harvest`, {
-                    method: 'POST'
-                });
-
-                if (response.ok) {
-                    await loadFieldsFromAPI();
-                    showNotification('success', 'Thành công', 'Đã thu hoạch thành công!');
-                    selectedField = null;
-                    enableFarmManagement(false);
+                    if (response.ok) {
+                        await loadFieldsFromAPI();
+                        showNotification('success', 'Thành công', 'Đã thu hoạch thành công!');
+                        selectedField = null;
+                        enableFarmManagement(false);
+                    }
+                } catch (e) {
+                    console.error(e);
                 }
-            } catch (e) {
-                console.error(e);
-            }
+            }, { confirmText: 'Thu hoạch', type: 'success' });
         }
 
         // ==================== UTILITY FUNCTIONS ====================
@@ -7100,11 +7101,11 @@
                     const name = data[0].display_name.split(',')[0];
                     updateLocation(parseFloat(data[0].lat), parseFloat(data[0].lon), name);
                 } else {
-                    alert('Không tìm thấy địa điểm. Vui lòng thử lại.');
+                    agriAlert('Không tìm thấy địa điểm. Vui lòng thử lại.', 'warning');
                 }
             } catch (error) {
                 console.error('Search error:', error);
-                alert('Lỗi tìm kiếm. Vui lòng thử lại.');
+                agriAlert('Lỗi tìm kiếm. Vui lòng thử lại.', 'error');
             }
         }
 
@@ -7397,7 +7398,7 @@
 
         async function openFieldLossAnalytics() {
             const farmId = currentFarmId;
-            if (!farmId) { alert('Chưa có trang trại.'); return; }
+            if (!farmId) { agriAlert('Chưa có trang trại.', 'warning'); return; }
 
             const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             if (!token) return;
@@ -7526,7 +7527,7 @@
                 }
             } catch (err) {
                 console.error('Error loading field loss stats:', err);
-                alert('Không thể tải thống kê hao hụt: ' + err.message);
+                agriAlert('Không thể tải thống kê hao hụt: ' + err.message, 'error');
             }
         }
 
@@ -8355,7 +8356,7 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
         </div>
         <div class="modal-footer">
             <button class="btn btn--secondary" onclick="closeFinancialModal()">Đóng</button>
-            <button class="btn btn--primary" onclick="alert('Đã lưu kịch bản tài chính!')">Lưu báo cáo</button>
+            <button class="btn btn--primary" onclick="agriAlert('Đã lưu kịch bản tài chính!', 'success')">Lưu báo cáo</button>
         </div>
     </div>
 </div>

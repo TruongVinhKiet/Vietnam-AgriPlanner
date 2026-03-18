@@ -41,7 +41,7 @@
                 <h1 class="sidebar__logo-text">AgriPlanner</h1>
             </div>
             <nav class="sidebar__nav">
-                <a href="../index.html" class="sidebar__nav-link"><span
+                <a href="../dashboard.html" class="sidebar__nav-link"><span
                         class="material-symbols-outlined">home</span><span>Trang chủ</span></a>
                 <a href="cultivation.html" class="sidebar__nav-link"><span
                         class="material-symbols-outlined">potted_plant</span><span>Trồng trọt</span></a>
@@ -631,8 +631,52 @@
                             <span id="preview-total" class="text-success">0 ₫</span>
                         </div>
                         <div class="harvest-preview__note">
-                            <span class="material-symbols-outlined">account_balance_wallet</span>
-                            Số tiền sẽ được cộng vào số dư tài khoản sau khi duyệt
+                            <span class="material-symbols-outlined">inventory_2</span>
+                            Sản phẩm sẽ được nhập vào kho tổng sau khi duyệt
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pond Sale Section (POND type) -->
+                <div id="harvest-pond-section" style="display:none;">
+                    <div class="form-group">
+                        <label class="form-label">Thu hoạch bao nhiêu (% ao) <span class="text-error">*</span></label>
+                        <div class="input-with-suffix">
+                            <input type="number" id="harvest-pond-percent" class="form-input" min="1" max="100" placeholder="100">
+                            <span class="input-suffix">%</span>
+                        </div>
+                        <div class="form-hint" id="harvest-pond-percent-hint">Hệ thống sẽ ước tính số lượng dựa trên % này</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ước tính sản lượng (tấn) <span class="text-error">*</span></label>
+                        <div class="input-with-suffix">
+                            <input type="number" id="harvest-pond-tons" class="form-input" min="0" step="0.1" placeholder="0">
+                            <span class="input-suffix">tấn</span>
+                        </div>
+                        <div class="form-hint">Worker có thể nhập lại số liệu thực tế sau khi thu hoạch</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Giá tham khảo (₫/tấn)</label>
+                        <div class="input-with-suffix">
+                            <input type="number" id="harvest-pond-price" class="form-input" min="0" step="1000" placeholder="0">
+                            <span class="input-suffix">₫/tấn</span>
+                        </div>
+                        <div class="form-hint">Giá dự kiến tại thời điểm giao việc</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ghi chú</label>
+                        <textarea id="harvest-pond-notes" class="form-input" rows="2"
+                            placeholder="Ghi chú thêm về việc thu hoạch ao..."></textarea>
+                    </div>
+                    <!-- Revenue Preview -->
+                    <div class="harvest-preview">
+                        <div class="harvest-preview__row">
+                            <span>Ước tính thu hoạch:</span>
+                            <span id="preview-pond-quantity">0 tấn</span>
+                        </div>
+                        <div class="harvest-preview__note">
+                            <span class="material-symbols-outlined">inventory_2</span>
+                            Sản phẩm sẽ được nhập vào kho tổng sau khi duyệt
                         </div>
                     </div>
                 </div>
@@ -683,8 +727,8 @@
                             <span id="harvest-bp-preview-total" class="text-success">0 ₫</span>
                         </div>
                         <div class="harvest-preview__note">
-                            <span class="material-symbols-outlined">account_balance_wallet</span>
-                            Số tiền sẽ được cộng vào số dư tài khoản sau khi duyệt
+                            <span class="material-symbols-outlined">inventory_2</span>
+                            Sản phẩm phụ sẽ được nhập vào kho sau khi duyệt
                         </div>
                     </div>
                 </div>

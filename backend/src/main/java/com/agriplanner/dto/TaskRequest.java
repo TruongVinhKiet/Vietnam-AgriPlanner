@@ -31,4 +31,10 @@ public class TaskRequest {
 
     // Workflow data for task-based workflow actions
     private String workflowData;
+
+    // Harvest workflow fields
+    private String harvestCategory; // ANIMAL_COUNT, ANIMAL_WEIGHT, BYPRODUCT, CROP_HECTARE
+    private String harvestProductName;
+    private String harvestProductUnit;
+    private BigDecimal harvestRefPrice;
 }

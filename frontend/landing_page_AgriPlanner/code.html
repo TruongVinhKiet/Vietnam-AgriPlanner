@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AgriPlanner - Smart Farming for a Sustainable Future</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary-container": "#3eb686",
+                        "tertiary": "#006c4a",
+                        "surface-bright": "#f8f9fb",
+                        "on-tertiary-fixed": "#002114",
+                        "on-error": "#ffffff",
+                        "on-tertiary-fixed-variant": "#005137",
+                        "error": "#ba1a1a",
+                        "outline": "#6c7a71",
+                        "background": "#f8f9fb",
+                        "secondary-container": "#2170e4",
+                        "surface-variant": "#e1e2e4",
+                        "secondary-fixed-dim": "#adc6ff",
+                        "inverse-on-surface": "#f0f1f3",
+                        "surface-container-low": "#f3f4f6",
+                        "surface-container-high": "#e7e8ea",
+                        "tertiary-fixed": "#85f8c4",
+                        "on-background": "#191c1e",
+                        "on-secondary-fixed-variant": "#004395",
+                        "on-primary-container": "#00422b",
+                        "on-surface": "#191c1e",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed": "#d8e2ff",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-highest": "#e1e2e4",
+                        "surface-container": "#edeef0",
+                        "surface-dim": "#d9dadc",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f8f9fb",
+                        "on-tertiary-container": "#00422c",
+                        "primary-fixed": "#6ffbbe",
+                        "on-surface-variant": "#3c4a42",
+                        "tertiary-fixed-dim": "#68dba9",
+                        "on-primary-fixed-variant": "#005236",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-fixed": "#001a42",
+                        "on-error-container": "#93000a",
+                        "on-secondary-container": "#fefcff",
+                        "on-primary-fixed": "#002113",
+                        "inverse-surface": "#2e3132",
+                        "primary-fixed-dim": "#4edea3",
+                        "inverse-primary": "#4edea3",
+                        "primary": "#006c49",
+                        "surface-tint": "#006c49",
+                        "on-primary": "#ffffff",
+                        "primary-container": "#10b981",
+                        "outline-variant": "#bbcabf",
+                        "secondary": "#0058be"
+                    },
+                    fontFamily: {
+                        "headline": ["Manrope", "sans-serif"],
+                        "body": ["Manrope", "sans-serif"],
+                        "label": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Manrope', sans-serif; background-color: #191c1e; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .emerald-gradient {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+        .text-glow {
+            text-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+        .isometric-float {
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+    </style>
+</head>
+<body class="text-white selection:bg-primary-container selection:text-white">
+<!-- Cinematic Background -->
+<div class="fixed inset-0 -z-10 overflow-hidden">
+<div class="absolute inset-0 bg-black/40 z-10"></div>
+<img alt="Golden wheat fields at sunset" class="w-full h-full object-cover scale-110" data-alt="Cinematic sunset golden wheat fields landscape background" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNKaeT-yQxl3Irpr2pATmtwl8W9lAMHBvTn8P20MIus_HsSHLV2F4r3CRamzFBflgDYyR4heItkvaEs1RPECQNxrKX8axcfjlO5EGJyfqPTQioyhQ5jYRv6hEtlnD05G9Qq0P1_YmPCbWrGmoLKpAxwfT3eHAtoIEC7PYwF3PvyzYEOOZf372aBtJ0OXvzEdEwylpzhlJn6aBZShYWChGxhfIkAhyoIc3A-_Q-koC-Q0JbSs3ZVpS7qsezbBtprmyxFuHZEp52bGaC"/>
+</div>
+<!-- Top Navigation -->
+<nav class="sticky top-0 z-50 px-6 py-4">
+<div class="max-w-7xl mx-auto flex items-center justify-between glass-panel rounded-full px-8 py-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">agriculture</span>
+<span class="text-xl font-extrabold tracking-tight">AgriPlanner</span>
+</div>
+<div class="hidden md:flex items-center gap-8 text-sm font-semibold uppercase tracking-wider">
+<a class="hover:text-primary-container transition-colors" href="#">Features</a>
+<a class="hover:text-primary-container transition-colors" href="#">Stats</a>
+<a class="hover:text-primary-container transition-colors" href="#">Testimonials</a>
+<a class="hover:text-primary-container transition-colors" href="#">Contact</a>
+</div>
+<div class="flex items-center gap-4">
+<button class="px-6 py-2 rounded-full border border-white/20 hover:bg-white/10 transition-all text-sm font-bold">Login</button>
+<button class="px-6 py-2 rounded-full emerald-gradient hover:opacity-90 transition-all text-sm font-bold shadow-lg shadow-primary/20">Get Started</button>
+</div>
+</div>
+</nav>
+<!-- Hero Section -->
+<section class="relative min-h-[90vh] flex items-center px-6 overflow-hidden">
+<div class="max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
+<div class="space-y-8">
+<div class="inline-flex items-center gap-2 px-4 py-1 rounded-full glass-card border-primary/30 text-primary-container text-xs font-bold uppercase tracking-widest">
+<span class="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+                    Hệ sinh thái Nông Nghiệp 4.0
+                </div>
+<h1 class="text-5xl lg:text-7xl font-extrabold leading-[1.1] tracking-tight">
+                    Định Vị Tương Lai <br/>
+<span class="text-transparent bg-clip-text emerald-gradient">Nông Nghiệp Kỹ Thuật Số</span> <br/>
+                    Cùng AgriPlanner
+                </h1>
+<p class="text-lg text-white/70 max-w-xl leading-relaxed">
+                    Tối ưu hóa năng suất cây trồng với Leaflet polygons chính xác, mô phỏng chăn nuôi 3D trực quan và tự động hóa quy trình nhân sự. AgriPlanner mang đến cái nhìn toàn cảnh về trang trại của bạn thông qua dữ liệu thời gian thực.
+                </p>
+<div class="flex flex-wrap gap-4">
+<button class="px-8 py-4 rounded-xl emerald-gradient text-lg font-bold flex items-center gap-3 group">
+                        Start Free Trial
+                        <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+<button class="px-8 py-4 rounded-xl glass-card text-lg font-bold border-white/10 hover:bg-white/5 transition-all">
+                        Xem Demo 3D
+                    </button>
+</div>
+</div>
+<div class="relative isometric-float">
+<!-- Main Centerpiece placeholder -->
+<div class="relative w-full aspect-square rounded-[3rem] overflow-hidden glass-card p-4">
+<img alt="High-tech greenhouse" class="w-full h-full object-cover rounded-[2.5rem] opacity-60" data-alt="3D isometric high-tech smart greenhouse illustration" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBsHs8tLEdWuDyQg4tO3abri770jtxneEqUYqVOGIDbG-XrZhz2nIlpfdOiF0e5Q9BxDiPgRLao7qhfl4q2Lxg-7UkIlz2Xmhmseq7ZpDjxqRB5fz4v8l3-LLDMmkBHhT85kJ1iu6HyvVBBVOkSYecu7ea4KxhW7MeN2zczvvPwoAUGznq6FFzn72g0l8z-COtwppWKA9JNqrOEIZoBcskhlVeV9XFFLWltI83iNh3C4AyIqqbMdgzna_4Mu5HxSYjHj6ODQzxFZ7ia"/>
+<!-- Floating Data Cards -->
+<div class="absolute top-12 -left-8 glass-card p-4 rounded-2xl border-l-4 border-l-primary-container shadow-2xl animate-bounce" style="animation-duration: 4s;">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-container">trending_up</span>
+<div>
+<p class="text-xs text-white/60 font-bold uppercase">Sản lượng dự kiến</p>
+<p class="text-xl font-bold">Yield +35%</p>
+</div>
+</div>
+</div>
+<div class="absolute bottom-20 -right-4 glass-card p-4 rounded-2xl border-l-4 border-l-secondary shadow-2xl">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary">cleaning_services</span>
+<div>
+<p class="text-xs text-white/60 font-bold uppercase">Barn #04 Status</p>
+<p class="text-sm font-bold">Needs cleaning</p>
+</div>
+</div>
+</div>
+<div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass-panel p-4 rounded-2xl border-white/20 shadow-2xl flex items-center gap-4">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-white">check_circle</span>
+</div>
+<div>
+<p class="text-xs text-white/60 uppercase">Labor Management</p>
+<p class="text-sm font-bold">Task: Fertilizaton Complete</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Stats Band -->
+<section class="py-12 px-6">
+<div class="max-w-7xl mx-auto glass-panel rounded-[2rem] p-10 grid md:grid-cols-3 gap-8 text-center border-white/5">
+<div class="space-y-2">
+<h3 class="text-4xl font-black text-transparent bg-clip-text emerald-gradient">1500+</h3>
+<p class="text-white/60 font-semibold uppercase tracking-widest text-sm">Farms Connected</p>
+</div>
+<div class="space-y-2 border-x border-white/10">
+<h3 class="text-4xl font-black text-transparent bg-clip-text emerald-gradient">50,000+</h3>
+<p class="text-white/60 font-semibold uppercase tracking-widest text-sm">Hectares Managed</p>
+</div>
+<div class="space-y-2">
+<h3 class="text-4xl font-black text-secondary">-35%</h3>
+<p class="text-white/60 font-semibold uppercase tracking-widest text-sm">Resource Loss Reduction</p>
+</div>
+</div>
+</section>
+<!-- Features Section: Bento Grid Layout -->
+<section class="py-24 px-6 max-w-7xl mx-auto">
+<div class="mb-16 text-center max-w-3xl mx-auto space-y-4">
+<h2 class="text-4xl font-extrabold">Công Nghệ Dẫn Đầu Thị Trường</h2>
+<p class="text-white/60">Giải pháp toàn diện giúp chuyển đổi số mọi khía cạnh của nông trại, từ quản lý đất đai đến điều hành nhân sự tập trung.</p>
+</div>
+<div class="grid lg:grid-cols-3 gap-6">
+<!-- Feature 1: Map Polygons -->
+<div class="lg:col-span-2 glass-panel rounded-[2.5rem] p-10 overflow-hidden relative group">
+<div class="relative z-10 flex flex-col h-full justify-between gap-12">
+<div>
+<div class="w-14 h-14 rounded-2xl emerald-gradient flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-3xl">map</span>
+</div>
+<h3 class="text-3xl font-bold mb-4">Trồng Trọt Thông Minh Trên Bản Đồ Số</h3>
+<p class="text-white/70 max-w-md leading-relaxed">
+                            Áp dụng công nghệ Leaflet polygon để khoanh vùng và quản lý diện tích chính xác. Hệ thống tự động thiết lập quy trình 5 bước chuẩn hóa: chuẩn bị hạt giống, bón lót, gieo sạ, chăm sóc và thu hoạch dựa trên dữ liệu vệ tinh.
+                        </p>
+</div>
+<div class="rounded-2xl overflow-hidden glass-card border-white/5 h-48">
+<img alt="Digital agricultural map" class="w-full h-full object-cover opacity-40 group-hover:scale-105 transition-transform duration-700" data-alt="Digital agricultural map with polygon overlays of farm fields" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQcUpy9tG1i5yIDuSu8PKA3l5rq8HozGqBmMICY62wx8Qg4nGKU08z7RdmTf-YaflFwjtWCrctMUjKkiV5X9Lqj8LQCTrf0Q0NIr-PJ3mIwJmtVONYuomYVxWCx9m7RyPyKAs56LnFiYd3MEZg489uJwyGYrLzCUOT6GNfG1O_xm5Di59lqJT0tX9z560Lidxe7A4BES3maZA0AzLl1alOsqZ-Zz8NfBTxV92BABJpWDuWIfpZZ3J-TFQkPDtC_Eh6Iwak8wovNBz_"/>
+</div>
+</div>
+</div>
+<!-- Feature 2: Barn Simulation -->
+<div class="glass-panel rounded-[2.5rem] p-10 flex flex-col justify-between border-white/10">
+<div>
+<div class="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-3xl">view_in_ar</span>
+</div>
+<h3 class="text-3xl font-bold mb-4">Mô Phỏng Chăn Nuôi Trực Quan</h3>
+<p class="text-white/70 leading-relaxed">
+                        Theo dõi sức khỏe vật nuôi qua mô phỏng chuồng trại 2D/3D. Tự động kết nối với kho vật tư để cảnh báo thiếu hụt thức ăn và thuốc thú y ngay lập tức.
+                    </p>
+</div>
+<div class="mt-8 space-y-4">
+<div class="p-4 glass-card rounded-xl flex items-center justify-between">
+<span class="text-xs font-bold">Health Monitor</span>
+<span class="px-2 py-1 bg-primary-container/20 text-primary-container rounded text-[10px] font-bold">OPTIMAL</span>
+</div>
+<div class="p-4 glass-card rounded-xl flex items-center justify-between">
+<span class="text-xs font-bold">Inventory Sync</span>
+<span class="px-2 py-1 bg-secondary/20 text-secondary rounded text-[10px] font-bold">SYNCED</span>
+</div>
+</div>
+</div>
+<!-- Feature 3: HR & Tasks -->
+<div class="lg:col-span-3 glass-panel rounded-[2.5rem] p-12 grid md:grid-cols-2 items-center gap-12 border-white/10">
+<div>
+<div class="w-14 h-14 rounded-2xl bg-white/10 flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-3xl">groups</span>
+</div>
+<h3 class="text-3xl font-bold mb-4">Quản Trị Nhân Sự &amp; Phân Công Nhiệm Vụ Khoa Học</h3>
+<p class="text-white/70 leading-relaxed mb-8">
+                        Hệ thống quản lý CV nhân công tập trung, phân quyền thông minh qua bảng Kanban. Công nhân báo cáo tiến độ trực tiếp bằng hình ảnh/video qua ứng dụng di động, giúp giám sát từ xa mọi hoạt động ngoài cánh đồng.
+                    </p>
+<ul class="space-y-4">
+<li class="flex items-center gap-3 text-sm font-medium text-white/80">
+<span class="material-symbols-outlined text-primary-container">check_circle</span>
+                            Quản lý hồ sơ &amp; kỹ năng chuyên môn
+                        </li>
+<li class="flex items-center gap-3 text-sm font-medium text-white/80">
+<span class="material-symbols-outlined text-primary-container">check_circle</span>
+                            Giao việc theo Kanban &amp; ưu tiên
+                        </li>
+<li class="flex items-center gap-3 text-sm font-medium text-white/80">
+<span class="material-symbols-outlined text-primary-container">check_circle</span>
+                            Báo cáo đa phương tiện thời gian thực
+                        </li>
+</ul>
+</div>
+<div class="relative">
+<div class="glass-card rounded-2xl p-6 border-white/10 shadow-3xl">
+<div class="flex items-center justify-between mb-6">
+<h4 class="font-bold">Task Board</h4>
+<span class="material-symbols-outlined text-white/40">more_horiz</span>
+</div>
+<div class="space-y-4">
+<div class="p-4 bg-white/5 rounded-xl border border-white/5 flex gap-4 items-center">
+<div class="w-2 h-12 rounded-full bg-primary-container"></div>
+<div>
+<p class="text-sm font-bold">Thu hoạch khu vực A4</p>
+<p class="text-xs text-white/40">Giao cho: Trần Văn An</p>
+</div>
+</div>
+<div class="p-4 bg-white/5 rounded-xl border border-white/5 flex gap-4 items-center opacity-50">
+<div class="w-2 h-12 rounded-full bg-secondary"></div>
+<div>
+<p class="text-sm font-bold">Kiểm tra độ ẩm đất</p>
+<p class="text-xs text-white/40">Hoàn thành bởi: Lê Thị Bình</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Final CTA Section -->
+<section class="py-24 px-6">
+<div class="max-w-5xl mx-auto glass-panel rounded-[3rem] p-16 text-center relative overflow-hidden">
+<div class="absolute inset-0 emerald-gradient opacity-10"></div>
+<div class="relative z-10 space-y-8">
+<h2 class="text-4xl md:text-5xl font-extrabold">Ready to Transform Your Fields?</h2>
+<p class="text-xl text-white/70 max-w-2xl mx-auto">
+                    Sẵn sàng số hóa Nông Trại của bạn? Đăng ký hoàn toàn miễn phí ngay hôm nay và trải nghiệm sức mạnh của dữ liệu!
+                </p>
+<div class="flex flex-col sm:flex-row gap-4 justify-center">
+<button class="px-10 py-5 rounded-2xl emerald-gradient text-lg font-bold shadow-2xl shadow-primary/40 hover:scale-105 transition-transform">
+                        Contact Sales
+                    </button>
+<button class="px-10 py-5 rounded-2xl glass-card text-lg font-bold border-white/20 hover:bg-white/10 transition-all">
+                        Trò chuyện với chuyên gia
+                    </button>
+</div>
+<p class="text-sm text-white/40 font-medium">Tham gia cùng 10,000+ nông dân hiện đại trên toàn thế giới.</p>
+</div>
+</div>
+</section>
+<!-- Footer -->
+<footer class="py-12 px-6 border-t border-white/5 mt-12 glass-panel">
+<div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-8">
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary-container" style="font-variation-settings: 'FILL' 1;">agriculture</span>
+<span class="text-xl font-extrabold tracking-tight">AgriPlanner</span>
+</div>
+<p class="text-white/40 text-sm">© 2024 AgriPlanner Inc. All rights reserved.</p>
+</div>
+<div class="flex flex-wrap gap-8 text-sm font-bold text-white/60">
+<a class="hover:text-primary-container transition-colors" href="#">Privacy Policy</a>
+<a class="hover:text-primary-container transition-colors" href="#">Terms of Service</a>
+<a class="hover:text-primary-container transition-colors" href="#">Twitter</a>
+<a class="hover:text-primary-container transition-colors" href="#">LinkedIn</a>
+</div>
+</div>
+</footer>
+</body></html>

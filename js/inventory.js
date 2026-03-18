@@ -14,8 +14,10 @@ const INV_CATEGORY_LABELS = {
     'CON_GIONG': '🐣 Con giống',
     'PHAN_BON': '🌱 Phân bón',
     'THUC_AN': '🍚 Thức ăn',
-    'THUOC_TRU_SAU': '🦟 Thuốc BVTV',
-    'MAY_MOC': '⚙️ Máy móc'
+    'THUOC_TRU_SAU': '🛡️ Thuốc BVTV',
+    'MAY_MOC': '⚙️ Máy móc',
+    'THU_HOACH_CHAN_NUOI': '🦢 Thu hoạch Chăn nuôi',
+    'THU_HOACH_TRONG_TROT': '🌾 Thu hoạch Trồng trọt'
 };
 
 const INV_CATEGORY_ICONS = {
@@ -24,7 +26,9 @@ const INV_CATEGORY_ICONS = {
     'PHAN_BON': 'compost',
     'THUC_AN': 'set_meal',
     'THUOC_TRU_SAU': 'bug_report',
-    'MAY_MOC': 'agriculture'
+    'MAY_MOC': 'agriculture',
+    'THU_HOACH_CHAN_NUOI': 'agriculture',
+    'THU_HOACH_TRONG_TROT': 'grass'
 };
 
 const INV_CATEGORY_EMOJI = {
@@ -32,8 +36,10 @@ const INV_CATEGORY_EMOJI = {
     'CON_GIONG': '🐣',
     'PHAN_BON': '🌱',
     'THUC_AN': '🍚',
-    'THUOC_TRU_SAU': '🦟',
-    'MAY_MOC': '⚙️'
+    'THUOC_TRU_SAU': '🛡️',
+    'MAY_MOC': '⚙️',
+    'THU_HOACH_CHAN_NUOI': '🦢',
+    'THU_HOACH_TRONG_TROT': '🌾'
 };
 
 // State
@@ -108,6 +114,12 @@ async function fetchShopInventory() {
     }
 
     renderInventoryModal();
+
+    renderInventoryModal();
+}
+
+async function fetchHarvestItems() {
+    // Deprecated: Harvest items are now returned by the main shop inventory API
 }
 
 // Convert legacy /api/inventory format to shop format
@@ -280,6 +292,13 @@ function createInventoryCard(item) {
 
     const isLow = item.minThreshold != null && item.quantity <= item.minThreshold;
 
+    const isHarvest = item.itemCategory === 'THU_HOACH_CHAN_NUOI' || item.itemCategory === 'THU_HOACH_TRONG_TROT';
+    const sellBtnHtml = isHarvest
+        ? `<button class="inv-sell-btn" onclick="openSellHarvestModal(${item.id}, '${String(item.effectiveName || '').replace(/'/g, "\\'")}', ${item.quantity}, '${String(item.effectiveUnit || '').replace(/'/g, "\\'")}', ${item.costPerUnit || 0}); event.stopPropagation();">
+            <span class="material-symbols-outlined" style="font-size:14px">storefront</span> Bán cho đối tác
+           </button>`
+        : '';
+
     return `
         <div class="inv-item-card">
             <div class="item-icon">${iconHtml}</div>
@@ -292,6 +311,7 @@ function createInventoryCard(item) {
                 </div>
                 <div class="item-value">${formatInvCurrency(item.totalValue || 0)}</div>
             </div>
+            ${sellBtnHtml}
         </div>
     `;
 }
@@ -305,13 +325,23 @@ function createInventoryRow(item) {
 
     const catLabel = (INV_CATEGORY_LABELS[item.itemCategory] || item.itemCategory || '').replace(/^[^\s]+\s/, '');
 
+    const isHarvest = item.itemCategory === 'THU_HOACH_CHAN_NUOI' || item.itemCategory === 'THU_HOACH_TRONG_TROT';
+    const sellBtnHtml = isHarvest
+        ? `<div style="margin-top: 8px;"><button class="inv-sell-btn" style="padding: 4px 8px; font-size: 12px; border-radius: 4px;" onclick="openSellHarvestModal(${item.id}, '${String(item.effectiveName || '').replace(/'/g, "\\'")}', ${item.quantity}, '${String(item.effectiveUnit || '').replace(/'/g, "\\'")}', ${item.costPerUnit || 0}); event.stopPropagation();">
+            <span class="material-symbols-outlined" style="font-size:12px">storefront</span> Bán
+           </button></div>`
+        : '';
+
     return `<tr>
         <td><strong>${emoji} ${item.effectiveName || 'N/A'}</strong></td>
         <td>${catLabel}</td>
         <td class="${isLow ? 'text-danger' : ''}" style="font-weight:600;">${formatInvNumber(item.quantity)} ${item.effectiveUnit || ''}</td>
         <td>${formatInvCurrency(item.costPerUnit || 0)} / ${item.effectiveUnit || 'đơn vị'}</td>
         <td>${statusBadge}</td>
-        <td>${formatInvCurrency(item.totalValue || 0)}</td>
+        <td>
+            ${formatInvCurrency(item.totalValue || 0)}
+            ${sellBtnHtml}
+        </td>
     </tr>`;
 }
 
@@ -451,7 +481,7 @@ async function handleInventorySubmit(e) {
     let payload;
     if (currentMode === 'catalog' && !currentEditId) {
         const productSelect = document.getElementById('inv-catalog-product');
-        if (!productSelect?.value) { alert('Vui lòng chọn sản phẩm!'); return; }
+        if (!productSelect?.value) { agriAlert('Vui lòng chọn sản phẩm!', 'warning'); return; }
         const product = JSON.parse(productSelect.value);
         payload = {
             name: product.name,
@@ -481,9 +511,9 @@ async function handleInventorySubmit(e) {
             hideAddInventoryForm();
             fetchShopInventory();
             if (typeof showNotification === 'function') showNotification('success', 'Thành công', 'Lưu kho thành công!');
-            else alert('Lưu kho thành công!');
-        } else { alert('Lỗi khi lưu!'); }
-    } catch (err) { console.error(err); alert('Có lỗi xảy ra.'); }
+            else agriAlert('Lưu kho thành công!', 'success');
+        } else { agriAlert('Lỗi khi lưu!', 'error'); }
+    } catch (err) { console.error(err); agriAlert('Có lỗi xảy ra.', 'error'); }
 }
 
 window.addToInventory = async function (id) {
@@ -521,11 +551,12 @@ window.editInventoryItem = function (id) {
 };
 
 window.deleteInventoryItem = async function (id) {
-    if (!confirm('Bạn chắc chắn muốn xóa vật tư này?')) return;
-    try {
-        await fetch(`${INV_API_BASE}/inventory/${id}`, { method: 'DELETE' });
-        fetchShopInventory();
-    } catch (err) { console.error(err); }
+    agriConfirm('Xóa vật tư', 'Bạn chắc chắn muốn xóa vật tư này?', async () => {
+        try {
+            await fetch(`${INV_API_BASE}/inventory/${id}`, { method: 'DELETE' });
+            fetchShopInventory();
+        } catch (err) { console.error(err); }
+    }, { confirmText: 'Xóa', type: 'danger' });
 };
 
 // ==================== UTILITY FUNCTIONS ====================
@@ -549,3 +580,145 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// ==================== SELL HARVEST TO PARTNER ====================
+
+function openSellHarvestModal(itemId, itemName, maxQty, unit, refPrice) {
+    // Remove existing modal if any
+    let existingModal = document.getElementById('sell-harvest-modal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.className = 'modal modal--visible';
+    modal.id = 'sell-harvest-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:10000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);animation:modalBgFade 0.2s ease;';
+    modal.innerHTML = `
+        <div style="background:white; border-radius:16px; max-width:500px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.3); overflow:hidden; animation:modalSlideIn 0.3s ease;">
+            <div style="background:linear-gradient(135deg,#10b981,#059669); color:white; padding:20px 24px; display:flex; justify-content:space-between; align-items:center;">
+                <h3 style="margin:0; display:flex; align-items:center; gap:8px;">
+                    <span class="material-symbols-outlined">storefront</span>
+                    Bán cho đối tác
+                </h3>
+                <button onclick="document.getElementById('sell-harvest-modal').remove()" style="background:none; border:none; color:white; cursor:pointer; font-size:24px;">&times;</button>
+            </div>
+            <div style="padding:24px;">
+                <div style="background:#ecfdf5; border-radius:12px; padding:14px; margin-bottom:16px; border:1px solid #a7f3d0;">
+                    <div style="font-weight:700; color:#065f46;">${itemName}</div>
+                    <div style="font-size:13px; color:#047857;">Tồn kho: ${formatInvNumber(maxQty)} ${unit} • Giá tham khảo: ${formatInvCurrency(refPrice)}/${unit}</div>
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="font-weight:600; color:#374151; display:block; margin-bottom:4px;">Tên đối tác</label>
+                    <input type="text" id="sell-harvest-partner" style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px;" placeholder="VD: Công ty ABC">
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                    <div>
+                        <label style="font-weight:600; color:#374151; display:block; margin-bottom:4px;">Số lượng bán <span style="color:red">*</span></label>
+                        <div style="display:flex; align-items:center; border:1px solid #d1d5db; border-radius:8px; overflow:hidden;">
+                            <input type="number" id="sell-harvest-qty" style="flex:1; padding:10px 12px; border:none; font-size:14px;" min="0.01" max="${maxQty}" step="0.01" placeholder="0" oninput="updateSellHarvestPreview(${refPrice}, '${unit}')">
+                            <span style="padding:10px 12px; background:#f3f4f6; color:#6b7280; font-size:13px;">${unit}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label style="font-weight:600; color:#374151; display:block; margin-bottom:4px;">Giá bán/đơn vị <span style="color:red">*</span></label>
+                        <div style="display:flex; align-items:center; border:1px solid #d1d5db; border-radius:8px; overflow:hidden;">
+                            <input type="number" id="sell-harvest-price" style="flex:1; padding:10px 12px; border:none; font-size:14px;" min="0" step="100" placeholder="${refPrice}" value="${refPrice}" oninput="updateSellHarvestPreview(${refPrice}, '${unit}')">
+                            <span style="padding:10px 12px; background:#f3f4f6; color:#6b7280; font-size:13px;">₫/${unit}</span>
+                        </div>
+                        <div style="font-size:11px; color:#9ca3af; margin-top:4px;">Giá tham khảo: ${formatInvCurrency(refPrice)}</div>
+                    </div>
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="font-weight:600; color:#374151; display:block; margin-bottom:4px;">Ghi chú</label>
+                    <textarea id="sell-harvest-notes" style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:14px; resize:vertical;" rows="2" placeholder="Ghi chú thêm..."></textarea>
+                </div>
+                <div id="sell-harvest-preview" style="background:#f0fdf4; border-radius:10px; padding:14px; border:1px solid #bbf7d0;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                        <span style="color:#6b7280;">Tổng thu:</span>
+                        <span id="sell-harvest-total" style="font-weight:700; color:#059669; font-size:18px;">0 ₫</span>
+                    </div>
+                    <div style="font-size:12px; color:#6b7280; display:flex; align-items:center; gap:4px;">
+                        <span class="material-symbols-outlined" style="font-size:14px;">info</span>
+                        Tiền sẽ được cộng vào số dư tài khoản
+                    </div>
+                </div>
+            </div>
+            <div style="padding:16px 24px; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:10px;">
+                <button onclick="document.getElementById('sell-harvest-modal').remove()" style="padding:10px 20px; border:1px solid #d1d5db; border-radius:8px; background:white; cursor:pointer; font-size:14px;">Hủy</button>
+                <button id="sell-harvest-submit-btn" onclick="submitSellHarvest(${itemId})" style="padding:10px 20px; border:none; border-radius:8px; background:linear-gradient(135deg,#10b981,#059669); color:white; cursor:pointer; font-size:14px; font-weight:600;">
+                    <span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">check_circle</span>
+                    Xác nhận bán
+                </button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+function updateSellHarvestPreview(refPrice, unit) {
+    const qty = parseFloat(document.getElementById('sell-harvest-qty')?.value) || 0;
+    const price = parseFloat(document.getElementById('sell-harvest-price')?.value) || 0;
+    const total = qty * price;
+    const totalEl = document.getElementById('sell-harvest-total');
+    if (totalEl) totalEl.textContent = formatInvCurrency(total);
+}
+
+async function submitSellHarvest(itemId) {
+    const qty = parseFloat(document.getElementById('sell-harvest-qty')?.value);
+    const price = parseFloat(document.getElementById('sell-harvest-price')?.value);
+    const partner = document.getElementById('sell-harvest-partner')?.value || '';
+    const notes = document.getElementById('sell-harvest-notes')?.value || '';
+
+    if (!qty || qty <= 0) { agriAlert('Vui lòng nhập số lượng hợp lệ', 'warning'); return; }
+    if (!price || price <= 0) { agriAlert('Vui lòng nhập giá bán hợp lệ', 'warning'); return; }
+
+    const submitBtn = document.getElementById('sell-harvest-submit-btn');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Đang xử lý...';
+    }
+
+    try {
+        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
+        const response = await fetch(`${INV_API_BASE}/inventory/harvest-items/${itemId}/sell`, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({
+                quantity: qty,
+                pricePerUnit: price,
+                partnerName: partner,
+                notes: notes
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            document.getElementById('sell-harvest-modal')?.remove();
+            if (typeof showNotification === 'function') {
+                showNotification(`🎉 Bán thành công! +${formatInvCurrency(result.totalRevenue || qty * price)}`, 'success');
+            } else {
+                agriAlert(`Bán thành công! Tổng thu: ${formatInvCurrency(result.totalRevenue || qty * price)}`, 'success');
+            }
+            // Refresh inventory
+            fetchShopInventory();
+        } else {
+            agriAlert(result.error || 'Lỗi khi bán sản phẩm', 'error');
+        }
+    } catch (err) {
+        console.error('Sell harvest error:', err);
+        agriAlert('Lỗi kết nối server', 'error');
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">check_circle</span> Xác nhận bán';
+        }
+    }
+}
+
+// Make sell functions global
+window.openSellHarvestModal = openSellHarvestModal;
+window.updateSellHarvestPreview = updateSellHarvestPreview;
+window.submitSellHarvest = submitSellHarvest;

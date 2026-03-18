@@ -87,7 +87,7 @@
                 <h1 class="sidebar__logo-text">AgriPlanner</h1>
             </div>
             <nav class="sidebar__nav">
-                <a href="../index.html" class="sidebar__nav-link"><span
+                <a href="../dashboard.html" class="sidebar__nav-link"><span
                         class="material-symbols-outlined">home</span><span>Trang chủ</span></a>
                 <a href="cultivation.html" class="sidebar__nav-link"><span
                         class="material-symbols-outlined">potted_plant</span><span>Trồng trọt</span></a>
@@ -1458,11 +1458,9 @@
                     }
                 } else {
                     // Disable face login
-                    if (confirm('Bạn có chắc chắn muốn tắt đăng nhập bằng khuôn mặt?')) {
+                    agriConfirm('Tắt đăng nhập khuôn mặt', 'Bạn có chắc chắn muốn tắt đăng nhập bằng khuôn mặt?', async () => {
                         await disableFaceLogin();
-                    } else {
-                        this.checked = true;
-                    }
+                    }, { confirmText: 'Tắt', type: 'danger', onCancel: () => { toggle.checked = true; } });
                 }
             });
 
@@ -1666,7 +1664,7 @@
             if (typeof showNotification === 'function') {
                 showNotification('error', 'Lỗi', message);
             } else {
-                alert(message);
+                agriAlert(message, type === 'error' ? 'error' : 'success');
             }
         }
 

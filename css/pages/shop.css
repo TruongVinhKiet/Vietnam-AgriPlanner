@@ -2717,3 +2717,389 @@
         height: 200px;
     }
 }
+
+/* =====================================================
+   Gateway Sub-Options (MoMo / VNPay)
+   ===================================================== */
+
+.gateway-suboptions {
+    display: flex;
+    gap: var(--spacing-2);
+    margin-left: var(--spacing-6);
+    padding: var(--spacing-2) 0;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.gateway-option {
+    flex: 1;
+    cursor: pointer;
+}
+
+.gateway-option input {
+    display: none;
+}
+
+.gateway-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-3);
+    border: 2px solid var(--color-border-light);
+    border-radius: var(--radius-md);
+    transition: all 0.25s ease;
+}
+
+.gateway-option:hover .gateway-content {
+    border-color: var(--color-primary);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.gateway-option.active .gateway-content,
+.gateway-option input:checked + .gateway-content {
+    border-color: var(--color-primary);
+    background: rgba(34, 197, 94, 0.05);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1);
+}
+
+/* MoMo brand styles */
+.gateway-option[data-gateway="MOMO"].active .gateway-content {
+    border-color: #A50064;
+    background: rgba(165, 0, 100, 0.05);
+    box-shadow: 0 0 0 3px rgba(165, 0, 100, 0.1);
+}
+
+.gateway-option[data-gateway="MOMO"]:hover .gateway-content {
+    border-color: #A50064;
+}
+
+/* VNPay brand styles */
+.gateway-option[data-gateway="VNPAY"].active .gateway-content {
+    border-color: #0060AF;
+    background: rgba(0, 96, 175, 0.05);
+    box-shadow: 0 0 0 3px rgba(0, 96, 175, 0.1);
+}
+
+.gateway-option[data-gateway="VNPAY"]:hover .gateway-content {
+    border-color: #0060AF;
+}
+
+.gateway-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.gateway-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.gateway-name {
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+}
+
+.gateway-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+/* =====================================================
+   Loyalty Points Section
+   ===================================================== */
+
+.loyalty-section {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.05), rgba(245, 158, 11, 0.08));
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-4) !important;
+}
+
+.loyalty-section h4 {
+    color: #d97706;
+}
+
+.loyalty-section h4 .material-symbols-outlined {
+    color: #f59e0b;
+    font-variation-settings: 'FILL' 1;
+}
+
+.loyalty-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+}
+
+.loyalty-balance {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+}
+
+.loyalty-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+}
+
+.loyalty-icon .material-symbols-outlined {
+    font-size: 20px;
+    font-variation-settings: 'FILL' 1;
+}
+
+.loyalty-text {
+    font-size: var(--font-size-sm);
+}
+
+.loyalty-text strong {
+    font-size: var(--font-size-lg);
+    color: #d97706;
+}
+
+.loyalty-text small {
+    display: block;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+}
+
+/* Loyalty Toggle Switch */
+.loyalty-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    cursor: pointer;
+    user-select: none;
+    font-size: var(--font-size-sm);
+}
+
+.loyalty-toggle input {
+    display: none;
+}
+
+.toggle-slider {
+    width: 44px;
+    height: 24px;
+    background: var(--color-border-light);
+    border-radius: 12px;
+    position: relative;
+    transition: background-color 0.3s ease;
+    flex-shrink: 0;
+}
+
+.toggle-slider::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.3s ease;
+    box-shadow: var(--shadow-sm);
+}
+
+.loyalty-toggle input:checked + .toggle-slider {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.loyalty-toggle input:checked + .toggle-slider::after {
+    transform: translateX(20px);
+}
+
+/* Loyalty Input Row */
+.loyalty-input-row {
+    display: flex;
+    gap: var(--spacing-2);
+    align-items: center;
+    animation: slideDown 0.25s ease;
+}
+
+.loyalty-input-row input {
+    flex: 1;
+    padding: var(--spacing-2) var(--spacing-3);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.loyalty-input-row input:focus {
+    border-color: #f59e0b;
+}
+
+/* Loyalty Earn Preview */
+.loyalty-earn-preview {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-3);
+    background: rgba(34, 197, 94, 0.08);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-xs);
+    color: var(--color-success);
+}
+
+.loyalty-earn-preview .material-symbols-outlined {
+    font-size: 16px;
+}
+
+.loyalty-earn-preview strong {
+    color: var(--color-primary);
+}
+
+/* Loyalty discount row in order summary */
+.loyalty-discount-row span:last-child {
+    color: #d97706;
+    font-weight: 600;
+}
+
+/* =====================================================
+   Header Loyalty Points Display
+   ===================================================== */
+
+.loyalty-display {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    padding: var(--spacing-2) var(--spacing-3);
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.15));
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: #d97706;
+    cursor: default;
+}
+
+.loyalty-display .material-symbols-outlined {
+    font-size: 18px;
+    font-variation-settings: 'FILL' 1;
+    color: #f59e0b;
+}
+
+/* =====================================================
+   Payment Result Modal
+   ===================================================== */
+
+.payment-result-modal-content {
+    max-width: 420px;
+    text-align: center;
+}
+
+.payment-result {
+    padding: var(--spacing-6);
+}
+
+.payment-result__icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto var(--spacing-4);
+}
+
+.payment-result__icon .material-symbols-outlined {
+    font-size: 40px;
+}
+
+.payment-result__icon.success-icon {
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(22, 163, 74, 0.2));
+    animation: successPulse 0.6s ease;
+}
+
+.payment-result__icon.success-icon .material-symbols-outlined {
+    color: var(--color-success);
+    font-variation-settings: 'FILL' 1;
+}
+
+.payment-result__icon.failed-icon {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.payment-result__icon.failed-icon .material-symbols-outlined {
+    color: #ef4444;
+    font-variation-settings: 'FILL' 1;
+}
+
+@keyframes successPulse {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.payment-result h3 {
+    font-size: var(--font-size-xl);
+    margin-bottom: var(--spacing-2);
+}
+
+.payment-result p {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-2);
+}
+
+.payment-result .earned-points {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.15));
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-full);
+    color: #d97706;
+    font-size: var(--font-size-xs);
+    margin: var(--spacing-3) 0;
+}
+
+.payment-result .earned-points .material-symbols-outlined {
+    font-size: 16px;
+    font-variation-settings: 'FILL' 1;
+}
+
+.payment-result .btn {
+    margin-top: var(--spacing-4);
+    min-width: 120px;
+}
+
+.payment-result.processing .payment-result__icon {
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.payment-result.processing .material-symbols-outlined {
+    color: #3b82f6;
+}
+
+.text-success {
+    color: var(--color-success);
+}
+
+.text-muted {
+    color: var(--color-text-muted);
+}
+
+@keyframes rotating {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.rotating {
+    animation: rotating 1s linear infinite;
+}

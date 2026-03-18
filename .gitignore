@@ -38,3 +38,8 @@ backend/python/*.jpg
 backend/python/*.png
 !backend/python/image/*.jpg
 test_output*
+
+# Ignore sensitive API keys and classes
+*.class
+backend/src/main/java/com/agriplanner/service/MomoService.java
+backend/src/main/java/com/agriplanner/service/VnpayService.java

@@ -4,7 +4,7 @@ module.exports = {
         index: "index.html"
     },
     port: 8000,
-    open: "/pages/login.html",
+    open: "/index.html",
     notify: false,
     // Chỉ watch các file cần thiết
     files: [

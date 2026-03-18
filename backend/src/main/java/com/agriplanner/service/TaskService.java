@@ -346,6 +346,9 @@ public class TaskService {
                 BigDecimal machineCost = toBigDecimal(data.get("machineCost"));
                 Map<String, Object> harvestResult = fieldService.startHarvest(fieldId, machineryId, machineCost);
                 result.putAll(harvestResult);
+
+                // NEW: Route harvest product to inventory instead of direct revenue
+                executeCultivationHarvestToInventory(fieldId, data, null, result);
             }
             default -> { /* no-op for non-workflow types */ }
         }
@@ -388,13 +391,9 @@ public class TaskService {
                     executeByproductCollectionOnApproval(penId, data, task);
                     result.put("action", "BYPRODUCT_COLLECTION");
                 } else {
-                    int quantity = toInt(data.get("quantity"));
-                    BigDecimal pricePerUnit = toBigDecimal(data.get("pricePerUnit"));
-                    String buyer = (String) data.getOrDefault("buyer", "");
-                    String harvestNotes = (String) data.getOrDefault("notes", "");
-                    String animalName = (String) data.getOrDefault("animalName", "Vật nuôi");
-                    executeLivestockHarvestOnApproval(penId, quantity, pricePerUnit, buyer, harvestNotes, animalName);
-                    result.put("action", "HARVEST");
+                    // NEW: Route to inventory instead of direct revenue
+                    executeLivestockHarvestToInventory(penId, data, task, result);
+                    result.put("action", "HARVEST_TO_INVENTORY");
                 }
             }
             default -> { /* no-op */ }
@@ -475,39 +474,184 @@ public class TaskService {
         }
     }
 
-    private void executeLivestockHarvestOnApproval(Long penId, int quantity, BigDecimal pricePerUnit, String buyer, String notes, String animalName) {
+    /**
+     * NEW FLOW: Harvest livestock → add to inventory (not direct revenue)
+     * Revenue is only added when owner sells from inventory page.
+     */
+    private void executeLivestockHarvestToInventory(Long penId, Map<String, Object> data, Task task, Map<String, Object> result) {
         Pen pen = penRepository.findById(penId)
                 .orElseThrow(() -> new RuntimeException("Pen not found"));
-
-        if (quantity <= 0 || (pen.getAnimalCount() != null && quantity > pen.getAnimalCount())) {
-            throw new IllegalArgumentException("Số lượng không hợp lệ");
-        }
-
-        BigDecimal totalRevenue = pricePerUnit.multiply(BigDecimal.valueOf(quantity));
 
         Farm farm = farmRepository.findById(pen.getFarmId())
                 .orElseThrow(() -> new RuntimeException("Farm not found"));
         User user = userRepository.findById(farm.getOwnerId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // Add revenue
-        BigDecimal currentBalance = user.getBalance() != null ? user.getBalance() : BigDecimal.ZERO;
-        user.setBalance(currentBalance.add(totalRevenue));
-        userRepository.save(user);
+        String harvestCategory = task.getHarvestCategory() != null ? task.getHarvestCategory() : "ANIMAL_COUNT";
+        String productName = task.getHarvestProductName() != null ? task.getHarvestProductName() : "Vật nuôi";
+        String productUnit = task.getHarvestProductUnit() != null ? task.getHarvestProductUnit() : "con";
+        BigDecimal refPrice = task.getHarvestRefPrice() != null ? task.getHarvestRefPrice() : BigDecimal.ZERO;
 
-        // Update pen
-        int newCount = (pen.getAnimalCount() != null ? pen.getAnimalCount() : 0) - quantity;
-        pen.setAnimalCount(Math.max(0, newCount));
-        if (newCount <= 0) {
-            pen.setStatus("EMPTY");
-            pen.setAnimalCount(0);
+        BigDecimal harvestQuantity;
+        String inventoryCategory;
+
+        switch (harvestCategory) {
+            case "ANIMAL_COUNT" -> {
+                // Deduct animal count from pen
+                int quantity = toInt(data.get("quantity"));
+                if (quantity <= 0 || (pen.getAnimalCount() != null && quantity > pen.getAnimalCount())) {
+                    throw new IllegalArgumentException("Số lượng không hợp lệ");
+                }
+                int newCount = (pen.getAnimalCount() != null ? pen.getAnimalCount() : 0) - quantity;
+                pen.setAnimalCount(Math.max(0, newCount));
+                if (newCount <= 0) {
+                    pen.setStatus("EMPTY");
+                    pen.setAnimalCount(0);
+                }
+                penRepository.save(pen);
+                harvestQuantity = BigDecimal.valueOf(quantity);
+                inventoryCategory = "THU_HOACH_CHAN_NUOI";
+                result.put("deductedCount", quantity);
+                result.put("remainingCount", pen.getAnimalCount());
+            }
+            case "ANIMAL_WEIGHT" -> {
+                // Pond harvest by percentage → calculate tons
+                BigDecimal harvestPercent = toBigDecimal(data.get("harvestPercent"));
+                BigDecimal actualTons = toBigDecimal(data.get("actualTons"));
+                // Use actual tons reported by worker, fallback to estimated
+                if (actualTons == null || actualTons.compareTo(BigDecimal.ZERO) <= 0) {
+                    actualTons = toBigDecimal(data.get("estimatedTons"));
+                }
+                // Deduct percentage of animal count from pond
+                if (pen.getAnimalCount() != null && harvestPercent != null) {
+                    int deductCount = (int) Math.round(pen.getAnimalCount() * harvestPercent.doubleValue() / 100.0);
+                    int newCount = Math.max(0, pen.getAnimalCount() - deductCount);
+                    pen.setAnimalCount(newCount);
+                    if (newCount <= 0) {
+                        pen.setStatus("EMPTY");
+                        pen.setAnimalCount(0);
+                    }
+                    penRepository.save(pen);
+                    result.put("deductedCount", deductCount);
+                    result.put("remainingCount", newCount);
+                }
+                harvestQuantity = actualTons != null ? actualTons : BigDecimal.ZERO;
+                productUnit = "tấn";
+                inventoryCategory = "THU_HOACH_CHAN_NUOI";
+            }
+            case "BYPRODUCT" -> {
+                // Harvest byproduct only — do NOT deduct animal count
+                BigDecimal bpQuantity = toBigDecimal(data.get("byproductQuantity"));
+                if (bpQuantity == null || bpQuantity.compareTo(BigDecimal.ZERO) <= 0) {
+                    bpQuantity = toBigDecimal(data.get("collectedQuantity"));
+                }
+                harvestQuantity = bpQuantity != null ? bpQuantity : BigDecimal.ZERO;
+                inventoryCategory = "THU_HOACH_CHAN_NUOI";
+                // Also log to ByproductLog
+                String bpType = (String) data.getOrDefault("byproductType", "NONE");
+                String bpUnit = (String) data.getOrDefault("byproductUnit", productUnit);
+                ByproductLog bpLog = ByproductLog.builder()
+                        .penId(penId)
+                        .productType(bpType)
+                        .quantity(harvestQuantity)
+                        .unit(bpUnit)
+                        .recordedDate(LocalDate.now())
+                        .notes("Thu hoạch bởi nhân công")
+                        .build();
+                byproductLogRepository.save(bpLog);
+            }
+            default -> {
+                harvestQuantity = toBigDecimal(data.get("quantity"));
+                inventoryCategory = "THU_HOACH_CHAN_NUOI";
+            }
         }
-        penRepository.save(pen);
 
-        // Log transaction
-        String description = "Bán " + animalName + " (" + quantity + " con"
-                + (buyer != null && !buyer.isEmpty() ? " - " + buyer : "") + ")";
-        assetService.addIncome(user.getId(), totalRevenue, "LIVESTOCK", description, penId);
+        // Add harvested product to user inventory
+        if (harvestQuantity != null && harvestQuantity.compareTo(BigDecimal.ZERO) > 0) {
+            addHarvestToInventory(user.getId(), productName, inventoryCategory, productUnit, harvestQuantity, refPrice, penId, null);
+            result.put("harvestQuantity", harvestQuantity);
+            result.put("productName", productName);
+            result.put("addedToInventory", true);
+        }
+    }
+
+    /**
+     * NEW FLOW: Harvest cultivation → add crop product to inventory
+     */
+    private void executeCultivationHarvestToInventory(Long fieldId, Map<String, Object> data, Task task, Map<String, Object> result) {
+        Field field = fieldService.getFieldById(fieldId).orElse(null);
+        if (field == null) return;
+
+        Farm farm = farmRepository.findById(field.getFarmId()).orElse(null);
+        if (farm == null) return;
+        User user = userRepository.findById(farm.getOwnerId()).orElse(null);
+        if (user == null) return;
+
+        String productName = (task != null && task.getHarvestProductName() != null)
+                ? task.getHarvestProductName()
+                : (field.getCurrentCrop() != null ? field.getCurrentCrop().getName() : "Cây trồng");
+        String productUnit = (task != null && task.getHarvestProductUnit() != null) ? task.getHarvestProductUnit() : "kg";
+        BigDecimal refPrice = (task != null && task.getHarvestRefPrice() != null) ? task.getHarvestRefPrice() : BigDecimal.ZERO;
+
+        // Use yield from harvest result if available, or estimate from field area
+        BigDecimal yieldKg = toBigDecimal(result.get("yieldKg"));
+        if (yieldKg == null || yieldKg.compareTo(BigDecimal.ZERO) <= 0) {
+            // Estimate: 5000 kg/ha (default)
+            BigDecimal areaHa = field.getAreaSqm() != null
+                    ? field.getAreaSqm().divide(BigDecimal.valueOf(10000), 4, java.math.RoundingMode.HALF_UP)
+                    : BigDecimal.ONE;
+            yieldKg = areaHa.multiply(BigDecimal.valueOf(5000));
+        }
+
+        // Add to inventory
+        addHarvestToInventory(user.getId(), productName, "THU_HOACH_TRONG_TROT", productUnit, yieldKg, refPrice, null, fieldId);
+        result.put("addedToInventory", true);
+        result.put("inventoryQuantity", yieldKg);
+    }
+
+    /**
+     * Helper: Add harvested product to UserInventory and log InventoryTransaction
+     */
+    private void addHarvestToInventory(Long userId, String productName, String category,
+                                        String unit, BigDecimal quantity, BigDecimal refPrice,
+                                        Long penId, Long fieldId) {
+        // Find existing inventory item for same product
+        List<UserInventory> existing = userInventoryRepository.findByUserId(userId);
+        UserInventory targetInv = null;
+        for (UserInventory inv : existing) {
+            if (productName.equals(inv.getItemName()) && category.equals(inv.getItemCategory())) {
+                targetInv = inv;
+                break;
+            }
+        }
+
+        if (targetInv != null) {
+            targetInv.addQuantity(quantity);
+            userInventoryRepository.save(targetInv);
+        } else {
+            targetInv = new UserInventory();
+            targetInv.setUserId(userId);
+            targetInv.setItemName(productName);
+            targetInv.setItemCategory(category);
+            targetInv.setItemUnit(unit);
+            targetInv.setQuantity(quantity);
+            targetInv.setPurchasePrice(refPrice);
+            targetInv.setNotes("Sản phẩm thu hoạch");
+            targetInv = userInventoryRepository.save(targetInv);
+        }
+
+        // Log inventory transaction
+        InventoryTransaction tx = new InventoryTransaction();
+        tx.setUserId(userId);
+        tx.setInventoryId(targetInv.getId());
+        tx.setTransactionType("HARVEST_IN");
+        tx.setQuantity(quantity);
+        tx.setUnitPrice(refPrice);
+        tx.setTotalAmount(quantity.multiply(refPrice != null ? refPrice : BigDecimal.ZERO));
+        tx.setReferenceType(penId != null ? "PEN" : "FIELD");
+        tx.setReferenceId(penId != null ? penId : fieldId);
+        tx.setNotes("Nhập kho thu hoạch: " + productName + " (" + quantity + " " + unit + ")");
+        inventoryTransactionRepository.save(tx);
     }
 
     private void executeByproductCollectionOnApproval(Long penId, Map<String, Object> data, Task task) {

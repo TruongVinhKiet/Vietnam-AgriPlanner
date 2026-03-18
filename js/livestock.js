@@ -63,7 +63,7 @@ function renderLivestockWorkerSelect(selectId) {
         </div>`;
 }
 
-async function createLivestockWorkflowTask({ taskType, penId, workerId, name, description, workflowData }) {
+async function createLivestockWorkflowTask({ taskType, penId, workerId, name, description, workflowData, harvestCategory, harvestProductName, harvestProductUnit, harvestRefPrice }) {
     const ownerId = await getLivestockUserId();
     if (!ownerId) throw new Error('Không xác định được chủ trang trại');
     if (!currentFarmId) await loadCurrentFarm();
@@ -79,7 +79,11 @@ async function createLivestockWorkflowTask({ taskType, penId, workerId, name, de
         taskType: taskType,
         salary: 0,
         dueDate: null,
-        workflowData: JSON.stringify(workflowData)
+        workflowData: JSON.stringify(workflowData),
+        harvestCategory: harvestCategory || null,
+        harvestProductName: harvestProductName || null,
+        harvestProductUnit: harvestProductUnit || null,
+        harvestRefPrice: harvestRefPrice || null
     };
 
     const token = localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -1615,7 +1619,7 @@ function renderHealthRecords(records) {
 async function toggleHealthStatus(record) {
     if (record.status === 'COMPLETED') return; // Already done
 
-    if (confirm(`Xác nhận đã hoàn thành: ${record.name}?`)) {
+    agriConfirm('Xác nhận hoàn thành', `Xác nhận đã hoàn thành: ${record.name}?`, async () => {
         try {
             const token = localStorage.getItem('token') || localStorage.getItem('authToken');
             const response = await fetch(`${API_BASE_URL}/livestock/health/${record.id}/status`, {
@@ -1628,13 +1632,12 @@ async function toggleHealthStatus(record) {
             });
 
             if (response.ok) {
-                // Reload
                 loadHealthRecords(record.penId);
             }
         } catch (e) {
             console.error(e);
         }
-    }
+    }, { confirmText: 'Hoàn thành', type: 'success' });
 }
 
 // Existing renderAnimalGrid function below...
@@ -3235,20 +3238,21 @@ async function openHarvestModal() {
     }
 
     const harvestType = selectedPen.animalDefinition?.harvestType || 'WEIGHT_ONLY';
+    const farmingType = (selectedPen.animalDefinition?.farmingType || '').toUpperCase();
+    const isPond = farmingType === 'POND' || farmingType === 'FRESHWATER' || farmingType === 'BRACKISH' || farmingType === 'SALTWATER';
 
-    // BYPRODUCT_ONLY animals (bees, silkworms): go straight to sell byproduct modal
+    // BYPRODUCT_ONLY animals (bees, silkworms): create harvest task for byproduct
     if (harvestType === 'BYPRODUCT_ONLY') {
-        openSellByproductModal();
-        return;
+        // Instead of selling directly, we now create a harvest task
+        currentHarvestMode = 'byproduct';
     }
 
-    if (!selectedPen.animalCount || selectedPen.animalCount <= 0) {
-        showNotification('Chuồng không có vật nuôi để bán', 'warning');
+    if (harvestType !== 'BYPRODUCT_ONLY' && (!selectedPen.animalCount || selectedPen.animalCount <= 0)) {
+        showNotification('Chuồng không có vật nuôi để thu hoạch', 'warning');
         return;
     }
 
     harvestPenData = selectedPen;
-    currentHarvestMode = 'animal';
 
     const animalDef = selectedPen.animalDefinition || {};
     const animalName = animalDef.name || 'Không xác định';
@@ -3257,8 +3261,8 @@ async function openHarvestModal() {
     const refPrice = animalDef.sellPricePerUnit || 0;
 
     // Update modal icon/title
-    document.getElementById('harvest-modal-icon').textContent = harvestType === 'BOTH' ? 'payments' : 'agriculture';
-    document.getElementById('harvest-modal-title').textContent = 'Thu hoạch / Bán vật nuôi';
+    document.getElementById('harvest-modal-icon').textContent = isPond ? 'water' : (harvestType === 'BOTH' ? 'payments' : 'agriculture');
+    document.getElementById('harvest-modal-title').textContent = isPond ? 'Thu hoạch ao' : 'Thu hoạch vật nuôi';
 
     // Populate info cards
     document.getElementById('harvest-animal-name').textContent = animalName;
@@ -3269,14 +3273,14 @@ async function openHarvestModal() {
     // Show/hide toggle & configure for BOTH
     const toggleContainer = document.getElementById('harvest-type-toggle');
     if (toggleContainer) {
-        if (harvestType === 'BOTH') {
+        if (harvestType === 'BOTH' && !isPond) {
             const iconMap = { 'EGGS': 'egg', 'MILK': 'water_drop', 'HONEY': 'hive', 'SILK': 'stroke_full' };
-            const labelMap = { 'EGGS': 'Bán trứng', 'MILK': 'Bán sữa', 'HONEY': 'Bán mật ong', 'SILK': 'Bán tơ tằm' };
+            const labelMap = { 'EGGS': 'Thu trứng', 'MILK': 'Thu sữa', 'HONEY': 'Thu mật ong', 'SILK': 'Thu tơ tằm' };
             const bt = animalDef.byproductType || 'EGGS';
             const bpIcon = document.getElementById('harvest-toggle-bp-icon');
             const bpLabel = document.getElementById('harvest-toggle-bp-label');
             if (bpIcon) bpIcon.textContent = iconMap[bt] || 'eco';
-            if (bpLabel) bpLabel.textContent = labelMap[bt] || 'Bán sản phẩm phụ';
+            if (bpLabel) bpLabel.textContent = labelMap[bt] || 'Thu sản phẩm phụ';
             toggleContainer.style.display = 'flex';
             // Initialise byproduct icon in info section
             const bpIconDisplay = document.getElementById('harvest-bp-icon-display');
@@ -3304,8 +3308,23 @@ async function openHarvestModal() {
     if (document.getElementById('harvest-bp-notes')) document.getElementById('harvest-bp-notes').value = '';
     document.getElementById('harvest-bp-total-produced').textContent = '--';
 
-    // Switch to animal tab first
-    switchHarvestTab('animal');
+    // Reset pond fields
+    if (document.getElementById('harvest-pond-percent')) document.getElementById('harvest-pond-percent').value = '100';
+    if (document.getElementById('harvest-pond-tons')) document.getElementById('harvest-pond-tons').value = '';
+    if (document.getElementById('harvest-pond-price')) document.getElementById('harvest-pond-price').value = refPrice;
+    if (document.getElementById('harvest-pond-notes')) document.getElementById('harvest-pond-notes').value = '';
+
+    // Determine initial tab
+    if (isPond) {
+        currentHarvestMode = 'pond';
+        switchHarvestTab('pond');
+    } else if (harvestType === 'BYPRODUCT_ONLY') {
+        currentHarvestMode = 'byproduct';
+        switchHarvestTab('byproduct');
+    } else {
+        currentHarvestMode = 'animal';
+        switchHarvestTab('animal');
+    }
 
     // Load workers
     await loadLivestockWorkers();
@@ -3320,6 +3339,10 @@ async function openHarvestModal() {
     if (document.getElementById('harvest-bp-quantity')) {
         document.getElementById('harvest-bp-quantity').addEventListener('input', updateHarvestByproductPreview);
         document.getElementById('harvest-bp-price').addEventListener('input', updateHarvestByproductPreview);
+    }
+    if (document.getElementById('harvest-pond-percent')) {
+        document.getElementById('harvest-pond-percent').addEventListener('input', updateHarvestPondPreview);
+        document.getElementById('harvest-pond-tons').addEventListener('input', updateHarvestPondPreview);
     }
 }
 
@@ -3339,20 +3362,31 @@ function switchHarvestTab(type) {
     const btnByproduct = document.getElementById('harvest-toggle-byproduct');
     const animalSection = document.getElementById('harvest-animal-section');
     const bpSection = document.getElementById('harvest-bp-section');
+    const pondSection = document.getElementById('harvest-pond-section');
     const submitLabel = document.getElementById('harvest-submit-label');
     const submitBtn = document.getElementById('harvest-submit-btn');
 
     currentHarvestMode = type;
 
-    if (type === 'byproduct') {
-        if (btnAnimal) btnAnimal.classList.remove('active');
+    // Hide all sections first
+    if (animalSection) animalSection.style.display = 'none';
+    if (bpSection) bpSection.style.display = 'none';
+    if (pondSection) pondSection.style.display = 'none';
+    if (btnAnimal) btnAnimal.classList.remove('active');
+    if (btnByproduct) btnByproduct.classList.remove('active');
+
+    if (type === 'pond') {
+        if (pondSection) pondSection.style.display = 'block';
+        if (submitLabel) submitLabel.textContent = 'Giao việc thu hoạch ao';
+        if (submitBtn) submitBtn.disabled = false;
+        updateHarvestPondPreview();
+    } else if (type === 'byproduct') {
         if (btnByproduct) btnByproduct.classList.add('active');
-        if (animalSection) animalSection.style.display = 'none';
         if (bpSection) bpSection.style.display = 'block';
         if (submitLabel) {
             const bpNameMap = { 'EGGS': 'trứng', 'MILK': 'sữa', 'HONEY': 'mật ong', 'SILK': 'tơ tằm' };
             const bt = harvestPenData?.animalDefinition?.byproductType || 'EGGS';
-            submitLabel.textContent = `Bán ${bpNameMap[bt] || 'sản phẩm'}`;
+            submitLabel.textContent = `Giao việc thu ${bpNameMap[bt] || 'sản phẩm'}`;
         }
         if (submitBtn) submitBtn.disabled = true;
         // Load total byproduct produced for this pen
@@ -3360,9 +3394,7 @@ function switchHarvestTab(type) {
         updateHarvestByproductPreview();
     } else {
         if (btnAnimal) btnAnimal.classList.add('active');
-        if (btnByproduct) btnByproduct.classList.remove('active');
         if (animalSection) animalSection.style.display = 'block';
-        if (bpSection) bpSection.style.display = 'none';
         if (submitLabel) submitLabel.textContent = 'Giao việc thu hoạch';
         updateHarvestPreview();
     }
@@ -3370,6 +3402,16 @@ function switchHarvestTab(type) {
 
 // Keep old name as alias for any existing HTML references
 function switchHarvestType(type) { switchHarvestTab(type); }
+
+// Pond preview helper
+function updateHarvestPondPreview() {
+    const percent = parseFloat(document.getElementById('harvest-pond-percent')?.value) || 0;
+    const tons = parseFloat(document.getElementById('harvest-pond-tons')?.value) || 0;
+    const previewEl = document.getElementById('preview-pond-quantity');
+    if (previewEl) previewEl.textContent = `${tons} tấn (${percent}% ao)`;
+    const submitBtn = document.getElementById('harvest-submit-btn');
+    if (submitBtn) submitBtn.disabled = !(percent > 0 && tons > 0);
+}
 
 async function loadByproductTotalForHarvest(penId) {
     try {
@@ -3433,54 +3475,117 @@ function updateHarvestByproductPreview() {
 async function submitHarvest() {
     if (!harvestPenData) return;
 
-    // Byproduct tab: sell byproduct directly
-    if (currentHarvestMode === 'byproduct') {
-        await _submitHarvestByproduct();
-        return;
-    }
-
-    // Animal tab: create harvest task
-    const quantity = parseInt(document.getElementById('harvest-quantity').value);
-    const price = parseFloat(document.getElementById('harvest-price').value);
-    const notes = document.getElementById('harvest-notes').value;
-
-    if (!quantity || quantity <= 0) {
-        showNotification('Vui lòng nhập số lượng hợp lệ', 'error');
-        return;
-    }
-    if (quantity > harvestPenData.animalCount) {
-        showNotification('Số lượng vượt quá số con hiện có', 'error');
-        return;
-    }
-    if (!price || price <= 0) {
-        showNotification('Vui lòng nhập giá bán hợp lệ', 'error');
-        return;
-    }
     const workerId = document.getElementById('harvest-worker')?.value;
     if (!workerId) {
         showNotification('Vui lòng chọn nhân công thực hiện', 'error');
         return;
     }
 
+    const animalDef = harvestPenData.animalDefinition || {};
+    const animalName = animalDef.name || 'Vật nuôi';
+    const unit = animalDef.unit || 'con';
+    const penName = harvestPenData.code || `Chuồng #${harvestPenData.id}`;
+    const refPrice = animalDef.sellPricePerUnit || 0;
+
     const submitBtn = document.getElementById('harvest-submit-btn');
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<span class="material-symbols-outlined icon-sm rotating">sync</span> Đang xử lý...';
 
     try {
-        const animalName = harvestPenData.animalDefinition?.name || 'Vật nuôi';
-        const unit = harvestPenData.animalDefinition?.unit || 'con';
-        const penName = harvestPenData.code || `Chuồng #${harvestPenData.id}`;
+        if (currentHarvestMode === 'pond') {
+            // POND mode: harvest by percentage
+            const percent = parseFloat(document.getElementById('harvest-pond-percent').value);
+            const tons = parseFloat(document.getElementById('harvest-pond-tons').value);
+            const pondPrice = parseFloat(document.getElementById('harvest-pond-price')?.value) || refPrice;
+            const notes = document.getElementById('harvest-pond-notes').value;
 
-        await createLivestockWorkflowTask({
-            taskType: 'HARVEST',
-            penId: harvestPenData.id,
-            workerId: workerId,
-            name: `Thu hoạch ${animalName} - ${penName}`,
-            description: `Bán ${quantity} ${unit} ${animalName} tại ${penName}. Giá: ${formatCurrency(price)}/${unit}. Tổng: ${formatCurrency(quantity * price)}.${notes ? ' Ghi chú: ' + notes : ''}`,
-            workflowData: { quantity, pricePerUnit: price, notes, animalName }
-        });
+            if (!percent || percent <= 0 || !tons || tons <= 0) {
+                showNotification('Vui lòng nhập % ao và số tấn hợp lệ', 'error');
+                return;
+            }
 
-        showNotification(`Đã giao việc thu hoạch ${animalName}`, 'success');
+            await createLivestockWorkflowTask({
+                taskType: 'HARVEST',
+                penId: harvestPenData.id,
+                workerId: workerId,
+                name: `Thu hoạch ${animalName} - ${penName} (${percent}% ao)`,
+                description: `Thu hoạch ${percent}% ao ${penName}. Ước tính: ${tons} tấn ${animalName}. Giá tham khảo: ${formatCurrency(pondPrice)}/tấn.${notes ? ' Ghi chú: ' + notes : ''}`,
+                workflowData: { harvestPercent: percent, estimatedTons: tons, notes, animalName },
+                harvestCategory: 'ANIMAL_WEIGHT',
+                harvestProductName: animalName,
+                harvestProductUnit: 'tấn',
+                harvestRefPrice: pondPrice
+            });
+
+            showNotification(`Đã giao việc thu hoạch ${percent}% ao ${animalName}`, 'success');
+
+        } else if (currentHarvestMode === 'byproduct') {
+            // BYPRODUCT mode: create task for byproduct collection (instead of direct sell)
+            const quantity = parseFloat(document.getElementById('harvest-bp-quantity').value);
+            const price = parseFloat(document.getElementById('harvest-bp-price').value);
+            const notes = document.getElementById('harvest-bp-notes').value;
+            const bpName = animalDef.byproductName || 'Sản phẩm phụ';
+            const bpUnit = animalDef.byproductUnit || 'đơn vị';
+            const bpType = animalDef.byproductType || 'NONE';
+
+            if (!quantity || quantity <= 0) {
+                showNotification('Vui lòng nhập số lượng hợp lệ', 'error');
+                return;
+            }
+
+            await createLivestockWorkflowTask({
+                taskType: 'HARVEST',
+                penId: harvestPenData.id,
+                workerId: workerId,
+                name: `Thu ${bpName} - ${penName}`,
+                description: `Thu hoạch ${quantity} ${bpUnit} ${bpName} tại ${penName}.${notes ? ' Ghi chú: ' + notes : ''}`,
+                workflowData: {
+                    subType: 'BYPRODUCT_COLLECTION',
+                    byproductType: bpType,
+                    byproductUnit: bpUnit,
+                    estimatedQuantity: quantity,
+                    byproductQuantity: quantity,
+                    notes, animalName
+                },
+                harvestCategory: 'BYPRODUCT',
+                harvestProductName: bpName,
+                harvestProductUnit: bpUnit,
+                harvestRefPrice: price || 0
+            });
+
+            showNotification(`Đã giao việc thu ${bpName}`, 'success');
+
+        } else {
+            // ANIMAL_COUNT mode: harvest by count
+            const quantity = parseInt(document.getElementById('harvest-quantity').value);
+            const price = parseFloat(document.getElementById('harvest-price').value);
+            const notes = document.getElementById('harvest-notes').value;
+
+            if (!quantity || quantity <= 0) {
+                showNotification('Vui lòng nhập số lượng hợp lệ', 'error');
+                return;
+            }
+            if (quantity > harvestPenData.animalCount) {
+                showNotification('Số lượng vượt quá số con hiện có', 'error');
+                return;
+            }
+
+            await createLivestockWorkflowTask({
+                taskType: 'HARVEST',
+                penId: harvestPenData.id,
+                workerId: workerId,
+                name: `Thu hoạch ${animalName} - ${penName}`,
+                description: `Thu hoạch ${quantity} ${unit} ${animalName} tại ${penName}. Giá tham khảo: ${formatCurrency(price)}/${unit}.${notes ? ' Ghi chú: ' + notes : ''}`,
+                workflowData: { quantity, pricePerUnit: price, notes, animalName },
+                harvestCategory: 'ANIMAL_COUNT',
+                harvestProductName: animalName,
+                harvestProductUnit: unit,
+                harvestRefPrice: price
+            });
+
+            showNotification(`Đã giao việc thu hoạch ${animalName}`, 'success');
+        }
+
         closeHarvestModal();
     } catch (error) {
         console.error('Harvest error:', error);
@@ -3491,48 +3596,10 @@ async function submitHarvest() {
     }
 }
 
+// Legacy: _submitHarvestByproduct now redirected to main submitHarvest
 async function _submitHarvestByproduct() {
-    const quantity = parseFloat(document.getElementById('harvest-bp-quantity').value);
-    const price = parseFloat(document.getElementById('harvest-bp-price').value);
-    const notes = document.getElementById('harvest-bp-notes').value;
-    const animalDef = harvestPenData.animalDefinition;
-
-    if (!quantity || quantity <= 0 || !price || price <= 0) {
-        showNotification('Vui lòng nhập số lượng và giá hợp lệ', 'error');
-        return;
-    }
-
-    const submitBtn = document.getElementById('harvest-submit-btn');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="material-symbols-outlined icon-sm rotating">sync</span> Đang xử lý...';
-
-    try {
-        const token = localStorage.getItem('token') || localStorage.getItem('authToken');
-        const response = await fetch(`${API_BASE_URL}/livestock/pens/${harvestPenData.id}/sell-byproduct`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
-            body: JSON.stringify({
-                quantity, pricePerUnit: price, notes,
-                productName: animalDef?.byproductName || 'Sản phẩm phụ'
-            })
-        });
-
-        const result = await response.json();
-        if (response.ok) {
-            showNotification(`🎉 Bán ${animalDef?.byproductName || 'sản phẩm'} thành công! +${formatCurrency(quantity * price)}`, 'success');
-            closeHarvestModal();
-        } else {
-            showNotification(result.error || 'Lỗi khi bán sản phẩm', 'error');
-        }
-    } catch (error) {
-        console.error('Sell byproduct via harvest modal error:', error);
-        showNotification('Lỗi kết nối server', 'error');
-    } finally {
-        submitBtn.disabled = false;
-        const bpNameMap = { 'EGGS': 'trứng', 'MILK': 'sữa', 'HONEY': 'mật ong', 'SILK': 'tơ tằm' };
-        const bt = harvestPenData?.animalDefinition?.byproductType || 'EGGS';
-        submitBtn.innerHTML = `<span class="material-symbols-outlined icon-sm">check_circle</span><span id="harvest-submit-label">Bán ${bpNameMap[bt] || 'sản phẩm'}</span>`;
-    }
+    currentHarvestMode = 'byproduct';
+    await submitHarvest();
 }
 
 // Make harvest functions global
@@ -4213,8 +4280,7 @@ async function confirmVaccineComplete(healthRecordId, vaccineName) {
     const penId = vaccineModalPenId || selectedPen?.id;
     if (!penId) return;
 
-    const confirmed = confirm(`Xác nhận đã hoàn thành tiêm: ${vaccineName}?`);
-    if (!confirmed) return;
+    agriConfirm('Xác nhận tiêm phòng', `Xác nhận đã hoàn thành tiêm: ${vaccineName}?`, async () => {
 
     try {
         const token = localStorage.getItem('token') || localStorage.getItem('authToken');
@@ -4264,6 +4330,7 @@ async function confirmVaccineComplete(healthRecordId, vaccineName) {
         console.error('Error completing vaccine:', error);
         showNotification('Lỗi khi cập nhật tiêm phòng', 'error');
     }
+    }, { confirmText: 'Hoàn thành', type: 'success' });
 }
 
 function populateVaccineSelect() {

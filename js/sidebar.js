@@ -36,8 +36,9 @@ class Sidebar {
 
             // Check for exact match or if on dashboard
             if (linkPage === currentPage ||
-                (currentPage === 'index.html' && href.includes('dashboard')) ||
-                (currentPage === '' && href.includes('dashboard'))) {
+                (currentPage === 'index.html' && href.includes('dashboard.html')) ||
+                (currentPage === '' && href.includes('dashboard.html')) ||
+                (currentPage === 'dashboard.html' && href.includes('dashboard.html'))) {
                 link.classList.add('active');
             }
         });

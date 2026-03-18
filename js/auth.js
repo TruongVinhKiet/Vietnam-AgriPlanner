@@ -17,7 +17,7 @@ const AUTH_CONFIG = {
     LOGIN_PAGE: '/pages/login.html',
     ADMIN_PAGE: '/pages/admin.html',
     WORKER_PAGE: '/pages/worker_dashboard.html',
-    DASHBOARD_PAGE: '/index.html'
+    DASHBOARD_PAGE: '/dashboard.html'
 };
 
 /**
@@ -27,7 +27,7 @@ const AUTH_CONFIG = {
 function isAuthenticated() {
     const token = localStorage.getItem(AUTH_CONFIG.TOKEN_KEY);
     if (!token || token === '') return false;
-    
+
     // Check JWT expiration
     try {
         const payload = JSON.parse(atob(token.split('.')[1]));
@@ -266,7 +266,7 @@ const PAGE_ROLE_GUARDS = {
     'labor.html': ['OWNER'],
     'analytics.html': ['OWNER'],
     'worker_detail.html': ['OWNER'],
-    'index.html': ['OWNER']
+    'dashboard.html': ['OWNER']
     // settings.html, community.html, shop.html, cooperative.html, help.html, guide.html → all roles
 };
 
