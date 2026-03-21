@@ -278,6 +278,10 @@ public class TaskService {
             task.setStatus("APPROVED");
             task.setApprovedAt(LocalDateTime.now());
             taskRepository.save(task);
+
+            // Award EXP to worker
+            awardExperience(task);
+
             return Map.of("message", "Task approved", "taskId", taskId);
         }
 
@@ -309,6 +313,9 @@ public class TaskService {
             task.setStatus("APPROVED");
             task.setApprovedAt(LocalDateTime.now());
             taskRepository.save(task);
+
+            // Award EXP to worker
+            awardExperience(task);
 
             result.put("message", "Task approved and workflow executed");
             return result;
@@ -712,6 +719,48 @@ public class TaskService {
             return mapper.readValue(json, Map.class);
         } catch (Exception e) {
             throw new RuntimeException("Invalid workflow data JSON: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Award experience points to worker when a task is approved.
+     * +30 EXP for on-time completion, -50 EXP for overdue (clamped at 0).
+     */
+    private void awardExperience(Task task) {
+        if (task.getWorker() == null || task.getWorker().getId() == null) {
+            return; // No worker assigned, skip
+        }
+
+        User worker = userRepository.findById(task.getWorker().getId()).orElse(null);
+        if (worker == null) return;
+
+        int currentExp = worker.getExperiencePoints() != null ? worker.getExperiencePoints() : 0;
+        String oldRank = worker.getRankLevel() != null ? worker.getRankLevel() : "TRAINEE";
+
+        // Check if task was overdue (compare by date only to avoid time-of-day penalty)
+        boolean isOverdue = false;
+        if (task.getDueDate() != null && task.getCompletedAt() != null) {
+            isOverdue = task.getCompletedAt().toLocalDate().isAfter(task.getDueDate().toLocalDate());
+        }
+
+        if (isOverdue) {
+            // Penalty: -50 EXP, clamped to 0
+            currentExp = Math.max(0, currentExp - 50);
+        } else {
+            // Reward: +30 EXP
+            currentExp += 30;
+        }
+
+        worker.setExperiencePoints(currentExp);
+        worker.recalculateRank();
+        userRepository.save(worker);
+
+        // Log rank change
+        String newRank = worker.getRankLevel();
+        if (!oldRank.equals(newRank)) {
+            System.out.println("[GAMIFICATION] Worker #" + worker.getId()
+                    + " ranked up: " + oldRank + " -> " + newRank
+                    + " (EXP: " + currentExp + ")");
         }
     }
 

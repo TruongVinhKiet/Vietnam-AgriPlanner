@@ -43,6 +43,10 @@ public class GroupBuyCampaign {
     @Column(name = "retail_price", precision = 15, scale = 2)
     private BigDecimal retailPrice; // Original price
 
+    @Column(name = "start_date")
+    @Builder.Default
+    private ZonedDateTime startDate = ZonedDateTime.now();
+
     private ZonedDateTime deadline;
 
     @Enumerated(EnumType.STRING)

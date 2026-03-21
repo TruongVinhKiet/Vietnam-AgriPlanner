@@ -4,6 +4,8 @@ import com.agriplanner.dto.*;
 import com.agriplanner.model.User;
 import com.agriplanner.repository.UserRepository;
 import com.agriplanner.service.AdminTradingSessionService;
+import com.agriplanner.service.GroupBuyService;
+import com.agriplanner.service.GroupSellService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -20,6 +22,8 @@ import java.util.List;
 public class AdminTradingSessionController {
 
     private final AdminTradingSessionService adminTradingSessionService;
+    private final GroupSellService groupSellService;
+    private final GroupBuyService groupBuyService;
     private final UserRepository userRepository;
 
     // ========== GROUP BUY SESSIONS ==========
@@ -32,6 +36,11 @@ public class AdminTradingSessionController {
     @GetMapping("/buy-sessions/open")
     public ResponseEntity<List<AdminBuySessionResponse>> getOpenBuySessions() {
         return ResponseEntity.ok(adminTradingSessionService.getOpenBuySessions());
+    }
+
+    @GetMapping("/buy-sessions/{id}")
+    public ResponseEntity<AdminBuySessionDetailResponse> getBuySessionDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(adminTradingSessionService.getBuySessionDetail(id));
     }
 
     @PostMapping("/buy-sessions")
@@ -53,6 +62,11 @@ public class AdminTradingSessionController {
     @GetMapping("/sell-sessions/open")
     public ResponseEntity<List<AdminSellSessionResponse>> getOpenSellSessions() {
         return ResponseEntity.ok(adminTradingSessionService.getOpenSellSessions());
+    }
+
+    @GetMapping("/sell-sessions/{id}")
+    public ResponseEntity<AdminSellSessionDetailResponse> getSellSessionDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(adminTradingSessionService.getSellSessionDetail(id));
     }
 
     @PostMapping("/sell-sessions")
@@ -102,6 +116,42 @@ public class AdminTradingSessionController {
         return ResponseEntity.ok().body(java.util.Map.of(
                 "success", true,
                 "message", "Phiên gom bán đã bị đóng"));
+    }
+
+    // ========== COMPLETE SELL SESSION (Admin pays cooperatives) ==========
+
+    @PostMapping("/sell-sessions/{id}/complete")
+    public ResponseEntity<?> completeSellSession(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, Object> request) {
+        Long adminId = getUserId(userDetails);
+
+        Object priceObj = request.get("finalPrice");
+        if (priceObj == null) {
+            return ResponseEntity.badRequest().body(java.util.Map.of(
+                    "success", false,
+                    "message", "Thiếu thông tin giá mua cuối cùng (finalPrice)"));
+        }
+
+        java.math.BigDecimal finalPrice = new java.math.BigDecimal(priceObj.toString());
+        log.info("Admin {} completing sell session {} with price {}", adminId, id, finalPrice);
+
+        var result = groupSellService.adminCompleteSellSession(id, adminId, finalPrice);
+        return ResponseEntity.ok(result);
+    }
+
+    // ========== COMPLETE BUY SESSION (Admin chốt đơn HTX mua hàng) ==========
+
+    @PostMapping("/buy-sessions/{id}/complete")
+    public ResponseEntity<?> completeBuySession(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long id) {
+        Long adminId = getUserId(userDetails);
+        log.info("Admin {} completing buy session {}", adminId, id);
+
+        var result = groupBuyService.adminCompleteBuySession(id, adminId);
+        return ResponseEntity.ok(result);
     }
 
     // ========== HELPER ==========

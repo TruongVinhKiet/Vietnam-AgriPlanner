@@ -3,11 +3,17 @@ package com.agriplanner.controller;
 import com.agriplanner.dto.CooperativeDTO.*;
 import com.agriplanner.dto.AdminBuySessionResponse;
 import com.agriplanner.dto.AdminSellSessionResponse;
+import com.agriplanner.dto.AdminBuySessionDetailResponse;
+import com.agriplanner.dto.AdminSellSessionDetailResponse;
+import com.agriplanner.model.DistributionVote;
 import com.agriplanner.model.User;
 import com.agriplanner.repository.UserRepository;
 import com.agriplanner.service.AdminTradingSessionService;
 import com.agriplanner.service.CooperativeService;
+import com.agriplanner.service.CooperativeInventoryService;
+import com.agriplanner.service.DistributionService;
 import com.agriplanner.service.GroupBuyService;
+import com.agriplanner.service.GroupSellService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,6 +21,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/cooperatives")
@@ -23,7 +32,10 @@ public class CooperativeController {
 
     private final CooperativeService cooperativeService;
     private final GroupBuyService groupBuyService;
+    private final GroupSellService groupSellService;
     private final AdminTradingSessionService adminTradingSessionService;
+    private final DistributionService distributionService;
+    private final CooperativeInventoryService cooperativeInventoryService;
     private final UserRepository userRepository;
 
     // ==================== Cooperative Management ====================
@@ -135,6 +147,11 @@ public class CooperativeController {
     public ResponseEntity<List<AdminBuySessionResponse>> getOpenAdminBuySessions() {
         return ResponseEntity.ok(adminTradingSessionService.getOpenBuySessions());
     }
+
+    @GetMapping("/trading/buy-sessions/{id}")
+    public ResponseEntity<AdminBuySessionDetailResponse> getAdminBuySessionDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(adminTradingSessionService.getBuySessionDetail(id));
+    }
     
     /**
      * Get all admin-created sell sessions (regular users can view)
@@ -150,6 +167,207 @@ public class CooperativeController {
     @GetMapping("/trading/sell-sessions/open")
     public ResponseEntity<List<AdminSellSessionResponse>> getOpenAdminSellSessions() {
         return ResponseEntity.ok(adminTradingSessionService.getOpenSellSessions());
+    }
+
+    @GetMapping("/trading/sell-sessions/{id}")
+    public ResponseEntity<AdminSellSessionDetailResponse> getAdminSellSessionDetail(@PathVariable Long id) {
+        return ResponseEntity.ok(adminTradingSessionService.getSellSessionDetail(id));
+    }
+    // ==================== Group Buy (HTX mua hàng từ Admin) ====================
+
+    @PostMapping("/{id}/group-buys/admin-sessions/{sessionId}/contribute")
+    public ResponseEntity<?> contributeToAdminBuySession(
+            @PathVariable Long id,
+            @PathVariable Long sessionId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody Map<String, Object> request) {
+        Long userId = getUserId(userDetails);
+        int quantity = Integer.parseInt(request.get("quantity").toString());
+
+        var result = groupBuyService.contributeToAdminSession(sessionId, id, userId, quantity);
+        return ResponseEntity.ok(result);
+    }
+
+    // ==================== Group Sell (HTX bán hàng cho Admin) ====================
+
+
+    @PostMapping("/{id}/group-sells/admin-sessions/{sessionId}/contribute")
+    public ResponseEntity<?> contributeToAdminSellSession(
+            @PathVariable Long id,
+            @PathVariable Long sessionId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody Map<String, Object> request) {
+        Long userId = getUserId(userDetails);
+        Long inventoryId = Long.valueOf(request.get("inventoryId").toString());
+        int quantity = Integer.parseInt(request.get("quantity").toString());
+
+        var result = groupSellService.contributeToAdminSession(sessionId, id, userId, inventoryId, quantity);
+        return ResponseEntity.ok(result);
+    }
+
+    // ==================== Distribution Plans (Phân bổ vật tư) ====================
+
+    @PostMapping("/{id}/distribution-plans")
+    public ResponseEntity<?> createDistributionPlan(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody Map<String, Object> request) {
+        Long userId = getUserId(userDetails);
+        var member = cooperativeService.getMemberByUserId(id, userId);
+
+        String title = (String) request.get("title");
+        Long inventoryId = Long.valueOf(request.get("inventoryId").toString());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> rawAllocations = (Map<String, Object>) request.get("allocations");
+        Map<Long, BigDecimal> allocations = new HashMap<>();
+        rawAllocations.forEach((k, v) -> allocations.put(Long.valueOf(k), new BigDecimal(v.toString())));
+
+        var plan = distributionService.createPlan(id, member.getId(), inventoryId, title, allocations);
+        return ResponseEntity.ok(Map.of(
+                "id", plan.getId(),
+                "title", plan.getTitle(),
+                "status", plan.getStatus().name(),
+                "message", "Kế hoạch phân bổ đã tạo, chờ biểu quyết"));
+    }
+
+    @GetMapping("/{id}/distribution-plans")
+    public ResponseEntity<?> getDistributionPlans(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = getUserId(userDetails);
+        var member = cooperativeService.getMemberByUserId(id, userId);
+
+        var plans = distributionService.getPlans(id);
+        var result = plans.stream().map(p -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", p.getId());
+            map.put("title", p.getTitle());
+            map.put("totalQuantity", p.getTotalQuantity());
+            map.put("unit", p.getUnit());
+            map.put("status", p.getStatus().name());
+            map.put("approveCount", p.getApproveCount());
+            map.put("rejectCount", p.getRejectCount());
+            map.put("requiredVotes", p.getRequiredVotes());
+            map.put("createdByName", p.getCreatedBy().getUser().getFullName());
+            map.put("productName", p.getInventory().getProductName());
+            map.put("createdAt", p.getCreatedAt().toString());
+            map.put("hasVoted", distributionService.hasVoted(p.getId(), member.getId()));
+            // items
+            var items = distributionService.getPlanItems(p.getId()).stream().map(it -> Map.of(
+                    "memberId", it.getMember().getId(),
+                    "memberName", it.getMember().getUser().getFullName(),
+                    "quantity", it.getQuantity(),
+                    "received", it.getReceived()
+            )).toList();
+            map.put("items", items);
+            return map;
+        }).toList();
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/{id}/distribution-plans/{planId}")
+    public ResponseEntity<?> getDistributionPlanDetail(
+            @PathVariable Long id,
+            @PathVariable Long planId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = getUserId(userDetails);
+        var member = cooperativeService.getMemberByUserId(id, userId);
+
+        var plan = distributionService.getPlan(planId);
+        var items = distributionService.getPlanItems(planId);
+        var votes = distributionService.getPlanVotes(planId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", plan.getId());
+        result.put("title", plan.getTitle());
+        result.put("totalQuantity", plan.getTotalQuantity());
+        result.put("unit", plan.getUnit());
+        result.put("status", plan.getStatus().name());
+        result.put("approveCount", plan.getApproveCount());
+        result.put("rejectCount", plan.getRejectCount());
+        result.put("requiredVotes", plan.getRequiredVotes());
+        result.put("createdByName", plan.getCreatedBy().getUser().getFullName());
+        result.put("productName", plan.getInventory().getProductName());
+        result.put("createdAt", plan.getCreatedAt().toString());
+        result.put("hasVoted", distributionService.hasVoted(plan.getId(), member.getId()));
+        result.put("items", items.stream().map(it -> Map.of(
+                "memberId", it.getMember().getId(),
+                "memberName", it.getMember().getUser().getFullName(),
+                "quantity", it.getQuantity(),
+                "received", it.getReceived()
+        )).toList());
+        result.put("votes", votes.stream().map(v -> Map.of(
+                "memberId", v.getMember().getId(),
+                "memberName", v.getMember().getUser().getFullName(),
+                "vote", v.getVote().name(),
+                "comment", v.getComment() != null ? v.getComment() : "",
+                "votedAt", v.getVotedAt().toString()
+        )).toList());
+
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/distribution-plans/{planId}/vote")
+    public ResponseEntity<?> voteOnDistributionPlan(
+            @PathVariable Long planId,
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody Map<String, String> request) {
+        Long userId = getUserId(userDetails);
+        var plan = distributionService.getPlan(planId);
+        var member = cooperativeService.getMemberByUserId(plan.getCooperative().getId(), userId);
+
+        DistributionVote.VoteType voteType = DistributionVote.VoteType.valueOf(
+                request.getOrDefault("vote", "APPROVE").toUpperCase());
+        String comment = request.get("comment");
+
+        distributionService.castVote(planId, member.getId(), voteType, comment);
+
+        // Re-fetch plan for updated status
+        plan = distributionService.getPlan(planId);
+        return ResponseEntity.ok(Map.of(
+                "status", plan.getStatus().name(),
+                "approveCount", plan.getApproveCount(),
+                "rejectCount", plan.getRejectCount(),
+                "message", voteType == DistributionVote.VoteType.APPROVE
+                        ? "Đã đồng ý kế hoạch phân bổ" : "Đã từ chối kế hoạch phân bổ"));
+    }
+
+    // ==================== Inventory Logs ====================
+
+    @GetMapping("/{id}/inventory-logs")
+    public ResponseEntity<?> getInventoryLogs(@PathVariable Long id) {
+        var logs = distributionService.getInventoryLogs(id);
+        var result = logs.stream().map(l -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", l.getId());
+            map.put("action", l.getAction().name());
+            map.put("productName", l.getProductName());
+            map.put("quantity", l.getQuantity());
+            map.put("unit", l.getUnit());
+            map.put("description", l.getDescription());
+            map.put("referenceType", l.getReferenceType());
+            map.put("createdAt", l.getCreatedAt().toString());
+            if (l.getPerformedBy() != null) {
+                map.put("performedByName", l.getPerformedBy().getFullName());
+            }
+            return map;
+        }).toList();
+        return ResponseEntity.ok(result);
+    }
+
+    // ==================== Claim Earnings ====================
+
+    @PostMapping("/{id}/earnings/claim")
+    public ResponseEntity<?> claimEarnings(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Long userId = getUserId(userDetails);
+        var member = cooperativeService.getMemberByUserId(id, userId);
+        BigDecimal claimed = cooperativeInventoryService.claimEarnings(member.getId());
+        return ResponseEntity.ok(Map.of(
+                "claimed", claimed,
+                "message", "Đã nhận " + claimed.toPlainString() + "đ từ thu nhập bán hàng"));
     }
 
     // ==================== Admin Endpoints ====================

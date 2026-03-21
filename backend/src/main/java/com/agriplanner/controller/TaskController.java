@@ -122,6 +122,24 @@ public class TaskController {
         }
     }
 
+    @PostMapping("/{id}/start")
+    public ResponseEntity<?> startTask(@PathVariable Long id) {
+        try {
+            Task task = taskRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Task not found"));
+            
+            if (!"PENDING".equalsIgnoreCase(task.getStatus())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Task is not in PENDING state"));
+            }
+            
+            task.setStatus("IN_PROGRESS");
+            taskRepository.save(task);
+            return ResponseEntity.ok().body(Map.of("message", "Task started successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
     @PostMapping("/{id}/complete")
     public ResponseEntity<?> completeTask(@PathVariable Long id,
             @RequestBody(required = false) Map<String, String> request) {

@@ -330,8 +330,76 @@ async function loadUserProfile() {
 
         await loadBalance();
 
+        // === Gamification: EXP & Rank Display ===
+        const avatarUrl = user.avatarUrl || localStorage.getItem('userAvatar') || null;
+        updateRankDisplay(user.experiencePoints || 0, user.rankLevel || 'TRAINEE', avatarChar, avatarUrl);
+
     } catch (e) {
         console.error('Error loading profile', e);
+    }
+}
+
+/** Gamification: Update rank borders, badges, and EXP progress bar */
+function updateRankDisplay(exp, rank, avatarChar, avatarUrl) {
+    const RANKS = {
+        TRAINEE: { icon: '🥉', label: 'Nông dân Tập sự', bg: '#f7e8cd', color: '#b87333', min: 0, next: 100 },
+        SKILLED: { icon: '🥈', label: 'Nông dân Thạo việc', bg: '#e8e8e8', color: '#6b6b6b', min: 100, next: 500 },
+        VETERAN: { icon: '🥇', label: 'Lão nông Kinh nghiệm', bg: '#fff8e1', color: '#b8860b', min: 500, next: 1000 },
+        MASTER:  { icon: '💎', label: 'Nghệ nhân Nông nghiệp', bg: '#e0f7fa', color: '#00838f', min: 1000, next: 9999 }
+    };
+    const info = RANKS[rank] || RANKS.TRAINEE;
+    const progress = Math.min(100, Math.round(((exp - info.min) / (info.next - info.min)) * 100));
+
+    // 1. Header Avatar Border
+    const wrapper = document.getElementById('worker-avatar-wrapper');
+    if (wrapper) {
+        wrapper.className = 'rank-border rank-' + rank;
+    }
+
+    // 2. Header Rank Badge
+    const badge = document.getElementById('worker-rank-badge');
+    if (badge) {
+        badge.style.background = info.bg;
+        badge.style.color = info.color;
+        badge.querySelector('.rank-icon').textContent = info.icon;
+        badge.querySelector('.rank-label').textContent = info.label;
+    }
+
+    // 3. Home EXP Widget
+    const widget = document.getElementById('exp-widget');
+    if (widget) {
+        widget.style.display = 'flex';
+        const bigAvatar = document.getElementById('exp-avatar-big');
+        if (bigAvatar) {
+            bigAvatar.className = 'rank-border rank-' + rank + ' flex-shrink-0';
+            // Update big avatar image too
+            const bigAvatarInner = bigAvatar.querySelector('div');
+            if (bigAvatarInner && avatarUrl) {
+                bigAvatarInner.textContent = '';
+                bigAvatarInner.style.backgroundImage = `url('${avatarUrl}')`;
+                bigAvatarInner.style.backgroundSize = 'cover';
+                bigAvatarInner.style.backgroundPosition = 'center';
+            } else if (bigAvatarInner) {
+                bigAvatarInner.textContent = avatarChar;
+            }
+        }
+        const iconEl = document.getElementById('exp-rank-icon');
+        if (iconEl) iconEl.textContent = info.icon;
+        const nameEl = document.getElementById('exp-rank-name');
+        if (nameEl) nameEl.textContent = info.label;
+        const bar = document.getElementById('exp-bar');
+        if (bar) {
+            bar.className = 'exp-bar-fill exp-bar-' + rank;
+            setTimeout(() => { bar.style.width = progress + '%'; }, 100);
+        }
+        const curEl = document.getElementById('exp-current');
+        if (curEl) curEl.textContent = exp + ' EXP';
+        const nextEl = document.getElementById('exp-next');
+        if (rank === 'MASTER') {
+            nextEl.textContent = '⭐ Cấp tối đa!';
+        } else {
+            nextEl.textContent = 'Tiếp: ' + info.next + ' EXP';
+        }
     }
 }
 
@@ -445,6 +513,12 @@ async function loadTasksList() {
 
         const sorted = sortWorkerTasks(filtered);
 
+        // Also feed the Kanban view
+        _workerFilteredTasks = sorted;
+        if (workerTaskViewMode === 'kanban') {
+            renderWorkerKanban(sorted);
+        }
+
         if (sorted.length === 0) {
             container.innerHTML = `
                 <div class="text-center py-12">
@@ -538,6 +612,172 @@ async function loadTasksList() {
         container.innerHTML = '<div class="text-center py-8 text-red-500">Lỗi tải dữ liệu</div>';
         stopTaskCountdownTicker();
     }
+}
+
+// ============ WORKER PERSONAL KANBAN ============
+let workerTaskViewMode = 'list'; // 'list' or 'kanban'
+let _workerFilteredTasks = []; // Cache filtered tasks for re-render
+
+function toggleWorkerTaskView(mode) {
+    workerTaskViewMode = mode;
+    const listBtn = document.getElementById('worker-view-list');
+    const kanbanBtn = document.getElementById('worker-view-kanban');
+    if (listBtn) {
+        listBtn.style.background = mode === 'list' ? 'white' : 'transparent';
+        listBtn.style.color = mode === 'list' ? '#1e293b' : '#64748b';
+        listBtn.style.boxShadow = mode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none';
+    }
+    if (kanbanBtn) {
+        kanbanBtn.style.background = mode === 'kanban' ? 'white' : 'transparent';
+        kanbanBtn.style.color = mode === 'kanban' ? '#1e293b' : '#64748b';
+        kanbanBtn.style.boxShadow = mode === 'kanban' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none';
+    }
+
+    const listWrapper = document.getElementById('worker-tasks-list-wrapper');
+    const kanbanWrapper = document.getElementById('worker-tasks-kanban-wrapper');
+    if (listWrapper) listWrapper.style.display = mode === 'list' ? 'block' : 'none';
+    if (kanbanWrapper) kanbanWrapper.style.display = mode === 'kanban' ? 'block' : 'none';
+
+    if (mode === 'kanban' && _workerFilteredTasks.length > 0) {
+        renderWorkerKanban(_workerFilteredTasks);
+    } else if (mode === 'kanban') {
+        loadTasksList();
+    }
+}
+
+function renderWorkerKanban(tasks) {
+    const container = document.getElementById('worker-tasks-kanban-wrapper');
+    if (!container) return;
+
+    _workerFilteredTasks = tasks;
+
+    const columns = [
+        { id: 'PENDING', title: 'Việc cần làm', color: '#d97706', bg: '#fffbeb' },
+        { id: 'IN_PROGRESS', title: 'Đang thực hiện', color: '#2563eb', bg: '#eff6ff' },
+        { id: 'COMPLETED', title: 'Đã hoàn thành', color: '#16a34a', bg: '#f0fdf4' }
+    ];
+
+    let html = '<div style="display:flex; gap:16px; overflow-x:auto; padding-bottom:8px; min-height:350px;">';
+
+    columns.forEach(col => {
+        const colTasks = tasks.filter(t => {
+            const st = t.status ? String(t.status).toUpperCase() : 'PENDING';
+            if (col.id === 'PENDING') return st === 'PENDING';
+            if (col.id === 'IN_PROGRESS') return st === 'IN_PROGRESS';
+            if (col.id === 'COMPLETED') return st === 'COMPLETED' || st === 'APPROVED';
+            return false;
+        });
+
+        html += `
+            <div style="flex:0 0 300px; background:#f8fafc; border-radius:12px; display:flex; flex-direction:column; border:1px solid #e2e8f0; max-height:65vh; transition: all 0.2s;"
+                 ondragover="event.preventDefault(); this.classList.add('kanban-dropzone-active')"
+                 ondragleave="this.classList.remove('kanban-dropzone-active')"
+                 ondrop="workerKbDrop(event, '${col.id}')">
+                <div style="padding:12px 16px; border-bottom:2px solid ${col.color}; font-weight:600; font-size:14px; display:flex; justify-content:space-between; align-items:center; color:${col.color};">
+                    <span>${col.title}</span>
+                    <span class="kanban-col-count" style="background:white; padding:2px 8px; border-radius:99px; font-size:12px; color:#64748b; box-shadow:0 1px 2px rgba(0,0,0,0.05);">${colTasks.length}</span>
+                </div>
+                <div class="wk-cards" style="padding:12px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:10px; min-height:80px;">
+        `;
+
+        colTasks.forEach(task => {
+            const typeLabel = getTaskTypeLabel(task.taskType);
+            const taskName = fixUtf8(task.name || '');
+            const dueText = task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '';
+            const salaryText = task.salary ? new Intl.NumberFormat('vi-VN').format(Number(task.salary)) + ' đ' : '';
+            const expHint = '+30 EXP';
+
+            html += `
+                <div id="worker-kanban-card-${task.id}" class="task-kanban-card" style="background:white; border-radius:8px; padding:12px; box-shadow:0 1px 3px rgba(0,0,0,0.1); border:1px solid #e2e8f0; cursor:grab; transition:box-shadow 0.2s, transform 0.2s, opacity 0.2s;"
+                     draggable="true" 
+                     ondragstart="event.dataTransfer.setData('text/plain', '${task.id}'); const el = this; setTimeout(() => el.classList.add('is-dragging'), 0);"
+                     ondragend="this.classList.remove('is-dragging'); document.querySelectorAll('.kanban-dropzone-active').forEach(c => c.classList.remove('kanban-dropzone-active'));"
+                     onclick="openTaskDetail(${task.id})">
+                    <div style="display:flex; gap:4px; flex-wrap:wrap; margin-bottom:6px;">
+                        <span style="font-size:10px; font-weight:500; padding:2px 6px; border-radius:4px; background:#f3f4f6; color:#6b7280;">${typeLabel}</span>
+                        ${salaryText ? `<span style="font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; background:#ecfdf5; color:#059669;">💰 ${salaryText}</span>` : ''}
+                        <span style="font-size:10px; font-weight:500; padding:2px 6px; border-radius:4px; background:#fef3c7; color:#92400e;">⭐ ${expHint}</span>
+                    </div>
+                    <div style="font-weight:600; font-size:14px; color:#1e293b; display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;">${escapeHtml(taskName)}</div>
+                    ${dueText ? `<div style="font-size:11px; color:#64748b; margin-top:6px; display:flex; align-items:center; gap:4px;">
+                        <span class="material-symbols-outlined" style="font-size:13px;">schedule</span>${dueText}
+                    </div>` : ''}
+                </div>
+            `;
+        });
+
+        html += '</div></div>';
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+async function workerKbDrop(event, newStatus) {
+    event.preventDefault();
+    document.querySelectorAll('.kanban-dropzone-active').forEach(c => c.classList.remove('kanban-dropzone-active'));
+
+    const taskIdStr = event.dataTransfer.getData('text/plain');
+    if (!taskIdStr) return;
+    const taskId = parseInt(taskIdStr);
+    if (isNaN(taskId)) return;
+
+    const task = workerTasksById && workerTasksById[taskId];
+    if (!task) return;
+
+    const currentStatus = task.status ? String(task.status).toUpperCase() : 'PENDING';
+    if (currentStatus === newStatus) return;
+
+    // Worker completing task
+    if (newStatus === 'COMPLETED') {
+        if (typeof showToast === 'function') showToast('Vui lòng báo cáo số liệu và minh chứng', 'info');
+        else alert('Vui lòng báo cáo số liệu và minh chứng trước khi xác nhận hoàn thành.');
+        openTaskDetail(taskId);
+        // Do not reload task list instantly here, let the status update in the modal handle it
+        return;
+    }
+
+    // Worker starting task (PENDING -> IN_PROGRESS)
+    if (newStatus === 'IN_PROGRESS' && currentStatus === 'PENDING') {
+        const cardElement = document.getElementById(`worker-kanban-card-${taskId}`);
+        let dropzoneContainer = event.target.closest('div[ondrop]');
+        const dropzoneCards = dropzoneContainer ? dropzoneContainer.querySelector('.wk-cards') : null;
+        
+        if (cardElement && dropzoneCards) {
+            // Optimistic UI update
+            dropzoneCards.appendChild(cardElement);
+            cardElement.classList.add('kanban-card-dropped');
+            setTimeout(() => cardElement.classList.remove('kanban-card-dropped'), 400);
+
+            // Update local object
+            task.status = 'IN_PROGRESS';
+            
+            // Update counts 
+            if (dropzoneContainer) {
+                const countBadge = dropzoneContainer.querySelector('.kanban-col-count');
+                if (countBadge) countBadge.textContent = parseInt(countBadge.textContent || '0') + 1;
+            }
+        }
+
+        try {
+            if (typeof showToast === 'function') showToast('Đã bắt đầu thực hiện công việc!', 'success');
+            
+            // Execute fetching in background without blocking visually
+            fetchAPI(`${API_BASE}/tasks/${taskId}/start`, 'POST').catch(e => {
+                console.error('Error starting task:', e);
+                if (typeof showToast === 'function') showToast('Lỗi: ' + e.message, 'error');
+                loadTasksList(); // Revert on error
+            });
+        } catch (e) {
+            console.error('Error starting task:', e);
+            if (typeof showToast === 'function') showToast('Lỗi: không thể bắt đầu', 'error');
+            loadTasksList();
+        }
+        return;
+    }
+
+    // Other transitions not allowed for worker
+    if (typeof showToast === 'function') showToast('Bạn không thể thay đổi trạng thái này', 'warning');
 }
 
 function cacheWorkerTasks(tasks) {
@@ -2167,6 +2407,21 @@ function loadMoreTransactions() {
 }
 
 function showNotification(type, title, message) {
+    if (typeof showToast === 'function') {
+        const toastType = type === 'error' ? 'error' : (type === 'success' ? 'success' : (type === 'warning' ? 'warning' : 'info'));
+        
+        // Handle if message is an object (error payload from server) to prevent [object Object]
+        let msgStr = typeof message === 'string' ? message : '';
+        if (typeof message === 'object' && message !== null) {
+             msgStr = message.message || message.error || JSON.stringify(message);
+        }
+        
+        const finalMessage = title && title !== msgStr ? `<strong>${title}</strong><br/>${msgStr}` : msgStr;
+        showToast(finalMessage, toastType);
+        return;
+    }
+    
+    // Fallback if showToast is not available
     const bg = type === 'success' ? '#10b981' : (type === 'warning' ? '#f59e0b' : '#ef4444');
     const notif = document.createElement('div');
     notif.style.cssText = `
@@ -2177,9 +2432,11 @@ function showNotification(type, title, message) {
         opacity: 1; transform: translateY(0);
         transition: opacity 0.25s ease, transform 0.25s ease;
     `;
+    
+    let fmStr = typeof message === 'string' ? message : JSON.stringify(message);
     notif.innerHTML = `
         <div style="font-weight:700; margin-bottom:4px;">${title}</div>
-        <div style="font-size:13px; opacity:0.95;">${message}</div>
+        <div style="font-size:13px; opacity:0.95;">${fmStr}</div>
     `;
     document.body.appendChild(notif);
 
@@ -4990,59 +5247,43 @@ async function refreshActiveWorkLogs() {
 
 function getWorkLogActionBlock(task) {
     if (!task || task.id == null) return '';
-    if (task.status === 'COMPLETED') return '';
+    if (task.status === 'COMPLETED' || task.status === 'APPROVED' || task.status === 'CANCELLED') return '';
 
-    const log = activeWorkLogsByTaskId[task.id];
-    if (log && !log.endedAt) {
-        const startedAt = log.startedAt ? new Date(log.startedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
+    // If task is already IN_PROGRESS, show it's active
+    if (task.status === 'IN_PROGRESS') {
         return `
-            <div class="flex flex-col gap-1">
-                <button onclick="stopWorkLog(${task.id})" class="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors font-medium">
-                    <span class="material-icons-round">stop_circle</span> Dừng chấm công
-                </button>
-                ${startedAt ? `<div class="text-xs text-red-600 text-center">Bắt đầu: ${startedAt}</div>` : ''}
+            <div class="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-lg font-medium cursor-default">
+                <span class="material-icons-round">motion_photos_on</span> Đang thực hiện
             </div>
         `;
     }
 
+    // For PENDING status, allow worker to start
     return `
-        <button onclick="startWorkLog(${task.id})" class="flex items-center gap-2 px-4 py-2 bg-white border border-primary text-primary rounded-lg hover:bg-green-50 transition-colors font-medium">
-            <span class="material-icons-round">play_circle</span> Bắt đầu chấm công
+        <button onclick="startTaskProgress(${task.id})" class="flex items-center gap-2 px-4 py-2 bg-white border border-primary text-primary rounded-lg hover:bg-green-50 transition-colors font-medium">
+            <span class="material-icons-round">play_circle</span> Đang tiến hành
         </button>
     `;
 }
 
-async function startWorkLog(taskId) {
+async function startTaskProgress(taskId) {
     if (!workerId) return;
     try {
-        const log = await fetchAPI(`${API_BASE}/worklogs/start`, 'POST', { taskId, workerId });
-        activeWorkLogsByTaskId[taskId] = log;
+        await fetchAPI(`${API_BASE}/tasks/${taskId}/start`, 'POST');
+        if (typeof agriAlert === 'function') agriAlert('Đã bắt đầu thực hiện công việc!', 'success');
         await loadTasksList();
+        
         // Re-open detail view if viewing it
         const detailView = document.getElementById('view-task-detail');
         if (detailView && !detailView.classList.contains('hidden')) {
             openTaskDetail(taskId);
         }
     } catch (e) {
-        agriAlert('Lỗi: ' + (e.message || 'Không thể bắt đầu chấm công'), 'error');
-    }
-}
-
-async function stopWorkLog(taskId) {
-    if (!workerId) return;
-    try {
-        const log = await fetchAPI(`${API_BASE}/worklogs/stop`, 'POST', { taskId, workerId });
-        if (log && log.endedAt) {
-            delete activeWorkLogsByTaskId[taskId];
+        if (typeof agriAlert === 'function') {
+            agriAlert('Lỗi: ' + (e.message || 'Không thể bắt đầu công việc'), 'error');
+        } else {
+            alert('Lỗi: ' + (e.message || 'Không thể bắt đầu công việc'));
         }
-        await loadTasksList();
-        // Re-open detail view if viewing it
-        const detailView = document.getElementById('view-task-detail');
-        if (detailView && !detailView.classList.contains('hidden')) {
-            openTaskDetail(taskId);
-        }
-    } catch (e) {
-        agriAlert('Lỗi: ' + (e.message || 'Không thể dừng chấm công'), 'error');
     }
 }
 

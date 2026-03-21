@@ -8504,12 +8504,16 @@ function renderBuySessionCard(session) {
                 </div>
                 ${session.note ? `<p class="session-card__note">${session.note}</p>` : ''}
             </div>
-            <div class="session-card__footer">
-                ${isOpen ? `
-                    <button class="btn-danger-outline btn-sm" onclick="showForceCloseModal('buy', ${session.id}, '${session.title}')">
-                        <span class="material-symbols-outlined">block</span>
-                        Đóng phiên
-                    </button>
+                ${isOpen || session.status === 'COMPLETED' ? `
+                    <div class="flex gap-2 w-full justify-between">
+                        <button class="btn-primary btn-sm flex-1" onclick="confirmCompleteBuySession(${session.id}, '${session.title}')">
+                            <span class="material-symbols-outlined">check_circle</span>
+                            Chốt đơn
+                        </button>
+                        <button class="btn-danger-outline btn-sm" onclick="showForceCloseModal('buy', ${session.id}, '${session.title}')">
+                            <span class="material-symbols-outlined">block</span>
+                        </button>
+                    </div>
                 ` : `
                     <span class="text-gray-500 text-sm">
                         ${session.closedAt ? 'Đóng: ' + new Date(session.closedAt).toLocaleDateString('vi-VN') : ''}
@@ -8665,12 +8669,16 @@ function renderSellSessionCard(session) {
                     </div>
                 </div>
             </div>
-            <div class="session-card__footer">
-                ${isOpen ? `
-                    <button class="btn-danger-outline btn-sm" onclick="showForceCloseModal('sell', ${session.id}, '${session.productName}')">
-                        <span class="material-symbols-outlined">block</span>
-                        Đóng phiên
-                    </button>
+                ${isOpen || session.status === 'READY' || session.status === 'COMPLETED' ? `
+                    <div class="flex gap-2 w-full justify-between">
+                        <button class="btn-primary btn-sm flex-1" onclick="promptCompleteSellSession(${session.id}, '${session.productName}', ${session.minPrice})">
+                            <span class="material-symbols-outlined">check_circle</span>
+                            Chốt đơn
+                        </button>
+                        <button class="btn-danger-outline btn-sm" onclick="showForceCloseModal('sell', ${session.id}, '${session.productName}')">
+                            <span class="material-symbols-outlined">block</span>
+                        </button>
+                    </div>
                 ` : `
                     <span class="text-gray-500 text-sm">
                         ${session.closedAt ? 'Đóng: ' + new Date(session.closedAt).toLocaleDateString('vi-VN') : ''}
@@ -11561,4 +11569,128 @@ function adminShowFaceError(msg) {
     errDiv.innerHTML = '<span class="material-icons-round" style="font-size:16px;">error</span>' + msg;
     errDiv.style.display = 'flex';
     setTimeout(() => { errDiv.style.display = 'none'; }, 5000);
+}
+
+// ==================== FORCE CLOSE SESSION ====================
+
+function showForceCloseModal(type, id, title) {
+    const reason = prompt(`Bạn đang đóng sớm phiên "${title}".\nVui lòng nhập lý do:`);
+    if (reason === null) return; // cancelled
+    if (!reason.trim()) {
+        agriAlert('Vui lòng nhập lý do để kết thúc phiên', 'warning');
+        return;
+    }
+
+    forceCloseSession(type, id, reason.trim());
+}
+
+async function forceCloseSession(type, id, reason) {
+    try {
+        const endpoint = type === 'buy'
+            ? `/admin/trading/buy-sessions/${id}/force-close`
+            : `/admin/trading/sell-sessions/${id}/force-close`;
+        
+        const response = await fetch(API_BASE_URL + endpoint, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reason: reason })
+        });
+        
+        if (response.ok) {
+            agriAlert('Đã đóng phiên thành công', 'success');
+            // Reload the detail view to reflect new status
+            viewSessionDetail(type, id);
+        } else {
+            const error = await response.json();
+            agriAlert('Không thể đóng phiên: ' + (error.message || 'Lỗi hệ thống'), 'error');
+        }
+    } catch (error) {
+        console.error('Error force closing session:', error);
+        agriAlert('Không thể đóng phiên', 'error');
+    }
+}
+
+// ==================== COMPLETE BUY SESSION ====================
+
+function confirmCompleteBuySession(sessionId, title) {
+    showConfirmModal(
+        'Xác nhận Chốt Đơn',
+        `Bạn có chắc chắn muốn chốt đơn phiên gom mua <br/><strong>${title}</strong>?<br/><br/><span class="text-sm text-gray-500">Hệ thống sẽ tự động trừ tiền từ quỹ của các HTX đã đăng ký và chuyển hàng vào kho của họ. Hành động này không thể hoàn tác.</span>`,
+        () => completeBuySession(sessionId)
+    );
+}
+
+async function completeBuySession(sessionId) {
+    try {
+        const response = await fetch(API_BASE_URL + `/admin/trading/buy-sessions/${sessionId}/complete`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            agriAlert(result.message || 'Đã chốt đơn thành công', 'success');
+            // Reload the buy sessions
+            loadAdminGroupBuy();
+        } else {
+            const error = await response.json();
+            agriAlert('Không thể chốt đơn: ' + (error.message || 'Lỗi hệ thống'), 'error');
+        }
+    } catch (error) {
+        console.error('Error completing buy session:', error);
+        agriAlert('Không thể chốt đơn', 'error');
+    }
+}
+
+// ==================== COMPLETE SELL SESSION ====================
+
+function promptCompleteSellSession(sessionId, title, minPrice) {
+    const finalPriceStr = prompt(`Bạn đang chốt đơn thu gom nông sản "${title}".\nGiá thu mua tối thiểu lúc tạo phiên là: ${formatCurrency(minPrice)}\nVui lòng nhập GIÁ THU MUA CHÍNH THỨC trên mỗi đơn vị (VNĐ):`);
+    
+    if (finalPriceStr === null) return;
+    
+    const finalPrice = parseFloat(finalPriceStr.replace(/[^0-9.-]+/g,""));
+    if (isNaN(finalPrice) || finalPrice <= 0) {
+        agriAlert('Giá thu mua không hợp lệ', 'warning');
+        return;
+    }
+
+    if (finalPrice < minPrice) {
+        if (!confirm(`CẢNH BÁO: Giá chốt (${formatCurrency(finalPrice)}) ĐANG THẤP HƠN giá dự kiến ban đầu (${formatCurrency(minPrice)}).\nBạn có chắc chắn muốn tiếp tục?`)) {
+            return;
+        }
+    }
+
+    completeSellSession(sessionId, finalPrice);
+}
+
+async function completeSellSession(sessionId, finalPrice) {
+    try {
+        const response = await fetch(API_BASE_URL + `/admin/trading/sell-sessions/${sessionId}/complete`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ finalPrice: finalPrice })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            agriAlert(result.message || 'Đã chốt đơn thành công', 'success');
+            loadAdminGroupSell();
+        } else {
+            const error = await response.json();
+            agriAlert('Không thể chốt đơn: ' + (error.message || 'Lỗi hệ thống'), 'error');
+        }
+    } catch (error) {
+        console.error('Error completing sell session:', error);
+        agriAlert('Không thể chốt đơn', 'error');
+    }
 }

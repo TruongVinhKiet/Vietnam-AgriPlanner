@@ -425,6 +425,11 @@
                                         <span class="material-symbols-outlined">inventory_2</span>
                                         Kho Hợp tác xã
                                     </h3>
+                                    <button class="btn btn--sm btn--primary leader-only" id="btn-create-distribution"
+                                        onclick="openDistributionModal()" style="display:none;">
+                                        <span class="material-symbols-outlined icon-sm">assignment</span>
+                                        Phân bổ vật tư
+                                    </button>
                                 </div>
                                 <div class="card__body">
                                     <div class="inventory-summary" id="inventory-summary">
@@ -449,6 +454,42 @@
                                         <div class="empty-state">
                                             <span class="material-symbols-outlined">inventory_2</span>
                                             <p>Kho HTX chưa có sản phẩm</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Inventory Stock Logs -->
+                            <div class="card" style="margin-top: var(--spacing-5);">
+                                <div class="card__header">
+                                    <h3 class="card__title">
+                                        <span class="material-symbols-outlined">history</span>
+                                        Lịch sử xuất nhập kho
+                                    </h3>
+                                </div>
+                                <div class="card__body">
+                                    <div class="inventory-logs-list" id="inventory-logs-list">
+                                        <div class="empty-state">
+                                            <span class="material-symbols-outlined">history</span>
+                                            <p>Chưa có lịch sử xuất nhập kho</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Distribution Plans (Kế hoạch phân bổ) -->
+                            <div class="card" style="margin-top: var(--spacing-5);">
+                                <div class="card__header">
+                                    <h3 class="card__title">
+                                        <span class="material-symbols-outlined">assignment</span>
+                                        Kế hoạch phân bổ vật tư
+                                    </h3>
+                                </div>
+                                <div class="card__body">
+                                    <div class="distribution-plans-list" id="distribution-plans-list">
+                                        <div class="empty-state">
+                                            <span class="material-symbols-outlined">assignment</span>
+                                            <p>Chưa có kế hoạch phân bổ nào</p>
                                         </div>
                                     </div>
                                 </div>
@@ -779,6 +820,97 @@
         </div>
     </div>
 
+    <!-- Sell to Admin Modal (Bán hàng từ Kho HTX) -->
+    <div class="modal" id="sell-modal">
+        <div class="modal__overlay" onclick="closeSellModal()"></div>
+        <div class="modal__content">
+            <div class="modal__header">
+                <h3 class="modal__title">
+                    <span class="material-symbols-outlined">sell</span>
+                    Bán hàng cho Admin
+                </h3>
+                <button class="modal__close" onclick="closeSellModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="alert alert--info" style="margin-bottom: var(--spacing-4);">
+                    <span class="material-symbols-outlined">info</span>
+                    <p>Phiên thu mua: <strong id="sell-session-name">---</strong></p>
+                </div>
+                <div class="form-group">
+                    <label>Chọn sản phẩm từ kho HTX *</label>
+                    <select id="sell-inventory-select" onchange="onSellInventoryChange()">
+                        <option value="">-- Chọn sản phẩm từ kho --</option>
+                    </select>
+                    <p class="hint" id="sell-available-info" style="display:none;">Tồn kho: <strong id="sell-max-qty">0</strong></p>
+                </div>
+                <div class="form-group">
+                    <label>Số lượng bán *</label>
+                    <input type="number" id="sell-quantity" min="1" placeholder="Nhập số lượng muốn bán">
+                </div>
+            </div>
+            <div class="modal__footer">
+                <button class="btn btn--outline" onclick="closeSellModal()">Hủy</button>
+                <button class="btn btn--primary" onclick="submitSellContribution()">
+                    <span class="material-symbols-outlined icon-sm">sell</span>
+                    Xác nhận bán
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Distribution Plan Modal -->
+    <div class="modal" id="distribution-modal">
+        <div class="modal__overlay" onclick="closeDistributionModal()"></div>
+        <div class="modal__content">
+            <div class="modal__header">
+                <h3 class="modal__title">
+                    <span class="material-symbols-outlined">assignment</span>
+                    Tạo kế hoạch phân bổ vật tư
+                </h3>
+                <button class="modal__close" onclick="closeDistributionModal()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
+            </div>
+            <div class="modal__body">
+                <div class="form-group">
+                    <label>Tiêu đề kế hoạch *</label>
+                    <input type="text" id="dist-title" placeholder="VD: Chia phân bón đợt 1">
+                </div>
+                <div class="form-group">
+                    <label>Chọn sản phẩm từ kho *</label>
+                    <select id="dist-inventory-select" onchange="onDistInventoryChange()">
+                        <option value="">-- Chọn sản phẩm --</option>
+                    </select>
+                    <p class="hint" id="dist-available-qty" style="display:none;">Số lượng khả dụng: <strong id="dist-max-qty">0</strong></p>
+                </div>
+                <div class="form-group">
+                    <label>Phân bổ cho thành viên</label>
+                    <div id="dist-member-allocations" class="allocation-grid">
+                        <p class="hint">Chọn sản phẩm trước để phân bổ</p>
+                    </div>
+                </div>
+                <div class="dist-summary" id="dist-summary" style="display:none;">
+                    <div class="alert alert--info">
+                        <span class="material-symbols-outlined">info</span>
+                        <div>
+                            <p>Tổng phân bổ: <strong id="dist-total-alloc">0</strong></p>
+                            <p class="hint">Cần tối thiểu 2 phiếu đồng ý để thông qua</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal__footer">
+                <button class="btn btn--outline" onclick="closeDistributionModal()">Hủy</button>
+                <button class="btn btn--primary" onclick="submitDistributionPlan()">
+                    <span class="material-symbols-outlined icon-sm">how_to_vote</span>
+                    Tạo & Gửi biểu quyết
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div class="toast-container" id="toast-container"></div>
 
@@ -787,6 +919,7 @@
 
     <script src="../js/auth.js"></script>
     <script src="../js/config.js"></script>
+    <script src="../js/main.js"></script>
     <script src="../js/utils.js"></script>
     <script src="../js/sidebar.js"></script>
     <script src="../js/chatbot.js"></script>

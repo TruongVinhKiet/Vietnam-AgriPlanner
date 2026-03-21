@@ -1237,6 +1237,8 @@ switchTab = function (tab) {
         loadDissolutionStatus();
     } else if (tab === 'inventory') {
         loadInventory();
+        loadInventoryLogs();
+        loadDistributionPlans();
     } else if (tab === 'distribution') {
         loadDistribution();
     } else if (tab === 'group-buy') {
@@ -1318,7 +1320,7 @@ function renderAdminBuySessions() {
 
 function renderAdminBuyCard(session) {
     return `
-        <div class="campaign-card admin-session slide-up">
+        <div onclick="viewCoopSessionDetail('buy', ${session.id})" class="campaign-card admin-session slide-up cursor-pointer group">
             <div class="campaign-card__badge">Từ Admin</div>
             <div class="campaign-card__image">
                 ${session.shopItemImage ? `<img src="${session.shopItemImage}" alt="">` : '<span class="material-symbols-outlined">storefront</span>'}
@@ -1341,7 +1343,7 @@ function renderAdminBuyCard(session) {
                     </div>
                 </div>
                 ${session.note ? `<p class="campaign-card__note">${session.note}</p>` : ''}
-                <div class="campaign-card__actions">
+                <div class="campaign-card__actions" onclick="event.stopPropagation()">
                     <button class="btn btn--success" onclick="participateInAdminBuy(${session.id})">
                         <span class="material-symbols-outlined icon-sm">add_shopping_cart</span>
                         Tham gia
@@ -1359,7 +1361,7 @@ async function participateInAdminBuy(sessionId) {
     const token = localStorage.getItem('authToken');
 
     try {
-        const response = await fetch(`${API_BASE_URL}/cooperatives/group-buys/${sessionId}/contribute`, {
+        const response = await fetch(`${API_BASE_URL}/cooperatives/${currentCooperative.id}/group-buys/admin-sessions/${sessionId}/contribute`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -1447,7 +1449,7 @@ function renderAdminSellSessions() {
 
 function renderAdminSellCard(session) {
     return `
-        <div class="campaign-card admin-session sell-session slide-up">
+        <div onclick="viewCoopSessionDetail('sell', ${session.id})" class="campaign-card admin-session sell-session slide-up cursor-pointer group">
             <div class="campaign-card__badge sell">Admin thu mua</div>
             <div class="campaign-card__image">
                 <span class="material-symbols-outlined">grass</span>
@@ -1468,43 +1470,333 @@ function renderAdminSellCard(session) {
                         <span>${session.progressPercent}%</span>
                     </div>
                 </div>
-                <div class="campaign-card__actions">
-                    <button class="btn btn--primary" onclick="contributeToSellSession(${session.id}, '${session.productName}', '${session.unit}')">
-                        <span class="material-symbols-outlined icon-sm">add</span>
-                        Góp sản phẩm
-                    </button>
+                <div class="campaign-card__actions" onclick="event.stopPropagation()">
+                    ${currentCooperative && currentCooperative.userRole === 'LEADER' ? `
+                    <button class="btn btn--primary" onclick="openSellModal(${session.id}, '${session.productName}', '${session.unit}')">
+                        <span class="material-symbols-outlined icon-sm">sell</span>
+                        Bán hàng từ kho
+                    </button>` : `
+                    <span class="badge badge--info" style="padding: 6px 12px; font-size: 0.85rem;">Chờ trưởng nhóm bán</span>`}
                 </div>
             </div>
         </div>
     `;
 }
 
-async function contributeToSellSession(sessionId, productName, unit) {
-    const quantity = prompt(`Nhập số lượng ${productName} muốn góp (${unit}):`);
-    if (!quantity || parseFloat(quantity) <= 0) return;
+// ==================== SESSION DETAIL VIEW (HTX) ====================
 
+function closeCoopSessionDetail() {
+    const detailDiv = document.getElementById('coop-session-detail');
+    if (detailDiv) detailDiv.style.display = 'none';
+    const dashboard = document.getElementById('coop-dashboard');
+    if (dashboard) dashboard.style.display = 'block';
+}
+
+async function viewCoopSessionDetail(type, id) {
+    try {
+        const endpoint = type === 'buy' ? `/cooperatives/trading/buy-sessions/${id}` : `/cooperatives/trading/sell-sessions/${id}`;
+        const token = localStorage.getItem('authToken');
+        
+        const response = await fetch(API_BASE_URL + endpoint, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Không thể tải chi tiết');
+        const data = await response.json();
+        if (!data || !data.session) return;
+        
+        const s = data.session;
+        const contributions = data.contributions || [];
+        
+        const detailTitle = type === 'buy' ? 'Chi tiết Phiên Gom Mua' : 'Chi tiết Phiên Gom Bán';
+        const productName = type === 'buy' ? s.shopItemName : s.productName;
+        
+        // Hide dashboard, prepare container
+        document.getElementById('coop-dashboard').style.display = 'none';
+        let detailDiv = document.getElementById('coop-session-detail');
+        if (!detailDiv) {
+            detailDiv = document.createElement('div');
+            detailDiv.id = 'coop-session-detail';
+            detailDiv.className = 'coop-session-detail';
+            document.querySelector('.main-content__container').appendChild(detailDiv);
+        }
+        detailDiv.style.display = 'block';
+
+        const isCompleted = s.closedReason === 'AUTO_COMPLETED' || s.status === 'COMPLETED';
+        const isForceClosed = s.closedReason === 'ADMIN_FORCED' || s.status === 'CANCELLED';
+        const isOpen = s.status === 'OPEN';
+        
+        let statusHtml = '';
+        if (isCompleted) {
+            statusHtml = '<span class="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-lg text-sm font-medium"><span class="material-icons-round text-sm">check_circle</span> Hoàn thành</span>';
+        } else if (isForceClosed) {
+            statusHtml = '<span class="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-medium"><span class="material-icons-round text-sm">cancel</span> Đã đóng</span>';
+        } else {
+            statusHtml = '<span class="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium"><span class="material-icons-round text-sm">sync</span> Đang diễn ra</span>';
+        }
+
+        const price1Label = type === 'buy' ? 'Giá bán sỉ' : 'Giá mua vào';
+        const price1Value = type === 'buy' ? s.wholesalePrice : s.minPrice;
+        const price2Label = type === 'buy' ? 'Giá bán lẻ' : 'Giá thị trường';
+        const price2Value = type === 'buy' ? s.retailPrice : s.marketPrice;
+        const colorClass = type === 'buy' ? 'primary' : 'emerald';
+        const isLeader = currentCooperative && currentCooperative.userRole === 'LEADER';
+
+        let actionHtml = '';
+        if (isOpen) {
+            if (type === 'buy') {
+                actionHtml = `
+                <button onclick="participateInAdminBuy(${s.id})" class="btn btn--success">
+                    <span class="material-symbols-outlined icon-sm">add_shopping_cart</span> Tham gia mua
+                </button>`;
+            } else {
+                if (isLeader) {
+                    actionHtml = `
+                    <button class="btn btn--primary" onclick="openSellModal(${s.id}, '${productName}', '${s.unit}')">
+                        <span class="material-symbols-outlined icon-sm">sell</span> Bán hàng từ kho
+                    </button>`;
+                } else {
+                    actionHtml = `<span class="badge badge--info" style="padding: 8px 16px;">Chờ trưởng nhóm bán</span>`;
+                }
+            }
+        }
+
+        detailDiv.innerHTML = `
+            <!-- Page Header Overridden for Detail -->
+            <div class="page-header" style="margin-bottom: var(--spacing-6); padding-bottom: var(--spacing-4); border-bottom: 1px solid var(--border-color);">
+                <div class="flex items-center gap-3">
+                    <button onclick="closeCoopSessionDetail()" class="btn-icon">
+                        <span class="material-symbols-outlined">arrow_back</span>
+                    </button>
+                    <div>
+                        <h2 class="page-header__title" style="font-size: 1.25rem;">${detailTitle}</h2>
+                        <p class="page-header__subtitle">${s.title}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <!-- Header Card -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex justify-between items-start" style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <h2 style="font-size: 1.5rem; font-weight: 700; color: #1f2937; margin:0;">${s.title}</h2>
+                            ${statusHtml}
+                        </div>
+                        <p style="color: #6b7280; font-size: 0.95rem; margin:0;">Sản phẩm: <span style="font-weight: 500; color: #1f2937;">${productName || 'N/A'}</span></p>
+                    </div>
+                    <div>
+                        ${actionHtml}
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: #6b7280;">
+                            <span class="material-symbols-outlined" style="font-size: 20px;">payments</span>
+                            <span style="font-size: 0.875rem; font-weight: 500;">${price1Label}</span>
+                        </div>
+                        <p style="font-size: 1.25rem; font-weight: 700; color: #1f2937; margin:0;">${formatCurrency(price1Value)}</p>
+                        <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 4px;">/ ${s.unit || 'đơn vị'}</p>
+                    </div>
+                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: #6b7280;">
+                            <span class="material-symbols-outlined" style="font-size: 20px;">storefront</span>
+                            <span style="font-size: 0.875rem; font-weight: 500;">${price2Label}</span>
+                        </div>
+                        <p style="font-size: 1.25rem; font-weight: 700; color: #1f2937; margin:0;">${formatCurrency(price2Value)}</p>
+                        <p style="font-size: 0.75rem; color: #9ca3af; margin-top: 4px;">/ ${s.unit || 'đơn vị'}</p>
+                    </div>
+                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: #6b7280;">
+                            <span class="material-symbols-outlined" style="font-size: 20px; color: #10b981;">pie_chart</span>
+                            <span style="font-size: 0.875rem; font-weight: 500;">Tiến độ gom</span>
+                        </div>
+                        <p style="font-size: 1.25rem; font-weight: 700; color: #1f2937; margin:0;">${Math.round(s.progressPercent || 0)}%</p>
+                        <p style="font-size: 0.75rem; color: #10b981; margin-top: 4px;">${s.currentQuantity}/${s.targetQuantity} ${s.unit || ''}</p>
+                    </div>
+                    <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: #6b7280;">
+                            <span class="material-symbols-outlined" style="font-size: 20px; color: #3b82f6;">groups</span>
+                            <span style="font-size: 0.875rem; font-weight: 500;">Lượt đóng góp</span>
+                        </div>
+                        <p style="font-size: 1.25rem; font-weight: 700; color: #1f2937; margin:0;">${contributions.length}</p>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
+                    <!-- Progress Section -->
+                    <div style="display: flex; flex-direction: column; gap: 24px;">
+                        <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
+                            <h3 style="font-weight: 700; color: #1f2937; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb; margin-top:0;">Thời gian biểu</h3>
+                            <div style="display: flex; flex-direction: column; gap: 16px;">
+                                <div>
+                                    <p style="font-size: 0.75rem; color: #6b7280; margin:0 0 4px 0;">Mở phiên</p>
+                                    <p style="font-weight: 500; color: #1f2937; margin:0;">${new Date(s.startDate).toLocaleString('vi-VN')}</p>
+                                </div>
+                                <div>
+                                    <p style="font-size: 0.75rem; color: #6b7280; margin:0 0 4px 0;">Hạn chót</p>
+                                    <p style="font-weight: 500; color: #ef4444; margin:0;">${new Date(s.deadline).toLocaleString('vi-VN')}</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        ${s.description || s.note ? `
+                        <div style="background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
+                            <h3 style="font-weight: 700; color: #1f2937; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb; margin-top:0;">Ghi chú & Mô tả</h3>
+                            <p style="color: #4b5563; font-size: 0.875rem; white-space: pre-line; margin:0; line-height: 1.5;">${s.description || s.note}</p>
+                        </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Contributors List -->
+                    <div style="background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e5e7eb; display: flex; flex-direction: column; height: 100%;">
+                        <div style="padding: 20px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="font-weight: 700; color: #1f2937; margin:0;">Danh sách HTX tham gia</h3>
+                            <span style="padding: 4px 12px; background: #f3f4f6; color: #4b5563; border-radius: 9999px; font-size: 0.75rem; font-weight: 500;">${contributions.length} lượt</span>
+                        </div>
+                        <div style="overflow-y: auto; max-height: 500px;">
+                            <table style="width: 100%; border-collapse: collapse; text-align: left;">
+                                <thead style="background: #f9fafb; position: sticky; top: 0; z-index: 10;">
+                                    <tr>
+                                        <th style="padding: 12px 20px; font-size: 0.75rem; font-weight: 600; color: #6b7280;">Hợp tác xã</th>
+                                        <th style="padding: 12px 20px; font-size: 0.75rem; font-weight: 600; color: #6b7280;">Đại diện đóng góp</th>
+                                        <th style="padding: 12px 20px; font-size: 0.75rem; font-weight: 600; color: #6b7280; text-align: right;">Số lượng</th>
+                                        <th style="padding: 12px 20px; font-size: 0.75rem; font-weight: 600; color: #6b7280; text-align: right;">Thời gian</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${contributions.length === 0 ? `
+                                        <tr><td colspan="4" style="padding: 32px 20px; text-align: center; color: #9ca3af;">Chưa có đóng góp nào</td></tr>
+                                    ` : contributions.map(c => `
+                                        <tr style="border-bottom: 1px solid #f3f4f6;">
+                                            <td style="padding: 16px 20px;">
+                                                <p style="font-weight: 500; color: #1f2937; margin:0;">${c.cooperativeName}</p>
+                                            </td>
+                                            <td style="padding: 16px 20px;">
+                                                <p style="font-size: 0.875rem; color: #4b5563; margin:0;">${c.memberName}</p>
+                                            </td>
+                                            <td style="padding: 16px 20px; text-align: right;">
+                                                <p style="font-weight: 700; color: #10b981; margin:0;">${c.quantity}</p>
+                                            </td>
+                                            <td style="padding: 16px 20px; text-align: right;">
+                                                <p style="font-size: 0.75rem; color: #6b7280; margin:0;">${new Date(c.createdAt).toLocaleString('vi-VN')}</p>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        if (typeof gsap !== 'undefined') {
+            gsap.fromTo(detailDiv.children, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.1 });
+        }
+    } catch (error) {
+        console.error('Error fetching session details:', error);
+        agriAlert('Lỗi tải dữ liệu chi tiết', 'error');
+    }
+}
+
+
+// ==================== Sell Modal (Bán hàng từ Kho HTX) ====================
+
+let currentSellSessionId = null;
+
+function openSellModal(sessionId, productName, unit) {
+    currentSellSessionId = sessionId;
+
+    const modal = document.getElementById('sell-modal');
+    if (!modal) return;
+
+    modal.classList.add('active');
+    document.getElementById('sell-session-name').textContent = productName + ' (' + unit + ')';
+
+    // Populate inventory select with items from HTX inventory
+    const select = document.getElementById('sell-inventory-select');
+    if (select) {
+        const available = coopInventory.filter(i => i.quantity > 0);
+        select.innerHTML = '<option value="">-- Chọn sản phẩm từ kho --</option>' +
+            available.map(item => `
+                <option value="${item.id}" data-qty="${item.quantity}" data-unit="${item.unit || ''}">
+                    ${item.productName} (Tồn: ${item.quantity} ${item.unit || ''})
+                </option>
+            `).join('');
+    }
+
+    document.getElementById('sell-quantity').value = '';
+    document.getElementById('sell-available-info').style.display = 'none';
+
+    if (typeof gsap !== 'undefined') {
+        gsap.from('.modal__content', { scale: 0.9, opacity: 0, duration: 0.3, ease: 'back.out(1.5)' });
+    }
+}
+
+function closeSellModal() {
+    const modal = document.getElementById('sell-modal');
+    if (modal) modal.classList.remove('active');
+    currentSellSessionId = null;
+}
+
+function onSellInventoryChange() {
+    const select = document.getElementById('sell-inventory-select');
+    const selectedOption = select.options[select.selectedIndex];
+    const infoEl = document.getElementById('sell-available-info');
+
+    if (!select.value) {
+        infoEl.style.display = 'none';
+        return;
+    }
+
+    const maxQty = parseFloat(selectedOption.dataset.qty || 0);
+    const unit = selectedOption.dataset.unit || '';
+    document.getElementById('sell-max-qty').textContent = `${maxQty} ${unit}`;
+    document.getElementById('sell-quantity').max = maxQty;
+    infoEl.style.display = '';
+}
+
+async function submitSellContribution() {
     const token = localStorage.getItem('authToken');
+    if (!token || !currentCooperative || !currentSellSessionId) return;
+
+    const inventoryId = document.getElementById('sell-inventory-select').value;
+    const quantity = parseInt(document.getElementById('sell-quantity').value);
+
+    if (!inventoryId) {
+        showToast('Thiếu thông tin', 'Vui lòng chọn sản phẩm từ kho', 'warning');
+        return;
+    }
+    if (!quantity || quantity <= 0) {
+        showToast('Thiếu thông tin', 'Vui lòng nhập số lượng hợp lệ', 'warning');
+        return;
+    }
 
     try {
-        const response = await fetch(`${API_BASE_URL}/cooperatives/group-sells/${sessionId}/contribute`, {
+        const response = await fetch(`${API_BASE_URL}/cooperatives/${currentCooperative.id}/group-sells/admin-sessions/${currentSellSessionId}/contribute`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ quantity: parseFloat(quantity) })
+            body: JSON.stringify({ inventoryId: parseInt(inventoryId), quantity })
         });
 
         if (response.ok) {
-            showToast('Thành công', `Đã góp ${quantity} ${unit} ${productName}`, 'success');
+            const result = await response.json();
+            showToast('Thành công', result.message || 'Đã bán hàng cho Admin', 'success');
+            closeSellModal();
             loadAdminSellSessions();
+            loadInventory(); // Refresh inventory (hàng đã bị trừ)
         } else {
             const error = await response.json();
-            showToast('Lỗi', error.message || 'Không thể góp sản phẩm', 'error');
+            showToast('Lỗi', error.message || 'Không thể bán hàng', 'error');
         }
     } catch (error) {
-        console.error('Error contributing:', error);
-        showToast('Lỗi', 'Không thể góp sản phẩm', 'error');
+        console.error('Error selling to admin:', error);
+        showToast('Lỗi', 'Không thể bán hàng cho Admin', 'error');
     }
 }
 
@@ -1730,16 +2022,17 @@ function renderContributionTable(members) {
 
 async function claimEarnings() {
     const token = localStorage.getItem('authToken');
+    if (!currentCooperative) return;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/cooperatives/earnings/claim`, {
+        const response = await fetch(`${API_BASE_URL}/cooperatives/${currentCooperative.id}/earnings/claim`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
         if (response.ok) {
             const result = await response.json();
-            showToast('Thành công', `Đã nhận ${formatCurrency(result.amount)} thu nhập`, 'success');
+            showToast('Thành công', result.message || 'Đã nhận thu nhập', 'success');
             loadDistribution();
             loadUserAssets();
         } else {
@@ -1751,3 +2044,380 @@ async function claimEarnings() {
         showToast('Lỗi', 'Không thể nhận thu nhập', 'error');
     }
 }
+
+// ==================== Inventory Logs (Lịch sử xuất nhập kho) ====================
+
+async function loadInventoryLogs() {
+    const token = localStorage.getItem('authToken');
+    if (!token || !currentCooperative) return;
+
+    const container = document.getElementById('inventory-logs-list');
+    if (!container) return;
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/cooperatives/${currentCooperative.id}/inventory-logs`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            const logs = await response.json();
+            renderInventoryLogs(logs);
+        } else {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span class="material-symbols-outlined">history</span>
+                    <p>Chưa có lịch sử xuất nhập kho</p>
+                </div>`;
+        }
+    } catch (error) {
+        console.log('Inventory logs not available:', error.message);
+    }
+}
+
+function renderInventoryLogs(logs) {
+    const container = document.getElementById('inventory-logs-list');
+    if (!container) return;
+
+    if (!logs || logs.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="material-symbols-outlined">history</span>
+                <p>Chưa có lịch sử xuất nhập kho</p>
+            </div>`;
+        return;
+    }
+
+    const actionMap = {
+        IMPORT: { label: 'Nhập kho', icon: 'input', color: 'var(--color-success)' },
+        EXPORT: { label: 'Xuất kho', icon: 'output', color: 'var(--color-warning)' },
+        DISTRIBUTE: { label: 'Phân bổ', icon: 'assignment_turned_in', color: 'var(--color-primary)' }
+    };
+
+    container.innerHTML = logs.map(log => {
+        const a = actionMap[log.action] || { label: log.action, icon: 'list', color: '#888' };
+        const date = new Date(log.createdAt).toLocaleString('vi-VN');
+        return `
+            <div class="log-entry slide-up" style="border-left: 3px solid ${a.color};">
+                <div class="log-entry__header">
+                    <div class="log-entry__icon" style="color: ${a.color};">
+                        <span class="material-symbols-outlined">${a.icon}</span>
+                    </div>
+                    <div class="log-entry__info">
+                        <strong>${a.label}: ${log.productName || ''}</strong>
+                        <span class="log-entry__qty">${log.quantity} ${log.unit || ''}</span>
+                    </div>
+                    <span class="log-entry__date">${date}</span>
+                </div>
+                ${log.description ? `<p class="log-entry__desc">${log.description}</p>` : ''}
+                ${log.performedByName ? `<small class="log-entry__by">Bởi: ${log.performedByName}</small>` : ''}
+            </div>`;
+    }).join('');
+
+    // Animate entries
+    if (typeof gsap !== 'undefined') {
+        gsap.from('.log-entry', { opacity: 0, y: 15, stagger: 0.05, duration: 0.4, ease: 'power2.out' });
+    }
+}
+
+// ==================== Distribution Plans (Kế hoạch phân bổ vật tư) ====================
+
+let distributionPlans = [];
+
+async function loadDistributionPlans() {
+    const token = localStorage.getItem('authToken');
+    if (!token || !currentCooperative) return;
+
+    const container = document.getElementById('distribution-plans-list');
+    if (!container) return;
+
+    // Show leader-only distribution button
+    const distBtn = document.getElementById('btn-create-distribution');
+    if (distBtn && currentCooperative.userRole === 'LEADER') {
+        distBtn.style.display = '';
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/cooperatives/${currentCooperative.id}/distribution-plans`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+            distributionPlans = await response.json();
+            renderDistributionPlans();
+        } else {
+            distributionPlans = [];
+            container.innerHTML = `
+                <div class="empty-state">
+                    <span class="material-symbols-outlined">assignment</span>
+                    <p>Chưa có kế hoạch phân bổ nào</p>
+                </div>`;
+        }
+    } catch (error) {
+        console.log('Distribution plans not available:', error.message);
+    }
+}
+
+function renderDistributionPlans() {
+    const container = document.getElementById('distribution-plans-list');
+    if (!container) return;
+
+    if (distributionPlans.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="material-symbols-outlined">assignment</span>
+                <p>Chưa có kế hoạch phân bổ nào</p>
+            </div>`;
+        return;
+    }
+
+    const statusMap = {
+        PENDING: { label: 'Chờ biểu quyết', class: 'pending', icon: 'how_to_vote' },
+        APPROVED: { label: 'Đã duyệt', class: 'success', icon: 'check_circle' },
+        REJECTED: { label: 'Từ chối', class: 'error', icon: 'cancel' },
+        EXECUTED: { label: 'Đã thực hiện', class: 'success', icon: 'done_all' }
+    };
+
+    container.innerHTML = distributionPlans.map(plan => {
+        const s = statusMap[plan.status] || statusMap.PENDING;
+        const date = new Date(plan.createdAt).toLocaleString('vi-VN');
+
+        const itemsHtml = (plan.items || []).map(it => `
+            <div class="alloc-row">
+                <span>${it.memberName}</span>
+                <span class="alloc-qty">${it.quantity} ${plan.unit || ''}</span>
+                <span class="status-badge ${it.received ? 'success' : 'pending'}">${it.received ? 'Đã nhận' : 'Chưa nhận'}</span>
+            </div>
+        `).join('');
+
+        const canVote = plan.status === 'PENDING' && !plan.hasVoted;
+        const voteHtml = canVote ? `
+            <div class="plan-vote-actions">
+                <button class="btn btn--sm btn--success" onclick="voteOnPlan(${plan.id}, 'APPROVE')">
+                    <span class="material-symbols-outlined icon-sm">thumb_up</span> Đồng ý
+                </button>
+                <button class="btn btn--sm btn--danger" onclick="voteOnPlan(${plan.id}, 'REJECT')">
+                    <span class="material-symbols-outlined icon-sm">thumb_down</span> Từ chối
+                </button>
+            </div>` : (plan.hasVoted && plan.status === 'PENDING' ? `
+            <div class="plan-vote-actions">
+                <span class="badge badge--info" style="display: flex; align-items: center; gap: 4px; padding: 6px 12px; background: rgba(33, 150, 243, 0.1); color: var(--color-info); border-radius: 20px;">
+                    <span class="material-symbols-outlined icon-sm">check_circle</span> Đã biểu quyết
+                </span>
+            </div>` : '');
+
+        return `
+            <div class="plan-card slide-up">
+                <div class="plan-card__header">
+                    <div class="plan-card__title">
+                        <span class="material-symbols-outlined" style="color: var(--color-primary);">${s.icon}</span>
+                        <div>
+                            <strong>${plan.title}</strong>
+                            <small>${plan.productName} - ${plan.totalQuantity} ${plan.unit || ''}</small>
+                        </div>
+                    </div>
+                    <span class="status-badge ${s.class}">${s.label}</span>
+                </div>
+                <div class="plan-card__body">
+                    <div class="plan-meta">
+                        <span>Tạo bởi: <strong>${plan.createdByName}</strong></span>
+                        <span>${date}</span>
+                    </div>
+                    <div class="plan-votes">
+                        <span class="vote-count approve">
+                            <span class="material-symbols-outlined icon-sm">thumb_up</span>
+                            ${plan.approveCount}/${plan.requiredVotes}
+                        </span>
+                        <span class="vote-count reject">
+                            <span class="material-symbols-outlined icon-sm">thumb_down</span>
+                            ${plan.rejectCount}
+                        </span>
+                    </div>
+                    <div class="plan-allocations">${itemsHtml}</div>
+                    ${voteHtml}
+                </div>
+            </div>`;
+    }).join('');
+
+    // Animate
+    if (typeof gsap !== 'undefined') {
+        gsap.from('.plan-card', { opacity: 0, y: 20, stagger: 0.08, duration: 0.5, ease: 'power2.out' });
+    }
+}
+
+// ==================== Vote on Distribution Plan ====================
+
+async function voteOnPlan(planId, voteType) {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+
+    const actionText = voteType === 'APPROVE' ? 'đồng ý' : 'từ chối';
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/cooperatives/distribution-plans/${planId}/vote`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ vote: voteType })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            showToast('Thành công', result.message || `Đã ${actionText} kế hoạch`, 'success');
+            loadDistributionPlans();
+            loadInventory(); // Refresh inventory in case plan was executed
+        } else {
+            const error = await response.json();
+            showToast('Lỗi', error.message || `Không thể ${actionText}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error voting:', error);
+        showToast('Lỗi', `Không thể ${actionText} kế hoạch`, 'error');
+    }
+}
+
+// ==================== Distribution Plan Modal ====================
+
+let distInventoryItems = [];
+
+function openDistributionModal() {
+    const modal = document.getElementById('distribution-modal');
+    if (!modal) return;
+
+    modal.classList.add('active');
+
+    // Populate inventory select
+    const select = document.getElementById('dist-inventory-select');
+    if (select) {
+        distInventoryItems = coopInventory.filter(i => i.quantity > 0);
+        select.innerHTML = '<option value="">-- Chọn sản phẩm --</option>' +
+            distInventoryItems.map(item => `
+                <option value="${item.id}" data-qty="${item.quantity}" data-unit="${item.unit || ''}">${item.productName} (${item.quantity} ${item.unit || ''})</option>
+            `).join('');
+    }
+
+    // Reset form
+    document.getElementById('dist-title').value = '';
+    document.getElementById('dist-member-allocations').innerHTML = '<p class="hint">Chọn sản phẩm trước để phân bổ</p>';
+    document.getElementById('dist-summary').style.display = 'none';
+    document.getElementById('dist-available-qty').style.display = 'none';
+
+    // Animate modal
+    if (typeof gsap !== 'undefined') {
+        gsap.from('.modal__content', { scale: 0.9, opacity: 0, duration: 0.3, ease: 'back.out(1.5)' });
+    }
+}
+
+function closeDistributionModal() {
+    const modal = document.getElementById('distribution-modal');
+    if (modal) modal.classList.remove('active');
+}
+
+function onDistInventoryChange() {
+    const select = document.getElementById('dist-inventory-select');
+    const selectedOption = select.options[select.selectedIndex];
+    const container = document.getElementById('dist-member-allocations');
+
+    if (!select.value) {
+        container.innerHTML = '<p class="hint">Chọn sản phẩm trước để phân bổ</p>';
+        document.getElementById('dist-available-qty').style.display = 'none';
+        document.getElementById('dist-summary').style.display = 'none';
+        return;
+    }
+
+    const maxQty = parseFloat(selectedOption.dataset.qty || 0);
+    const unit = selectedOption.dataset.unit || '';
+
+    document.getElementById('dist-max-qty').textContent = `${maxQty} ${unit}`;
+    document.getElementById('dist-available-qty').style.display = '';
+    document.getElementById('dist-summary').style.display = '';
+
+    // Load members into allocation grid
+    const token = localStorage.getItem('authToken');
+    fetch(`${API_BASE_URL}/cooperatives/${currentCooperative.id}/members`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+    })
+    .then(r => r.json())
+    .then(members => {
+        container.innerHTML = members.map(m => `
+            <div class="alloc-input-row">
+                <label>${m.userName} <small>(${m.role})</small></label>
+                <input type="number" class="dist-alloc-input" data-member-id="${m.id}"
+                    min="0" max="${maxQty}" step="0.1" value="0"
+                    oninput="updateDistTotal()" placeholder="0">
+                <span class="alloc-unit">${unit}</span>
+            </div>
+        `).join('');
+    })
+    .catch(err => {
+        console.error('Error loading members for distribution:', err);
+        container.innerHTML = '<p class="hint" style="color: var(--color-error);">Lỗi tải danh sách thành viên</p>';
+    });
+}
+
+function updateDistTotal() {
+    const inputs = document.querySelectorAll('.dist-alloc-input');
+    let total = 0;
+    inputs.forEach(inp => { total += parseFloat(inp.value || 0); });
+    document.getElementById('dist-total-alloc').textContent = total;
+}
+
+async function submitDistributionPlan() {
+    const token = localStorage.getItem('authToken');
+    if (!token || !currentCooperative) return;
+
+    const title = document.getElementById('dist-title').value.trim();
+    const inventoryId = document.getElementById('dist-inventory-select').value;
+
+    if (!title) {
+        showToast('Thiếu thông tin', 'Vui lòng nhập tiêu đề kế hoạch', 'warning');
+        return;
+    }
+    if (!inventoryId) {
+        showToast('Thiếu thông tin', 'Vui lòng chọn sản phẩm từ kho', 'warning');
+        return;
+    }
+
+    const inputs = document.querySelectorAll('.dist-alloc-input');
+    const allocations = {};
+    let totalAlloc = 0;
+
+    inputs.forEach(inp => {
+        const qty = parseFloat(inp.value || 0);
+        if (qty > 0) {
+            allocations[inp.dataset.memberId] = qty;
+            totalAlloc += qty;
+        }
+    });
+
+    if (totalAlloc === 0) {
+        showToast('Thiếu thông tin', 'Vui lòng phân bổ số lượng cho ít nhất 1 thành viên', 'warning');
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/cooperatives/${currentCooperative.id}/distribution-plans`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ title, inventoryId: parseInt(inventoryId), allocations })
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            showToast('Thành công', result.message || 'Kế hoạch phân bổ đã tạo', 'success');
+            closeDistributionModal();
+            loadDistributionPlans();
+        } else {
+            const error = await response.json();
+            showToast('Lỗi', error.message || 'Không thể tạo kế hoạch', 'error');
+        }
+    } catch (error) {
+        console.error('Error creating distribution plan:', error);
+        showToast('Lỗi', 'Không thể tạo kế hoạch phân bổ', 'error');
+    }
+}
+

@@ -111,6 +111,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/debug/**").permitAll()
                         // Task Management
                         .requestMatchers("/api/tasks/worker/**").hasAnyRole("WORKER", "OWNER")
+                        .requestMatchers("/api/tasks/*/start").hasAnyRole("WORKER", "OWNER", "SYSTEM_ADMIN")
                         .requestMatchers("/api/tasks/*/complete").hasAnyRole("WORKER", "OWNER", "SYSTEM_ADMIN")
                         .requestMatchers("/api/tasks/*/upload-media").hasAnyRole("WORKER", "OWNER", "SYSTEM_ADMIN")
                         .requestMatchers("/api/tasks/**").hasAnyRole("OWNER", "SYSTEM_ADMIN")

@@ -1,5 +1,9 @@
 const LABOR_API_BASE = CONFIG.API_BASE_URL || 'http://localhost:8080/api';
 
+// Kanban View State
+let currentTaskView = 'list'; // 'list' or 'kanban'
+let currentKanbanGroupBy = 'none'; // 'none' or 'worker'
+
 // ── Lightbox for media viewing ──
 function openMediaLightbox(src, type) {
     // Remove existing lightbox if any
@@ -331,14 +335,56 @@ async function loadTasks() {
 }
 
 function renderTasks(tasks) {
-    const container = document.querySelector('#tasks-tab .card__body');
-    if (!container) return;
+    const listContainer = document.getElementById('tasks-list-view');
+    const kanbanContainer = document.getElementById('tasks-kanban-view');
+    const assignContainer = document.getElementById('tasks-assign-view');
+    const ganttContainer = document.getElementById('tasks-gantt-view');
+    if (!listContainer || !kanbanContainer || !assignContainer || !ganttContainer) return;
 
     if (!tasks || tasks.length === 0) {
-        container.innerHTML = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem; color: #6b7280;"><span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 12px; opacity: 0.5;">assignment_turned_in</span><p>Danh sách công việc đã giao sẽ hiển thị ở đây.</p></div>';
+        const emptyState = '<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem; color: #6b7280;"><span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 12px; opacity: 0.5;">assignment_turned_in</span><p>Danh sách công việc đã giao sẽ hiển thị ở đây.</p></div>';
+        listContainer.innerHTML = emptyState;
+        kanbanContainer.innerHTML = emptyState;
+        assignContainer.innerHTML = emptyState;
+        ganttContainer.innerHTML = emptyState;
         return;
     }
 
+    // Hide all views first
+    listContainer.style.display = 'none';
+    kanbanContainer.style.display = 'none';
+    assignContainer.style.display = 'none';
+    ganttContainer.style.display = 'none';
+
+    if (currentTaskView === 'list') {
+        listContainer.style.display = 'block';
+        renderTaskListView(tasks, listContainer);
+    } else if (currentTaskView === 'kanban') {
+        kanbanContainer.style.display = 'block';
+        renderKanbanBoard(tasks, kanbanContainer);
+    } else if (currentTaskView === 'assign') {
+        assignContainer.style.display = 'block';
+        renderAssignKanban(tasks, assignContainer);
+    } else if (currentTaskView === 'gantt') {
+        ganttContainer.style.display = 'block';
+        renderGanttChart(tasks, ganttContainer);
+    }
+}
+
+/** Global helper: generate avatar HTML with rank frame */
+function getWorkerAvatarHtml(worker, size) {
+    size = size || 28;
+    const rank = (worker && worker.rankLevel) ? worker.rankLevel : 'TRAINEE';
+    const avatarUrl = worker && worker.avatarUrl ? worker.avatarUrl : null;
+    const name = worker ? (worker.fullName || worker.email || 'N') : '?';
+    const char = name.charAt(0).toUpperCase();
+    const inner = avatarUrl
+        ? `<img src="${avatarUrl}" alt="" style="width:${size}px; height:${size}px; border-radius:50%; object-fit:cover;">`
+        : `<div style="width:${size}px; height:${size}px; border-radius:50%; background:#dbeafe; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:${Math.round(size*0.45)}px; font-weight:700;">${escapeHtml(char)}</div>`;
+    return `<div class="rank-frame-mini rank-${rank}" title="${escapeHtml(name)}">${inner}</div>`;
+}
+
+function renderTaskListView(tasks, container) {
     let html = '<div id="owner-tasks-list" style="display: flex; flex-direction: column; gap: 12px;">';
 
     tasks.forEach(task => {
@@ -360,15 +406,8 @@ function renderTasks(tasks) {
             ? (task.worker.fullName || task.worker.email || 'Nhân công')
             : (isAutoCreated ? 'Chưa phân công' : 'Tôi (Tự làm)');
 
-        // Avatar — use real avatar URL if available
-        const workerAvatarUrl = task.worker && task.worker.avatarUrl ? task.worker.avatarUrl : null;
-        const avatarChar = task.worker
-            ? (displayWorkerName || 'N').charAt(0).toUpperCase()
-            : (isAutoCreated ? '?' : 'T');
-        const avatarColor = task.worker ? 'background:#dbeafe; color:#2563eb;' : 'background:#f3f4f6; color:#6b7280;';
-        const avatarHtml = workerAvatarUrl
-            ? `<img src="${workerAvatarUrl}" alt="" style="width:28px; height:28px; border-radius:50%; object-fit:cover; flex-shrink:0;">`
-            : `<div style="width:28px; height:28px; border-radius:50%; ${avatarColor} display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0;">${escapeHtml(avatarChar)}</div>`;
+        // Avatar with rank frame
+        const avatarHtml = getWorkerAvatarHtml(task.worker, 28);
 
         let completedTime = '';
         if (task.status === 'COMPLETED' && task.completedAt) {
@@ -389,8 +428,47 @@ function renderTasks(tasks) {
             priorityLabel = 'Thấp';
         }
 
+        // === ASSIGNEE LOCK LOGIC ===
         let assignBlock = '';
-        if (task.status !== 'COMPLETED' && task.status !== 'CANCELLED') {
+        const isApproved = task.status === 'APPROVED';
+        const isLocked = task.status === 'IN_PROGRESS' || task.status === 'COMPLETED';
+
+        if (isApproved) {
+            // Premium approved lock block with glassmorphism feel inside the green card
+            assignBlock = `
+                <div style="display:flex; justify-content: space-between; align-items:center; margin-top:14px; padding: 12px 16px; background: rgba(255,255,255,0.6); border-radius: 10px; border: 1px solid rgba(134, 239, 172, 0.5);" onclick="event.stopPropagation()">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        ${avatarHtml}
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="font-size:11px; font-weight:600; color:#15803d; text-transform: uppercase; letter-spacing: 0.5px;">Người thực hiện</span>
+                            <span style="font-size:14px; font-weight:700; color:#064e3b;">${escapeHtml(displayWorkerName)}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; color: #16a34a; background: #dcfce7; padding: 6px 14px; border-radius: 999px;">
+                        <span class="material-symbols-outlined" style="font-size:18px;">verified</span>
+                        <span style="font-size:13px; font-weight:700;">Đã hoàn thành</span>
+                    </div>
+                </div>
+            `;
+        } else if (isLocked) {
+            // Modern locked block
+            assignBlock = `
+                <div style="display:flex; justify-content: space-between; align-items:center; margin-top:14px; padding: 12px 16px; background: #f8fafc; border-radius: 10px; border: 1px dashed #cbd5e1;" onclick="event.stopPropagation()">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        ${avatarHtml}
+                        <div style="display: flex; flex-direction: column;">
+                            <span style="font-size:11px; font-weight:600; color:#64748b; text-transform: uppercase; letter-spacing: 0.5px;">Người thực hiện</span>
+                            <span style="font-size:14px; font-weight:700; color:#334155;">${escapeHtml(displayWorkerName)}</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 6px; color: #b45309; background: #fef3c7; padding: 6px 14px; border-radius: 999px;">
+                        <span class="material-symbols-outlined" style="font-size:16px;">lock</span>
+                        <span style="font-size:13px; font-weight:700;">Đang thực hiện</span>
+                    </div>
+                </div>
+            `;
+        } else if (task.status !== 'CANCELLED') {
+            // PENDING - allow assignment
             let selected = '';
             if (isSelf) selected = 'SELF';
             else if (wId != null) selected = String(wId);
@@ -422,8 +500,12 @@ function renderTasks(tasks) {
             `;
         }
 
+        // Card class based on status
+        const cardExtraClass = isApproved ? ' task-card-approved' : '';
+
         html += `
             <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:16px; transition:box-shadow 0.2s, transform 0.2s; cursor:pointer;"
+                 class="${cardExtraClass}"
                  onmouseenter="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'; this.style.transform='translateY(-1px)'"
                  onmouseleave="this.style.boxShadow='none'; this.style.transform='translateY(0)'"
                  onclick="openOwnerTaskDetail(${task.id})">
@@ -461,6 +543,510 @@ function renderTasks(tasks) {
                 ${assignBlock}
             </div>
         `;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// ============ KANBAN BOARD VIEW ============
+
+function toggleTaskView(view) {
+    currentTaskView = view;
+    // Update button states
+    document.getElementById('view-toggle-list').classList.toggle('active', view === 'list');
+    document.getElementById('view-toggle-kanban').classList.toggle('active', view === 'kanban');
+    const assignBtn = document.getElementById('view-toggle-assign');
+    if (assignBtn) assignBtn.classList.toggle('active', view === 'assign');
+    const ganttBtn = document.getElementById('view-toggle-gantt');
+    if (ganttBtn) ganttBtn.classList.toggle('active', view === 'gantt');
+    
+    // Toggle Group By control (only for kanban view)
+    const groupControl = document.getElementById('kanban-group-control');
+    if (groupControl) {
+        groupControl.style.display = (view === 'kanban') ? 'flex' : 'none';
+    }
+
+    // Re-render tasks with the new view
+    if (ownerTasksById) {
+        renderTasks(Object.values(ownerTasksById));
+    } else {
+        loadTasks();
+    }
+}
+
+function toggleKanbanGroupBy(groupVal) {
+    currentKanbanGroupBy = groupVal;
+    if (ownerTasksById) {
+        renderTasks(Object.values(ownerTasksById));
+    } else {
+        loadTasks();
+    }
+}
+
+function renderKanbanBoard(tasks, container) {
+    const columns = [
+        { id: 'PENDING', title: 'Chờ thực hiện', color: 'PENDING' },
+        { id: 'IN_PROGRESS', title: 'Đang thực hiện', color: 'IN_PROGRESS' },
+        { id: 'COMPLETED', title: 'Chưa duyệt / Đã xong', color: 'COMPLETED' }
+    ];
+
+    let html = '';
+
+    // Function to generate cards HTML for a specific column and task subset
+    const generateColumnHTML = (col, subsetTasks) => {
+        let colHtml = `
+            <div class="kanban-column">
+                <div class="kanban-column-header kanban-header-${col.color}">
+                    <span>${col.title}</span>
+                    <span class="kanban-count">${subsetTasks.length}</span>
+                </div>
+                <div class="kanban-cards" id="kanban-col-${col.id}">
+        `;
+
+        subsetTasks.forEach(task => {
+            const isWorkflowPending = (task.status === 'COMPLETED' && task.workflowData);
+            const dueText = task.dueDate ? new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : 'Chưa đặt hạn';
+            const typeLabel = getTaskTypeLabel(task.taskType);
+            const priority = (task.priority || 'NORMAL').toUpperCase();
+            let priorityStyle = 'background:#f3f4f6; color:#6b7280;';
+            let priorityLabel = 'BT';
+            if (priority === 'HIGH' || priority === 'URGENT') {
+                priorityStyle = 'background:#fef2f2; color:#dc2626;';
+                priorityLabel = priority === 'URGENT' ? 'Khẩn' : 'Cao';
+            } else if (priority === 'LOW') {
+                priorityStyle = 'background:#f0fdf4; color:#16a34a;';
+                priorityLabel = 'Thấp';
+            }
+            const avatarChar = task.worker ? (task.worker.fullName || task.worker.email || 'N').charAt(0).toUpperCase() : '?';
+            const avatarHtml = getWorkerAvatarHtml(task.worker, 24);
+
+            colHtml += `
+                <div class="kanban-card" onclick="openOwnerTaskDetail(${task.id})" id="kb-card-${task.id}">
+                    <div class="kb-card-tags">
+                        <span style="font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; ${priorityStyle};">${priorityLabel}</span>
+                        <span style="font-size:10px; font-weight:500; padding:2px 6px; border-radius:4px; background:#f3f4f6; color:#6b7280;">${typeLabel}</span>
+                        ${isWorkflowPending ? `<span style="font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; background:#fef08a; color:#854d0e;">Chờ duyệt</span>` : ''}
+                    </div>
+                    <div class="kb-card-title" title="${escapeHtml(task.name)}">${escapeHtml(task.name)}</div>
+                    <div class="kb-card-footer">
+                        <div style="display:flex; align-items:center; gap:4px;">
+                            <span class="material-symbols-outlined" style="font-size:14px;">schedule</span>${dueText}
+                        </div>
+                        ${avatarHtml}
+                    </div>
+                </div>
+            `;
+        });
+        colHtml += `</div></div>`;
+        return colHtml;
+    };
+
+    if (currentKanbanGroupBy === 'none') {
+        // Standard View
+        html += '<div class="kanban-board">';
+        columns.forEach(col => {
+            const colTasks = tasks.filter(t => (col.id === 'PENDING' ? (t.status === 'PENDING' || !t.status) : t.status === col.id));
+            html += generateColumnHTML(col, colTasks);
+        });
+        html += '</div>';
+    } else if (currentKanbanGroupBy === 'worker') {
+        // Group by Worker Swimlanes
+        const groups = {};
+        tasks.forEach(t => {
+            const workerId = t.worker ? Number(t.worker.id) : 0; // 0 for unassigned
+            const workerName = t.worker ? (t.worker.fullName || t.worker.email || 'Nhân công ' + workerId) : 'Chưa phân công';
+            const workerAvatar = t.worker ? workerName.charAt(0).toUpperCase() : '?';
+            
+            if (!groups[workerId]) {
+                groups[workerId] = { name: workerName, avatar: workerAvatar, tasks: [] };
+            }
+            groups[workerId].tasks.push(t);
+        });
+
+        const sortedWorkerIds = Object.keys(groups).sort((a, b) => {
+            if (a == 0) return 1; // Unassigned at bottom
+            if (b == 0) return -1;
+            return groups[a].name.localeCompare(groups[b].name);
+        });
+
+        sortedWorkerIds.forEach(workerId => {
+            const group = groups[workerId];
+            html += `
+                <div class="kanban-swimlane">
+                    <div class="kanban-swimlane-header">
+                        <div class="kb-avatar">${escapeHtml(group.avatar)}</div>
+                        <span>${escapeHtml(group.name)}</span>
+                        <span style="font-size:12px; font-weight:500; color:#64748b; background:#e2e8f0; padding:2px 8px; border-radius:99px;">${group.tasks.length} Việc</span>
+                    </div>
+                    <div class="kanban-swimlane-body">
+            `;
+            
+            columns.forEach(col => {
+                const colTasks = group.tasks.filter(t => (col.id === 'PENDING' ? (t.status === 'PENDING' || !t.status) : t.status === col.id));
+                html += generateColumnHTML(col, colTasks);
+            });
+
+            html += `</div></div>`;
+        });
+    }
+
+    container.innerHTML = html;
+}
+
+// ==== Kanban Drag & Drop ====
+function kbDragStart(event, taskId) {
+    event.dataTransfer.setData('text/plain', taskId);
+    setTimeout(() => {
+        event.target.classList.add('dragging');
+    }, 0);
+}
+
+function kbDragOver(event) {
+    event.preventDefault();
+    const column = event.currentTarget.querySelector('.kanban-cards');
+    if (!column.classList.contains('kanban-dropzone')) {
+        column.classList.add('kanban-dropzone');
+    }
+}
+
+async function kbDrop(event, newStatus) {
+    event.preventDefault();
+    document.querySelectorAll('.kanban-cards').forEach(c => c.classList.remove('kanban-dropzone'));
+    
+    const taskIdString = event.dataTransfer.getData('text/plain');
+    if (!taskIdString) return;
+    const taskId = parseInt(taskIdString);
+    if (isNaN(taskId)) return;
+
+    const task = ownerTasksById[taskId];
+    if (!task) return;
+
+    // Remove dragging class
+    const cardEl = document.getElementById('kb-card-' + taskId);
+    if (cardEl) cardEl.classList.remove('dragging');
+
+    // Prevent changing to the same status
+    if (task.status === newStatus || (!task.status && newStatus === 'PENDING')) return;
+
+    // Cannot change COMPLETED back to PENDING/IN_PROGRESS without cancel/reject logic
+    // But for a simple Kanban UI, we allow Owner to override statuses quickly if needed,
+    // though the DB might reject it depending on state machine logic.
+    // Let's call an update API.
+    
+    try {
+        const token = localStorage.getItem('token');
+        const updateParams = { status: newStatus };
+        
+        await fetchAPI(`${LABOR_API_BASE}/tasks/${taskId}/quick-update`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updateParams)
+        });
+
+        agriAlert(`Đã chuyển công việc sang "${newStatus === 'PENDING' ? 'Chờ thực hiện' : (newStatus === 'IN_PROGRESS' ? 'Đang làm' : 'Đã hoàn thành')}"`, 'success');
+        
+        // Reload tasks to refresh the board UI
+        loadTasks();
+
+    } catch (e) {
+        console.error('Error updating task status via Kanban:', e);
+        agriAlert('Chưa thể cập nhật trạng thái: ' + e.message, 'error');
+        // Reload to revert drag failure
+        loadTasks();
+    }
+}
+
+// Make sure to remove dragging visual if dropped outside
+document.addEventListener('dragend', (e) => {
+    if (e.target.classList && e.target.classList.contains('kanban-card')) {
+        e.target.classList.remove('dragging');
+    }
+    document.querySelectorAll('.kanban-cards').forEach(c => c.classList.remove('kanban-dropzone'));
+});
+
+// ============ ASSIGNMENT KANBAN (Columns = Workers) ============
+
+async function renderAssignKanban(tasks, container) {
+    // Fetch worker list
+    let workers = [];
+    try {
+        const res = await fetchAPI(`${LABOR_API_BASE}/user/list?role=WORKER`);
+        workers = Array.isArray(res) ? res : [];
+    } catch (e) {
+        workers = [];
+    }
+
+    // Group tasks by workerId
+    const groups = { 0: { name: '- Chưa phân công / Tôi tự làm -', avatar: null, avatarChar: '?', rankLevel: 'TRAINEE', tasks: [] } };
+    workers.forEach(w => {
+        groups[w.id] = {
+            name: w.fullName || w.email || 'Worker ' + w.id,
+            avatar: w.avatarUrl || null,
+            avatarChar: (w.fullName || w.email || 'W').charAt(0).toUpperCase(),
+            rankLevel: w.rankLevel || 'TRAINEE',
+            tasks: []
+        };
+    });
+
+    tasks.forEach(t => {
+        const wId = t.worker && t.worker.id != null ? Number(t.worker.id) : 0;
+        if (!groups[wId]) {
+            // Worker exists but wasn't in the list (e.g. owner self-assigned)
+            const wName = t.worker ? (t.worker.fullName || t.worker.email || 'Worker') : 'Chưa phân công';
+            groups[wId] = {
+                name: wName,
+                avatar: t.worker ? t.worker.avatarUrl : null,
+                avatarChar: wName.charAt(0).toUpperCase(),
+                rankLevel: t.worker ? (t.worker.rankLevel || 'TRAINEE') : 'TRAINEE',
+                tasks: []
+            };
+        }
+        groups[wId].tasks.push(t);
+    });
+
+    // Sort: unassigned first, then by worker name
+    const sortedIds = Object.keys(groups).sort((a, b) => {
+        if (a == 0) return -1;
+        if (b == 0) return 1;
+        return groups[a].name.localeCompare(groups[b].name);
+    });
+
+    let html = '<div class="assign-kanban-board">';
+
+    sortedIds.forEach(wId => {
+        const group = groups[wId];
+        const isUnassigned = (wId == 0);
+        const colClass = isUnassigned ? 'assign-kanban-col assign-kanban-col-unassigned' : 'assign-kanban-col';
+        const rank = group.rankLevel || 'TRAINEE';
+
+        const avatarInner = group.avatar
+            ? `<img src="${group.avatar}" alt="" style="width:28px; height:28px; border-radius:50%; object-fit:cover;">`
+            : `<div class="kb-avatar">${escapeHtml(group.avatarChar)}</div>`;
+        const avatarHtml = `<div class="rank-frame-mini rank-${rank}">${avatarInner}</div>`;
+
+        html += `
+            <div class="${colClass}" ondragover="assignKbDragOver(event)" ondrop="assignKbDrop(event, '${wId}')">
+                <div class="assign-kanban-col-header">
+                    <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                        ${avatarHtml}
+                        <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(group.name)}</span>
+                    </div>
+                    <span class="kanban-count">${group.tasks.length}</span>
+                </div>
+                <div class="kanban-cards" id="assign-col-${wId}">
+        `;
+
+        group.tasks.forEach(task => {
+            const statusMap = {
+                'COMPLETED': { label: 'Xong', color: '#16a34a', bg: '#f0fdf4' },
+                'IN_PROGRESS': { label: 'Đang làm', color: '#2563eb', bg: '#eff6ff' },
+                'PENDING': { label: 'Chờ', color: '#d97706', bg: '#fffbeb' },
+                'APPROVED': { label: 'Duyệt', color: '#7c3aed', bg: '#f5f3ff' }
+            };
+            const st = task.status ? String(task.status).toUpperCase() : 'PENDING';
+            const sc = statusMap[st] || statusMap['PENDING'];
+
+            const typeLabel = getTaskTypeLabel(task.taskType);
+            const dueText = task.dueDate
+                ? new Date(task.dueDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+                : '';
+
+            const isCompleted = (st === 'COMPLETED' || st === 'APPROVED');
+            const draggableStr = isCompleted ? 'draggable="false"' : 'draggable="true" ondragstart="kbDragStart(event, ' + task.id + ')"';
+            const cardStyle = isCompleted ? 'border-left: 4px solid #10b981; opacity: 0.85;' : '';
+
+            html += `
+                <div class="kanban-card" style="${cardStyle}" ${draggableStr} onclick="openOwnerTaskDetail(${task.id})" id="assign-card-${task.id}">
+                    <div class="kb-card-tags">
+                        <span style="font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; background:${sc.bg}; color:${sc.color}; display:flex; align-items:center; gap:2px;">
+                            ${isCompleted ? '<span class="material-symbols-outlined" style="font-size:12px;">check_circle</span>' : ''} ${sc.label}
+                        </span>
+                        <span style="font-size:10px; font-weight:500; padding:2px 6px; border-radius:4px; background:#f3f4f6; color:#6b7280;">${typeLabel}</span>
+                    </div>
+                    <div class="kb-card-title" title="${escapeHtml(task.name)}">${escapeHtml(task.name)}</div>
+                    ${dueText ? `<div style="font-size:11px; color:#64748b; margin-top:4px; display:flex; align-items:center; gap:4px;">
+                        <span class="material-symbols-outlined" style="font-size:13px;">schedule</span>${dueText}
+                    </div>` : ''}
+                </div>
+            `;
+        });
+
+        html += `</div></div>`;
+    });
+
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function assignKbDragOver(event) {
+    event.preventDefault();
+    const column = event.currentTarget.querySelector('.kanban-cards');
+    if (column && !column.classList.contains('kanban-dropzone')) {
+        column.classList.add('kanban-dropzone');
+    }
+}
+
+async function assignKbDrop(event, newWorkerIdStr) {
+    event.preventDefault();
+    document.querySelectorAll('.kanban-cards').forEach(c => c.classList.remove('kanban-dropzone'));
+
+    const taskIdString = event.dataTransfer.getData('text/plain');
+    if (!taskIdString) return;
+    const taskId = parseInt(taskIdString);
+    if (isNaN(taskId)) return;
+
+    const task = ownerTasksById[taskId];
+    if (!task) return;
+
+    const cardEl = document.getElementById('assign-card-' + taskId);
+    if (cardEl) cardEl.classList.remove('dragging');
+
+    const currentWorkerId = task.worker && task.worker.id != null ? String(task.worker.id) : '0';
+    if (currentWorkerId === newWorkerIdStr) return;
+
+    const newWorkerId = newWorkerIdStr === '0' ? null : Number(newWorkerIdStr);
+
+    try {
+        const ownerId = await getCurrentUserId();
+        if (!ownerId) throw new Error('Không xác định được chủ trang trại');
+
+        await fetchAPI(`${LABOR_API_BASE}/tasks/${taskId}/assign`, 'PUT', {
+            ownerId: ownerId,
+            workerId: newWorkerId
+        });
+
+        const workerName = newWorkerId ? (ownerTasksById[taskId]?.worker?.fullName || 'nhân công') : 'chưa phân công';
+        agriAlert(`Đã chuyển công việc cho "${newWorkerId ? workerName : 'Chưa phân công'}"`, 'success');
+        loadTasks();
+    } catch (e) {
+        console.error('Error reassigning task via Assignment Kanban:', e);
+        agriAlert('Chưa thể chuyển phân công: ' + e.message, 'error');
+        loadTasks();
+    }
+}
+
+// ============ GANTT CHART ============
+let currentGanttMode = 'DAY'; // 'DAY' or 'HOUR'
+
+function toggleGanttMode(mode) {
+    currentGanttMode = mode;
+    if (ownerTasksById) {
+        renderGanttChart(Object.values(ownerTasksById), document.getElementById('tasks-gantt-view'));
+    }
+}
+
+function renderGanttChart(tasks, container) {
+    if (!tasks || tasks.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding:2rem; color:#6b7280;">Không có công việc nào để hiển thị biểu đồ.</p>';
+        return;
+    }
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    
+    let timelineStartMs, timelineEndMs, totalDurationMs;
+    const cols = [];
+
+    if (currentGanttMode === 'DAY') {
+        const startDate = new Date(today);
+        startDate.setDate(today.getDate() - 2);
+        timelineStartMs = startDate.getTime();
+        timelineEndMs = timelineStartMs + (14 * 24 * 60 * 60 * 1000) - 1;
+        totalDurationMs = 14 * 24 * 60 * 60 * 1000;
+        
+        for (let i = 0; i < 14; i++) {
+            const d = new Date(startDate);
+            d.setDate(startDate.getDate() + i);
+            const isToday = d.getTime() === today.getTime();
+            cols.push({ label: d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }), isHighlight: isToday });
+        }
+    } else {
+        // HOUR view
+        timelineStartMs = today.getTime();
+        timelineEndMs = timelineStartMs + (24 * 60 * 60 * 1000) - 1;
+        totalDurationMs = 24 * 60 * 60 * 1000;
+        
+        const currentHour = new Date().getHours();
+        for (let i = 0; i < 24; i++) {
+            cols.push({ label: i + 'h', isHighlight: (i === currentHour) });
+        }
+    }
+
+    let html = '<div class="gantt-container">';
+    
+    // Toggle
+    html += `<div style="padding:10px 16px; border-bottom:1px solid #e2e8f0; display:flex; gap:8px;">
+        <button onclick="toggleGanttMode('DAY')" style="padding:6px 12px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; background:${currentGanttMode==='DAY'?'#3b82f6':'#f1f5f9'}; color:${currentGanttMode==='DAY'?'white':'#475569'}; border:none;">Theo Ngày</button>
+        <button onclick="toggleGanttMode('HOUR')" style="padding:6px 12px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; background:${currentGanttMode==='HOUR'?'#3b82f6':'#f1f5f9'}; color:${currentGanttMode==='HOUR'?'white':'#475569'}; border:none;">Theo Giờ (Hôm nay)</button>
+    </div>`;
+
+    // Header
+    html += '<div class="gantt-header">';
+    html += '<div class="gantt-task-name" style="border-bottom:none;">Tên công việc</div>';
+    html += '<div style="display:flex; flex:1;">';
+    cols.forEach(c => {
+        html += `<div class="gantt-header-cell ${c.isHighlight ? 'today' : ''}">${c.label}</div>`;
+    });
+    html += '</div></div>';
+
+    // Sort tasks
+    const sortedTasks = [...tasks].sort((a, b) => {
+        const ad = new Date(a.createdAt || a.dueDate || 0).getTime();
+        const bd = new Date(b.createdAt || b.dueDate || 0).getTime();
+        return ad - bd;
+    });
+
+    sortedTasks.forEach(task => {
+        let taskStart = task.createdAt ? new Date(task.createdAt) : new Date();
+        let taskEnd;
+        if (task.completedAt) {
+            taskEnd = new Date(task.completedAt);
+        } else if (task.dueDate) {
+            taskEnd = new Date(task.dueDate);
+        } else {
+            taskEnd = new Date(); // up to now if no due/complete
+        }
+        
+        // Ensure end >= start
+        if (taskEnd.getTime() < taskStart.getTime()) {
+            taskEnd = new Date(taskStart.getTime() + 60*60*1000); // add 1h min
+        }
+
+        if (taskEnd.getTime() < timelineStartMs || taskStart.getTime() > timelineEndMs) {
+            return;
+        }
+
+        const renderStart = Math.max(taskStart.getTime(), timelineStartMs);
+        const renderEnd = Math.min(taskEnd.getTime(), timelineEndMs);
+
+        const leftPercent = ((renderStart - timelineStartMs) / totalDurationMs) * 100;
+        const widthPercent = ((renderEnd - renderStart) / totalDurationMs) * 100;
+
+        const st = task.status ? String(task.status).toUpperCase() : 'PENDING';
+
+        html += `<div class="gantt-row">`;
+        html += `<div class="gantt-task-name">
+                    <div style="width:8px; height:8px; flex-shrink:0; border-radius:50%; background:${st === 'COMPLETED'?'#16a34a':(st==='IN_PROGRESS'?'#2563eb':'#d97706')};"></div>
+                    <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(task.name)}">${escapeHtml(task.name)}</span>
+                 </div>`;
+        html += `<div class="gantt-grid">`;
+        
+        cols.forEach(c => {
+            html += `<div class="gantt-grid-cell ${c.isHighlight ? 'today-col' : ''}"></div>`;
+        });
+
+        html += `<div class="gantt-bar status-${st}" 
+                      style="left: ${leftPercent}%; width: ${Math.max(widthPercent, 1)}%;"
+                      onclick="openOwnerTaskDetail(${task.id})"
+                      title="${escapeHtml(task.name)}\nKhởi tạo: ${taskStart.toLocaleString('vi-VN')}\nKết thúc/Hạn: ${taskEnd.toLocaleString('vi-VN')}">
+                    ${widthPercent > 5 ? escapeHtml(task.name) : ''}
+                 </div>`;
+
+        html += `</div></div>`;
     });
 
     html += '</div>';
@@ -776,8 +1362,14 @@ function openOwnerTaskDetail(taskId) {
     const task = ownerTasksById && ownerTasksById[taskId] ? ownerTasksById[taskId] : null;
     if (!task) return;
 
-    const container = document.querySelector('#tasks-tab .card__body');
+    const container = document.getElementById('task-detail-container');
     if (!container) return;
+    
+    // Hide main lists wrapper
+    const tasksContainer = document.getElementById('tasks-container');
+    if (tasksContainer) tasksContainer.style.display = 'none';
+    
+    container.style.display = 'block';
 
     const taskName = task.name || '';
     const taskDesc = task.description || '';
@@ -993,7 +1585,7 @@ function openOwnerTaskDetail(taskId) {
             ${countdownHtml}
 
             <!-- Completion / Status Banner -->
-            ${status === 'COMPLETED' && task.workflowData ? `
+            ${status === 'COMPLETED' ? `
             <div style="background:#fffbeb; border-radius:16px; border:1px solid #fde68a; padding:20px; margin-bottom:16px; text-align:center;">
                 <span class="material-symbols-outlined" style="font-size:48px; color:#d97706;">hourglass_top</span>
                 <div style="font-size:18px; font-weight:700; color:#d97706; margin-top:8px;">Chờ duyệt kết quả</div>
@@ -1006,14 +1598,8 @@ function openOwnerTaskDetail(taskId) {
                     onmouseenter="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(5,150,105,0.4)'"
                     onmouseleave="this.style.transform=''; this.style.boxShadow='0 4px 14px rgba(5,150,105,0.3)'">
                     <span class="material-symbols-outlined" style="font-size:22px;">verified</span>
-                    Duyệt và thực thi
+                    Duyệt công việc
                 </button>
-            </div>
-            ` : status === 'COMPLETED' ? `
-            <div style="background:#f0fdf4; border-radius:16px; border:1px solid #bbf7d0; padding:20px; margin-bottom:16px; text-align:center;">
-                <span class="material-symbols-outlined" style="font-size:48px; color:#16a34a;">task_alt</span>
-                <div style="font-size:18px; font-weight:700; color:#16a34a; margin-top:8px;">Công việc đã hoàn thành</div>
-                ${completedAt ? `<div style="font-size:14px; color:#15803d; margin-top:4px;">Lúc ${completedAt}</div>` : ''}
             </div>
             ` : status === 'APPROVED' ? `
             <div style="background:#f5f3ff; border-radius:16px; border:1px solid #c4b5fd; padding:20px; margin-bottom:16px; text-align:center;">
@@ -1027,6 +1613,27 @@ function openOwnerTaskDetail(taskId) {
 }
 
 function closeOwnerTaskDetail() {
+    // Hide detail and show main wrappers
+    const detailContainer = document.getElementById('task-detail-container');
+    if (detailContainer) detailContainer.style.display = 'none';
+    
+    const tasksContainer = document.getElementById('tasks-container');
+    if (tasksContainer) tasksContainer.style.display = 'block';
+    
+    const calHeader = document.getElementById('calendar-header');
+    if (calHeader) calHeader.style.display = 'flex';
+
+    // Restore the correct sub-view
+    const listContainer = document.getElementById('tasks-list-view');
+    const kanbanContainer = document.getElementById('tasks-kanban-view');
+    const assignContainer = document.getElementById('tasks-assign-view');
+    const ganttContainer = document.getElementById('tasks-gantt-view');
+
+    if (listContainer) listContainer.style.display = currentTaskView === 'list' ? 'block' : 'none';
+    if (kanbanContainer) kanbanContainer.style.display = currentTaskView === 'kanban' ? 'block' : 'none';
+    if (assignContainer) assignContainer.style.display = currentTaskView === 'assign' ? 'block' : 'none';
+    if (ganttContainer) ganttContainer.style.display = currentTaskView === 'gantt' ? 'block' : 'none';
+
     loadTasks();
 }
 
@@ -2734,8 +3341,8 @@ async function loadApprovedWorkers() {
 
             return `
                         <div class="worker-card" style="display: flex; gap: 20px; padding: 20px; background: white; border: 1px solid #e5e7eb; border-radius: 12px; transition: all 0.2s; cursor: pointer;" onclick="openWorkerDetailPage(${worker.id})" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'" onmouseout="this.style.boxShadow='none'">
-                            <div style="width: 64px; height: 64px; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                <span class="material-symbols-outlined" style="color: #10b981; font-size: 32px;">person</span>
+                            <div style="flex-shrink: 0; padding-top: 4px;">
+                                ${getWorkerAvatarHtml(worker, 64)}
                             </div>
                             <div style="flex: 1;">
                                 <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
@@ -2940,15 +3547,27 @@ function renderWorkerDetailInfoBlock(worker) {
     const createdAt = worker && worker.createdAt ? formatDateTime(worker.createdAt) : '--';
     const cv = worker && worker.cvProfile ? escapeHtml(worker.cvProfile) : '';
 
+    const rankInfo = {
+        'TRAINEE': { icon: '🥉', label: 'Nông dân Tập sự', bg: '#f7e8cd', color: '#b87333' },
+        'SKILLED': { icon: '🥈', label: 'Nông dân Thạo việc', bg: '#e8e8e8', color: '#6b6b6b' },
+        'VETERAN': { icon: '🥇', label: 'Lão nông Kinh nghiệm', bg: '#fff8e1', color: '#b8860b' },
+        'MASTER': { icon: '💎', label: 'Nghệ nhân Nông nghiệp', bg: '#e0f7fa', color: '#00838f' }
+    };
+    const rLvl = worker && worker.rankLevel ? worker.rankLevel : 'TRAINEE';
+    const rData = rankInfo[rLvl] || rankInfo.TRAINEE;
+
     return `
-        <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
-            <div style="width: 72px; height: 72px; border-radius: 18px; background: linear-gradient(135deg, #ecfdf5, #d1fae5); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                <span class="material-symbols-outlined" style="font-size: 34px; color: #10b981;">person</span>
+        <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+            <div style="flex-shrink: 0; padding-top: 4px;">
+                ${getWorkerAvatarHtml(worker, 80)}
             </div>
             <div style="flex: 1; min-width: 240px;">
-                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                    <h4 style="margin: 0; font-size: 20px; color: #111827;">${name}</h4>
-                    ${worker && worker.id != null ? `<span style=\"font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569;\">ID #${escapeHtml(worker.id)}</span>` : ''}
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px;">
+                    <h4 style="margin: 0; font-size: 22px; font-weight: 700; color: #111827;">${name}</h4>
+                    <div style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: ${rData.bg}; color: ${rData.color};">
+                        <span>${rData.icon}</span> <span>${rData.label}</span>
+                    </div>
+                    ${worker && worker.id != null ? `<span style=\"font-size: 13px; font-weight: 700; padding: 4px 12px; border-radius: 999px; background: #f1f5f9; border: 1px solid #e2e8f0; color: #475569;\">ID #${escapeHtml(worker.id)}</span>` : ''}
                 </div>
                 <div style="margin-top: 10px; display: grid; gap: 8px; color: #6b7280; font-size: 14px;">
                     <div style="display: flex; gap: 8px; align-items: center;">
@@ -3632,6 +4251,14 @@ function renderHistoryTasksForDate(dateStr) {
     // Filter tasks for this date
     const tasksForDate = _historyAllTasks.filter(t => {
         return _getTaskDateKeys(t).has(dateStr);
+    });
+
+    // Merge history tasks into ownerTasksById so openOwnerTaskDetail can find them
+    if (!ownerTasksById) ownerTasksById = {};
+    tasksForDate.forEach(t => {
+        if (t.id && !ownerTasksById[t.id]) {
+            ownerTasksById[t.id] = t;
+        }
     });
 
     // Sort: active first, then by createdAt desc

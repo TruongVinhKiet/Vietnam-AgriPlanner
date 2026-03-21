@@ -5,6 +5,9 @@ import com.agriplanner.dto.AdminSellSessionResponse;
 import com.agriplanner.dto.CreateAdminBuySessionRequest;
 import com.agriplanner.dto.CreateAdminSellSessionRequest;
 import com.agriplanner.dto.MarketPriceInfo;
+import com.agriplanner.dto.SessionContributionDTO;
+import com.agriplanner.dto.AdminBuySessionDetailResponse;
+import com.agriplanner.dto.AdminSellSessionDetailResponse;
 import com.agriplanner.model.AnimalDefinition;
 import com.agriplanner.model.CropDefinition;
 import com.agriplanner.model.GroupBuyCampaign;
@@ -62,6 +65,7 @@ public class AdminTradingSessionService {
                                 .targetQuantity(request.getTargetQuantity())
                                 .wholesalePrice(request.getWholesalePrice())
                                 .retailPrice(shopItem.getPrice())
+                                .startDate(request.getStartDate() != null ? request.getStartDate() : java.time.ZonedDateTime.now())
                                 .deadline(request.getDeadline())
                                 .isAdminCreated(true)
                                 .marketPrice(shopItem.getPrice()) // Market reference
@@ -89,6 +93,27 @@ public class AdminTradingSessionService {
                                 .stream()
                                 .map(this::toAdminBuySessionResponse)
                                 .collect(Collectors.toList());
+        }
+
+        public AdminBuySessionDetailResponse getBuySessionDetail(Long id) {
+                Objects.requireNonNull(id, "Session ID cannot be null");
+                GroupBuyCampaign campaign = groupBuyCampaignRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+                AdminBuySessionResponse session = toAdminBuySessionResponse(campaign);
+
+                List<SessionContributionDTO> contributions = campaign.getContributions().stream()
+                                .map(c -> SessionContributionDTO.builder()
+                                                .id(c.getId())
+                                                .cooperativeId(c.getMember().getCooperative().getId())
+                                                .cooperativeName(c.getMember().getCooperative().getName())
+                                                .memberName(c.getMember().getUser().getFullName())
+                                                .quantity(c.getQuantity())
+                                                .createdAt(c.getCreatedAt())
+                                                .build())
+                                .collect(Collectors.toList());
+
+                return new AdminBuySessionDetailResponse(session, contributions);
         }
 
         // ========== GROUP SELL (Admin buys from HTX) ==========
@@ -133,6 +158,7 @@ public class AdminTradingSessionService {
                                 .targetQuantity(request.getTargetQuantity())
                                 .minPrice(request.getMinPrice())
                                 .unit(request.getUnit())
+                                .startDate(request.getStartDate() != null ? request.getStartDate() : java.time.ZonedDateTime.now())
                                 .deadline(request.getDeadline())
                                 .isAdminCreated(true)
                                 .marketPrice(request.getMarketPrice())
@@ -168,6 +194,28 @@ public class AdminTradingSessionService {
                                 .stream()
                                 .map(this::toAdminSellSessionResponse)
                                 .collect(Collectors.toList());
+        }
+
+        public AdminSellSessionDetailResponse getSellSessionDetail(Long id) {
+                Objects.requireNonNull(id, "Session ID cannot be null");
+                GroupSellCampaign campaign = groupSellCampaignRepository.findById(id)
+                                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+                AdminSellSessionResponse session = toAdminSellSessionResponse(campaign);
+
+                List<SessionContributionDTO> contributions = campaign.getContributions().stream()
+                                .map(c -> SessionContributionDTO.builder()
+                                                .id(c.getId())
+                                                .cooperativeId(c.getMember().getCooperative().getId())
+                                                .cooperativeName(c.getMember().getCooperative().getName())
+                                                .memberName(c.getMember().getUser().getFullName())
+                                                .quantity(c.getQuantity())
+                                                .notes(c.getNotes())
+                                                .createdAt(c.getCreatedAt())
+                                                .build())
+                                .collect(Collectors.toList());
+
+                return new AdminSellSessionDetailResponse(session, contributions);
         }
 
         // ========== MARKET PRICES (for reference) ==========
@@ -236,6 +284,7 @@ public class AdminTradingSessionService {
                                 .marketPrice(campaign.getMarketPrice())
                                 .discountPercent(campaign.getDiscountPercent())
                                 .progressPercent(campaign.getProgressPercent())
+                                .startDate(campaign.getStartDate())
                                 .deadline(campaign.getDeadline())
                                 .status(campaign.getStatus().name())
                                 .note(campaign.getNote())
@@ -258,6 +307,7 @@ public class AdminTradingSessionService {
                                 .marketPrice(campaign.getMarketPrice())
                                 .unit(campaign.getUnit())
                                 .progressPercent(campaign.getProgressPercent())
+                                .startDate(campaign.getStartDate())
                                 .deadline(campaign.getDeadline())
                                 .status(campaign.getStatus().name())
                                 .createdAt(campaign.getCreatedAt())

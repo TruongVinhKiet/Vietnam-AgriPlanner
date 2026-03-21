@@ -61,6 +61,9 @@ public class UserController {
         response.put("defaultAddress", user.getDefaultAddress() != null ? user.getDefaultAddress() : "");
         response.put("addressLat", user.getAddressLat());
         response.put("addressLng", user.getAddressLng());
+        response.put("farmId", user.getFarmId());
+        response.put("experiencePoints", user.getExperiencePoints() != null ? user.getExperiencePoints() : 0);
+        response.put("rankLevel", user.getRankLevel() != null ? user.getRankLevel() : "TRAINEE");
         return ResponseEntity.ok(response);
     }
 
@@ -351,6 +354,9 @@ public class UserController {
             map.put("createdAt", u.getCreatedAt());
             map.put("cvProfile", u.getCvProfile());
             map.put("approvalStatus", u.getApprovalStatus());
+            map.put("experiencePoints", u.getExperiencePoints() != null ? u.getExperiencePoints() : 0);
+            map.put("rankLevel", u.getRankLevel() != null ? u.getRankLevel() : "TRAINEE");
+            map.put("avatarUrl", u.getAvatarUrl());
             return map;
         }).collect(java.util.stream.Collectors.toList());
 

@@ -139,6 +139,32 @@ public class User implements org.springframework.security.core.userdetails.UserD
     @Builder.Default
     private Integer loyaltyPoints = 0;
 
+    // Gamification: EXP & Rank system
+    @Column(name = "experience_points")
+    @Builder.Default
+    private Integer experiencePoints = 0;
+
+    @Column(name = "rank_level", length = 30)
+    @Builder.Default
+    private String rankLevel = "TRAINEE";
+
+    /**
+     * Recalculate rank based on current experience points.
+     * TRAINEE: 0-99, SKILLED: 100-499, VETERAN: 500-999, MASTER: 1000+
+     */
+    public void recalculateRank() {
+        if (experiencePoints == null) experiencePoints = 0;
+        if (experiencePoints >= 1000) {
+            rankLevel = "MASTER";
+        } else if (experiencePoints >= 500) {
+            rankLevel = "VETERAN";
+        } else if (experiencePoints >= 100) {
+            rankLevel = "SKILLED";
+        } else {
+            rankLevel = "TRAINEE";
+        }
+    }
+
     // Address fields
     @Column(name = "default_address", columnDefinition = "TEXT")
     private String defaultAddress;

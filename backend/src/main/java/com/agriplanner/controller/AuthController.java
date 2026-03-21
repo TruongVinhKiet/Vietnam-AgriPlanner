@@ -93,6 +93,8 @@ public class AuthController {
         response.put("avatarUrl", user.getAvatarUrl());
         response.put("faceEnabled", user.getFaceEnabled());
         response.put("authProvider", user.getAuthProvider());
+        response.put("experiencePoints", user.getExperiencePoints() != null ? user.getExperiencePoints() : 0);
+        response.put("rankLevel", user.getRankLevel() != null ? user.getRankLevel() : "TRAINEE");
         response.put("message", "Authenticated");
         return ResponseEntity.ok(response);
     }

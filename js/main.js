@@ -144,7 +144,7 @@ function showToast(message, type = 'info', duration = 3000) {
         position: fixed;
         bottom: 24px;
         right: 24px;
-        background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : '#3b82f6'};
+        background: ${type === 'success' ? 'linear-gradient(135deg, #10b981, #059669)' : type === 'error' ? 'linear-gradient(135deg, #ef4444, #dc2626)' : type === 'warning' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'linear-gradient(135deg, #3b82f6, #2563eb)'};
         color: white;
         padding: 16px 24px;
         border-radius: 12px;

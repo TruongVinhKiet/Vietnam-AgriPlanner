@@ -377,8 +377,8 @@ public class CooperativeService {
                         log.error("Failed to dissolve chat group for cooperative {}", cooperativeId, e);
                 }
 
-                log.info("[COOP] Cooperative '{}' dissolved, {} members removed",
-                                cooperative.getName(), members.size());
+                log.info("[COOP] Cooperative '{}' has been dissolved (status changed, data preserved)",
+                                cooperative.getName());
         }
 
         @Transactional(readOnly = true)
@@ -397,6 +397,14 @@ public class CooperativeService {
                                 .totalMembers(totalMembers)
                                 .totalFunds(totalFunds != null ? totalFunds : BigDecimal.ZERO)
                                 .build();
+        }
+
+        // ==================== Public Helpers ====================
+
+        @Transactional(readOnly = true)
+        public CooperativeMember getMemberByUserId(Long cooperativeId, Long userId) {
+                return memberRepository.findByCooperative_IdAndUser_Id(cooperativeId, userId)
+                                .orElseThrow(() -> new RuntimeException("Not a member of this cooperative"));
         }
 
         // ==================== Helper Methods ====================

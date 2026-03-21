@@ -19,6 +19,7 @@ public class AdminSellSessionResponse {
     private BigDecimal marketPrice;
     private String unit;
     private Integer progressPercent;
+    private ZonedDateTime startDate;
     private ZonedDateTime deadline;
     private String status;
     private ZonedDateTime createdAt;

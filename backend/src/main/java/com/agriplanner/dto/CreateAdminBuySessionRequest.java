@@ -13,6 +13,7 @@ public class CreateAdminBuySessionRequest {
     private String title;
     private Integer targetQuantity;
     private BigDecimal wholesalePrice;
+    private ZonedDateTime startDate;
     private ZonedDateTime deadline;
     private String note;
 }

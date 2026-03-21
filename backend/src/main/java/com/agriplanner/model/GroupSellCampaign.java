@@ -42,6 +42,10 @@ public class GroupSellCampaign {
     @Column(name = "unit")
     private String unit; // kg, con, etc.
 
+    @Column(name = "start_date")
+    @Builder.Default
+    private ZonedDateTime startDate = ZonedDateTime.now();
+
     private ZonedDateTime deadline;
 
     @Enumerated(EnumType.STRING)

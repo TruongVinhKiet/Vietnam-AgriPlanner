@@ -17,5 +17,6 @@ public class CreateAdminSellSessionRequest {
     private BigDecimal minPrice;
     private BigDecimal marketPrice;
     private String unit;
+    private ZonedDateTime startDate;
     private ZonedDateTime deadline;
 }

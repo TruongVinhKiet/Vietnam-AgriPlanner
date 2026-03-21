@@ -1584,3 +1584,345 @@
     border-radius: var(--radius-md);
     border-left: 4px solid var(--color-primary);
 }
+
+/* =====================================================
+   Inventory Logs (Lịch sử xuất nhập kho)
+   ===================================================== */
+
+.inventory-logs-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.log-entry {
+    padding: var(--spacing-3) var(--spacing-4);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    transition: all 0.2s ease;
+}
+
+.log-entry:hover {
+    background: var(--color-bg-tertiary);
+}
+
+.log-entry__header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+}
+
+.log-entry__icon {
+    flex-shrink: 0;
+}
+
+.log-entry__icon .material-symbols-outlined {
+    font-size: 20px;
+}
+
+.log-entry__info {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex-wrap: wrap;
+}
+
+.log-entry__info strong {
+    color: var(--color-text);
+    font-size: 0.875rem;
+}
+
+.log-entry__qty {
+    padding: 2px 8px;
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--color-primary);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.log-entry__date {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.log-entry__desc {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    margin: var(--spacing-2) 0 0 calc(24px + var(--spacing-3));
+}
+
+.log-entry__by {
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    margin-left: calc(24px + var(--spacing-3));
+}
+
+/* =====================================================
+   Distribution Plan Cards
+   ===================================================== */
+
+.distribution-plans-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-4);
+}
+
+.plan-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.plan-card:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow-md);
+}
+
+.plan-card__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-4);
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.plan-card__title {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+}
+
+.plan-card__title > div {
+    display: flex;
+    flex-direction: column;
+}
+
+.plan-card__title strong {
+    color: var(--color-text);
+    font-size: 0.9375rem;
+}
+
+.plan-card__title small {
+    color: var(--color-text-muted);
+    font-size: 0.8125rem;
+}
+
+.plan-card__body {
+    padding: var(--spacing-4);
+}
+
+.plan-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-3);
+}
+
+.plan-votes {
+    display: flex;
+    gap: var(--spacing-4);
+    margin-bottom: var(--spacing-3);
+}
+
+.vote-count {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    padding: var(--spacing-1) var(--spacing-3);
+    border-radius: var(--radius-full);
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.vote-count.approve {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--color-success);
+}
+
+.vote-count.reject {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--color-error);
+}
+
+.vote-count .material-symbols-outlined {
+    font-size: 16px;
+}
+
+.plan-allocations {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-3);
+}
+
+.alloc-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-2) var(--spacing-3);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+}
+
+.alloc-qty {
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+.plan-vote-actions {
+    display: flex;
+    gap: var(--spacing-3);
+    padding-top: var(--spacing-3);
+    border-top: 1px solid var(--color-border);
+}
+
+.plan-vote-actions .btn {
+    flex: 1;
+}
+
+/* Status Badge Variants */
+.status-badge {
+    display: inline-block;
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--radius-full);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.status-badge.pending {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--color-warning);
+}
+
+.status-badge.success {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--color-success);
+}
+
+.status-badge.error {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--color-error);
+}
+
+/* =====================================================
+   Distribution Modal - Allocation Grid
+   ===================================================== */
+
+.allocation-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+}
+
+.alloc-input-row {
+    display: grid;
+    grid-template-columns: 1fr 100px auto;
+    align-items: center;
+    gap: var(--spacing-3);
+    padding: var(--spacing-2) var(--spacing-3);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    transition: all 0.2s ease;
+}
+
+.alloc-input-row:hover {
+    border-color: var(--color-primary);
+}
+
+.alloc-input-row label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+.alloc-input-row label small {
+    color: var(--color-text-muted);
+    font-weight: 400;
+}
+
+.alloc-input-row input {
+    padding: var(--spacing-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+.alloc-input-row input:focus {
+    border-color: var(--color-primary);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+.alloc-unit {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+}
+
+.dist-summary {
+    margin-top: var(--spacing-3);
+}
+
+.hint {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-1);
+}
+
+.alert--info {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-3);
+    padding: var(--spacing-3) var(--spacing-4);
+    background: rgba(59, 130, 246, 0.08);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: var(--radius-md);
+    color: var(--color-info);
+}
+
+.alert--info .material-symbols-outlined {
+    font-size: 20px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.alert--info p {
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+.alert--info .hint {
+    color: var(--color-info);
+    opacity: 0.8;
+}
+
+/* Slide up animation */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-up {
+    animation: slideUp 0.4s ease forwards;
+}
