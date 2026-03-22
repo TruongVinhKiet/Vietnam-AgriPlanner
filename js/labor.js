@@ -360,11 +360,13 @@ function renderTasks(tasks) {
         listContainer.style.display = 'block';
         renderTaskListView(tasks, listContainer);
     } else if (currentTaskView === 'kanban') {
-        kanbanContainer.style.display = 'block';
-        renderKanbanBoard(tasks, kanbanContainer);
-    } else if (currentTaskView === 'assign') {
-        assignContainer.style.display = 'block';
-        renderAssignKanban(tasks, assignContainer);
+        if (currentKanbanSubView === 'progress') {
+            kanbanContainer.style.display = 'block';
+            renderKanbanBoard(tasks, kanbanContainer);
+        } else {
+            assignContainer.style.display = 'block';
+            renderAssignKanban(tasks, assignContainer);
+        }
     } else if (currentTaskView === 'gantt') {
         ganttContainer.style.display = 'block';
         renderGanttChart(tasks, ganttContainer);
@@ -380,7 +382,7 @@ function getWorkerAvatarHtml(worker, size) {
     const char = name.charAt(0).toUpperCase();
     const inner = avatarUrl
         ? `<img src="${avatarUrl}" alt="" style="width:${size}px; height:${size}px; border-radius:50%; object-fit:cover;">`
-        : `<div style="width:${size}px; height:${size}px; border-radius:50%; background:#dbeafe; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:${Math.round(size*0.45)}px; font-weight:700;">${escapeHtml(char)}</div>`;
+        : `<div style="width:${size}px; height:${size}px; border-radius:50%; background:#dbeafe; color:#2563eb; display:flex; align-items:center; justify-content:center; font-size:${Math.round(size * 0.45)}px; font-weight:700;">${escapeHtml(char)}</div>`;
     return `<div class="rank-frame-mini rank-${rank}" title="${escapeHtml(name)}">${inner}</div>`;
 }
 
@@ -551,23 +553,47 @@ function renderTaskListView(tasks, container) {
 
 // ============ KANBAN BOARD VIEW ============
 
+let currentKanbanSubView = 'progress';
+
 function toggleTaskView(view) {
     currentTaskView = view;
-    // Update button states
+    // Update main button states
     document.getElementById('view-toggle-list').classList.toggle('active', view === 'list');
     document.getElementById('view-toggle-kanban').classList.toggle('active', view === 'kanban');
-    const assignBtn = document.getElementById('view-toggle-assign');
-    if (assignBtn) assignBtn.classList.toggle('active', view === 'assign');
     const ganttBtn = document.getElementById('view-toggle-gantt');
     if (ganttBtn) ganttBtn.classList.toggle('active', view === 'gantt');
-    
-    // Toggle Group By control (only for kanban view)
-    const groupControl = document.getElementById('kanban-group-control');
-    if (groupControl) {
-        groupControl.style.display = (view === 'kanban') ? 'flex' : 'none';
+
+    // Toggle kanban controls row when Kanban is active
+    const controlsRow = document.getElementById('kanban-controls-row');
+    if (controlsRow) {
+        controlsRow.style.display = (view === 'kanban') ? 'flex' : 'none';
+        
+        // Ensure group control is only visible in 'progress' sub-view
+        const groupControl = document.getElementById('kanban-group-control');
+        if (groupControl) {
+            groupControl.style.display = (currentKanbanSubView === 'progress') ? 'flex' : 'none';
+        }
     }
 
-    // Re-render tasks with the new view
+    if (ownerTasksById) {
+        renderTasks(Object.values(ownerTasksById));
+    } else {
+        loadTasks();
+    }
+}
+
+function switchKanbanSubView(type) {
+    currentKanbanSubView = type;
+    const progBtn = document.getElementById('sub-toggle-progress');
+    const assignBtn = document.getElementById('sub-toggle-assign');
+    if (progBtn) progBtn.classList.toggle('active', type === 'progress');
+    if (assignBtn) assignBtn.classList.toggle('active', type === 'assign');
+
+    const groupControl = document.getElementById('kanban-group-control');
+    if (groupControl) {
+        groupControl.style.display = (type === 'progress') ? 'flex' : 'none';
+    }
+
     if (ownerTasksById) {
         renderTasks(Object.values(ownerTasksById));
     } else {
@@ -657,7 +683,7 @@ function renderKanbanBoard(tasks, container) {
             const workerId = t.worker ? Number(t.worker.id) : 0; // 0 for unassigned
             const workerName = t.worker ? (t.worker.fullName || t.worker.email || 'Nhân công ' + workerId) : 'Chưa phân công';
             const workerAvatar = t.worker ? workerName.charAt(0).toUpperCase() : '?';
-            
+
             if (!groups[workerId]) {
                 groups[workerId] = { name: workerName, avatar: workerAvatar, tasks: [] };
             }
@@ -681,7 +707,7 @@ function renderKanbanBoard(tasks, container) {
                     </div>
                     <div class="kanban-swimlane-body">
             `;
-            
+
             columns.forEach(col => {
                 const colTasks = group.tasks.filter(t => (col.id === 'PENDING' ? (t.status === 'PENDING' || !t.status) : t.status === col.id));
                 html += generateColumnHTML(col, colTasks);
@@ -713,7 +739,7 @@ function kbDragOver(event) {
 async function kbDrop(event, newStatus) {
     event.preventDefault();
     document.querySelectorAll('.kanban-cards').forEach(c => c.classList.remove('kanban-dropzone'));
-    
+
     const taskIdString = event.dataTransfer.getData('text/plain');
     if (!taskIdString) return;
     const taskId = parseInt(taskIdString);
@@ -733,11 +759,11 @@ async function kbDrop(event, newStatus) {
     // But for a simple Kanban UI, we allow Owner to override statuses quickly if needed,
     // though the DB might reject it depending on state machine logic.
     // Let's call an update API.
-    
+
     try {
         const token = localStorage.getItem('token');
         const updateParams = { status: newStatus };
-        
+
         await fetchAPI(`${LABOR_API_BASE}/tasks/${taskId}/quick-update`, {
             method: 'PATCH',
             headers: {
@@ -748,7 +774,7 @@ async function kbDrop(event, newStatus) {
         });
 
         agriAlert(`Đã chuyển công việc sang "${newStatus === 'PENDING' ? 'Chờ thực hiện' : (newStatus === 'IN_PROGRESS' ? 'Đang làm' : 'Đã hoàn thành')}"`, 'success');
-        
+
         // Reload tasks to refresh the board UI
         loadTasks();
 
@@ -946,8 +972,8 @@ function renderGanttChart(tasks, container) {
     }
 
     const today = new Date();
-    today.setHours(0,0,0,0);
-    
+    today.setHours(0, 0, 0, 0);
+
     let timelineStartMs, timelineEndMs, totalDurationMs;
     const cols = [];
 
@@ -957,7 +983,7 @@ function renderGanttChart(tasks, container) {
         timelineStartMs = startDate.getTime();
         timelineEndMs = timelineStartMs + (14 * 24 * 60 * 60 * 1000) - 1;
         totalDurationMs = 14 * 24 * 60 * 60 * 1000;
-        
+
         for (let i = 0; i < 14; i++) {
             const d = new Date(startDate);
             d.setDate(startDate.getDate() + i);
@@ -969,7 +995,7 @@ function renderGanttChart(tasks, container) {
         timelineStartMs = today.getTime();
         timelineEndMs = timelineStartMs + (24 * 60 * 60 * 1000) - 1;
         totalDurationMs = 24 * 60 * 60 * 1000;
-        
+
         const currentHour = new Date().getHours();
         for (let i = 0; i < 24; i++) {
             cols.push({ label: i + 'h', isHighlight: (i === currentHour) });
@@ -977,11 +1003,11 @@ function renderGanttChart(tasks, container) {
     }
 
     let html = '<div class="gantt-container">';
-    
+
     // Toggle
     html += `<div style="padding:10px 16px; border-bottom:1px solid #e2e8f0; display:flex; gap:8px;">
-        <button onclick="toggleGanttMode('DAY')" style="padding:6px 12px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; background:${currentGanttMode==='DAY'?'#3b82f6':'#f1f5f9'}; color:${currentGanttMode==='DAY'?'white':'#475569'}; border:none;">Theo Ngày</button>
-        <button onclick="toggleGanttMode('HOUR')" style="padding:6px 12px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; background:${currentGanttMode==='HOUR'?'#3b82f6':'#f1f5f9'}; color:${currentGanttMode==='HOUR'?'white':'#475569'}; border:none;">Theo Giờ (Hôm nay)</button>
+        <button onclick="toggleGanttMode('DAY')" style="padding:6px 12px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; background:${currentGanttMode === 'DAY' ? '#3b82f6' : '#f1f5f9'}; color:${currentGanttMode === 'DAY' ? 'white' : '#475569'}; border:none;">Theo Ngày</button>
+        <button onclick="toggleGanttMode('HOUR')" style="padding:6px 12px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; background:${currentGanttMode === 'HOUR' ? '#3b82f6' : '#f1f5f9'}; color:${currentGanttMode === 'HOUR' ? 'white' : '#475569'}; border:none;">Theo Giờ (Hôm nay)</button>
     </div>`;
 
     // Header
@@ -1010,10 +1036,10 @@ function renderGanttChart(tasks, container) {
         } else {
             taskEnd = new Date(); // up to now if no due/complete
         }
-        
+
         // Ensure end >= start
         if (taskEnd.getTime() < taskStart.getTime()) {
-            taskEnd = new Date(taskStart.getTime() + 60*60*1000); // add 1h min
+            taskEnd = new Date(taskStart.getTime() + 60 * 60 * 1000); // add 1h min
         }
 
         if (taskEnd.getTime() < timelineStartMs || taskStart.getTime() > timelineEndMs) {
@@ -1030,11 +1056,11 @@ function renderGanttChart(tasks, container) {
 
         html += `<div class="gantt-row">`;
         html += `<div class="gantt-task-name">
-                    <div style="width:8px; height:8px; flex-shrink:0; border-radius:50%; background:${st === 'COMPLETED'?'#16a34a':(st==='IN_PROGRESS'?'#2563eb':'#d97706')};"></div>
+                    <div style="width:8px; height:8px; flex-shrink:0; border-radius:50%; background:${st === 'COMPLETED' ? '#16a34a' : (st === 'IN_PROGRESS' ? '#2563eb' : '#d97706')};"></div>
                     <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(task.name)}">${escapeHtml(task.name)}</span>
                  </div>`;
         html += `<div class="gantt-grid">`;
-        
+
         cols.forEach(c => {
             html += `<div class="gantt-grid-cell ${c.isHighlight ? 'today-col' : ''}"></div>`;
         });
@@ -1364,11 +1390,11 @@ function openOwnerTaskDetail(taskId) {
 
     const container = document.getElementById('task-detail-container');
     if (!container) return;
-    
+
     // Hide main lists wrapper
     const tasksContainer = document.getElementById('tasks-container');
     if (tasksContainer) tasksContainer.style.display = 'none';
-    
+
     container.style.display = 'block';
 
     const taskName = task.name || '';
@@ -1616,10 +1642,10 @@ function closeOwnerTaskDetail() {
     // Hide detail and show main wrappers
     const detailContainer = document.getElementById('task-detail-container');
     if (detailContainer) detailContainer.style.display = 'none';
-    
+
     const tasksContainer = document.getElementById('tasks-container');
     if (tasksContainer) tasksContainer.style.display = 'block';
-    
+
     const calHeader = document.getElementById('calendar-header');
     if (calHeader) calHeader.style.display = 'flex';
 

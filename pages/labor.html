@@ -427,16 +427,16 @@
             padding-bottom: 8px;
             min-height: 400px;
         }
-        
+
         .kanban-board::-webkit-scrollbar {
             height: 8px;
         }
-        
+
         .kanban-board::-webkit-scrollbar-track {
             background: #f1f5f9;
             border-radius: 4px;
         }
-        
+
         .kanban-board::-webkit-scrollbar-thumb {
             background: #cbd5e1;
             border-radius: 4px;
@@ -462,9 +462,20 @@
             align-items: center;
         }
 
-        .kanban-header-PENDING { border-color: #94a3b8; color: #475569; }
-        .kanban-header-IN_PROGRESS { border-color: #3b82f6; color: #1d4ed8; }
-        .kanban-header-COMPLETED { border-color: #eab308; color: #a16207; }
+        .kanban-header-PENDING {
+            border-color: #94a3b8;
+            color: #475569;
+        }
+
+        .kanban-header-IN_PROGRESS {
+            border-color: #3b82f6;
+            color: #1d4ed8;
+        }
+
+        .kanban-header-COMPLETED {
+            border-color: #eab308;
+            color: #a16207;
+        }
 
         .kanban-count {
             background: white;
@@ -472,7 +483,7 @@
             border-radius: 99px;
             font-size: 12px;
             color: #64748b;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
 
         .kanban-cards {
@@ -489,7 +500,7 @@
             background: white;
             border-radius: 8px;
             padding: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             border: 1px solid #e2e8f0;
             cursor: grab;
             transition: box-shadow 0.2s, transform 0.2s;
@@ -500,13 +511,13 @@
         }
 
         .kanban-card:hover {
-            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             transform: translateY(-2px);
         }
 
         .kanban-card.dragging {
             opacity: 0.5;
-            box-shadow: 0 8px 15px rgba(0,0,0,0.15);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
         }
 
         .kanban-dropzone {
@@ -584,7 +595,7 @@
         .view-toggle button.active {
             background: white;
             color: #1e293b;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
         /* ══ Swimlanes ══ */
@@ -619,11 +630,13 @@
             border: none;
             max-height: none;
         }
+
         .kanban-swimlane .kanban-column-header {
             border-bottom: 1px solid #e2e8f0;
             padding: 8px 0;
             margin-bottom: 8px;
         }
+
         .kanban-swimlane .kanban-cards {
             padding: 0;
             min-height: 80px;
@@ -637,6 +650,7 @@
             padding-bottom: 8px;
             min-height: 400px;
         }
+
         .assign-kanban-col {
             flex: 0 0 280px;
             background: #f8fafc;
@@ -646,6 +660,7 @@
             border: 1px solid #e2e8f0;
             max-height: 70vh;
         }
+
         .assign-kanban-col-header {
             padding: 12px 16px;
             border-bottom: 2px solid #10b981;
@@ -656,12 +671,14 @@
             align-items: center;
             gap: 8px;
         }
+
         .assign-kanban-col-header img {
             width: 28px;
             height: 28px;
             border-radius: 50%;
             object-fit: cover;
         }
+
         .assign-kanban-col-unassigned .assign-kanban-col-header {
             border-bottom-color: #94a3b8;
         }
@@ -674,6 +691,7 @@
             border-radius: 12px;
             margin-top: 16px;
         }
+
         .gantt-header {
             display: flex;
             background: #f8fafc;
@@ -681,6 +699,7 @@
             font-weight: 600;
             font-size: 13px;
         }
+
         .gantt-header-cell {
             flex: 1;
             min-width: 80px;
@@ -689,19 +708,23 @@
             border-right: 1px solid #e2e8f0;
             color: #475569;
         }
+
         .gantt-header-cell.today {
             background: #eef2ff;
             color: #4f46e5;
         }
+
         .gantt-row {
             display: flex;
             border-bottom: 1px solid #f1f5f9;
             min-height: 48px;
             position: relative;
         }
+
         .gantt-row:last-child {
             border-bottom: none;
         }
+
         .gantt-task-name {
             width: 200px;
             min-width: 200px;
@@ -718,19 +741,23 @@
             align-items: center;
             gap: 8px;
         }
+
         .gantt-grid {
             display: flex;
             flex: 1;
             position: relative;
         }
+
         .gantt-grid-cell {
             flex: 1;
             min-width: 80px;
             border-right: 1px solid #f1f5f9;
         }
+
         .gantt-grid-cell.today-col {
             background: #fef3c7;
         }
+
         .gantt-bar {
             position: absolute;
             top: 10px;
@@ -744,21 +771,34 @@
             align-items: center;
             padding: 0 8px;
             cursor: pointer;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
             overflow: hidden;
             white-space: nowrap;
             text-overflow: ellipsis;
             z-index: 5;
             transition: transform 0.2s, box-shadow 0.2s;
         }
+
         .gantt-bar:hover {
             transform: translateY(-1px);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-        .gantt-bar.status-COMPLETED { background: #16a34a; }
-        .gantt-bar.status-IN_PROGRESS { background: #2563eb; }
-        .gantt-bar.status-PENDING { background: #d97706; }
-        .gantt-bar.status-APPROVED { background: #7c3aed; }
+
+        .gantt-bar.status-COMPLETED {
+            background: #16a34a;
+        }
+
+        .gantt-bar.status-IN_PROGRESS {
+            background: #2563eb;
+        }
+
+        .gantt-bar.status-PENDING {
+            background: #d97706;
+        }
+
+        .gantt-bar.status-APPROVED {
+            background: #7c3aed;
+        }
 
         /* === Rank Avatar Frame System === */
         .rank-frame-mini {
@@ -770,13 +810,30 @@
             transition: all 0.3s ease;
             flex-shrink: 0;
         }
-        .rank-frame-mini > img,
-        .rank-frame-mini > div { border-radius: 50%; }
 
-        .rank-frame-mini.rank-TRAINEE { background: linear-gradient(135deg, #d4a76a, #b87333); }
-        .rank-frame-mini.rank-SKILLED { background: linear-gradient(135deg, #c0c0c0, #8a8a8a); box-shadow: 0 0 6px rgba(192,192,192,0.3); }
-        .rank-frame-mini.rank-VETERAN { background: linear-gradient(135deg, #ffd700, #daa520); box-shadow: 0 0 8px rgba(255,215,0,0.4); }
-        .rank-frame-mini.rank-MASTER  { background: linear-gradient(135deg, #00e5ff, #00838f); box-shadow: 0 0 10px rgba(0,229,255,0.5); }
+        .rank-frame-mini>img,
+        .rank-frame-mini>div {
+            border-radius: 50%;
+        }
+
+        .rank-frame-mini.rank-TRAINEE {
+            background: linear-gradient(135deg, #d4a76a, #b87333);
+        }
+
+        .rank-frame-mini.rank-SKILLED {
+            background: linear-gradient(135deg, #c0c0c0, #8a8a8a);
+            box-shadow: 0 0 6px rgba(192, 192, 192, 0.3);
+        }
+
+        .rank-frame-mini.rank-VETERAN {
+            background: linear-gradient(135deg, #ffd700, #daa520);
+            box-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+        }
+
+        .rank-frame-mini.rank-MASTER {
+            background: linear-gradient(135deg, #00e5ff, #00838f);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+        }
 
         /* Approved task card style */
         .task-card-approved {
@@ -977,54 +1034,82 @@
                     <div id="tasks-tab" class="tab-content">
                         <div class="card">
                             <div class="card__header"
-                                style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                                <div style="display: flex; align-items: center; gap: 16px;">
-                                    <h3 class="card__title" style="margin: 0;">Danh sách công việc</h3>
+                                style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; padding-bottom: 16px;">
+                                
+                                <!-- Cột 1: Tiêu đề (Bên TRÁI) -->
+                                <div style="flex: 1; display: flex; justify-content: flex-start; align-items: center; padding-top: 6px;">
+                                    <h3 class="card__title" style="margin: 0; white-space: nowrap;">Danh sách công việc</h3>
+                                </div>
+
+                                <!-- Cột 2: Các nút View Toggle (Ở GIỮA) -->
+                                <div style="flex: 2; display: flex; flex-direction: column; align-items: center; gap: 12px; min-width: 320px;">
                                     <div class="view-toggle">
-                                        <button id="view-toggle-list" class="active" onclick="toggleTaskView('list')">
-                                            <span class="material-symbols-outlined" style="font-size: 18px;">view_list</span> Danh sách
+                                        <button id="view-toggle-list" class="active" onclick="toggleTaskView('list')" style="white-space: nowrap;">
+                                            <span class="material-symbols-outlined"
+                                                style="font-size: 18px;">view_list</span> Danh sách
                                         </button>
-                                        <button id="view-toggle-kanban" onclick="toggleTaskView('kanban')">
-                                            <span class="material-symbols-outlined" style="font-size: 18px;">view_kanban</span> Tiến độ
+                                        <button id="view-toggle-kanban" onclick="toggleTaskView('kanban')" style="white-space: nowrap;">
+                                            <span class="material-symbols-outlined"
+                                                style="font-size: 18px;">view_kanban</span> Kanban
                                         </button>
-                                        <button id="view-toggle-assign" onclick="toggleTaskView('assign')">
-                                            <span class="material-symbols-outlined" style="font-size: 18px;">group_work</span> Phân công
-                                        </button>
-                                        <button id="view-toggle-gantt" onclick="toggleTaskView('gantt')">
-                                            <span class="material-symbols-outlined" style="font-size: 18px;">timeline</span> Biểu đồ
+                                        <button id="view-toggle-gantt" onclick="toggleTaskView('gantt')" style="white-space: nowrap;">
+                                            <span class="material-symbols-outlined"
+                                                style="font-size: 18px;">timeline</span> Biểu đồ
                                         </button>
                                     </div>
-                                    <div id="kanban-group-control" style="display:none; align-items:center; gap:8px;">
-                                        <span style="font-size:13px; color:#64748b;">Gom nhóm:</span>
-                                        <select id="kanban-group-select" class="modal-input" style="padding:4px 8px; font-size:13px; min-width:140px; margin:0; border-radius:6px;" onchange="toggleKanbanGroupBy(this.value)">
-                                            <option value="none">Không/Mặc định</option>
-                                            <option value="worker">Theo nhân công</option>
-                                        </select>
+                                    
+                                    <!-- Hàng dưới: Kanban Controls (Chỉ hiện khi đang ở view Kanban) -->
+                                    <div id="kanban-controls-row" style="display: none; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap;">
+                                        <div id="kanban-sub-toggle" class="view-toggle"
+                                            style="border:1px solid #e2e8f0; background:#f8fafc; margin: 0;">
+                                            <button id="sub-toggle-progress" class="active"
+                                                onclick="switchKanbanSubView('progress')"
+                                                style="padding:4px 12px; font-size:13px; white-space: nowrap;">
+                                                Tiến độ
+                                            </button>
+                                            <button id="sub-toggle-assign" onclick="switchKanbanSubView('assign')"
+                                                style="padding:4px 12px; font-size:13px; white-space: nowrap;">
+                                                Phân công
+                                            </button>
+                                        </div>
+                                        
+                                        <div id="kanban-group-control" style="display: flex; align-items: center; gap: 8px;">
+                                            <span style="font-size:13px; color:#64748b; font-weight: 500; white-space: nowrap;">Gom nhóm:</span>
+                                            <select id="kanban-group-select" class="modal-input" style="padding:4px 8px; font-size:13px; min-width:140px; margin:0; border-radius:6px; border: 1px solid #e2e8f0; outline: none; background: white;" onchange="toggleKanbanGroupBy(this.value)">
+                                                <option value="none">Không / Mặc định</option>
+                                                <option value="worker">Theo nhân công</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
-                                <div style="display: flex; gap: 8px;">
+
+                                <!-- Cột 3: Nút thao tác (Bên PHẢI) -->
+                                <div style="flex: 1; display: flex; justify-content: flex-end; align-items: center; gap: 8px;">
                                     <button class="btn btn--secondary" onclick="openTaskHistoryModal()"
-                                        style="display:flex; align-items:center; gap:4px;">
-                                        <span class="material-symbols-outlined" style="font-size:18px;">history</span> Lịch sử
+                                        style="display:flex; align-items:center; gap:4px; white-space: nowrap; flex-shrink: 0;">
+                                        <span class="material-symbols-outlined" style="font-size:18px;">history</span>
+                                        Lịch sử
                                     </button>
                                     <button class="btn btn--secondary" onclick="openQuickAddModal()"
-                                        style="display:flex; align-items:center; gap:4px;">
+                                        style="display:flex; align-items:center; gap:4px; white-space: nowrap; flex-shrink: 0;">
                                         <span class="material-symbols-outlined" style="font-size:18px;">bolt</span> Thêm nhanh
                                     </button>
-                                    <button class="btn btn--primary" onclick="openAssignTaskModal()">
+                                    <button class="btn btn--primary" onclick="openAssignTaskModal()" style="display:flex; align-items:center; gap:4px; white-space: nowrap; flex-shrink: 0;">
                                         <span class="material-symbols-outlined">add_task</span> Giao việc mới
                                     </button>
                                 </div>
                             </div>
                             <div class="card__body" id="tasks-container">
                                 <div id="tasks-list-view">
-                                    <p style="text-align: center; padding: 2rem; color: #6b7280;">Danh sách công việc đã giao sẽ hiển thị ở đây.</p>
+                                    <p style="text-align: center; padding: 2rem; color: #6b7280;">Danh sách công việc đã
+                                        giao sẽ hiển thị ở đây.</p>
                                 </div>
                                 <div id="tasks-kanban-view" style="display: none;"></div>
                                 <div id="tasks-assign-view" style="display: none;"></div>
                                 <div id="tasks-gantt-view" style="display: none;"></div>
                             </div>
-                            <div id="task-detail-container" class="card__body" style="display: none; padding-top: 0;"></div>
+                            <div id="task-detail-container" class="card__body" style="display: none; padding-top: 0;">
+                            </div>
                         </div>
                     </div>
 
@@ -1253,15 +1338,19 @@
     </div>
 
     <!-- Task History Modal -->
-    <div id="task-history-modal" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-        <div style="background:white; border-radius:16px; width:90%; max-width:900px; max-height:90vh; overflow:hidden; box-shadow:0 25px 50px rgba(0,0,0,0.25); display:flex; flex-direction:column;">
+    <div id="task-history-modal"
+        style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+        <div
+            style="background:white; border-radius:16px; width:90%; max-width:900px; max-height:90vh; overflow:hidden; box-shadow:0 25px 50px rgba(0,0,0,0.25); display:flex; flex-direction:column;">
             <!-- Header -->
-            <div style="padding:20px 24px; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center;">
+            <div
+                style="padding:20px 24px; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center;">
                 <div style="display:flex; align-items:center; gap:10px;">
                     <span class="material-symbols-outlined" style="font-size:24px; color:#2563eb;">history</span>
                     <h3 style="margin:0; font-size:18px; font-weight:700; color:#111827;">Lịch sử công việc</h3>
                 </div>
-                <button onclick="closeTaskHistoryModal()" style="width:36px; height:36px; border-radius:50%; border:none; background:#f3f4f6; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                <button onclick="closeTaskHistoryModal()"
+                    style="width:36px; height:36px; border-radius:50%; border:none; background:#f3f4f6; cursor:pointer; display:flex; align-items:center; justify-content:center;">
                     <span class="material-symbols-outlined" style="font-size:20px; color:#6b7280;">close</span>
                 </button>
             </div>
@@ -1269,24 +1358,32 @@
             <div style="display:flex; flex:1; overflow:hidden;">
                 <!-- Calendar side -->
                 <div style="width:320px; border-right:1px solid #e5e7eb; padding:16px; overflow-y:auto;">
-                    <div id="history-calendar-header" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-                        <button onclick="historyCalendarPrev()" style="width:32px; height:32px; border-radius:8px; border:1px solid #e5e7eb; background:white; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                    <div id="history-calendar-header"
+                        style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                        <button onclick="historyCalendarPrev()"
+                            style="width:32px; height:32px; border-radius:8px; border:1px solid #e5e7eb; background:white; cursor:pointer; display:flex; align-items:center; justify-content:center;">
                             <span class="material-symbols-outlined" style="font-size:18px;">chevron_left</span>
                         </button>
-                        <span id="history-calendar-title" style="font-weight:700; color:#111827; font-size:15px;"></span>
-                        <button onclick="historyCalendarNext()" style="width:32px; height:32px; border-radius:8px; border:1px solid #e5e7eb; background:white; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                        <span id="history-calendar-title"
+                            style="font-weight:700; color:#111827; font-size:15px;"></span>
+                        <button onclick="historyCalendarNext()"
+                            style="width:32px; height:32px; border-radius:8px; border:1px solid #e5e7eb; background:white; cursor:pointer; display:flex; align-items:center; justify-content:center;">
                             <span class="material-symbols-outlined" style="font-size:18px;">chevron_right</span>
                         </button>
                     </div>
-                    <div id="history-calendar-grid" style="display:grid; grid-template-columns:repeat(7,1fr); gap:2px; text-align:center;"></div>
+                    <div id="history-calendar-grid"
+                        style="display:grid; grid-template-columns:repeat(7,1fr); gap:2px; text-align:center;"></div>
                     <!-- Summary -->
-                    <div id="history-summary" style="margin-top:16px; padding:12px; background:#f8fafc; border-radius:12px; font-size:13px; color:#6b7280;"></div>
+                    <div id="history-summary"
+                        style="margin-top:16px; padding:12px; background:#f8fafc; border-radius:12px; font-size:13px; color:#6b7280;">
+                    </div>
                 </div>
                 <!-- Task list side -->
                 <div style="flex:1; overflow-y:auto; padding:16px;">
                     <div id="history-task-list" style="display:flex; flex-direction:column; gap:10px;">
                         <div style="text-align:center; padding:3rem; color:#9ca3af;">
-                            <span class="material-symbols-outlined" style="font-size:48px; opacity:0.5;">calendar_month</span>
+                            <span class="material-symbols-outlined"
+                                style="font-size:48px; opacity:0.5;">calendar_month</span>
                             <p style="margin-top:8px;">Chọn một ngày trên lịch để xem công việc</p>
                         </div>
                     </div>
