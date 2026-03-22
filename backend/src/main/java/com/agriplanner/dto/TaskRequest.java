@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class TaskRequest {
@@ -37,4 +38,10 @@ public class TaskRequest {
     private String harvestProductName;
     private String harvestProductUnit;
     private BigDecimal harvestRefPrice;
+
+    // Epic (Season) assignment
+    private Long epicId;
+
+    // Checklist items (created together with the task)
+    private List<String> checklistItems;
 }

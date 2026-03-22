@@ -10,6 +10,8 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "tasks")
@@ -42,6 +44,15 @@ public class Task {
     @ManyToOne
     @JoinColumn(name = "pen_id")
     private Pen pen;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "epic_id")
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
+    private Epic epic;
+
+    @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JsonIgnoreProperties({"task", "hibernateLazyInitializer", "handler"})
+    private List<TaskChecklist> checklists;
 
     @Column(nullable = false)
     private String name;
@@ -79,6 +90,12 @@ public class Task {
     @Column(name = "due_date")
     private LocalDateTime dueDate;
 
+    @Column(name = "start_date")
+    private LocalDateTime startDate;
+
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
@@ -114,4 +131,9 @@ public class Task {
 
     @Column(name = "harvest_ref_price")
     private BigDecimal harvestRefPrice; // Giá tham khảo tại thời điểm giao việc
+
+    @OneToMany(mappedBy = "task", fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+    @OrderBy("startedAt ASC")
+    @JsonIgnoreProperties({"task", "worker"})
+    private List<TaskWorkLog> workLogs;
 }

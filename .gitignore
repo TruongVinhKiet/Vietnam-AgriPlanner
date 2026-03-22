@@ -43,3 +43,6 @@ test_output*
 *.class
 backend/src/main/java/com/agriplanner/service/MomoService.java
 backend/src/main/java/com/agriplanner/service/VnpayService.java
+
+# Uploads
+backend/uploads/

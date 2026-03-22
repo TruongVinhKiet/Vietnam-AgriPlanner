@@ -1758,10 +1758,25 @@ function populateLocationSelect() {
     if (pensList.length === 0) {
         pensGroup.innerHTML = '<option disabled>Không có chuồng</option>';
     } else {
+        const penLabels = {
+            'CAGED': 'Gia cầm (Gà/Vịt)', 
+            'POND': 'Thủy sản (Cá/Tôm)', 
+            'SPECIAL': 'Đặc biệt (Ong...)',
+            'BARN': 'Gia súc (Lợn/Bò)',
+            'FREE_RANGE': 'Thả vườn',
+            'TANK': 'Bể nuôi',
+            'NET_CAGE': 'Lồng lưới',
+            'RAFT': 'Bè nổi',
+            'HIVE': 'Tổ ong',
+            'TRAY': 'Khay nuôi'
+        };
         pensList.forEach(p => {
             const option = document.createElement('option');
             option.value = `PEN:${p.id}`;
-            option.textContent = `${p.code} (${p.farmingType})`;
+            const label = p.animalDefinition && p.animalDefinition.name 
+                ? p.animalDefinition.name 
+                : (penLabels[p.farmingType] || p.farmingType);
+            option.textContent = `${p.code} - ${label}`;
             pensGroup.appendChild(option);
         });
     }

@@ -43,6 +43,9 @@ public class TaskWorkLog {
     @Column(columnDefinition = "TEXT")
     private String note;
 
+    @Column(length = 30)
+    private String status; // IN_PROGRESS, PAUSED, COMPLETED
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
