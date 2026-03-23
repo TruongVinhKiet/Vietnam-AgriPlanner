@@ -643,9 +643,10 @@ if (typeof _origOpenOwnerTaskDetail === 'function') {
 
         wrapper.innerHTML = checklistHtml + commentsHtml;
 
-        // Insert before the last child (usually the action buttons area)
+        // Insert inside the centered 900px wrapper
         if (wrapper.innerHTML.trim()) {
-            detailContainer.appendChild(wrapper);
+            const innerWrapper = detailContainer.querySelector('div[style*="max-width:900px"]') || detailContainer.firstElementChild || detailContainer;
+            innerWrapper.appendChild(wrapper);
         }
     };
 }
@@ -659,3 +660,350 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 console.log('✅ labor-upgrade.js loaded — Checklist, Comments, Epic, Enhanced Gantt');
+
+// ═══════════════════════════════════════════════════════════════
+//  STATISTICS TAB — Epic Progress, Workload, Leaderboard
+// ═══════════════════════════════════════════════════════════════
+
+let _epicChartInstance = null;
+let _workloadChartInstance = null;
+let _currentEpicChartType = 'bar'; // 'bar' or 'line'
+let _currentLeaderboardView = 'top5'; // 'top5' or 'all'
+
+const OVERLOAD_THRESHOLD = 5;
+
+const RANK_CONFIG = {
+    TRAINEE:  { label: 'Tân binh',    color: '#d4a76a', bg: 'linear-gradient(135deg, #fef3c7, #fde68a)', icon: '🌱', next: 100 },
+    SKILLED:  { label: 'Thạo việc',   color: '#94a3b8', bg: 'linear-gradient(135deg, #f1f5f9, #e2e8f0)', icon: '🥈', next: 500 },
+    VETERAN:  { label: 'Lão nông',    color: '#eab308', bg: 'linear-gradient(135deg, #fefce8, #fef08a)', icon: '🥇', next: 2000 },
+    MASTER:   { label: 'Bậc thầy',   color: '#06b6d4', bg: 'linear-gradient(135deg, #ecfeff, #a5f3fc)', icon: '💎', next: 10000 },
+};
+
+function getRankInfo(rankLevel) {
+    return RANK_CONFIG[rankLevel] || RANK_CONFIG.TRAINEE;
+}
+
+// ─────── MAIN ENTRY POINT ───────
+
+async function renderStatisticsTab() {
+    // Ensure tasks & workers are loaded
+    if (!ownerTasksById || Object.keys(ownerTasksById).length === 0) {
+        if (typeof loadTasks === 'function') await loadTasks();
+    }
+    if (!Array.isArray(approvedWorkers) || approvedWorkers.length === 0) {
+        if (typeof loadApprovedWorkers === 'function') await loadApprovedWorkers();
+    }
+
+    const tasks = ownerTasksById ? Object.values(ownerTasksById) : [];
+
+    // Summary cards
+    const activeTasks = tasks.filter(t => t.status === 'IN_PROGRESS' || t.status === 'PENDING' || t.status === 'PAUSED');
+    const workerTaskCounts = {};
+    tasks.forEach(t => {
+        if (t.status === 'COMPLETED' || t.status === 'APPROVED' || t.status === 'CANCELLED') return;
+        const wId = t.worker?.id || t.workerId;
+        if (!wId) return;
+        workerTaskCounts[wId] = (workerTaskCounts[wId] || 0) + 1;
+    });
+    const overloadedCount = Object.values(workerTaskCounts).filter(c => c > OVERLOAD_THRESHOLD).length;
+
+    // Animate summary cards
+    animateCounter('stats-total-workers', approvedWorkers.length);
+    animateCounter('stats-active-tasks', activeTasks.length);
+    animateCounter('stats-overloaded', overloadedCount);
+
+    // Render charts & leaderboard
+    renderEpicProgressChart(tasks, _currentEpicChartType);
+    renderWorkloadChart(tasks);
+    renderLeaderboard(_currentLeaderboardView);
+
+    // GSAP entrance animation
+    if (typeof gsap !== 'undefined') {
+        gsap.fromTo('#stats-summary-cards > .card', { y: 20, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.1, duration: 0.5, ease: 'power2.out' });
+        gsap.fromTo('#statistics-tab .card', { y: 30, opacity: 0 }, { y: 0, opacity: 1, stagger: 0.08, duration: 0.6, ease: 'power2.out', delay: 0.2 });
+    }
+}
+
+function animateCounter(elementId, targetValue) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    let current = 0;
+    const step = Math.max(1, Math.ceil(targetValue / 30));
+    const interval = setInterval(() => {
+        current = Math.min(current + step, targetValue);
+        el.textContent = current;
+        if (current >= targetValue) clearInterval(interval);
+    }, 30);
+}
+
+// ─────── EPIC PROGRESS CHART ───────
+
+function switchEpicChartType(type) {
+    _currentEpicChartType = type;
+    // Toggle button styles
+    const barBtn = document.getElementById('epic-chart-bar-btn');
+    const lineBtn = document.getElementById('epic-chart-line-btn');
+    if (barBtn && lineBtn) {
+        barBtn.style.background = type === 'bar' ? '#10b981' : 'transparent';
+        barBtn.style.color = type === 'bar' ? 'white' : '#6b7280';
+        lineBtn.style.background = type === 'line' ? '#10b981' : 'transparent';
+        lineBtn.style.color = type === 'line' ? 'white' : '#6b7280';
+    }
+    const tasks = ownerTasksById ? Object.values(ownerTasksById) : [];
+    renderEpicProgressChart(tasks, type);
+}
+
+function renderEpicProgressChart(tasks, chartType) {
+    const canvas = document.getElementById('epic-progress-chart');
+    const emptyState = document.getElementById('epic-empty-state');
+    if (!canvas) return;
+
+    // Group tasks by epic
+    const epicMap = {};
+    tasks.forEach(t => {
+        const epicId = t.epic?.id;
+        const epicName = t.epic?.name;
+        if (!epicId) return;
+        if (!epicMap[epicId]) epicMap[epicId] = { name: epicName || `Mùa vụ #${epicId}`, total: 0, completed: 0, tasks: [] };
+        epicMap[epicId].total++;
+        if (t.status === 'COMPLETED' || t.status === 'APPROVED') epicMap[epicId].completed++;
+        epicMap[epicId].tasks.push(t);
+    });
+
+    const epics = Object.values(epicMap);
+
+    if (epics.length === 0) {
+        canvas.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+    }
+    canvas.style.display = 'block';
+    if (emptyState) emptyState.style.display = 'none';
+
+    if (_epicChartInstance) {
+        _epicChartInstance.destroy();
+        _epicChartInstance = null;
+    }
+
+    const labels = epics.map(e => e.name);
+
+    if (chartType === 'bar') {
+        const completedData = epics.map(e => e.completed);
+        const remainingData = epics.map(e => e.total - e.completed);
+
+        _epicChartInstance = new Chart(canvas, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Hoàn thành', data: completedData, backgroundColor: '#10b981', borderRadius: 6 },
+                    { label: 'Còn lại', data: remainingData, backgroundColor: '#e5e7eb', borderRadius: 6 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                animation: { duration: 800, easing: 'easeOutQuart' },
+                plugins: { legend: { position: 'top', labels: { font: { family: 'Manrope', weight: '600' }, usePointStyle: true, boxWidth: 8 } } },
+                scales: {
+                    x: { stacked: true, grid: { display: false }, ticks: { font: { family: 'Manrope', size: 11 } } },
+                    y: { stacked: true, beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { font: { family: 'Manrope', size: 11 }, stepSize: 1 } }
+                }
+            }
+        });
+    } else {
+        // Burn-down style line chart
+        const percentData = epics.map(e => e.total > 0 ? Math.round((e.completed / e.total) * 100) : 0);
+
+        _epicChartInstance = new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: '% Hoàn thành',
+                    data: percentData,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#10b981',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    borderWidth: 3
+                }, {
+                    label: 'Mục tiêu 100%',
+                    data: epics.map(() => 100),
+                    borderColor: '#ef4444',
+                    borderDash: [8, 4],
+                    pointRadius: 0,
+                    borderWidth: 2,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                animation: { duration: 800, easing: 'easeOutQuart' },
+                plugins: { legend: { position: 'top', labels: { font: { family: 'Manrope', weight: '600' }, usePointStyle: true, boxWidth: 8 } } },
+                scales: {
+                    y: { beginAtZero: true, max: 110, grid: { color: '#f3f4f6' }, ticks: { callback: v => v + '%', font: { family: 'Manrope', size: 11 } } },
+                    x: { grid: { display: false }, ticks: { font: { family: 'Manrope', size: 11 } } }
+                }
+            }
+        });
+    }
+}
+
+// ─────── WORKLOAD CHART ───────
+
+function renderWorkloadChart(tasks) {
+    const canvas = document.getElementById('workload-chart');
+    const emptyState = document.getElementById('workload-empty-state');
+    if (!canvas) return;
+
+    const workerMap = {};
+    (approvedWorkers || []).forEach(w => {
+        workerMap[w.id] = { name: w.fullName || w.email || `Worker#${w.id}`, pending: 0, inProgress: 0 };
+    });
+
+    tasks.forEach(t => {
+        const wId = t.worker?.id || t.workerId;
+        if (!wId || !workerMap[wId]) return;
+        if (t.status === 'PENDING') workerMap[wId].pending++;
+        if (t.status === 'IN_PROGRESS' || t.status === 'PAUSED') workerMap[wId].inProgress++;
+    });
+
+    const workers = Object.values(workerMap).filter(w => w.pending + w.inProgress > 0);
+
+    if (workers.length === 0) {
+        canvas.style.display = 'none';
+        if (emptyState) emptyState.style.display = 'block';
+        return;
+    }
+    canvas.style.display = 'block';
+    if (emptyState) emptyState.style.display = 'none';
+
+    // Sort by total workload descending
+    workers.sort((a, b) => (b.pending + b.inProgress) - (a.pending + a.inProgress));
+
+    if (_workloadChartInstance) {
+        _workloadChartInstance.destroy();
+        _workloadChartInstance = null;
+    }
+
+    const labels = workers.map(w => w.name);
+    const bgColors = workers.map(w => (w.pending + w.inProgress) > OVERLOAD_THRESHOLD ? '#ef4444' : '#3b82f6');
+
+    _workloadChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                { label: 'Đang làm', data: workers.map(w => w.inProgress), backgroundColor: bgColors.map(c => c === '#ef4444' ? '#ef4444' : '#3b82f6'), borderRadius: 4 },
+                { label: 'Chờ xử lý', data: workers.map(w => w.pending), backgroundColor: bgColors.map(c => c === '#ef4444' ? '#fca5a5' : '#93c5fd'), borderRadius: 4 }
+            ]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true, maintainAspectRatio: false,
+            animation: { duration: 800, easing: 'easeOutQuart' },
+            plugins: {
+                legend: { position: 'top', labels: { font: { family: 'Manrope', weight: '600' }, usePointStyle: true, boxWidth: 8 } },
+                annotation: undefined
+            },
+            scales: {
+                x: { stacked: true, beginAtZero: true, grid: { color: '#f3f4f6' }, ticks: { stepSize: 1, font: { family: 'Manrope', size: 11 } } },
+                y: { stacked: true, grid: { display: false }, ticks: { font: { family: 'Manrope', size: 12, weight: '600' } } }
+            }
+        }
+    });
+}
+
+// ─────── LEADERBOARD ───────
+
+function switchLeaderboardView(view) {
+    _currentLeaderboardView = view;
+    const top5Btn = document.getElementById('lb-top5-btn');
+    const allBtn = document.getElementById('lb-all-btn');
+    if (top5Btn && allBtn) {
+        top5Btn.style.background = view === 'top5' ? '#10b981' : 'transparent';
+        top5Btn.style.color = view === 'top5' ? 'white' : '#6b7280';
+        allBtn.style.background = view === 'all' ? '#10b981' : 'transparent';
+        allBtn.style.color = view === 'all' ? 'white' : '#6b7280';
+    }
+    renderLeaderboard(view);
+}
+
+function renderLeaderboard(view) {
+    const container = document.getElementById('leaderboard-container');
+    if (!container) return;
+
+    const workers = [...(approvedWorkers || [])].sort((a, b) => {
+        const aExp = a.experiencePoints || 0;
+        const bExp = b.experiencePoints || 0;
+        return bExp - aExp;
+    });
+
+    const displayWorkers = view === 'top5' ? workers.slice(0, 5) : workers;
+
+    if (displayWorkers.length === 0) {
+        container.innerHTML = `
+            <div style="text-align:center; padding:40px; color:#9ca3af;">
+                <span class="material-symbols-outlined" style="font-size:48px; opacity:0.4;">person_off</span>
+                <p style="margin-top:8px;">Chưa có nhân công nào</p>
+            </div>`;
+        return;
+    }
+
+    const medalIcons = ['🥇', '🥈', '🥉'];
+
+    container.innerHTML = displayWorkers.map((w, idx) => {
+        const exp = w.experiencePoints || 0;
+        const rank = getRankInfo(w.rankLevel || 'TRAINEE');
+        const nextExp = rank.next;
+        const progressPct = Math.min(100, Math.round((exp / nextExp) * 100));
+        const medal = idx < 3 ? medalIcons[idx] : `<span style="font-size:14px; color:#9ca3af; font-weight:700;">${idx + 1}</span>`;
+
+        const avatarHtml = w.avatarUrl
+            ? `<img src="${w.avatarUrl}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:2px solid ${rank.color};">`
+            : `<div style="width:40px; height:40px; border-radius:50%; background:${rank.bg}; display:flex; align-items:center; justify-content:center; font-weight:700; color:${rank.color}; border:2px solid ${rank.color}; font-size:16px;">${(w.fullName || 'W')[0].toUpperCase()}</div>`;
+
+        const isTop3 = idx < 3;
+        const cardBg = isTop3 ? rank.bg : 'white';
+        const borderColor = isTop3 ? rank.color : '#e5e7eb';
+
+        return `
+            <div class="lb-card" style="
+                display:flex; align-items:center; gap:14px; padding:14px 18px;
+                background:${cardBg}; border:1px solid ${borderColor}; border-radius:12px;
+                margin-bottom:8px; transition:all 0.3s ease; opacity:0; transform:translateY(15px);
+            "
+            onmouseenter="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.08)'; this.style.transform='translateY(-2px)'"
+            onmouseleave="this.style.boxShadow='none'; this.style.transform='translateY(0)'"
+            >
+                <div style="width:28px; text-align:center; font-size:20px; flex-shrink:0;">${medal}</div>
+                ${avatarHtml}
+                <div style="flex:1; min-width:0;">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <span style="font-weight:700; color:#111827; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(w.fullName || w.email || 'Nhân công')}</span>
+                        <span style="font-size:11px; padding:2px 8px; border-radius:999px; background:rgba(0,0,0,0.06); color:${rank.color}; font-weight:700;">${rank.icon} ${rank.label}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div style="flex:1; background:#e5e7eb; border-radius:999px; height:6px; overflow:hidden;">
+                            <div style="height:100%; border-radius:999px; background:${rank.color}; width:${progressPct}%; transition:width 1s ease;"></div>
+                        </div>
+                        <span style="font-size:11px; color:#6b7280; font-weight:600; white-space:nowrap;">${exp} EXP</span>
+                    </div>
+                </div>
+            </div>`;
+    }).join('');
+
+    // GSAP animate cards appearing
+    requestAnimationFrame(() => {
+        const cards = container.querySelectorAll('.lb-card');
+        if (typeof gsap !== 'undefined') {
+            gsap.to(cards, { opacity: 1, y: 0, stagger: 0.07, duration: 0.45, ease: 'power2.out' });
+        } else {
+            cards.forEach(c => { c.style.opacity = '1'; c.style.transform = 'translateY(0)'; });
+        }
+    });
+}

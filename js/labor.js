@@ -504,13 +504,20 @@ function renderTaskListView(tasks, container) {
 
         // Card class based on status
         const cardExtraClass = isApproved ? ' task-card-approved' : '';
+        const isPending = (task.status || 'PENDING').toUpperCase() === 'PENDING';
+        const deleteRedDot = isPending ? `
+            <div class="task-delete-dot" onclick="event.stopPropagation(); showDeleteConfirmModal(${task.id}, '${escapeHtml(task.name).replace(/'/g, "\\'")}')"
+                 title="Xóa công việc">
+                <span class="material-symbols-outlined" style="font-size:14px;">close</span>
+            </div>` : '';
 
         html += `
-            <div style="background:white; border:1px solid #e5e7eb; border-radius:12px; padding:16px; transition:box-shadow 0.2s, transform 0.2s; cursor:pointer;"
-                 class="${cardExtraClass}"
+            <div style="position:relative; background:white; border:1px solid #e5e7eb; border-radius:12px; padding:16px; transition:box-shadow 0.2s, transform 0.2s; cursor:pointer;"
+                 class="task-list-card ${cardExtraClass}"
                  onmouseenter="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'; this.style.transform='translateY(-1px)'"
                  onmouseleave="this.style.boxShadow='none'; this.style.transform='translateY(0)'"
                  onclick="openOwnerTaskDetail(${task.id})">
+                ${deleteRedDot}
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
                     <div style="flex:1; min-width:0;">
                         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -647,8 +654,12 @@ function renderKanbanBoard(tasks, container) {
             const avatarChar = task.worker ? (task.worker.fullName || task.worker.email || 'N').charAt(0).toUpperCase() : '?';
             const avatarHtml = getWorkerAvatarHtml(task.worker, 24);
 
+            const kbIsPending = (task.status || 'PENDING').toUpperCase() === 'PENDING';
+            const kbDeleteBtn = kbIsPending ? `<div class="kb-delete-btn" onclick="event.stopPropagation(); showDeleteConfirmModal(${task.id}, '${escapeHtml(task.name).replace(/'/g, "\\'")}')"
+                 title="Xóa công việc"><span class="material-symbols-outlined" style="font-size:14px;">close</span></div>` : '';
             colHtml += `
-                <div class="kanban-card" onclick="openOwnerTaskDetail(${task.id})" id="kb-card-${task.id}">
+                <div class="kanban-card" onclick="openOwnerTaskDetail(${task.id})" id="kb-card-${task.id}" style="position:relative;">
+                    ${kbDeleteBtn}
                     <div class="kb-card-tags">
                         <span style="font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; ${priorityStyle};">${priorityLabel}</span>
                         <span style="font-size:10px; font-weight:500; padding:2px 6px; border-radius:4px; background:#f3f4f6; color:#6b7280;">${typeLabel}</span>
@@ -885,8 +896,12 @@ async function renderAssignKanban(tasks, container) {
             const draggableStr = isCompleted ? 'draggable="false"' : 'draggable="true" ondragstart="kbDragStart(event, ' + task.id + ')"';
             const cardStyle = isCompleted ? 'border-left: 4px solid #10b981; opacity: 0.85;' : '';
 
+            const assignIsPending = (st === 'PENDING');
+            const assignDeleteBtn = assignIsPending ? `<div class="kb-delete-btn" onclick="event.stopPropagation(); showDeleteConfirmModal(${task.id}, '${escapeHtml(task.name).replace(/'/g, "\\'")}')"
+                 title="Xóa công việc"><span class="material-symbols-outlined" style="font-size:14px;">close</span></div>` : '';
             html += `
-                <div class="kanban-card" style="${cardStyle}" ${draggableStr} onclick="openOwnerTaskDetail(${task.id})" id="assign-card-${task.id}">
+                <div class="kanban-card" style="position:relative; ${cardStyle}" ${draggableStr} onclick="openOwnerTaskDetail(${task.id})" id="assign-card-${task.id}">
+                    ${assignDeleteBtn}
                     <div class="kb-card-tags">
                         <span style="font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; background:${sc.bg}; color:${sc.color}; display:flex; align-items:center; gap:2px;">
                             ${isCompleted ? '<span class="material-symbols-outlined" style="font-size:12px;">check_circle</span>' : ''} ${sc.label}
@@ -1088,7 +1103,7 @@ function getTaskIconOwner(taskType) {
 function buildInspectionResultsHtml(task) {
     if (!task) return '';
     const status = task.status ? String(task.status).toUpperCase() : '';
-    if (status !== 'COMPLETED') return '';
+    if (status !== 'COMPLETED' && status !== 'APPROVED') return '';
 
     // Material-consuming tasks: show material info instead of inspection results
     const materialTaskTypes = ['FEED', 'VACCINATE', 'FERTILIZE', 'SEED', 'PEST_CONTROL'];
@@ -2083,6 +2098,14 @@ function renderQuickAddBody() {
     // Build worker options
     const workerOpts = buildWorkerOptionsHTML();
 
+    // Build epic options from cache
+    let epicOpts = '<option value="">-- Không --</option>';
+    if (Array.isArray(_epicsCache)) {
+        _epicsCache.forEach(ep => {
+            epicOpts += `<option value="${ep.id}">${escapeHtml(ep.name)}</option>`;
+        });
+    }
+
     // Group by category
     const categories = [
         { key: 'inspect', label: 'Kiểm tra tình trạng', icon: 'search', cssClass: 'inspect' },
@@ -2105,21 +2128,38 @@ function renderQuickAddBody() {
             </div>`;
 
         items.forEach((task, i) => {
+            // Initialize new fields if not set
+            if (!task.subtasks) task.subtasks = [];
+            if (!task.epicId) task.epicId = null;
+
             const delay = i * 0.05;
-            html += `<div class="qa-task-row" style="animation-delay:${delay}s" id="qa-row-${task.idx}">
-                <input type="checkbox" ${task.checked ? 'checked' : ''} onchange="onQuickAddCheckChange(${task.idx}, this.checked)">
-                <div class="qa-task-info">
-                    <div class="qa-task-name">${escapeHtml(task.name)}</div>
-                    <div class="qa-task-desc">${escapeHtml(task.description).substring(0, 80)}...</div>
+            const timeValue = task.fixedTime || '08:00';
+
+            html += `<div class="qa-task-row" style="animation-delay:${delay}s; flex-direction:column; align-items:stretch;" id="qa-row-${task.idx}">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <input type="checkbox" ${task.checked ? 'checked' : ''} onchange="onQuickAddCheckChange(${task.idx}, this.checked)">
+                    <div class="qa-task-info" style="flex:1;">
+                        <div class="qa-task-name">${escapeHtml(task.name)}</div>
+                        <div class="qa-task-desc">${escapeHtml(task.description).substring(0, 80)}...</div>
+                    </div>
+                    <div class="qa-task-controls">
+                        <input type="time" value="${timeValue}" onchange="quickAddTasksData[${task.idx}].fixedTime=this.value" title="Thời gian mặc định" style="font-size:13px; padding:4px 6px; border:1px solid #d1d5db; border-radius:6px; color:#374151;">
+                        <select onchange="quickAddTasksData[${task.idx}].workerId=this.value?Number(this.value):null" title="Chọn người làm">
+                            ${workerOpts}
+                        </select>
+                    </div>
                 </div>
-                <div class="qa-task-controls">
-                    ${task.timeEditable
-                    ? `<input type="time" value="08:00" onchange="quickAddTasksData[${task.idx}].fixedTime=this.value" title="Thời gian">`
-                    : (task.fixedTime ? `<span class="qa-time-badge">⏰ ${task.fixedTime}</span>` : '')
-                }
-                    <select onchange="quickAddTasksData[${task.idx}].workerId=this.value?Number(this.value):null" title="Chọn người làm">
-                        ${workerOpts}
+                <!-- Epic + Sub-tasks row -->
+                <div style="display:flex; gap:8px; margin-top:6px; margin-left:28px; align-items:center; flex-wrap:wrap;">
+                    <select onchange="quickAddTasksData[${task.idx}].epicId=this.value?Number(this.value):null" title="Mùa vụ" style="font-size:12px; padding:4px 8px; border:1px solid #e5e7eb; border-radius:6px; color:#6b7280; max-width:160px;">
+                        ${epicOpts}
                     </select>
+                    <button type="button" onclick="addQASubtask(${task.idx})" style="font-size:11px; padding:3px 8px; border:1px dashed #d1d5db; border-radius:6px; background:#f9fafb; color:#6b7280; cursor:pointer; display:flex; align-items:center; gap:3px; white-space:nowrap;">
+                        <span class="material-symbols-outlined" style="font-size:14px;">add</span> Sub-task
+                    </button>
+                </div>
+                <div id="qa-subtasks-${task.idx}" style="margin-left:28px; margin-top:4px;">
+                    ${renderQASubtasks(task.idx)}
                 </div>
             </div>`;
         });
@@ -2142,6 +2182,40 @@ function buildWorkerOptionsHTML() {
     return opts;
 }
 
+// ──── QA Sub-task helpers ────
+function renderQASubtasks(taskIdx) {
+    const task = quickAddTasksData[taskIdx];
+    if (!task || !task.subtasks || task.subtasks.length === 0) return '';
+    return task.subtasks.map((st, i) => `
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+            <span style="font-size:11px; color:#9ca3af; min-width:16px;">${i + 1}.</span>
+            <input type="text" value="${escapeHtml(st)}" placeholder="Mô tả sub-task..."
+                oninput="quickAddTasksData[${taskIdx}].subtasks[${i}]=this.value"
+                style="flex:1; font-size:12px; padding:4px 8px; border:1px solid #e5e7eb; border-radius:6px; outline:none;">
+            <button type="button" onclick="removeQASubtask(${taskIdx}, ${i})"
+                style="width:20px; height:20px; border:none; background:#fef2f2; color:#ef4444; border-radius:4px; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <span class="material-symbols-outlined" style="font-size:13px;">close</span>
+            </button>
+        </div>
+    `).join('');
+}
+
+function addQASubtask(taskIdx) {
+    const task = quickAddTasksData[taskIdx];
+    if (!task) return;
+    if (!task.subtasks) task.subtasks = [];
+    task.subtasks.push('');
+    const container = document.getElementById(`qa-subtasks-${taskIdx}`);
+    if (container) container.innerHTML = renderQASubtasks(taskIdx);
+}
+
+function removeQASubtask(taskIdx, subIdx) {
+    const task = quickAddTasksData[taskIdx];
+    if (!task || !task.subtasks) return;
+    task.subtasks.splice(subIdx, 1);
+    const container = document.getElementById(`qa-subtasks-${taskIdx}`);
+    if (container) container.innerHTML = renderQASubtasks(taskIdx);
+}
 function onQuickAddCheckChange(idx, checked) {
     if (quickAddTasksData[idx]) quickAddTasksData[idx].checked = checked;
     updateQuickAddCount();
@@ -2198,7 +2272,9 @@ async function submitQuickAddTasks() {
                     fieldId: task.fieldId,
                     penId: task.penId,
                     dueDate: dueDate,
-                    salary: 0, quantityRequired: 0
+                    salary: 0, quantityRequired: 0,
+                    epicId: task.epicId || null,
+                    checklistItems: (task.subtasks || []).filter(s => s && s.trim())
                 };
 
                 await fetchAPI(`${LABOR_API_BASE}/tasks`, 'POST', payload);
@@ -4411,4 +4487,80 @@ function renderHistoryTasksForDate(dateStr) {
     });
 
     container.innerHTML = html;
+}
+
+// ============ DELETE PENDING TASK ============
+
+function showDeleteConfirmModal(taskId, taskName) {
+    // Remove any existing modal
+    const existing = document.getElementById('delete-confirm-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'delete-confirm-overlay';
+    overlay.className = 'delete-confirm-overlay';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    overlay.innerHTML = `
+        <div class="delete-confirm-box">
+            <div style="text-align:center; margin-bottom:20px;">
+                <div style="width:56px; height:56px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; margin:0 auto 12px;">
+                    <span class="material-symbols-outlined" style="font-size:28px; color:#ef4444;">delete_forever</span>
+                </div>
+                <h3 style="margin:0; font-size:18px; font-weight:700; color:#111827;">Xóa công việc?</h3>
+                <p style="margin:8px 0 0; font-size:14px; color:#6b7280; line-height:1.5;">
+                    Bạn có chắc muốn xóa công việc<br>
+                    <strong style="color:#111827;">"${taskName}"</strong>?
+                </p>
+                <p style="margin:6px 0 0; font-size:12px; color:#9ca3af;">Hành động này không thể hoàn tác.</p>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button onclick="document.getElementById('delete-confirm-overlay').remove()"
+                    style="padding:10px 24px; border-radius:10px; border:1px solid #d1d5db; background:white; color:#374151; font-weight:600; font-size:14px; cursor:pointer; transition:all 0.2s;"
+                    onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='white'">
+                    Hủy
+                </button>
+                <button onclick="deletePendingTask(${taskId})"
+                    style="padding:10px 24px; border-radius:10px; border:none; background:#ef4444; color:white; font-weight:600; font-size:14px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:6px;"
+                    onmouseenter="this.style.background='#dc2626'" onmouseleave="this.style.background='#ef4444'">
+                    <span class="material-symbols-outlined" style="font-size:18px;">delete</span> Xóa
+                </button>
+            </div>
+        </div>`;
+
+    document.body.appendChild(overlay);
+}
+
+async function deletePendingTask(taskId) {
+    const overlay = document.getElementById('delete-confirm-overlay');
+    const deleteBtn = overlay?.querySelector('button:last-child');
+    if (deleteBtn) {
+        deleteBtn.disabled = true;
+        deleteBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px; animation:spin 1s linear infinite;">sync</span> Đang xóa...';
+    }
+
+    try {
+        await fetchAPI(`${LABOR_API_BASE}/tasks/${taskId}`, 'DELETE');
+        if (overlay) overlay.remove();
+
+        // Remove from local cache
+        if (ownerTasksById && ownerTasksById[taskId]) {
+            delete ownerTasksById[taskId];
+        }
+
+        // Refresh the view
+        if (ownerTasksById) {
+            renderTasks(Object.values(ownerTasksById));
+        }
+
+        if (typeof agriAlert === 'function') {
+            agriAlert('Đã xóa công việc thành công', 'success');
+        }
+    } catch (err) {
+        console.error('Delete task error:', err);
+        if (overlay) overlay.remove();
+        if (typeof agriAlert === 'function') {
+            agriAlert('Không thể xóa công việc: ' + (err.message || 'Lỗi không xác định'), 'error');
+        }
+    }
 }

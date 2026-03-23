@@ -319,8 +319,8 @@ if (typeof _origOpenTaskDetail === 'function') {
         wrapper.innerHTML = checklistHtml + commentsHtml;
 
         if (wrapper.innerHTML.trim()) {
-            // Find content area
-            const contentArea = detailModal.querySelector('.modal-body, .space-y-5, .task-detail-content') || detailModal;
+            // Find content area (max-width wrapper)
+            const contentArea = detailModal.querySelector('div[style*="max-width"]') || detailModal.firstElementChild || detailModal;
             contentArea.appendChild(wrapper);
         }
     };

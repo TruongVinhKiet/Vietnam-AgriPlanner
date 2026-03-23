@@ -32,6 +32,41 @@
 
     <link rel="icon" type="image/x-icon" href="../images/logo.png">
     <style>
+        /* ──── Delete Task Buttons ──── */
+        .task-delete-dot {
+            position: absolute; top: -10px; right: -10px; z-index: 5;
+            width: 24px; height: 24px; border-radius: 50%;
+            background: #ef4444; color: white;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; opacity: 0; transition: opacity 0.2s, transform 0.15s;
+            box-shadow: 0 2px 6px rgba(239,68,68,0.4);
+        }
+        .task-delete-dot:hover { transform: scale(1.15); background: #dc2626; }
+        .task-list-card:hover .task-delete-dot { opacity: 1; }
+
+        .kb-delete-btn {
+            position: absolute; top: 4px; right: 4px; z-index: 5;
+            width: 20px; height: 20px; border-radius: 50%;
+            background: #ef4444; color: white;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; opacity: 0.7; transition: opacity 0.2s, transform 0.15s;
+            box-shadow: 0 1px 4px rgba(239,68,68,0.3);
+        }
+        .kb-delete-btn:hover { opacity: 1; transform: scale(1.15); background: #dc2626; }
+
+        /* ──── Delete Confirmation Modal ──── */
+        .delete-confirm-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 10000; opacity: 0; animation: fadeIn 0.2s ease forwards;
+        }
+        .delete-confirm-box {
+            background: white; border-radius: 16px; padding: 28px 32px;
+            max-width: 420px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            transform: scale(0.9); animation: popIn 0.25s ease forwards;
+        }
+        @keyframes popIn { to { transform: scale(1); } }
+
         .tab-navigation {
             display: flex;
             gap: 1rem;
@@ -972,6 +1007,11 @@
                                 style="vertical-align: middle; margin-right: 4px;">chat</span>
                             Phản hồi
                         </button>
+                        <button class="tab-btn" onclick="switchTab('statistics')">
+                            <span class="material-symbols-outlined"
+                                style="vertical-align: middle; margin-right: 4px;">bar_chart</span>
+                            Thống kê
+                        </button>
                     </div>
 
                     <!-- Tab Content: Recruitment -->
@@ -1138,6 +1178,93 @@
                         </div>
                     </div>
 
+                    <!-- Tab Content: Statistics -->
+                    <div id="statistics-tab" class="tab-content">
+                        <!-- Row 1: Summary Cards -->
+                        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:16px; margin-bottom:24px;" id="stats-summary-cards">
+                            <div class="card" style="padding:20px; text-align:center;">
+                                <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:8px;">
+                                    <span class="material-symbols-outlined" style="font-size:24px; color:#3b82f6;">groups</span>
+                                    <span style="font-size:13px; color:#6b7280;">Tổng nhân công</span>
+                                </div>
+                                <span id="stats-total-workers" style="font-size:28px; font-weight:800; color:#111827;">0</span>
+                            </div>
+                            <div class="card" style="padding:20px; text-align:center;">
+                                <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:8px;">
+                                    <span class="material-symbols-outlined" style="font-size:24px; color:#10b981;">task_alt</span>
+                                    <span style="font-size:13px; color:#6b7280;">Công việc đang chạy</span>
+                                </div>
+                                <span id="stats-active-tasks" style="font-size:28px; font-weight:800; color:#111827;">0</span>
+                            </div>
+                            <div class="card" style="padding:20px; text-align:center;">
+                                <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:8px;">
+                                    <span class="material-symbols-outlined" style="font-size:24px; color:#ef4444;">warning</span>
+                                    <span style="font-size:13px; color:#6b7280;">Nhân công quá tải</span>
+                                </div>
+                                <span id="stats-overloaded" style="font-size:28px; font-weight:800; color:#ef4444;">0</span>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Epic Progress + Workload Charts -->
+                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:24px;">
+                            <!-- Epic Progress Chart -->
+                            <div class="card" style="padding:20px;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                                    <div>
+                                        <h3 style="margin:0; font-size:16px; font-weight:700; color:#111827;">Tiến độ Mùa vụ</h3>
+                                        <p style="margin:4px 0 0; font-size:13px; color:#6b7280;">Tỷ lệ hoàn thành theo Epic</p>
+                                    </div>
+                                    <div style="display:flex; background:#f3f4f6; border-radius:8px; overflow:hidden;">
+                                        <button id="epic-chart-bar-btn" onclick="switchEpicChartType('bar')" style="padding:6px 12px; font-size:12px; font-weight:600; border:none; cursor:pointer; background:#10b981; color:white; transition:all 0.2s;">Bar</button>
+                                        <button id="epic-chart-line-btn" onclick="switchEpicChartType('line')" style="padding:6px 12px; font-size:12px; font-weight:600; border:none; cursor:pointer; background:transparent; color:#6b7280; transition:all 0.2s;">Burn-down</button>
+                                    </div>
+                                </div>
+                                <div style="position:relative; height:280px;">
+                                    <canvas id="epic-progress-chart"></canvas>
+                                </div>
+                                <div id="epic-empty-state" style="display:none; text-align:center; padding:40px 20px; color:#9ca3af;">
+                                    <span class="material-symbols-outlined" style="font-size:48px; opacity:0.4;">event_note</span>
+                                    <p style="margin-top:8px;">Chưa có Mùa vụ nào được tạo</p>
+                                </div>
+                            </div>
+
+                            <!-- Workload Chart -->
+                            <div class="card" style="padding:20px;">
+                                <div style="margin-bottom:16px;">
+                                    <h3 style="margin:0; font-size:16px; font-weight:700; color:#111827;">Khối lượng công việc</h3>
+                                    <p style="margin:4px 0 0; font-size:13px; color:#6b7280;">Số việc đang tồn đọng theo nhân công</p>
+                                </div>
+                                <div style="position:relative; height:280px;">
+                                    <canvas id="workload-chart"></canvas>
+                                </div>
+                                <div id="workload-empty-state" style="display:none; text-align:center; padding:40px 20px; color:#9ca3af;">
+                                    <span class="material-symbols-outlined" style="font-size:48px; opacity:0.4;">person_off</span>
+                                    <p style="margin-top:8px;">Chưa có nhân công hoặc công việc nào</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Leaderboard -->
+                        <div class="card" style="padding:20px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                                <div>
+                                    <h3 style="margin:0; font-size:16px; font-weight:700; color:#111827;">🏆 Bảng xếp hạng Nông dân</h3>
+                                    <p style="margin:4px 0 0; font-size:13px; color:#6b7280;">Xếp hạng theo điểm kinh nghiệm (EXP)</p>
+                                </div>
+                                <div style="display:flex; background:#f3f4f6; border-radius:8px; overflow:hidden;">
+                                    <button id="lb-top5-btn" onclick="switchLeaderboardView('top5')" style="padding:6px 14px; font-size:12px; font-weight:600; border:none; cursor:pointer; background:#10b981; color:white; transition:all 0.2s;">Top 5</button>
+                                    <button id="lb-all-btn" onclick="switchLeaderboardView('all')" style="padding:6px 14px; font-size:12px; font-weight:600; border:none; cursor:pointer; background:transparent; color:#6b7280; transition:all 0.2s;">Tất cả</button>
+                                </div>
+                            </div>
+                            <div id="leaderboard-container" style="min-height:100px; max-height:500px; overflow-y:auto;">
+                                <div style="text-align:center; padding:40px; color:#9ca3af;">
+                                    <span class="material-symbols-outlined" style="font-size:48px; opacity:0.4;">leaderboard</span>
+                                    <p style="margin-top:8px;">Đang tải bảng xếp hạng...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </main>
         </div>
@@ -1265,8 +1392,8 @@
     <script src="../js/sidebar.js"></script>
     <script src="../js/chatbot.js"></script>
     <script src="../js/smart-advisor.js"></script>
-    <script src="../js/labor.js"></script>
-    <script src="../js/labor-upgrade.js"></script>
+    <script src="../js/labor.js?v=3"></script>
+    <script src="../js/labor-upgrade.js?v=3"></script>
 
     <script>
         // Check Auth - Only OWNER can access labor management
@@ -1308,6 +1435,9 @@
             }
             if (tabName === 'feedback' && typeof loadOwnerHelpRequests === 'function') {
                 loadOwnerHelpRequests();
+            }
+            if (tabName === 'statistics' && typeof renderStatisticsTab === 'function') {
+                renderStatisticsTab();
             }
         }
 

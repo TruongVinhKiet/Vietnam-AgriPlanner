@@ -113,7 +113,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/tasks/worker/**").hasAnyRole("WORKER", "OWNER")
                         .requestMatchers("/api/tasks/*/start").hasAnyRole("WORKER", "OWNER", "SYSTEM_ADMIN")
                         .requestMatchers("/api/tasks/*/complete").hasAnyRole("WORKER", "OWNER", "SYSTEM_ADMIN")
+                        .requestMatchers("/api/tasks/*/pause").hasAnyRole("WORKER", "OWNER", "SYSTEM_ADMIN")
                         .requestMatchers("/api/tasks/*/upload-media").hasAnyRole("WORKER", "OWNER", "SYSTEM_ADMIN")
+                        .requestMatchers("/api/tasks/*/comments/**", "/api/tasks/*/comments").hasAnyRole("WORKER", "OWNER", "SYSTEM_ADMIN")
+                        .requestMatchers("/api/tasks/*/checklists/**", "/api/tasks/*/checklists").hasAnyRole("WORKER", "OWNER", "SYSTEM_ADMIN")
                         .requestMatchers("/api/tasks/**").hasAnyRole("OWNER", "SYSTEM_ADMIN")
 
                         // Payroll

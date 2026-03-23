@@ -598,4 +598,30 @@ public class TaskController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+    // ==================== DELETE PENDING TASK ====================
+
+    @DeleteMapping("/{id}")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> deletePendingTask(@PathVariable Long id) {
+        try {
+            Task task = taskRepository.findById(id)
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy công việc"));
+
+            if (!"PENDING".equalsIgnoreCase(task.getStatus())) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Chỉ có thể xóa công việc ở trạng thái Chờ xử lý (PENDING)"));
+            }
+
+            // Delete comments first (no cascade from Task side)
+            taskCommentRepository.deleteByTask_Id(id);
+
+            // Delete task (checklists + workLogs cascade automatically via JPA)
+            taskRepository.delete(task);
+
+            return ResponseEntity.ok(Map.of("message", "Đã xóa công việc thành công"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }

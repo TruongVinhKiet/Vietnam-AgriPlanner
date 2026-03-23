@@ -3609,7 +3609,7 @@ function fixUtf8(str) {
 function buildWorkerInspectionResultsHtml(task) {
     if (!task) return '';
     const status = task.status ? String(task.status).toUpperCase() : '';
-    if (status !== 'COMPLETED') return '';
+    if (status !== 'COMPLETED' && status !== 'APPROVED') return '';
 
     // Material-consuming tasks: show material info instead of inspection results
     const materialTaskTypes = ['FEED', 'VACCINATE', 'FERTILIZE', 'SEED', 'PEST_CONTROL'];
@@ -4678,7 +4678,7 @@ function openTaskDetail(taskId) {
 
     // Countdown
     let countdownHtml = '';
-    if (dueMs && status !== 'COMPLETED') {
+    if (dueMs && status !== 'COMPLETED' && status !== 'APPROVED') {
         const remaining = dueMs - Date.now();
         const countdownText = formatTaskCountdown(remaining);
         const isOverdue = remaining < 0;
@@ -4822,10 +4822,10 @@ function openTaskDetail(taskId) {
 
             ${countdownHtml}
 
-            ${status !== 'COMPLETED' ? buildInlineReportSections(task) : ''}
+            ${status !== 'COMPLETED' && status !== 'APPROVED' ? buildInlineReportSections(task) : ''}
 
             <!-- Action Buttons -->
-            ${status !== 'COMPLETED' ? `
+            ${status !== 'COMPLETED' && status !== 'APPROVED' ? `
             <div style="background:white; border-radius:16px; border:1px solid #e5e7eb; padding:20px; margin-top:16px;">
                 <div style="font-size:13px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:16px;">Hành động</div>
                 <div id="inline-report-error" class="hidden" style="margin-bottom:12px; padding:10px 14px; border-radius:10px; background:#fef2f2; border:1px solid #fecaca; color:#dc2626; font-size:13px; font-weight:500;"></div>
@@ -4839,10 +4839,10 @@ function openTaskDetail(taskId) {
                 </div>
             </div>
             ` : `
-            <div style="background:#f0fdf4; border-radius:16px; border:1px solid #bbf7d0; padding:20px; margin-top:16px; text-align:center;">
-                <span class="material-icons-round" style="font-size:48px; color:#16a34a;">task_alt</span>
-                <div style="font-size:18px; font-weight:700; color:#16a34a; margin-top:8px;">Công việc đã hoàn thành</div>
-                ${completedAtLabel ? `<div style="font-size:14px; color:#15803d; margin-top:4px;">Lúc ${completedAtLabel}</div>` : ''}
+            <div style="background:${status === 'APPROVED' ? '#f5f3ff' : '#f0fdf4'}; border-radius:16px; border:1px solid ${status === 'APPROVED' ? '#e9d5ff' : '#bbf7d0'}; padding:20px; margin-top:16px; text-align:center;">
+                <span class="material-icons-round" style="font-size:48px; color:${status === 'APPROVED' ? '#9333ea' : '#16a34a'};">${status === 'APPROVED' ? 'verified' : 'task_alt'}</span>
+                <div style="font-size:18px; font-weight:700; color:${status === 'APPROVED' ? '#9333ea' : '#16a34a'}; margin-top:8px;">${status === 'APPROVED' ? 'Công việc đã được duyệt' : 'Công việc đã báo cáo hoàn thành'}</div>
+                ${completedAtLabel ? `<div style="font-size:14px; color:${status === 'APPROVED' ? '#7e22ce' : '#15803d'}; margin-top:4px;">Lúc ${completedAtLabel}</div>` : ''}
             </div>
             `}
         </div>
