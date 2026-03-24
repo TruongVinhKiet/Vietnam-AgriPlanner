@@ -930,6 +930,55 @@ async function onAddFieldByParcelClick(e) {
         return;
     }
 
+    // ====== VALIDATE LAND USE TYPE ======
+    // Only allow agricultural/livestock land use codes defined in CROP_SUITABILITY_MAP
+    const landUseCode = parcelInfo.landUseCode?.toUpperCase() || '';
+    const isValidLandUse = landUseCode && CROP_SUITABILITY_MAP[landUseCode];
+
+    if (!isValidLandUse) {
+        const landUseName = parcelInfo.landUseName || CULTIVATION_LAND_USE_NAMES[landUseCode] || landUseCode || 'Không xác định';
+
+        // Show styled warning notification
+        if (typeof agriAlert === 'function') {
+            agriAlert(
+                `<div style="display:flex;align-items:flex-start;gap:12px;">
+                    <span class="material-symbols-outlined" style="font-size:36px;color:#ef4444;flex-shrink:0;">block</span>
+                    <div>
+                        <div style="font-weight:700;font-size:15px;margin-bottom:6px;color:#dc2626;">Không đúng mục đích sử dụng đất</div>
+                        <div style="font-size:13px;color:#64748b;margin-bottom:8px;">
+                            Thửa <b>${parcelInfo.parcelNumber || '—'}</b> có mục đích sử dụng đất là 
+                            <span style="display:inline-block;padding:2px 8px;background:#fee2e2;color:#dc2626;border-radius:6px;font-weight:600;">${landUseCode} - ${landUseName}</span>
+                        </div>
+                        <div style="font-size:13px;color:#64748b;margin-bottom:10px;">
+                            Chỉ được thêm ruộng trên đất có mục đích sử dụng phù hợp với <b>trồng trọt</b> và <b>chăn nuôi</b>:
+                        </div>
+                        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                            ${Object.keys(CROP_SUITABILITY_MAP).map(code => 
+                                `<span style="padding:2px 8px;background:#dcfce7;color:#166534;border-radius:10px;font-size:11px;font-weight:500;">${code}</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                </div>`,
+                'warning',
+                '⚠️ Cảnh báo mục đích sử dụng đất'
+            );
+        } else {
+            showToastMessage('⚠️ Không đúng mục đích sử dụng đất',
+                `Thửa ${parcelInfo.parcelNumber || '—'} (${landUseCode} - ${landUseName}) không phù hợp cho trồng trọt/chăn nuôi.`);
+        }
+
+        // Exit parcel selection mode
+        cancelAddFieldByParcel();
+
+        // Re-open method selection modal after a brief delay for smooth UX
+        setTimeout(() => {
+            if (typeof showAddFieldOptions === 'function') {
+                showAddFieldOptions();
+            }
+        }, 400);
+        return;
+    }
+
     // Try to get geometry from local DB for accurate boundary
     let parcelGeometry = null;
     try {
