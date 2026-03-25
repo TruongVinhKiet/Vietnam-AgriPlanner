@@ -103,9 +103,10 @@
                     <span class="material-symbols-outlined">summarize</span> Báo cáo
                 </button>
                 <div class="header__actions">
-                    <button class="header__notification" onclick="toggleNotificationPanel()"><span
-                            class="material-symbols-outlined">notifications</span><span id="notification-badge"
-                            class="header__notification-badge"></span></button>
+                    <button class="header__notification" onclick="toggleGlobalNotifPanel()" style="position:relative;">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <span class="gn-bell-badge"></span>
+                    </button>
                     <div class="header__user">
                         <div class="header__user-info">
                             <p class="header__user-name">John Farmer</p>
@@ -342,13 +343,6 @@
                                         </div>
                                     </div>
                                     <div class="action-buttons-grid">
-                                        <button class="action-btn" onclick="toggleNotificationPanel()">
-                                            <div class="action-btn__icon-wrap action-btn__icon-wrap--amber">
-                                                <span
-                                                    class="material-symbols-outlined action-btn__icon">notifications</span>
-                                            </div>
-                                            <span class="action-btn__label">Thông báo</span>
-                                        </button>
                                         <button class="action-btn" onclick="toggleMarketplacePanel()">
                                             <div class="action-btn__icon-wrap action-btn__icon-wrap--green">
                                                 <span
@@ -1063,6 +1057,7 @@
     <script src="../js/utils.js"></script>
     <script src="../js/animations.js"></script>
     <script src="../js/sidebar.js"></script>
+    <script src="../js/global-notifications.js"></script>
     <script src="../js/charts.js"></script>
     <script src="../js/chatbot.js"></script>
     <script src="../js/smart-advisor.js"></script>
@@ -1503,6 +1498,7 @@
             </div>
         </div>
     </div>
+    <script src="../js/notification-hooks.js"></script>
 </body>
 
 </html>

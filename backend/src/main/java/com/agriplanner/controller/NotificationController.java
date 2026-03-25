@@ -4,6 +4,7 @@ import com.agriplanner.model.Notification;
 import com.agriplanner.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -54,6 +55,13 @@ public class NotificationController {
         unread.forEach(n -> n.setIsRead(true));
         notificationRepository.saveAll(unread);
         return ResponseEntity.ok(Map.of("message", "Marked " + unread.size() + " notifications as read"));
+    }
+
+    @Transactional
+    @DeleteMapping("/user/{userId}/all")
+    public ResponseEntity<?> deleteAllByUser(@PathVariable Long userId) {
+        notificationRepository.deleteByUserId(userId);
+        return ResponseEntity.ok(Map.of("message", "Deleted all notifications successfully"));
     }
 
     @PostMapping

@@ -1487,123 +1487,7 @@
             position: relative;
         }
 
-        /* Ensure parent is relative */
-        .header__notification-dropdown {
-            position: absolute;
-            top: 50px;
-            right: 0;
-            width: 320px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-            z-index: 2000;
-            display: none;
-            border: 1px solid #e5e7eb;
-            overflow: hidden;
-        }
-
-        .header__notification-dropdown.active {
-            display: block;
-            animation: slideDown 0.2s ease-out;
-        }
-
-        .notification-header {
-            padding: 16px;
-            border-bottom: 1px solid #f3f4f6;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .notification-header h4 {
-            margin: 0;
-            font-size: 16px;
-            color: #1f2937;
-            margin-bottom: 0 !important;
-        }
-
-        .notification-list {
-            max-height: 350px;
-            overflow-y: auto;
-        }
-
-        .notification-item {
-            padding: 12px 16px;
-            border-bottom: 1px solid #f3f4f6;
-            display: flex;
-            gap: 12px;
-            transition: background 0.2s;
-        }
-
-        .notification-item:hover {
-            background: #f9fafb;
-        }
-
-        .notification-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .notification-content {
-            flex: 1;
-            text-align: left;
-        }
-
-        .notification-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #374151;
-            margin-bottom: 2px;
-        }
-
-        .notification-desc {
-            font-size: 12px;
-            color: #6b7280;
-            margin-bottom: 8px;
-        }
-
-        .notification-action {
-            font-size: 12px;
-            padding: 4px 12px;
-            border-radius: 4px;
-            border: none;
-            cursor: pointer;
-            background: #e5e7eb;
-            color: #374151;
-            transition: all 0.2s;
-        }
-
-        .notification-action--primary {
-            background: #dbeafe;
-            color: #2563eb;
-        }
-
-        .notification-action--primary:hover {
-            background: #bfdbfe;
-        }
-
-        .notification-empty {
-            padding: 32px;
-            text-align: center;
-            color: #9ca3af;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+        /* Old notification dropdown CSS removed - using global-notifications.js */
 
         /* Toast Notifications */
         #toast-container {
@@ -1759,21 +1643,9 @@
                     <span class="material-symbols-outlined">summarize</span> Báo cáo
                 </button>
                 <div class="header__actions">
-                    <button class="header__notification" onclick="toggleNotificationDropdown()"><span
-                            class="material-symbols-outlined">notifications</span><span
-                            class="header__notification-badge" style="display:none"></span>
-                        <div class="header__notification-dropdown" id="notification-dropdown"
-                            onclick="event.stopPropagation()">
-                            <div class="notification-header">
-                                <h4>Công việc hôm nay</h4>
-                                <span class="material-symbols-outlined"
-                                    style="font-size: 18px; color: #9ca3af; cursor: pointer;"
-                                    onclick="toggleNotificationDropdown()">close</span>
-                            </div>
-                            <div class="notification-list" id="notification-list-items">
-                                <!-- Using JS to populate -->
-                            </div>
-                        </div>
+                    <button class="header__notification" onclick="toggleGlobalNotifPanel()" style="position:relative;">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <span class="gn-bell-badge"></span>
                     </button>
                     <div class="header__user">
                         <div class="header__user-info">
@@ -2281,13 +2153,6 @@
                                     style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e5e7eb;">TÍNH
                                     NĂNG NÂNG CAO</h4>
                                 <div class="field-actions__grid">
-                                    <button class="field-action-btn" onclick="toggleNotificationPanel()">
-                                        <span
-                                            class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--amber">notifications</span>
-                                        <span class="field-action-btn__label">Thông báo</span>
-                                        <span class="feature-badge" id="notification-badge"
-                                            style="position:absolute;top:4px;right:4px;"></span>
-                                    </button>
                                     <button class="field-action-btn" onclick="openWateringScheduleModal()">
                                         <span
                                             class="material-symbols-outlined field-action-btn__icon field-action-btn__icon--blue">water</span>
@@ -2825,6 +2690,7 @@
     <script src="../js/main.js"></script>
 
     <script src="../js/sidebar.js"></script>
+    <script src="../js/global-notifications.js?v=2"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
@@ -4419,7 +4285,7 @@
             await loadCrops();
             await loadUserInventory(); // Load inventory for activity checks
 
-            checkDailyTasks();
+
 
             setupControls();
         }
@@ -4559,307 +4425,14 @@
             return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(amount);
         }
 
-        // Toggle Notification Dropdown
-        function toggleNotificationDropdown() {
-            const dropdown = document.getElementById('notification-dropdown');
-            dropdown.classList.toggle('active');
-            if (dropdown.classList.contains('active')) {
-                checkDailyTasks(); // Refresh when opening
-            }
-        }
+        // Old toggleNotificationDropdown & click-outside handler removed - using global-notifications.js
 
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function (event) {
-            const dropdown = document.getElementById('notification-dropdown');
-            const button = document.querySelector('.header__notification');
-            if (!dropdown.contains(event.target) && !button.contains(event.target)) {
-                dropdown.classList.remove('active');
-            }
-        });
+        // Old checkDailyTasks & renderDailyTasks removed - using global-notifications.js
 
-        // Check daily tasks based on field data
-        function checkDailyTasks() {
-            // Logic to loop fields and generate tasks
-            const tasks = [];
-            const now = new Date();
+        // Old showToast / saveNotificationToBackend / renderNotifications / renderNotificationItem removed
+        // Now using global-notifications.js via notification-hooks.js (agriAlert & showToast hooks)
 
-            if (!fieldsData || fieldsData.length === 0) {
-                renderDailyTasks([]);
-                return;
-            }
-
-            fieldsData.forEach(field => {
-                // 1. Harvest Check
-                if (field.expectedHarvestDate) {
-                    const harvestDate = new Date(field.expectedHarvestDate);
-                    // Check if harvest date is today or passed, AND field is not already harvested
-                    // Simple check: crop must be active (currentCropId exists)
-                    if (now >= harvestDate && field.currentCropId) {
-                        tasks.push({
-                            type: 'harvest',
-                            fieldId: field.id,
-                            fieldName: field.name,
-                            title: 'Đến ngày thu hoạch',
-                            desc: 'Cần thu hoạch ngay hôm nay',
-                            icon: 'agriculture',
-                            color: '#fef3c7', // amber bg
-                            iconColor: '#d97706'
-                        });
-                    }
-                }
-
-                // 2. Watering Check
-                // Rule: If last watered > 24 hours ago
-                if (field.lastWateredAt) {
-                    const lastWatered = new Date(field.lastWateredAt);
-                    const diffHours = (now - lastWatered) / (1000 * 60 * 60);
-                    if (diffHours > 24) {
-                        tasks.push({
-                            type: 'water',
-                            fieldId: field.id,
-                            fieldName: field.name,
-                            title: 'Cần tưới nước',
-                            desc: `Đã ${Math.floor(diffHours)} giờ chưa tưới`,
-                            icon: 'water_drop',
-                            color: '#dbeafe', // blue bg
-                            iconColor: '#2563eb'
-                        });
-                    }
-                } else {
-                    // If never watered but planted, maybe remind?
-                    // For now keeping it simple as per user request for "fresh data"
-                }
-            });
-
-            renderDailyTasks(tasks);
-        }
-
-        function renderDailyTasks(tasks) {
-            const container = document.getElementById('notification-list-items');
-            const badge = document.querySelector('.header__notification-badge');
-
-            // Update Badge
-            if (tasks.length > 0) {
-                badge.style.display = 'block';
-                badge.innerText = tasks.length;
-            } else {
-                badge.style.display = 'none';
-            }
-
-            if (tasks.length === 0) {
-                container.innerHTML = `
-                    <div class="notification-empty">
-                        <span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 8px;">task_alt</span>
-                        <p>Tuyệt vời! Không có việc cần làm.</p>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = tasks.map(task => `
-                <div class="notification-item">
-                    <div class="notification-icon" style="background: ${task.color}; color: ${task.iconColor}">
-                        <span class="material-symbols-outlined">${task.icon}</span>
-                    </div>
-                    <div class="notification-content">
-                        <div class="notification-title">${task.fieldName}</div>
-                        <div class="notification-desc">${task.title} - ${task.desc}</div>
-                        <div style="text-align: right;">
-                             <button class="notification-action notification-action--primary" onclick="handleTaskAction('${task.type}', ${task.fieldId})">
-                                Hoàn thành
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        async function showToast(title, message, type = 'success') {
-            const container = document.getElementById('toast-container');
-            if (!container) return;
-
-            // 1. Save to Backend (Async)
-            saveNotificationToBackend(title, message, type);
-
-            // 2. Show Visual Toast
-            const now = new Date();
-            const timeString = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-
-            const toast = document.createElement('div');
-            toast.className = 'toast-message';
-            toast.innerHTML = `
-                <div class="toast-icon">
-                    <span class="material-symbols-outlined">${type === 'success' ? 'check_circle' : 'info'}</span>
-                </div>
-                <div class="toast-content">
-                    <div class="toast-title">${title}</div>
-                    <div class="toast-desc">${message}</div>
-                    <div class="toast-time">${timeString}</div>
-                </div>
-            `;
-
-            container.appendChild(toast);
-
-            // Auto remove
-            setTimeout(() => {
-                toast.classList.add('closing');
-                setTimeout(() => {
-                    toast.remove();
-                }, 300);
-            }, 5000);
-        }
-
-        // ==================== LOCAL NOTIFICATION HISTORY ====================
-        // ==================== DATABASE NOTIFICATION LOGIC ====================
-
-        async function saveNotificationToBackend(title, message, type) {
-            try {
-                let backendType = 'INFO';
-                if (type === 'success') backendType = 'SUCCESS_ACTION';
-                else if (type === 'error') backendType = 'ERROR_ACTION';
-                else if (type === 'info') backendType = 'INFO_ACTION';
-
-                await fetch(`${API_BASE}/notifications`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        userId: 1,
-                        title: title,
-                        message: message,
-                        type: backendType,
-                        fieldId: typeof selectedField !== 'undefined' && selectedField ? selectedField.id : null
-                    })
-                });
-
-                // Refresh list if panel is open
-                const panel = document.getElementById('notification-panel');
-                if (panel && panel.classList.contains('open')) {
-                    renderNotifications();
-                }
-            } catch (e) {
-                console.error('Error saving notification to DB:', e);
-            }
-        }
-
-        // Override renderNotifications (from features.js) to include local history
-        // We redefine it here so it takes precedence
-        // Override renderNotifications (from features.js) to use Backend + Grouping
-        async function renderNotifications() {
-            const container = document.getElementById('notification-list');
-            if (!container) return;
-
-            container.innerHTML = '<div style="padding:20px;text-align:center;color:#64748b;">Đang tải...</div>';
-
-            try {
-                // Fetch all history from backend
-                const response = await fetch(`${API_BASE}/notifications/user/1`);
-                if (!response.ok) throw new Error('Failed to fetch');
-                const notifications = await response.json();
-
-                if (notifications.length === 0) {
-                    container.innerHTML = `
-                        <div class="empty-state" style="display:flex;flex-direction:column;align-items:center;padding:40px 20px;color:#94a3b8;text-align:center;">
-                            <span class="material-symbols-outlined" style="font-size:48px;margin-bottom:12px;opacity:0.5;">notifications_off</span>
-                            <p>Không có thông báo nào</p>
-                        </div>`;
-                    return;
-                }
-
-                // Group by Date
-                const groups = groupNotificationsByDate(notifications);
-
-                container.innerHTML = '';
-
-                Object.keys(groups).forEach(dateLabel => {
-                    // Header
-                    const header = document.createElement('div');
-                    header.className = 'notification-date-header';
-                    header.style.cssText = 'padding: 8px 12px; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 600; text-transform: uppercase; border-bottom: 1px solid #e2e8f0; margin-top: 0px; position:sticky; top:0; z-index:10;';
-                    header.textContent = dateLabel;
-                    container.appendChild(header);
-
-                    // Items
-                    const itemsHtml = groups[dateLabel].map(n => renderNotificationItem(n)).join('');
-                    const groupDiv = document.createElement('div');
-                    groupDiv.innerHTML = itemsHtml;
-                    container.appendChild(groupDiv);
-                });
-
-            } catch (e) {
-                console.error('Error rendering notifications:', e);
-                container.innerHTML = '<div style="padding:20px;text-align:center;color:#ef4444;">Lỗi tải dữ liệu. Hãy đảm bảo Backend đang chạy.</div>';
-            }
-        }
-
-        function groupNotificationsByDate(notifications) {
-            const groups = {};
-            const today = new Date().toLocaleDateString('vi-VN');
-            const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('vi-VN');
-
-            notifications.forEach(n => {
-                const date = new Date(n.createdAt);
-                const dateStr = date.toLocaleDateString('vi-VN');
-
-                let label = dateStr;
-                if (dateStr === today) label = 'Hôm nay';
-                else if (dateStr === yesterday) label = 'Hôm qua';
-
-                if (!groups[label]) groups[label] = [];
-                groups[label].push(n);
-            });
-            return groups;
-        }
-
-        function renderNotificationItem(n) {
-            // Determine icon and color based on type
-            let icon = 'notifications';
-            let iconClass = 'icon--blue';
-
-            // Mapping backend types to icons
-            if (n.type && (n.type.includes('SUCCESS') || n.title.includes('thành công'))) { icon = 'check_circle'; iconClass = 'icon--green'; }
-            else if (n.type && n.type.includes('ERROR')) { icon = 'error'; iconClass = 'icon--red'; }
-            else if (n.type && n.type.includes('HARVEST')) { icon = 'agriculture'; iconClass = 'icon--amber'; }
-            else if (n.type && n.type.includes('WATER')) { icon = 'water_drop'; iconClass = 'icon--blue'; }
-            else if (n.type && n.type.includes('PEST')) { icon = 'bug_report'; iconClass = 'icon--red'; }
-            else if (n.type && n.type.includes('FERTILIZE')) { icon = 'eco'; iconClass = 'icon--green'; }
-
-            const time = new Date(n.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-
-            return `
-                <div class="notification-item ${n.isRead ? 'read' : 'unread'}" style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; display: flex; gap: 12px; align-items: flex-start; background: white;">
-                    <div class="notification-icon ${iconClass}" style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #f1f5f9;">
-                        <span class="material-symbols-outlined" style="font-size: 18px;">${icon}</span>
-                    </div>
-                    <div class="notification-content" style="flex: 1;">
-                        <div style="display:flex; justify-content:space-between; margin-bottom: 2px;">
-                            <h4 style="font-size: 14px; font-weight: 600; color: #1e293b; margin: 0;">${n.title}</h4>
-                            <span style="font-size: 11px; color: #94a3b8;">${time}</span>
-                        </div>
-                        <p style="font-size: 13px; color: #64748b; margin: 0; line-height: 1.4;">${n.message || ''}</p>
-                    </div>
-                </div>
-            `;
-        }
-
-        async function handleTaskAction(type, fieldId) {
-            if (type === 'water') {
-                // Call API water
-                try {
-                    const res = await fetch(`${API_BASE}/fields/${fieldId}/water`, { method: 'POST' });
-                    if (res.ok) {
-                        showToast('Tưới nước', 'Đã tưới nước thành công', 'success');
-                        // Refresh data
-                        await loadFieldsFromAPI();
-                        checkDailyTasks(); // Update list
-                    }
-                } catch (e) { console.error(e); }
-            } else if (type === 'harvest') {
-                const dropdown = document.getElementById('notification-dropdown');
-                if (dropdown) dropdown.classList.remove('active');
-
-                openHarvestModal(fieldId); // Open existing modal
-            }
-        }
+        // Old handleTaskAction removed - using global notification system
 
         async function saveMapPosition() {
             const userEmail = localStorage.getItem('userEmail');
@@ -10051,6 +9624,7 @@ box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
         document.getElementById('field-utility-total-cost').textContent = fmt(total);
     }
 </script>
+    <script src="../js/notification-hooks.js?v=2"></script>
 
 </body>
 

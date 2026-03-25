@@ -2258,7 +2258,13 @@ async function submitQuickAddTasks() {
                     const today = new Date();
                     const [h, m] = task.fixedTime.split(':');
                     today.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
-                    dueDate = today.toISOString();
+                    // Use local date format to avoid timezone shift (toISOString converts to UTC, which can shift the date back 1 day in GMT+7)
+                    const yyyy = today.getFullYear();
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    const hh = String(today.getHours()).padStart(2, '0');
+                    const mi = String(today.getMinutes()).padStart(2, '0');
+                    dueDate = `${yyyy}-${mm}-${dd}T${hh}:${mi}:00`;
                 }
 
                 const payload = {
@@ -2291,7 +2297,7 @@ async function submitQuickAddTasks() {
         const msg = fail === 0
             ? `✅ Đã giao ${success} công việc thành công!`
             : `⚠️ Giao ${success} thành công, ${fail} thất bại.`;
-        agriAlert(msg, 'warning');
+        agriAlert(msg, fail === 0 ? 'success' : 'warning');
 
     } catch (err) {
         console.error('Submit quick add error:', err);

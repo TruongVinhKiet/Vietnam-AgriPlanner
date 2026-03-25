@@ -762,8 +762,11 @@ async function workerKbDrop(event, newStatus) {
         try {
             if (typeof showToast === 'function') showToast('Đã bắt đầu thực hiện công việc!', 'success');
             
-            // Execute fetching in background without blocking visually
-            fetchAPI(`${API_BASE}/tasks/${taskId}/start`, 'POST').catch(e => {
+            // Execute fetching in background, then refresh both views to stay synced
+            fetchAPI(`${API_BASE}/tasks/${taskId}/start`, 'POST').then(() => {
+                // Refresh task list to sync List view with Kanban after successful start
+                loadTasksList();
+            }).catch(e => {
                 console.error('Error starting task:', e);
                 if (typeof showToast === 'function') showToast('Lỗi: ' + e.message, 'error');
                 loadTasksList(); // Revert on error

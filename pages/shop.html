@@ -81,6 +81,10 @@
                     <input type="text" class="header__search-input" id="shop-search" placeholder="Tìm sản phẩm...">
                 </div>
                 <div class="header__actions">
+                    <button class="header__notification" onclick="toggleGlobalNotifPanel()" style="position:relative;">
+                        <span class="material-symbols-outlined">notifications</span>
+                        <span class="gn-bell-badge" id="notification-badge"></span>
+                    </button>
                     <button class="header__notification" onclick="toggleOrdersPanel()">
                         <span class="material-symbols-outlined">receipt_long</span>
                         <span class="header__notification-badge" id="orders-count">0</span>
@@ -96,6 +100,13 @@
                     <div class="loyalty-display" id="loyalty-display" title="Điểm tích lũy">
                         <span class="material-symbols-outlined">stars</span>
                         <span id="user-loyalty-points">0</span>
+                    </div>
+                    <div class="header__user">
+                        <div class="header__user-info">
+                            <p class="header__user-name">Trương Vĩnh Kiệt</p>
+                            <p class="header__user-role">Chủ trang trại</p>
+                        </div>
+                        <div class="header__user-avatar" id="header-avatar"></div>
                     </div>
                 </div>
             </header>
@@ -786,9 +797,11 @@
     <script src="../js/config.js"></script>
     <script src="../js/main.js"></script>
     <script src="../js/sidebar.js"></script>
+    <script src="../js/global-notifications.js?v=2"></script>
     <script src="../js/chatbot.js"></script>
     <script src="../js/smart-advisor.js"></script>
     <script src="../js/shop.js"></script>
+    <script src="../js/notification-hooks.js?v=2"></script>
 </body>
 
 </html>

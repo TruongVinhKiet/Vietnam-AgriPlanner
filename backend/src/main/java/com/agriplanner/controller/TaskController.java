@@ -45,6 +45,9 @@ public class TaskController {
     private PenRepository penRepository;
 
     @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
     private ShopItemRepository shopItemRepository;
 
     @Autowired
@@ -201,6 +204,21 @@ public class TaskController {
                     .build();
             taskWorkLogRepository.save(log);
 
+            // Notify Owner that worker has started the task
+            if (task.getOwner() != null) {
+                String workerName = task.getWorker() != null && task.getWorker().getFullName() != null
+                        ? task.getWorker().getFullName() : "Nhân công";
+                Notification notif = Notification.builder()
+                        .userId(task.getOwner().getId())
+                        .type("TASK_STATUS_CHANGED")
+                        .title("Công việc đang thực hiện")
+                        .message(workerName + " đã bắt đầu thực hiện: " + task.getName())
+                        .isRead(false)
+                        .createdAt(now)
+                        .build();
+                notificationRepository.save(notif);
+            }
+
             return ResponseEntity.ok().body(Map.of("message", "Đã bắt đầu công việc", "startedAt", now.toString()));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
@@ -319,6 +337,22 @@ public class TaskController {
                         updatedTask.setReportVideoUrl(vidUrl);
                     taskRepository.save(updatedTask);
                 }
+            }
+
+            // Notify Owner that worker has completed the task
+            Task freshTask = taskRepository.findById(id).orElse(task);
+            if (freshTask.getOwner() != null) {
+                String workerName = freshTask.getWorker() != null && freshTask.getWorker().getFullName() != null
+                        ? freshTask.getWorker().getFullName() : "Nhân công";
+                Notification notif = Notification.builder()
+                        .userId(freshTask.getOwner().getId())
+                        .type("TASK_STATUS_CHANGED")
+                        .title("Công việc đã hoàn thành")
+                        .message(workerName + " đã hoàn thành: " + freshTask.getName() + ". Chờ duyệt.")
+                        .isRead(false)
+                        .createdAt(LocalDateTime.now())
+                        .build();
+                notificationRepository.save(notif);
             }
 
             return ResponseEntity.ok().body(Map.of("message", "Đã hoàn thành công việc"));
