@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.agriplanner.service.RecruitmentService;
 
 /**
  * REST Controller for Farm operations
@@ -28,6 +29,7 @@ public class FarmController {
 
     private final FarmRepository farmRepository;
     private final UserRepository userRepository;
+    private final RecruitmentService recruitmentService;
 
     /**
      * Get farms owned by the currently authenticated user
@@ -96,6 +98,7 @@ public class FarmController {
         // In real app, check if current user is owner
         farm.setRecruitmentQuota(quota);
         farmRepository.save(farm);
+        recruitmentService.syncRecruitmentPostForFarm(farm);
         return ResponseEntity.ok(Map.of("message", "Updated recruitment quota", "quota", quota));
     }
 }

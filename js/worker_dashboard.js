@@ -281,6 +281,13 @@ async function loadUserProfile() {
             workerOwnerId = null;
         }
 
+        if (!workerFarmId) {
+            handleWorkerEmptyState();
+        } else {
+            const existingOverlay = document.getElementById('worker-empty-overlay');
+            if (existingOverlay) existingOverlay.remove();
+        }
+
         const fullName = (user.fullName || localStorage.getItem('userName') || '').trim();
         const displayName = fullName || 'Worker';
         const avatarChar = displayName.charAt(0).toUpperCase();
@@ -401,6 +408,46 @@ function updateRankDisplay(exp, rank, avatarChar, avatarUrl) {
             nextEl.textContent = 'Tiếp: ' + info.next + ' EXP';
         }
     }
+}
+
+function handleWorkerEmptyState() {
+    const existingOverlay = document.getElementById('worker-empty-overlay');
+    if (existingOverlay) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'worker-empty-overlay';
+    overlay.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(255,255,255,0.85); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; z-index:9000; animation:fadeIn 0.4s ease;';
+    
+    // Check if we are already on the jobs page to not block it
+    if (window.location.pathname.includes('worker_jobs.html')) {
+        return;
+    }
+
+    overlay.innerHTML = `
+        <div style="background:white; padding:40px; border-radius:24px; text-align:center; max-width:480px; box-shadow:0 30px 60px rgba(0,0,0,0.15); border:1px solid #e5e7eb; animation:slideUp 0.5s ease;">
+            <div style="width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg, #f0fdf4, #dcfce7); display:flex; align-items:center; justify-content:center; margin:0 auto 24px;">
+                <span class="material-symbols-outlined" style="font-size:40px; color:#10b981;">work_history</span>
+            </div>
+            <h2 style="font-size:24px; font-weight:800; color:#111827; margin:0 0 12px;">Bạn chưa thuộc Nông trại nào</h2>
+            <p style="font-size:15px; color:#4b5563; line-height:1.6; margin:0 0 32px;">
+                Để nhận công việc và sử dụng ứng dụng, vui lòng tìm việc làm và gửi hồ sơ ứng tuyển tại trang Tuyển dụng. Quản lý nông trại sẽ duyệt hồ sơ của bạn.
+            </p>
+            <a href="worker_jobs.html" style="display:inline-flex; align-items:center; gap:8px; padding:14px 32px; background:linear-gradient(135deg, #10b981, #059669); color:white; border-radius:12px; font-weight:700; font-size:16px; text-decoration:none; transition:all 0.2s; box-shadow:0 8px 20px rgba(16,185,129,0.3);"
+               onmouseenter="this.style.transform='scale(1.03)'; this.style.boxShadow='0 12px 25px rgba(16,185,129,0.4)';"
+               onmouseleave="this.style.transform='scale(1)'; this.style.boxShadow='0 8px 20px rgba(16,185,129,0.3)';">
+                <span class="material-symbols-outlined" style="font-size:20px;">search</span>
+                Đi đến Tuyển dụng
+            </a>
+            <div style="margin-top:24px;">
+                <button onclick="localStorage.clear(); sessionStorage.clear(); window.location.href='login.html';"
+                        style="background:none; border:none; color:#6b7280; font-size:14px; font-weight:600; cursor:pointer; text-decoration:underline;">
+                    Đăng xuất
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
 }
 
 async function loadWeather() {

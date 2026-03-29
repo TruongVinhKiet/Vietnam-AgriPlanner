@@ -31,4 +31,6 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     boolean existsByFarm_IdAndTaskTypeAndPen_IdAndIsAutoCreatedTrueAndStatusIn(Long farmId, TaskType taskType,
             Long penId, Collection<String> statuses);
+
+    long countByWorker_IdAndStatusIn(Long workerId, Collection<String> statuses);
 }

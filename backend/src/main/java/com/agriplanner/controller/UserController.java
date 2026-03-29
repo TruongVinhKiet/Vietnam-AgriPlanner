@@ -64,6 +64,8 @@ public class UserController {
         response.put("farmId", user.getFarmId());
         response.put("experiencePoints", user.getExperiencePoints() != null ? user.getExperiencePoints() : 0);
         response.put("rankLevel", user.getRankLevel() != null ? user.getRankLevel() : "TRAINEE");
+        response.put("cvProfile", user.getCvProfile() != null ? user.getCvProfile() : "");
+        response.put("cvPdfUrl", user.getCvPdfUrl() != null ? user.getCvPdfUrl() : "");
         return ResponseEntity.ok(response);
     }
 
@@ -91,6 +93,9 @@ public class UserController {
         }
         if (updates.containsKey("phone")) {
             user.setPhone((String) updates.get("phone"));
+        }
+        if (updates.containsKey("cvProfile")) {
+            user.setCvProfile((String) updates.get("cvProfile"));
         }
 
         userRepository.save(user);
@@ -154,6 +159,37 @@ public class UserController {
         } catch (Exception e) {
             log.error("Error updating avatar for user: {}", email, e);
             return ResponseEntity.status(500).body(Map.of("error", "Error saving avatar: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Upload User CV PDF
+     */
+    @PostMapping("/upload-cv/{userId}")
+    public ResponseEntity<?> uploadCvPdf(@PathVariable Long userId, @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        try {
+            if (file.isEmpty()) return ResponseEntity.badRequest().body(Map.of("error", "File is empty"));
+            Optional<User> userOpt = userRepository.findById(userId);
+            if (userOpt.isEmpty()) return ResponseEntity.notFound().build();
+            User user = userOpt.get();
+
+            String filename = "cv_" + userId + "_" + System.currentTimeMillis() + ".pdf";
+            java.nio.file.Path uploadPath = java.nio.file.Paths.get("uploads", "cv");
+            if (!java.nio.file.Files.exists(uploadPath)) {
+                java.nio.file.Files.createDirectories(uploadPath);
+            }
+            java.nio.file.Path filepath = uploadPath.resolve(filename);
+            java.nio.file.Files.copy(file.getInputStream(), filepath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+
+            String fileUrl = "http://localhost:8080/uploads/cv/" + filename;
+            user.setCvPdfUrl(fileUrl);
+            userRepository.save(user);
+
+            log.info("CV PDF uploaded successfully for user: {}", userId);
+            return ResponseEntity.ok(Map.of("message", "Tải lên CV PDF thành công", "cvPdfUrl", fileUrl));
+        } catch (Exception e) {
+            log.error("CV Upload error: ", e);
+            return ResponseEntity.internalServerError().body(Map.of("error", "Upload failed: " + e.getMessage()));
         }
     }
 

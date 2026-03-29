@@ -182,6 +182,8 @@ public class User implements org.springframework.security.core.userdetails.UserD
     @Column(name = "cv_profile", columnDefinition = "TEXT")
     private String cvProfile;
 
+    @Column(name = "cv_pdf_url", columnDefinition = "TEXT")
+    private String cvPdfUrl;
     @Enumerated(EnumType.STRING)
     @Column(name = "approval_status")
     private ApprovalStatus approvalStatus;

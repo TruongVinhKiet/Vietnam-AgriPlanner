@@ -39,4 +39,7 @@ public class JobApplication {
     @CreationTimestamp
     @Column(name = "applied_at", updatable = false)
     private LocalDateTime appliedAt;
+
+    @Column(name = "cv_pdf_url", columnDefinition = "TEXT")
+    private String cvPdfUrl;
 }

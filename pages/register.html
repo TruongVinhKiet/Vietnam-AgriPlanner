@@ -501,18 +501,8 @@
             if (role === 'OWNER') {
                 requestBody.farmName = farmField.value;
             } else if (role === 'WORKER') {
-                requestBody.farmId = parseInt(farmField.value);
-                // Get CV fields
-                const cvBio = document.getElementById('cv-bio');
-                const cvSkill = document.getElementById('cv-skill');
-                const cvExperience = document.getElementById('cv-experience');
-
-                let cvProfile = '';
-                if (cvBio && cvBio.value) cvProfile += cvBio.value;
-                if (cvSkill && cvSkill.value) cvProfile += `\nKỹ năng chính: ${cvSkill.options[cvSkill.selectedIndex].text}`;
-                if (cvExperience && cvExperience.value) cvProfile += `\nKinh nghiệm: ${cvExperience.options[cvExperience.selectedIndex].text}`;
-
-                requestBody.cvProfile = cvProfile;
+                // Worker: no farmId or cvProfile needed at registration
+                // They will fill CV and apply for jobs via the Recruitment page
             } else if (role === 'SYSTEM_ADMIN') {
                 requestBody.invitationCode = invitationCode;
             }
@@ -527,15 +517,12 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    if (data.requiresApproval) {
-                        // WORKER registration - show special modal
-                        showSuccessModal(data.message, true);
-                    } else if (data.requiresVerification) {
+                    if (data.requiresVerification) {
                         // SYSTEM_ADMIN registration - needs OTP
                         agriAlert(data.message, 'success');
                         handleVerification(email);
                     } else {
-                        // OWNER registration - direct success
+                        // OWNER or WORKER registration - direct success
                         showSuccessModal();
                     }
                 } else {
@@ -567,7 +554,7 @@
             // Update hint
             const hints = {
                 'OWNER': 'Bạn sẽ có quyền tạo trang trại mới và quản lý toàn bộ dữ liệu.',
-                'WORKER': 'Bạn sẽ làm việc tại một nông trại có sẵn trong hệ thống.',
+                'WORKER': 'Sau khi đăng ký, bạn có thể đăng nhập và tìm việc trên trang Tuyển dụng.',
                 'SYSTEM_ADMIN': 'Quản trị viên hệ thống - Cần mã mời để đăng ký.'
             };
             roleHint.textContent = hints[role] || '';
@@ -580,123 +567,35 @@
                     <span class="material-symbols-outlined auth-form__input-icon">agriculture</span>
                 `;
             } else if (role === 'WORKER') {
-                // Show CV Form
-                farmLabel.textContent = 'Chọn nông trại ứng tuyển';
-                farmWrapper.innerHTML = `
-                    <select id="farmName" class="auth-form__input auth-form__select" required>
-                        <option value="" disabled selected>Đang tải danh sách...</option>
-                    </select>
-                    <span class="material-symbols-outlined auth-form__input-icon">agriculture</span>
-                `;
-
-                // Add Professional CV Form
-                const cvHtml = `
-                    <div id="cv-section" class="cv-section" style="margin-top: 24px; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); padding: 24px; border-radius: 16px; border: 2px solid #a7f3d0; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);">
-                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 2px dashed #6ee7b7;">
-                            <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(16, 185, 129, 0.3);">
-                                <span class="material-symbols-outlined" style="color: white; font-size: 28px;">description</span>
+                // Worker: no farm or CV needed — show info message only
+                farmField.style.display = 'none';
+                // Remove old CV section if exists
+                const cvSection = document.getElementById('cv-section');
+                if (cvSection) cvSection.remove();
+                // Remove old worker-info if exists
+                const oldWorkerInfo = document.getElementById('worker-register-info');
+                if (oldWorkerInfo) oldWorkerInfo.remove();
+                // Show friendly info
+                const infoHtml = `
+                    <div id="worker-register-info" style="margin-top: 8px; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); padding: 20px; border-radius: 14px; border: 2px solid #93c5fd; animation: fadeIn 0.4s ease;">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                            <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3); flex-shrink: 0;">
+                                <span class="material-symbols-outlined" style="color: white; font-size: 24px;">work</span>
                             </div>
                             <div>
-                                <h3 style="font-size: 18px; font-weight: 700; color: #065f46; margin: 0;">Hồ sơ ứng tuyển</h3>
-                                <p style="font-size: 13px; color: #047857; margin: 4px 0 0 0;">Thông tin sẽ được gửi đến chủ trang trại</p>
+                                <h3 style="font-size: 16px; font-weight: 700; color: #1e40af; margin: 0;">Tìm việc làm sau khi đăng ký</h3>
+                                <p style="font-size: 13px; color: #2563eb; margin: 4px 0 0 0;">Bạn có thể đăng nhập ngay và ứng tuyển việc làm</p>
                             </div>
                         </div>
-                        
-                        <div class="auth-form__field" style="margin-bottom: 16px;">
-                            <label class="auth-form__label" style="color: #065f46; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                                <span class="material-symbols-outlined" style="font-size: 18px;">person</span>
-                                Giới thiệu bản thân & Kinh nghiệm
-                            </label>
-                            <textarea id="cv-bio" class="auth-form__input" rows="4" 
-                                placeholder="Ví dụ: 3 năm kinh nghiệm trồng lúa, biết lái máy cày..." 
-                                style="padding: 12px; background: white; border: 2px solid #6ee7b7; border-radius: 8px; transition: all 0.2s;"
-                                onfocus="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 0 3px rgba(16, 185, 129, 0.2)'"
-                                onblur="this.style.borderColor='#6ee7b7'; this.style.boxShadow='none'"></textarea>
-                        </div>
-                        
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                            <div class="auth-form__field">
-                                <label class="auth-form__label" style="color: #065f46; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                                    <span class="material-symbols-outlined" style="font-size: 18px;">work</span>
-                                    Kỹ năng chính
-                                </label>
-                                <select id="cv-skill" class="auth-form__input auth-form__select" style="background: white; border: 2px solid #6ee7b7;">
-                                    <option value="">Chọn kỹ năng...</option>
-                                    <option value="farming">🌾 Trồng trọt</option>
-                                    <option value="livestock">🐄 Chăn nuôi</option>
-                                    <option value="machinery">🚜 Vận hành máy móc</option>
-                                    <option value="irrigation">💧 Tưới tiêu</option>
-                                    <option value="pesticide">🧪 Phun thuốc BVTV</option>
-                                    <option value="harvest">🌾 Thu hoạch</option>
-                                    <option value="other">📦 Khác</option>
-                                </select>
+                        <div style="padding: 14px; background: white; border-radius: 10px; border: 1px dashed #93c5fd;">
+                            <div style="font-size: 13px; color: #1e40af; margin: 0; display: flex; align-items: flex-start; gap: 8px; line-height: 1.6;">
+                                <span class="material-symbols-outlined" style="font-size: 18px; flex-shrink: 0; margin-top: 2px;">info</span>
+                                <div>Sau khi đăng ký thành công, bạn sẽ đăng nhập vào trang <strong>Tuyển dụng</strong> — nơi hiển thị các nông trại đang cần tuyển nhân công. Chỉ cần điền hồ sơ CV và bấm <strong>Ứng tuyển</strong> ngay trên hệ thống.</div>
                             </div>
-                            <div class="auth-form__field">
-                                <label class="auth-form__label" style="color: #065f46; font-weight: 600; display: flex; align-items: center; gap: 6px;">
-                                    <span class="material-symbols-outlined" style="font-size: 18px;">schedule</span>
-                                    Năm kinh nghiệm
-                                </label>
-                                <select id="cv-experience" class="auth-form__input auth-form__select" style="background: white; border: 2px solid #6ee7b7;">
-                                    <option value="0">Chưa có kinh nghiệm</option>
-                                    <option value="1">1 - 2 năm</option>
-                                    <option value="3">3 - 5 năm</option>
-                                    <option value="5">5 - 10 năm</option>
-                                    <option value="10">Trên 10 năm</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div style="margin-top: 20px; padding: 16px; background: white; border-radius: 8px; border: 1px dashed #6ee7b7;">
-                            <p style="font-size: 12px; color: #059669; margin: 0; display: flex; align-items: center; gap: 6px;">
-                                <span class="material-symbols-outlined" style="font-size: 16px;">info</span>
-                                Hồ sơ của bạn sẽ được gửi đến chủ trang trại để xét duyệt. Sau khi được duyệt, bạn có thể bắt đầu nhận và thực hiện công việc.
-                            </p>
                         </div>
                     </div>
                 `;
-                // Insert CV section after farm field
-                if (!document.getElementById('cv-section')) {
-                    farmField.insertAdjacentHTML('afterend', cvHtml);
-                }
-
-                // Fetch farms from API
-                try {
-                    const response = await fetch('http://localhost:8080/api/farms/list');
-                    let farms = await response.json();
-
-                    // Filter farms with quota > 0 (if backend sends quota, otherwise fetch full details)
-                    // The /list endpoint currently returns simplified map. 
-                    // We might need to fetch full /api/farms or update /list to include quota.
-                    // Assuming /list returns {id, name} only from my previous check.
-                    // Let's try to fetch full list or rely on backend.
-                    // BETTER: Fetch /api/farms (full) which I added in FarmController as GET /
-                    const fullResponse = await fetch('http://localhost:8080/api/farms');
-                    if (fullResponse.ok) {
-                        farms = await fullResponse.json();
-                    }
-
-                    const farmSelect = document.getElementById('farmName');
-                    farmSelect.innerHTML = '<option value="" disabled selected>Chọn nông trại...</option>';
-
-                    // Filter: Quota > 0
-                    const hiringFarms = farms.filter(f => (f.recruitmentQuota && f.recruitmentQuota > 0));
-
-                    if (hiringFarms.length === 0) {
-                        farmSelect.innerHTML = '<option value="" disabled selected>Không có nông trại nào đang tuyển</option>';
-                        farmSelect.disabled = true;
-                    } else {
-                        farmSelect.disabled = false;
-                        hiringFarms.forEach(farm => {
-                            const option = document.createElement('option');
-                            option.value = farm.id;
-                            option.textContent = `${farm.name} (Tuyển: ${farm.recruitmentQuota})`;
-                            farmSelect.appendChild(option);
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error fetching farms:', error);
-                    document.getElementById('farmName').innerHTML = '<option value="" disabled selected>Lỗi tải danh sách</option>';
-                }
+                farmField.insertAdjacentHTML('afterend', infoHtml);
             } else if (role === 'SYSTEM_ADMIN') {
                 farmField.style.display = 'none';
                 invitationField.style.display = 'block';

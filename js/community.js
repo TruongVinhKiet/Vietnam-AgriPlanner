@@ -1880,7 +1880,6 @@ async function acceptFriendRequest(requestId) {
         });
 
         if (response.ok) {
-            excludedRequestIds.add(requestId); // Mark as handled
             showToast('Đã chấp nhận kết bạn', 'success');
             loadFriendRequests(); // Reload list
             loadFriends(); // Reload friends list

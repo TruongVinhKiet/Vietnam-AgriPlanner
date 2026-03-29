@@ -58,10 +58,12 @@ public class RecruitmentController {
 
     @PostMapping("/posts/{postId}/apply")
     public ResponseEntity<?> applyForJob(@PathVariable Long postId, @RequestParam Long workerId,
-            @RequestBody(required = false) String message) {
+            @RequestBody(required = false) java.util.Map<String, String> payload) {
         try {
             if (postId == null || workerId == null)
                 throw new IllegalArgumentException("IDs required");
+
+            String message = payload != null ? payload.get("message") : null;
 
             RecruitmentPost post = postRepository.findById(postId)
                     .orElseThrow(() -> new RuntimeException("Post not found"));
@@ -82,6 +84,11 @@ public class RecruitmentController {
     @GetMapping("/applications/post/{postId}")
     public List<JobApplication> getApplicationsByPost(@PathVariable Long postId) {
         return applicationRepository.findByPost_Id(postId);
+    }
+
+    @GetMapping("/applications/worker/{workerId}")
+    public List<JobApplication> getApplicationsByWorker(@PathVariable Long workerId) {
+        return applicationRepository.findByWorker_Id(workerId);
     }
 
     @PutMapping("/applications/{id}/status")

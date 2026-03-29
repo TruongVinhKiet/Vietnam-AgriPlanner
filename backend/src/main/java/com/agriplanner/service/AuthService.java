@@ -265,16 +265,8 @@ public class AuthService {
             return AuthResponse.error("Vui lòng nhập tên nông trại");
         }
 
-        // For WORKER: farmId is required
-        if (request.getRole() == UserRole.WORKER) {
-            if (request.getFarmId() == null) {
-                return AuthResponse.error("Vui lòng chọn nông trại ứng tuyển");
-            }
-            // Optional: validate CV
-            if (request.getCvProfile() == null || request.getCvProfile().trim().isEmpty()) {
-                // Warning only or error? Let's make it optional for MVP but recommended
-            }
-        }
+        // WORKER: no farmId or CV required at registration
+        // Workers register freely and find jobs via the Recruitment page
 
         // Create new user
         User.UserBuilder userBuilder = User.builder()
@@ -285,15 +277,8 @@ public class AuthService {
                 .role(request.getRole())
                 .isActive(true); // Default true for OWNER (will override for WORKER)
 
-        // If WORKER, set pending approval
-        if (request.getRole() == UserRole.WORKER) {
-            userBuilder.isActive(false); // Inactive until approved
-            userBuilder.approvalStatus(User.ApprovalStatus.PENDING);
-            userBuilder.farmId(request.getFarmId());
-            userBuilder.cvProfile(request.getCvProfile());
-        } else {
-            userBuilder.approvalStatus(User.ApprovalStatus.APPROVED);
-        }
+        // All roles (OWNER, WORKER) start as APPROVED and active
+        userBuilder.approvalStatus(User.ApprovalStatus.APPROVED);
 
         User user = userBuilder.build();
 
@@ -328,10 +313,7 @@ public class AuthService {
             farmRepository.save(farm);
         }
 
-        // Return generic success for Worker
-        if (request.getRole() == UserRole.WORKER) {
-            return AuthResponse.approvalRequired("Hồ sơ của bạn đã được gửi. Vui lòng chờ Chủ trang trại duyệt.");
-        }
+        // Worker gets token immediately like Owner
 
         String token = jwtService.generateToken(user);
         return AuthResponse.success(token, user.getEmail(), user.getFullName(), user.getRole(), user.getId());

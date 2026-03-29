@@ -16,7 +16,7 @@ let _currentEpicFilter = null; // null = all
 
 async function loadEpicsForFarm() {
     try {
-        const farmId = myFarmId || 1;
+        const farmId = typeof myFarmId !== 'undefined' ? myFarmId : 1;
         const res = await fetchAPI(`${LABOR_API_BASE}/tasks/epics/farm/${farmId}`);
         _epicsCache = Array.isArray(res) ? res : [];
     } catch (e) {

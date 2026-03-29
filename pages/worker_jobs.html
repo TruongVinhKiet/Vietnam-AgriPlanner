@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>AgriPlanner - Tuyển Dụng</title>
+    <meta name="description" content="Tìm việc làm nông nghiệp và ứng tuyển trực tuyến">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/x-icon" href="../images/logo.png">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+    <script>window.TAILWIND_SUPPRESS_CDN_WARNING = true;</script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10B981",
+                        "primary-dark": "#059669",
+                        "primary-light": "#34D399",
+                        "background-light": "#F3F4F6",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "system-ui", "sans-serif"],
+                        body: ["Inter", "system-ui", "sans-serif"],
+                    },
+                },
+            },
+        };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .sidebar-item.active { background: rgba(255, 255, 255, 0.2); }
+        .sidebar-item { transition: all 0.2s ease; }
+        .sidebar-item:hover:not(.active) { background: rgba(255, 255, 255, 0.15); transform: translateX(4px); }
+        .job-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .job-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px -8px rgba(0,0,0,0.15); }
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes slideUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes spin { from { transform:rotate(0deg); } to { transform:rotate(360deg); } }
+        .fade-in-up { animation: fadeInUp 0.5s ease forwards; }
+        .cv-template { transition: all 0.3s ease; border: 3px solid transparent; }
+        .cv-template:hover, .cv-template.selected { border-color: #10B981; transform: scale(1.02); }
+        .cv-template.selected { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3); }
+        main::-webkit-scrollbar { width: 6px; }
+        main::-webkit-scrollbar-track { background: transparent; }
+        main::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+    </style>
+</head>
+
+<body class="bg-background-light font-body antialiased">
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-primary text-white flex flex-col h-full shadow-xl z-20">
+            <div class="p-6 flex items-center gap-3">
+                <div class="w-10 h-10 flex items-center justify-center">
+                    <img src="../images/logo.png" alt="AgriPlanner" class="w-full h-full object-cover rounded-full">
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold leading-tight">AgriPlanner</h1>
+                    <p class="text-xs text-white/70 uppercase tracking-wider font-medium">Worker Portal</p>
+                </div>
+            </div>
+
+            <nav class="flex-1 px-4 space-y-2 mt-4">
+                <a href="worker_dashboard.html"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors">
+                    <span class="material-icons-round">home</span>
+                    <span class="font-medium">Trang chủ</span>
+                </a>
+                <a href="worker_dashboard.html#tasks"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors">
+                    <span class="material-icons-round">assignment</span>
+                    <span class="font-medium">Công việc</span>
+                </a>
+                <a href="worker_dashboard.html#assets"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors">
+                    <span class="material-icons-round">account_balance_wallet</span>
+                    <span class="font-medium">Tài sản</span>
+                </a>
+                <a href="worker_jobs.html"
+                    class="sidebar-item active flex items-center gap-3 px-4 py-3 rounded-lg text-white transition-colors">
+                    <span class="material-icons-round">work</span>
+                    <span class="font-medium">Tuyển dụng</span>
+                </a>
+                <div class="my-4 border-t border-white/10"></div>
+                <a href="worker_dashboard.html#settings"
+                    class="sidebar-item flex items-center gap-3 px-4 py-3 rounded-lg text-white/80 hover:bg-white/10 transition-colors">
+                    <span class="material-icons-round">settings</span>
+                    <span class="font-medium">Cài đặt</span>
+                </a>
+            </nav>
+
+            <div class="p-4 border-t border-white/10">
+                <button id="logout-btn"
+                    class="flex items-center gap-3 px-4 py-3 w-full rounded-lg text-white/80 hover:bg-white/10 transition-colors">
+                    <span class="material-icons-round">logout</span>
+                    <span class="font-medium">Đăng xuất</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <header class="bg-white border-b border-gray-200 h-20 flex items-center justify-between px-8 sticky top-0 z-10">
+                <h2 class="text-2xl font-bold text-gray-800">
+                    <span class="material-symbols-outlined text-primary mr-2 align-middle" style="font-size:28px;">work</span>
+                    Tuyển dụng
+                </h2>
+                <div class="flex items-center gap-4">
+                    <button onclick="openCvBuilderModal()"
+                        class="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-primary to-primary-dark text-white rounded-xl font-semibold text-sm shadow-lg shadow-primary/30 hover:shadow-primary/40 transition-all hover:scale-105">
+                        <span class="material-symbols-outlined" style="font-size:20px;">description</span>
+                        Hồ sơ của tôi
+                    </button>
+                    <div class="flex items-center gap-3 pl-4 border-l border-gray-200">
+                        <div class="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white font-bold text-sm" id="header-avatar">W</div>
+                        <span id="header-name" class="text-sm font-semibold text-gray-700">Nhân công</span>
+                    </div>
+                </div>
+            </header>
+
+            <main id="main-content" class="flex-1 overflow-y-auto p-8 bg-gray-50">
+                <!-- Tab bar -->
+                <div class="flex gap-2 mb-6">
+                    <button onclick="switchJobTab('jobs')" id="tab-jobs"
+                        class="px-5 py-2 rounded-xl text-sm font-semibold transition-all bg-primary text-white shadow-md">
+                        <span class="material-symbols-outlined align-middle mr-1" style="font-size:18px;">search</span>
+                        Việc làm
+                    </button>
+                    <button onclick="switchJobTab('myapps')" id="tab-myapps"
+                        class="px-5 py-2 rounded-xl text-sm font-semibold transition-all bg-white text-gray-600 border border-gray-200 hover:bg-gray-50">
+                        <span class="material-symbols-outlined align-middle mr-1" style="font-size:18px;">list_alt</span>
+                        Đã ứng tuyển
+                    </button>
+                </div>
+
+                <!-- Jobs list -->
+                <div id="view-jobs">
+                    <div id="jobs-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                        <div class="text-center py-16 col-span-full text-gray-400">
+                            <span class="material-symbols-outlined" style="font-size:56px; opacity:0.5;">hourglass_top</span>
+                            <p class="mt-3 text-lg font-medium">Đang tải việc làm...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- My applications -->
+                <div id="view-myapps" style="display:none;">
+                    <div id="myapps-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="text-center py-16 col-span-full text-gray-400">
+                            <span class="material-symbols-outlined" style="font-size:56px; opacity:0.5;">folder_open</span>
+                            <p class="mt-3 text-lg font-medium">Chưa có đơn ứng tuyển nào</p>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- CV Builder Modal -->
+    <div id="cv-builder-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+        <div style="background:white; width:90%; max-width:800px; max-height:90vh; border-radius:20px; overflow-y:auto; box-shadow:0 25px 60px rgba(0,0,0,0.3); animation:slideUp 0.3s ease;">
+            <!-- CV Builder Header -->
+            <div style="padding:24px 28px; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; background:linear-gradient(135deg, #ecfdf5, #d1fae5); border-radius:20px 20px 0 0;">
+                <div>
+                    <h2 style="margin:0; font-size:22px; font-weight:700; color:#065f46;">Quản lý Hồ sơ CV</h2>
+                    <p style="margin:4px 0 0; font-size:13px; color:#047857;">Tối đa 3 hồ sơ để ứng tuyển các công việc khác nhau</p>
+                </div>
+                <button onclick="closeCvBuilderModal()" style="width:36px; height:36px; border-radius:50%; border:none; background:white; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                    <span class="material-symbols-outlined" style="font-size:20px; color:#6b7280;">close</span>
+                </button>
+            </div>
+
+            <div id="cv-list-view" style="padding:28px;">
+                <!-- Replaced by JS -->
+            </div>
+
+            <!-- CV Form View (Hidden by default) -->
+            <div id="cv-form-view" style="display:none; padding:28px;">
+                <input type="hidden" id="editing-cv-id">
+                <div style="margin-bottom:20px;">
+                    <label style="font-size:13px; font-weight:600; color:#374151; display:block; margin-bottom:6px;">Tên (Gợi nhớ) cho CV này</label>
+                    <input type="text" id="cv-name" placeholder="VD: CV Nông nghiệp - Cổ điển"
+                        style="width:100%; padding:10px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:14px; outline:none;"
+                        onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#e5e7eb'">
+                </div>
+                <!-- Template Selector -->
+                <div style="margin-bottom:28px;">
+                    <h3 style="font-size:16px; font-weight:700; color:#111827; margin:0 0 12px; display:flex; align-items:center; gap:8px;">
+                        <span class="material-symbols-outlined" style="font-size:20px; color:#10b981;">palette</span>
+                        Chọn mẫu CV
+                    </h3>
+                    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;">
+                        <div class="cv-template selected" onclick="selectCvTemplate('classic')" data-template="classic"
+                            style="padding:16px; border-radius:12px; cursor:pointer; background:linear-gradient(135deg, #f0fdf4, #dcfce7); text-align:center;">
+                            <span class="material-symbols-outlined" style="font-size:32px; color:#16a34a;">article</span>
+                            <p style="margin:8px 0 0; font-size:13px; font-weight:600; color:#15803d;">Cổ Điển</p>
+                        </div>
+                        <div class="cv-template" onclick="selectCvTemplate('modern')" data-template="modern"
+                            style="padding:16px; border-radius:12px; cursor:pointer; background:linear-gradient(135deg, #eff6ff, #dbeafe); text-align:center;">
+                            <span class="material-symbols-outlined" style="font-size:32px; color:#2563eb;">dashboard</span>
+                            <p style="margin:8px 0 0; font-size:13px; font-weight:600; color:#1d4ed8;">Hiện Đại</p>
+                        </div>
+                        <div class="cv-template" onclick="selectCvTemplate('creative')" data-template="creative"
+                            style="padding:16px; border-radius:12px; cursor:pointer; background:linear-gradient(135deg, #fdf4ff, #fae8ff); text-align:center;">
+                            <span class="material-symbols-outlined" style="font-size:32px; color:#9333ea;">brush</span>
+                            <p style="margin:8px 0 0; font-size:13px; font-weight:600; color:#7e22ce;">Sáng Tạo</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Fields -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+                    <div>
+                        <label style="font-size:13px; font-weight:600; color:#374151; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                            <span class="material-symbols-outlined" style="font-size:16px;">person</span> Họ và tên
+                        </label>
+                        <input type="text" id="cv-fullname" placeholder="Nguyễn Văn A"
+                            style="width:100%; padding:10px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:14px; transition:all 0.2s; outline:none;"
+                            onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#e5e7eb'">
+                    </div>
+                    <div>
+                        <label style="font-size:13px; font-weight:600; color:#374151; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                            <span class="material-symbols-outlined" style="font-size:16px;">phone</span> Số điện thoại
+                        </label>
+                        <input type="tel" id="cv-phone" placeholder="0xxx xxx xxx"
+                            style="width:100%; padding:10px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:14px; transition:all 0.2s; outline:none;"
+                            onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#e5e7eb'">
+                    </div>
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <label style="font-size:13px; font-weight:600; color:#374151; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                        <span class="material-symbols-outlined" style="font-size:16px;">school</span> Học vấn
+                    </label>
+                    <input type="text" id="cv-education" placeholder="VD: Tốt nghiệp THPT, Trung cấp Nông nghiệp..."
+                        style="width:100%; padding:10px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:14px; transition:all 0.2s; outline:none;"
+                        onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#e5e7eb'">
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+                    <div>
+                        <label style="font-size:13px; font-weight:600; color:#374151; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                            <span class="material-symbols-outlined" style="font-size:16px;">construction</span> Kỹ năng chính
+                        </label>
+                        <select id="cv-skill"
+                            style="width:100%; padding:10px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:14px; background:white; outline:none;"
+                            onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#e5e7eb'">
+                            <option value="">Chọn kỹ năng...</option>
+                            <option value="farming">🌾 Trồng trọt</option>
+                            <option value="livestock">🐄 Chăn nuôi</option>
+                            <option value="machinery">🚜 Vận hành máy móc</option>
+                            <option value="irrigation">💧 Tưới tiêu</option>
+                            <option value="pesticide">🧪 Phun thuốc BVTV</option>
+                            <option value="harvest">🌾 Thu hoạch</option>
+                            <option value="other">📦 Khác</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:13px; font-weight:600; color:#374151; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                            <span class="material-symbols-outlined" style="font-size:16px;">schedule</span> Năm kinh nghiệm
+                        </label>
+                        <select id="cv-experience"
+                            style="width:100%; padding:10px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:14px; background:white; outline:none;"
+                            onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#e5e7eb'">
+                            <option value="0">Chưa có kinh nghiệm</option>
+                            <option value="1">1 - 2 năm</option>
+                            <option value="3">3 - 5 năm</option>
+                            <option value="5">5 - 10 năm</option>
+                            <option value="10">Trên 10 năm</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <label style="font-size:13px; font-weight:600; color:#374151; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                        <span class="material-symbols-outlined" style="font-size:16px;">target</span> Mục tiêu nghề nghiệp
+                    </label>
+                    <textarea id="cv-objective" rows="3" placeholder="VD: Muốn tìm công việc ổn định tại nông trại, sẵn sàng học hỏi kỹ năng mới..."
+                        style="width:100%; padding:10px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:14px; resize:vertical; transition:all 0.2s; outline:none;"
+                        onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#e5e7eb'"></textarea>
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <label style="font-size:13px; font-weight:600; color:#374151; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                        <span class="material-symbols-outlined" style="font-size:16px;">history_edu</span> Kinh nghiệm làm việc
+                    </label>
+                    <textarea id="cv-work-history" rows="4" placeholder="VD: 2020-2023: Nhân công trồng lúa tại nông trại ABC, Long An. Quản lý 5 hecta ruộng..."
+                        style="width:100%; padding:10px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:14px; resize:vertical; transition:all 0.2s; outline:none;"
+                        onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#e5e7eb'"></textarea>
+                </div>
+
+                <!-- PDF Upload -->
+                <div style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, #eff6ff, #dbeafe); border-radius:14px; border:2px dashed #93c5fd;">
+                    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+                        <span class="material-symbols-outlined" style="font-size:24px; color:#2563eb;">upload_file</span>
+                        <div>
+                            <h4 style="margin:0; font-size:15px; font-weight:700; color:#1e40af;">Hoặc tải lên CV PDF</h4>
+                            <p style="margin:2px 0 0; font-size:12px; color:#3b82f6;">Từ TopCV, ThongMinh.vn hoặc file PDF có sẵn</p>
+                        </div>
+                    </div>
+                    <input type="file" id="cv-pdf-upload" accept=".pdf" style="display:none;" onchange="handleCvPdfUpload(event)">
+                    <button onclick="document.getElementById('cv-pdf-upload').click()"
+                        style="display:inline-flex; align-items:center; gap:8px; padding:10px 20px; background:white; border:2px solid #93c5fd; border-radius:10px; color:#1e40af; font-weight:600; font-size:14px; cursor:pointer; transition:all 0.2s;"
+                        onmouseenter="this.style.background='#dbeafe'" onmouseleave="this.style.background='white'">
+                        <span class="material-symbols-outlined" style="font-size:18px;">attach_file</span>
+                        Chọn file PDF
+                    </button>
+                    <span id="cv-pdf-filename" style="margin-left:12px; font-size:13px; color:#6b7280;"></span>
+                </div>
+
+                <!-- Actions -->
+                <div style="display:flex; gap:12px; justify-content:flex-end;">
+                    <button onclick="showCvList()"
+                        style="padding:10px 24px; border-radius:10px; border:1px solid #d1d5db; background:white; color:#374151; font-weight:600; font-size:14px; cursor:pointer;">
+                        Quay lại
+                    </button>
+                    <button onclick="saveCvProfile()"
+                        style="padding:10px 24px; border-radius:10px; border:none; background:linear-gradient(135deg, #10b981, #059669); color:white; font-weight:600; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                        <span class="material-symbols-outlined" style="font-size:18px;">save</span> Lưu hồ sơ
+                    </button>
+                </div>
+            </div> <!-- End CV Form View -->
+        </div>
+    </div>
+
+    <!-- CV Preview Modal -->
+    <div id="cv-preview-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.6); z-index:10000; align-items:center; justify-content:center; backdrop-filter: blur(4px);">
+        <div style="background:white; width:95%; max-width:850px; height:90vh; border-radius:12px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 25px 50px -12px rgba(0,0,0,0.5); animation:slideUp 0.3s ease;">
+            <div style="padding:16px 24px; background:#1f2937; color:white; display:flex; justify-content:space-between; align-items:center;">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <span class="material-symbols-outlined" style="color:#34d399;">description</span>
+                    <h3 style="margin:0; font-size:18px; font-weight:600; letter-spacing:0.5px;" id="cv-preview-title">Bản xem trước CV</h3>
+                </div>
+                <!-- Optional Edit button right from preview -->
+                <div style="display:flex; gap:12px;">
+                    <button id="cv-preview-edit-btn" style="background:#10b981; border:none; padding:8px 16px; border-radius:6px; color:white; cursor:pointer; font-weight:600; font-size:13px; display:flex; align-items:center; gap:6px;">
+                        <span class="material-symbols-outlined" style="font-size:18px;">edit</span> Sửa hồ sơ
+                    </button>
+                    <button onclick="closeCvPreviewModal()" style="background:rgba(255,255,255,0.1); border:none; width:36px; height:36px; border-radius:50%; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+                        <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+                    </button>
+                </div>
+            </div>
+            <div style="flex:1; overflow-y:auto; background:#f3f4f6; padding:24px; display:flex; justify-content:center;">
+                <div id="cv-preview-content" style="background:white; width:100%; max-width:750px; min-height:1050px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.1); display:flex; flex-direction:row; font-family:'Inter', sans-serif;">
+                    <!-- JS generated content -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Apply Modal -->
+    <div id="apply-modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:9999; align-items:center; justify-content:center;">
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/utils.js"></script>
+    <script src="../js/worker_jobs.js"></script>
+    <script>
+        // Auth check
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+
+            // Set header info
+            const name = localStorage.getItem('fullName') || sessionStorage.getItem('fullName') || 'Nhân công';
+            const headerName = document.getElementById('header-name');
+            const headerAvatar = document.getElementById('header-avatar');
+            if (headerName) headerName.textContent = name;
+            if (headerAvatar) headerAvatar.textContent = name.charAt(0).toUpperCase();
+
+            // GSAP page animation
+            if (typeof gsap !== 'undefined') {
+                gsap.fromTo('main', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' });
+            }
+
+            // Load jobs
+            loadOpenJobs();
+        });
+
+        // Logout
+        document.getElementById('logout-btn').addEventListener('click', function() {
+            localStorage.clear();
+            sessionStorage.clear();
+            window.location.href = 'login.html';
+        });
+    </script>
+</body>
+
+</html>

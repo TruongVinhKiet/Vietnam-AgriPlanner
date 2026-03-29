@@ -1515,11 +1515,13 @@
 
         let topUpAmount = 0;
         let topUpImageBase64 = null;
+        let topUpImageName = null;
 
         function handleTopUpFile(event) {
             const file = event.target.files[0];
             if (!file) return;
 
+            topUpImageName = file.name;
             const fileName = file.name.replace(/\.[^/.]+$/, '');
             const amount = parseInt(fileName.replace(/[^0-9]/g, ''));
 
@@ -1553,7 +1555,7 @@
         }
 
         async function confirmTopUp() {
-            if (!topUpAmount || !topUpImageBase64) return;
+            if (!topUpAmount || !topUpImageBase64 || !topUpImageName) return;
 
             try {
                 const res = await fetch(`${API_BASE}/assets/topup`, {
@@ -1563,8 +1565,8 @@
                         'Authorization': `Bearer ${localStorage.getItem('token')}`
                     },
                     body: JSON.stringify({
-                        amount: topUpAmount,
-                        imageBase64: topUpImageBase64
+                        email: localStorage.getItem('userEmail'),
+                        imageName: topUpImageName
                     })
                 });
 
@@ -1588,6 +1590,7 @@
             if (modal) modal.remove();
             topUpAmount = 0;
             topUpImageBase64 = null;
+            topUpImageName = null;
         }
 
         function showNotification(type, title, message) {

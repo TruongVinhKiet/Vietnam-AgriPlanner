@@ -202,9 +202,112 @@ function showConfirmModal(title, message, onConfirm, confirmText = 'Xác nhận'
 }
 
 // ==================== CV Detail Modal ====================
+function normalizeApplicationPayload(rawMessage, rawCvProfile, rawCvPdfUrl) {
+    let actualMessage = rawMessage;
+    let actualCvProfile = rawCvProfile;
+    let actualCvPdfUrl = rawCvPdfUrl;
+
+    try {
+        if (typeof actualMessage === 'string') {
+            const trimmedMessage = actualMessage.trim();
+            if (trimmedMessage.startsWith('{') || trimmedMessage.startsWith('[')) {
+                const parsed = JSON.parse(trimmedMessage);
+                const payload = Array.isArray(parsed) ? parsed[0] : parsed;
+
+                if (payload && typeof payload === 'object') {
+                    if (typeof payload.message === 'string') {
+                        actualMessage = payload.message;
+                    }
+
+                    if (payload.isAdvancedCv) {
+                        if (payload.cvType === 'pdf') {
+                            actualCvPdfUrl = payload.cvPdfUrl || actualCvPdfUrl;
+                            actualCvProfile = null;
+                        } else if (payload.cvType === 'web') {
+                            actualCvProfile = JSON.stringify(payload.cvData || {});
+                            actualCvPdfUrl = null;
+                        }
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        // Keep original values if parsing fails.
+    }
+
+    return {
+        actualMessage,
+        actualCvProfile,
+        actualCvPdfUrl
+    };
+}
+
 function showCVDetailModal(application) {
     const existing = document.getElementById('cv-detail-modal');
     if (existing) existing.remove();
+
+    const normalized = normalizeApplicationPayload(
+        application.applyMessage,
+        application.cvProfile,
+        application.cvPdfUrl
+    );
+    let actualMessage = normalized.actualMessage;
+    let actualCvProfile = normalized.actualCvProfile;
+    let actualCvPdfUrl = normalized.actualCvPdfUrl;
+
+    let cvData = null;
+    try {
+        if (actualCvProfile && (actualCvProfile.trim().startsWith('{') || actualCvProfile.trim().startsWith('['))) {
+            const parsedCv = JSON.parse(actualCvProfile);
+            if (Array.isArray(parsedCv) && parsedCv.length > 0) {
+                cvData = parsedCv[0]; // fallback to first CV if an array is received
+            } else if (!Array.isArray(parsedCv)) {
+                cvData = parsedCv;
+            }
+        }
+    } catch(e) {
+        console.error('Error parsing CV:', e);
+    }
+
+    const safeHtml = (str) => {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    };
+
+    if (cvData && cvData.pdfUrl) {
+        actualCvPdfUrl = cvData.pdfUrl;
+    }
+
+    let cvHtml = '';
+    let hasTextContent = false;
+    if (cvData) {
+        if (cvData.objective || cvData.education || cvData.experience || cvData.skill || cvData.workHistory) hasTextContent = true;
+        
+        if (hasTextContent) {
+            cvHtml = `
+                <div style="font-size:14px; color:#374151; display:flex; flex-direction:column; gap:12px;">
+                    ${cvData.objective ? `<div><strong style="color:#065f46;">Mục tiêu:</strong><br>${safeHtml(cvData.objective).replace(/\\n/g, '<br>')}</div>` : ''}
+                    ${cvData.education ? `<div><strong style="color:#065f46;">Học vấn:</strong><br>${safeHtml(cvData.education).replace(/\\n/g, '<br>')}</div>` : ''}
+                    ${cvData.experience ? `<div><strong style="color:#065f46;">Kinh nghiệm:</strong><br>${safeHtml(cvData.experience).replace(/\\n/g, '<br>')}</div>` : ''}
+                    ${cvData.skill ? `<div><strong style="color:#065f46;">Kỹ năng:</strong><br>${safeHtml(cvData.skill).replace(/\\n/g, '<br>')}</div>` : ''}
+                    ${cvData.workHistory ? `<div><strong style="color:#065f46;">Lịch sử làm việc:</strong><br>${safeHtml(cvData.workHistory).replace(/\\n/g, '<br>')}</div>` : ''}
+                </div>
+            `;
+        }
+    }
+    
+    if (!hasTextContent) {
+        const fbMsg = actualCvProfile ? safeHtml(actualCvProfile) : (actualCvPdfUrl ? 'Ứng viên sử dụng Hồ sơ PDF đính kèm (không điền text form).' : 'Chưa có thông tin CV');
+        cvHtml = `<p style="margin: 0; color: #374151; white-space: pre-wrap; line-height: 1.6;">${fbMsg}</p>`;
+    }
+
+    let extraBadges = '';
+    if (application.isFormerWorker) {
+        extraBadges += `<span style="background: #fee2e2; color: #991b1b; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;"><span class="material-symbols-outlined" style="font-size: 14px;">history</span> Nhân công cũ</span> `;
+    }
+    if (actualCvPdfUrl) {
+        extraBadges += `<a href="${safeHtml(actualCvPdfUrl)}" target="_blank" style="background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; text-decoration: none;"><span class="material-symbols-outlined" style="font-size: 14px;">picture_as_pdf</span> Xem CV PDF đính kèm</a>`;
+    }
 
     const modalHtml = `
         <div id="cv-detail-modal" style="
@@ -214,18 +317,19 @@ function showCVDetailModal(application) {
         ">
             <div style="
                 background: white; padding: 0; border-radius: 16px;
-                max-width: 500px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                max-width: 600px; width: 90%; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
                 animation: slideUp 0.2s ease; overflow: hidden;
             ">
-                <div style="background: linear-gradient(135deg, #10b981, #059669); padding: 24px; color: white;">
+                <div style="background: linear-gradient(135deg, #10b981, #059669); padding: 24px; color: white; flex-shrink: 0;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div style="display: flex; align-items: center; gap: 16px;">
                             <div style="width: 64px; height: 64px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
                                 <span class="material-symbols-outlined" style="font-size: 32px;">person</span>
                             </div>
                             <div>
-                                <h3 style="margin: 0; font-size: 20px;">${application.fullName || 'Ứng viên'}</h3>
-                                <p style="margin: 4px 0 0 0; opacity: 0.9; font-size: 14px;">${application.email || ''}</p>
+                                <h3 style="margin: 0; font-size: 20px;">${safeHtml(application.fullName || 'Ứng viên')}</h3>
+                                <p style="margin: 4px 0 0 0; opacity: 0.9; font-size: 14px;">${safeHtml(application.email || '')}</p>
+                                ${extraBadges ? `<div style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 8px;">${extraBadges}</div>` : ''}
                             </div>
                         </div>
                         <button onclick="document.getElementById('cv-detail-modal').remove()" style="
@@ -236,21 +340,32 @@ function showCVDetailModal(application) {
                         </button>
                     </div>
                 </div>
-                <div style="padding: 24px;">
+                <div style="padding: 24px; overflow-y: auto; flex: 1;">
                     <div style="margin-bottom: 20px;">
                         <label style="display: flex; align-items: center; gap: 8px; color: #6b7280; font-size: 13px; margin-bottom: 8px;">
                             <span class="material-symbols-outlined" style="font-size: 18px;">phone</span>
                             Số điện thoại
                         </label>
-                        <p style="margin: 0; color: #1f2937; font-weight: 500;">${application.phone || 'Chưa cung cấp'}</p>
+                        <p style="margin: 0; color: #1f2937; font-weight: 500;">${safeHtml(application.phone || 'Chưa cung cấp')}</p>
                     </div>
+                    ${actualMessage ? `
+                    <div style="margin-bottom: 20px;">
+                        <label style="display: flex; align-items: center; gap: 8px; color: #6b7280; font-size: 13px; margin-bottom: 8px;">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">chat</span>
+                            Lời nhắn ứng tuyển
+                        </label>
+                        <div style="background: #fdfbed; padding: 16px; border-radius: 8px; border: 1px solid #fef08a; color: #854d0e; font-style: italic;">
+                            ${safeHtml(actualMessage)}
+                        </div>
+                    </div>
+                    ` : ''}
                     <div style="margin-bottom: 20px;">
                         <label style="display: flex; align-items: center; gap: 8px; color: #6b7280; font-size: 13px; margin-bottom: 8px;">
                             <span class="material-symbols-outlined" style="font-size: 18px;">description</span>
                             Hồ sơ / Kinh nghiệm
                         </label>
                         <div style="background: #f9fafb; padding: 16px; border-radius: 8px; border: 1px solid #e5e7eb;">
-                            <p style="margin: 0; color: #374151; white-space: pre-wrap; line-height: 1.6;">${application.cvProfile || 'Chưa có thông tin CV'}</p>
+                            ${cvHtml}
                         </div>
                     </div>
                     <div>
@@ -258,10 +373,10 @@ function showCVDetailModal(application) {
                             <span class="material-symbols-outlined" style="font-size: 18px;">calendar_today</span>
                             Ngày nộp hồ sơ
                         </label>
-                        <p style="margin: 0; color: #1f2937;">${application.createdAt ? new Date(application.createdAt).toLocaleDateString('vi-VN') : 'N/A'}</p>
+                        <p style="margin: 0; color: #1f2937;">${application.appliedAt ? new Date(application.appliedAt).toLocaleDateString('vi-VN') : (application.createdAt ? new Date(application.createdAt).toLocaleDateString('vi-VN') : 'N/A')}</p>
                     </div>
                 </div>
-                <div style="padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: flex-end;">
+                <div style="padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; gap: 12px; justify-content: flex-end; flex-shrink: 0;">
                     <button onclick="document.getElementById('cv-detail-modal').remove(); rejectApplication(${application.id})" style="
                         padding: 10px 20px; border: 1px solid #ef4444; background: white;
                         color: #ef4444; border-radius: 8px; cursor: pointer; font-weight: 500;
@@ -811,7 +926,7 @@ async function renderAssignKanban(tasks, container) {
     // Fetch worker list
     let workers = [];
     try {
-        const res = await fetchAPI(`${LABOR_API_BASE}/user/list?role=WORKER`);
+        const res = await fetchAPI(`${LABOR_API_BASE}/user/list?role=WORKER&farmId=${myFarmId || 1}`);
         workers = Array.isArray(res) ? res : [];
     } catch (e) {
         workers = [];
@@ -1711,7 +1826,7 @@ let pensList = [];
 async function openAssignTaskModal() {
     // 1. Fetch Workers
     try {
-        const res = await fetchAPI(`${LABOR_API_BASE}/user/list?role=WORKER`);
+        const res = await fetchAPI(`${LABOR_API_BASE}/user/list?role=WORKER&farmId=${myFarmId || 1}`);
         workersList = res || [];
     } catch (e) {
         workersList = [];
@@ -3233,34 +3348,49 @@ async function loadPendingApplications() {
         section.style.display = 'block';
         if (countBadge) countBadge.textContent = applications.length;
 
-        listContainer.innerHTML = applications.map(app => `
-            <div class="application-card" onclick="showCVDetailModal(window.pendingApplications.find(a => a.id === ${app.id}))" style="display: flex; gap: 16px; padding: 16px; background: white; border: 1px solid #e5e7eb; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#10b981'; this.style.boxShadow='0 4px 12px rgba(16,185,129,0.15)'" onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
-                <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <span class="material-symbols-outlined" style="color: #10b981; font-size: 28px;">person</span>
-                </div>
-                <div style="flex: 1; min-width: 0;">
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
-                        <h4 style="margin: 0; color: #111827; font-size: 16px;">${app.fullName || 'Ứng viên'}</h4>
-                        <span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">Chờ duyệt</span>
+        listContainer.innerHTML = applications.map(app => {
+            let displayMsg = 'Bấm để xem chi tiết';
+            if (app.applyMessage) {
+                const normalized = normalizeApplicationPayload(app.applyMessage, app.cvProfile, app.cvPdfUrl);
+                if (typeof normalized.actualMessage === 'string' && normalized.actualMessage.trim()) {
+                    displayMsg = normalized.actualMessage;
+                } else {
+                    displayMsg = app.applyMessage;
+                }
+            } else if (app.cvProfile) {
+                displayMsg = app.cvProfile.substring(0, 50) + (app.cvProfile.length > 50 ? '...' : '');
+                if (displayMsg.startsWith('[') || displayMsg.startsWith('{')) displayMsg = 'Đã gửi hồ sơ web';
+            }
+            
+            return `
+                <div class="application-card" onclick="showCVDetailModal(window.pendingApplications.find(a => a.id === ${app.id}))" style="display: flex; gap: 16px; padding: 16px; background: white; border: 1px solid #e5e7eb; border-radius: 12px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#10b981'; this.style.boxShadow='0 4px 12px rgba(16,185,129,0.15)'" onmouseout="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                    <div style="width: 56px; height: 56px; background: linear-gradient(135deg, #ecfdf5, #d1fae5); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <span class="material-symbols-outlined" style="color: #10b981; font-size: 28px;">person</span>
                     </div>
-                    <p style="margin: 0; font-size: 13px; color: #6b7280; display: flex; align-items: center; gap: 4px;">
-                        <span class="material-symbols-outlined" style="font-size: 14px;">phone</span>
-                        ${app.phone || 'Chưa có SĐT'}
-                    </p>
-                    <p style="margin: 4px 0 0 0; font-size: 13px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px;" title="${app.cvProfile || ''}">
-                        ${app.cvProfile ? app.cvProfile.substring(0, 50) + (app.cvProfile.length > 50 ? '...' : '') : 'Bấm để xem chi tiết'}
-                    </p>
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                            <h4 style="margin: 0; color: #111827; font-size: 16px;">${app.fullName || 'Ứng viên'}</h4>
+                            <span style="background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 500;">Chờ duyệt</span>
+                        </div>
+                        <p style="margin: 0; font-size: 13px; color: #6b7280; display: flex; align-items: center; gap: 4px;">
+                            <span class="material-symbols-outlined" style="font-size: 14px;">phone</span>
+                            ${app.phone || 'Chưa có SĐT'}
+                        </p>
+                        <p style="margin: 4px 0 0 0; font-size: 13px; color: #6b7280; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 300px;">
+                            ${escapeHtml(displayMsg)}
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;" onclick="event.stopPropagation()">
+                        <button onclick="event.stopPropagation(); approveApplication(${app.id})" class="btn btn--primary" style="padding: 8px 16px; font-size: 13px; border-radius: 8px;">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">check</span> Duyệt
+                        </button>
+                        <button onclick="event.stopPropagation(); rejectApplication(${app.id})" class="btn btn--secondary" style="padding: 8px 16px; font-size: 13px; border-radius: 8px; background: #fee2e2; color: #dc2626; border: none;">
+                            <span class="material-symbols-outlined" style="font-size: 16px;">close</span> Từ chối
+                        </button>
+                    </div>
                 </div>
-                <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0;" onclick="event.stopPropagation()">
-                    <button onclick="event.stopPropagation(); approveApplication(${app.id})" class="btn btn--primary" style="padding: 8px 16px; font-size: 13px; border-radius: 8px;">
-                        <span class="material-symbols-outlined" style="font-size: 16px;">check</span> Duyệt
-                    </button>
-                    <button onclick="event.stopPropagation(); rejectApplication(${app.id})" class="btn btn--secondary" style="padding: 8px 16px; font-size: 13px; border-radius: 8px; background: #fee2e2; color: #dc2626; border: none;">
-                        <span class="material-symbols-outlined" style="font-size: 16px;">close</span> Từ chối
-                    </button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
     } catch (e) {
         console.warn('Could not load applications:', e);
@@ -4080,7 +4210,16 @@ async function loadWorkerDetailContent(workerId) {
         <div style="display: grid; gap: 18px;">
 
             <div style="background: white; border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px;">
-                <div style="font-weight: 900; color: #111827; margin-bottom: 14px;">Thông tin cơ bản</div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
+                    <div style="font-weight: 900; color: #111827;">Thông tin cơ bản</div>
+                    <button onclick="confirmDismissWorker(${workerId}, '${(worker.fullName || 'Nhân công').replace(/'/g, "\\'")}')"
+                        style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);"
+                        onmouseenter="this.style.transform='scale(1.03)'; this.style.boxShadow='0 4px 12px rgba(239, 68, 68, 0.4)'"
+                        onmouseleave="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(239, 68, 68, 0.3)'">
+                        <span class="material-symbols-outlined" style="font-size: 18px;">person_remove</span>
+                        Đuổi việc
+                    </button>
+                </div>
                 ${renderWorkerDetailInfoBlock(worker)}
             </div>
 
@@ -4131,6 +4270,80 @@ function assignTaskToWorker(workerId, workerName) {
 }
 
 window.assignTaskToWorker = assignTaskToWorker;
+
+// ============ DISMISS WORKER ============
+function confirmDismissWorker(workerId, workerName) {
+    const existing = document.getElementById('dismiss-confirm-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'dismiss-confirm-overlay';
+    overlay.style.cssText = 'position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:9999; animation:fadeIn 0.3s ease;';
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+    overlay.innerHTML = `
+        <div style="background:white; padding:32px; border-radius:16px; text-align:center; max-width:420px; box-shadow:0 20px 60px rgba(0,0,0,0.3); animation:slideUp 0.3s ease;">
+            <div style="width:64px; height:64px; border-radius:50%; background:#fef2f2; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
+                <span class="material-symbols-outlined" style="font-size:32px; color:#ef4444;">person_remove</span>
+            </div>
+            <h3 style="margin:0 0 8px; font-size:20px; font-weight:700; color:#111827;">Đuổi việc nhân công?</h3>
+            <p style="margin:0 0 20px; font-size:14px; color:#6b7280; line-height:1.6;">
+                Bạn có chắc muốn đuổi nhân công<br><strong style="color:#111827;">${workerName}</strong> khỏi nông trại?<br>
+                <span style="font-size:12px; color:#9ca3af;">Hạn mức tuyển dụng sẽ được cộng lại +1</span>
+            </p>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button onclick="document.getElementById('dismiss-confirm-overlay').remove()"
+                    style="padding:10px 24px; border-radius:10px; border:1px solid #d1d5db; background:white; color:#374151; font-weight:600; font-size:14px; cursor:pointer; transition:all 0.2s;"
+                    onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='white'">
+                    Hủy
+                </button>
+                <button id="dismiss-confirm-btn" onclick="executeDismissWorker(${workerId})"
+                    style="padding:10px 24px; border-radius:10px; border:none; background:#ef4444; color:white; font-weight:600; font-size:14px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; gap:6px;"
+                    onmouseenter="this.style.background='#dc2626'" onmouseleave="this.style.background='#ef4444'">
+                    <span class="material-symbols-outlined" style="font-size:18px;">person_remove</span> Đuổi việc
+                </button>
+            </div>
+        </div>`;
+
+    document.body.appendChild(overlay);
+}
+
+async function executeDismissWorker(workerId) {
+    const overlay = document.getElementById('dismiss-confirm-overlay');
+    const btn = document.getElementById('dismiss-confirm-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px; animation:spin 1s linear infinite;">sync</span> Đang xử lý...';
+    }
+
+    try {
+        await fetchAPI(`${LABOR_API_BASE}/labor/dismiss/${workerId}`, 'POST');
+        if (overlay) overlay.remove();
+        if (typeof agriAlert === 'function') {
+            agriAlert('Đã đuổi nhân công thành công. Hạn mức tuyển dụng đã cập nhật.', 'success');
+        }
+        // Go back to worker list
+        if (typeof goBackFromWorkerDetail === 'function') {
+            goBackFromWorkerDetail();
+        } else {
+            // Fallback: reload the section
+            const mainContent = document.getElementById('main-content');
+            if (mainContent) {
+                window.location.reload();
+            }
+        }
+    } catch (err) {
+        console.error('Dismiss worker error:', err);
+        if (overlay) overlay.remove();
+        const errMsg = err && err.message ? err.message : (typeof err === 'string' ? err : 'Lỗi không xác định');
+        if (typeof agriAlert === 'function') {
+            agriAlert(errMsg, 'error');
+        }
+    }
+}
+
+window.confirmDismissWorker = confirmDismissWorker;
+window.executeDismissWorker = executeDismissWorker;
 
 function destroyWorkerDetailCharts() {
     if (workerDetailDailyChart && typeof workerDetailDailyChart.destroy === 'function') {
