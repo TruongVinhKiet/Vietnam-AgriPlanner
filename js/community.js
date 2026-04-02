@@ -1547,13 +1547,39 @@ function renderFriend(friend) {
             <div class="friend-item__info">
                 <span class="friend-item__name">${friend.fullName}</span>
             </div>
-            <div class="friend-item__actions">
-                <button class="btn btn--secondary btn--icon" onclick="startChat(${friend.id}); event.stopPropagation();">
+            <div class="friend-item__actions" style="display: flex; gap: 8px;">
+                <button class="btn btn--secondary btn--icon" onclick="startChat(${friend.id}); event.stopPropagation();" title="Nhắn tin">
                     <span class="material-symbols-outlined">chat</span>
+                </button>
+                <button class="btn btn--secondary btn--icon" style="color: #dc3545;" onclick="unfriend(${friend.id}); event.stopPropagation();" title="Hủy kết bạn">
+                    <span class="material-symbols-outlined">person_remove</span>
                 </button>
             </div>
         </div>
     `;
+}
+
+async function unfriend(friendId) {
+    if (!confirm('Bạn có chắc chắn muốn hủy kết bạn không?')) return;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/friends/${friendId}?userId=${currentUser.id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+        
+        if (response.ok) {
+            showToast('Đã hủy kết bạn', 'success');
+            loadFriends();
+            loadFriendSuggestions(); // Tải lại gợi ý kết bạn
+            loadOnlineFriends(); // Tải lại d/s bạn bè đang online
+        } else {
+            showToast('Không thể hủy kết bạn', 'error');
+        }
+    } catch (error) {
+        console.error('Error unfriending:', error);
+        showToast('Đã xảy ra lỗi', 'error');
+    }
 }
 
 async function loadFriendSuggestions() {

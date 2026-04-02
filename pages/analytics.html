@@ -617,6 +617,9 @@
                             <button class="btn btn--topup" onclick="openTopUpModal()">
                                 <span class="material-symbols-outlined icon-sm">add</span>Nạp tiền
                             </button>
+                            <button class="btn" style="background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none;" onclick="openWithdrawModal()">
+                                <span class="material-symbols-outlined icon-sm">account_balance</span>Rút tiền
+                            </button>
                             <button class="btn btn--secondary" onclick="exportReport()">
                                 <span class="material-symbols-outlined icon-sm">download</span>Xuất báo cáo
                             </button>
@@ -1140,6 +1143,7 @@
                 'PESTICIDE': 'Thuốc trừ sâu',
                 'MACHINERY': 'Máy móc',
                 'TOPUP': 'Nạp tiền',
+                'WITHDRAWAL': 'Rút tiền',
                 'WATERING': 'Tưới nước',
                 'LIVESTOCK': 'Chăn nuôi',
                 'LIVESTOCK_LOSS': 'Hao hụt vật nuôi',
@@ -1433,6 +1437,7 @@
                 'PESTICIDE': 'bug_report',
                 'MACHINERY': 'precision_manufacturing',
                 'TOPUP': 'add_card',
+                'WITHDRAWAL': 'account_balance',
                 'WATERING': 'water_drop',
                 'LIVESTOCK': 'egg',
                 'LIVESTOCK_LOSS': 'trending_down',
@@ -1605,6 +1610,357 @@
             notif.innerHTML = `<strong>${title}</strong><br>${message}`;
             document.body.appendChild(notif);
             setTimeout(() => notif.remove(), 4000);
+        }
+
+        // ==================== WITHDRAWAL WITH DISCORD OTP ====================
+        let withdrawAmount = 0;
+        let withdrawReason = '';
+        let otpCountdown = null;
+
+        function openWithdrawModal() {
+            const modal = document.createElement('div');
+            modal.id = 'withdraw-modal';
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="modal-content" style="background: white; padding: 0; border-radius: 20px; width: 480px; max-width: 92%; animation: slideUp 0.3s; overflow: hidden;">
+                    <!-- Header -->
+                    <div style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 28px 32px; color: white; position: relative;">
+                        <div style="position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <span class="material-symbols-outlined" style="font-size: 28px;">account_balance</span>
+                            <h3 style="font-size: 22px; font-weight: 700; margin: 0;">Rút tiền</h3>
+                        </div>
+                        <p style="font-size: 14px; opacity: 0.9; margin: 0;">Xác thực OTP qua Discord để rút tiền an toàn</p>
+                    </div>
+                    <!-- Body -->
+                    <div style="padding: 28px 32px;">
+                        <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 12px; padding: 14px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+                            <span class="material-symbols-outlined" style="color: #d97706; font-size: 20px;">info</span>
+                            <span style="font-size: 13px; color: #92400e;">Mã OTP sẽ được gửi qua kênh Discord để xác thực giao dịch</span>
+                        </div>
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">Số tiền rút (VNĐ)</label>
+                            <div style="position: relative;">
+                                <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 18px;">₫</span>
+                                <input type="text" id="withdraw-amount" placeholder="Nhập số tiền cần rút" 
+                                    style="width: 100%; padding: 14px 14px 14px 36px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 16px; font-weight: 600; box-sizing: border-box; transition: border-color 0.2s; outline: none;"
+                                    onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e5e7eb'"
+                                    oninput="formatWithdrawAmount(this)">
+                            </div>
+                            <div id="withdraw-balance-info" style="margin-top: 6px; font-size: 12px; color: #6b7280;"></div>
+                        </div>
+                        <div style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 8px;">Lý do rút tiền</label>
+                            <select id="withdraw-reason" style="width: 100%; padding: 12px 14px; border: 2px solid #e5e7eb; border-radius: 12px; font-size: 14px; box-sizing: border-box; outline: none; cursor: pointer; background: white;"
+                                onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e5e7eb'">
+                                <option value="Chi phí cá nhân">Chi phí cá nhân</option>
+                                <option value="Mua vật tư nông nghiệp">Mua vật tư nông nghiệp</option>
+                                <option value="Thanh toán nợ">Thanh toán nợ</option>
+                                <option value="Đầu tư kinh doanh">Đầu tư kinh doanh</option>
+                                <option value="Chuyển khoản ngân hàng">Chuyển khoản ngân hàng</option>
+                                <option value="Khác">Khác</option>
+                            </select>
+                        </div>
+                        <div id="withdraw-error" style="padding: 12px; background: #fee2e2; color: #dc2626; border-radius: 10px; display: none; font-size: 13px; margin-bottom: 16px;"></div>
+                    </div>
+                    <!-- Footer -->
+                    <div style="padding: 0 32px 28px 32px; display: flex; gap: 12px; justify-content: flex-end;">
+                        <button class="btn btn--secondary" onclick="closeWithdrawModal()" style="padding: 12px 24px; border-radius: 12px;">Hủy</button>
+                        <button id="withdraw-request-btn" class="btn" onclick="requestWithdrawOtp()" 
+                            style="padding: 12px 28px; border-radius: 12px; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">send</span>
+                            Gửi mã OTP
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Show current balance
+            const balanceText = document.getElementById('total-balance').textContent;
+            document.getElementById('withdraw-balance-info').innerHTML = `Số dư hiện tại: <strong style="color: #059669;">${balanceText}</strong>`;
+        }
+
+        function formatWithdrawAmount(input) {
+            let value = input.value.replace(/[^0-9]/g, '');
+            if (value) {
+                input.value = parseInt(value).toLocaleString('vi-VN');
+            }
+        }
+
+        function closeWithdrawModal() {
+            const modal = document.getElementById('withdraw-modal');
+            if (modal) modal.remove();
+            if (otpCountdown) {
+                clearInterval(otpCountdown);
+                otpCountdown = null;
+            }
+            withdrawAmount = 0;
+            withdrawReason = '';
+        }
+
+        async function requestWithdrawOtp() {
+            const amountStr = document.getElementById('withdraw-amount').value.replace(/[^0-9]/g, '');
+            const amount = parseInt(amountStr);
+            const reason = document.getElementById('withdraw-reason').value;
+            const errorEl = document.getElementById('withdraw-error');
+            const btn = document.getElementById('withdraw-request-btn');
+
+            if (!amount || amount <= 0) {
+                errorEl.textContent = 'Vui lòng nhập số tiền hợp lệ';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            withdrawAmount = amount;
+            withdrawReason = reason;
+
+            // Disable button and show loading
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 18px; animation: spin 1s linear infinite;">progress_activity</span> Đang gửi...';
+            errorEl.style.display = 'none';
+
+            try {
+                const res = await fetch(`${API_BASE}/assets/withdraw/request-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        email: localStorage.getItem('userEmail'),
+                        amount: amount,
+                        reason: reason
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    // Switch to OTP input view
+                    showOtpVerificationModal();
+                } else {
+                    errorEl.textContent = data.error || 'Có lỗi xảy ra';
+                    errorEl.style.display = 'block';
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 18px;">send</span> Gửi mã OTP';
+                }
+            } catch (e) {
+                errorEl.textContent = 'Lỗi kết nối server';
+                errorEl.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 18px;">send</span> Gửi mã OTP';
+            }
+        }
+
+        function showOtpVerificationModal() {
+            // Remove old modal
+            const oldModal = document.getElementById('withdraw-modal');
+            if (oldModal) oldModal.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'withdraw-modal';
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="modal-content" style="background: white; padding: 0; border-radius: 20px; width: 440px; max-width: 92%; animation: slideUp 0.3s; overflow: hidden;">
+                    <!-- Header -->
+                    <div style="background: linear-gradient(135deg, #10b981, #059669); padding: 28px 32px; color: white; position: relative; text-align: center;">
+                        <div style="position: absolute; top: -20px; left: -20px; width: 80px; height: 80px; background: rgba(255,255,255,0.1); border-radius: 50%;"></div>
+                        <div style="position: absolute; bottom: -30px; right: -30px; width: 100px; height: 100px; background: rgba(255,255,255,0.08); border-radius: 50%;"></div>
+                        <div style="width: 64px; height: 64px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px auto;">
+                            <span class="material-symbols-outlined" style="font-size: 32px;">verified_user</span>
+                        </div>
+                        <h3 style="font-size: 20px; font-weight: 700; margin: 0 0 4px 0;">Xác thực OTP</h3>
+                        <p style="font-size: 13px; opacity: 0.9; margin: 0;">Nhập mã OTP đã gửi qua Discord</p>
+                    </div>
+                    <!-- Body -->
+                    <div style="padding: 28px 32px;">
+                        <div style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-radius: 12px; padding: 16px; margin-bottom: 20px; text-align: center;">
+                            <div style="font-size: 13px; color: #065f46; margin-bottom: 4px;">Số tiền rút</div>
+                            <div style="font-size: 24px; font-weight: 800; color: #059669;">${formatCurrency(withdrawAmount)}</div>
+                            <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">${withdrawReason}</div>
+                        </div>
+                        <label style="display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 10px; text-align: center;">Nhập mã OTP (6 chữ số)</label>
+                        <div style="display: flex; gap: 8px; justify-content: center; margin-bottom: 16px;" id="otp-inputs">
+                            <input type="text" maxlength="1" class="otp-digit" style="width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 700; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: all 0.2s;" oninput="handleOtpInput(this, 0)" onkeydown="handleOtpKeydown(event, 0)" onfocus="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 0 3px rgba(16,185,129,0.15)'" onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                            <input type="text" maxlength="1" class="otp-digit" style="width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 700; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: all 0.2s;" oninput="handleOtpInput(this, 1)" onkeydown="handleOtpKeydown(event, 1)" onfocus="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 0 3px rgba(16,185,129,0.15)'" onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                            <input type="text" maxlength="1" class="otp-digit" style="width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 700; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: all 0.2s;" oninput="handleOtpInput(this, 2)" onkeydown="handleOtpKeydown(event, 2)" onfocus="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 0 3px rgba(16,185,129,0.15)'" onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                            <input type="text" maxlength="1" class="otp-digit" style="width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 700; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: all 0.2s;" oninput="handleOtpInput(this, 3)" onkeydown="handleOtpKeydown(event, 3)" onfocus="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 0 3px rgba(16,185,129,0.15)'" onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                            <input type="text" maxlength="1" class="otp-digit" style="width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 700; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: all 0.2s;" oninput="handleOtpInput(this, 4)" onkeydown="handleOtpKeydown(event, 4)" onfocus="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 0 3px rgba(16,185,129,0.15)'" onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                            <input type="text" maxlength="1" class="otp-digit" style="width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 700; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: all 0.2s;" oninput="handleOtpInput(this, 5)" onkeydown="handleOtpKeydown(event, 5)" onfocus="this.style.borderColor='#10b981'; this.style.boxShadow='0 0 0 3px rgba(16,185,129,0.15)'" onblur="this.style.borderColor='#e5e7eb'; this.style.boxShadow='none'">
+                        </div>
+                        <div style="text-align: center; margin-bottom: 16px;">
+                            <span style="font-size: 13px; color: #6b7280;">Mã hết hạn sau: </span>
+                            <span id="otp-timer" style="font-size: 14px; font-weight: 700; color: #dc2626;">5:00</span>
+                        </div>
+                        <div id="otp-error" style="padding: 12px; background: #fee2e2; color: #dc2626; border-radius: 10px; display: none; font-size: 13px; text-align: center; margin-bottom: 12px;"></div>
+                        <div style="display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 4px;">
+                            <span class="material-symbols-outlined" style="font-size: 16px; color: #9ca3af;">smart_toy</span>
+                            <span style="font-size: 12px; color: #9ca3af;">Mã OTP được gửi qua Discord Bot</span>
+                        </div>
+                    </div>
+                    <!-- Footer -->
+                    <div style="padding: 0 32px 28px 32px; display: flex; gap: 12px; justify-content: center;">
+                        <button class="btn btn--secondary" onclick="closeWithdrawModal()" style="padding: 12px 24px; border-radius: 12px; flex: 1;">Hủy</button>
+                        <button id="otp-confirm-btn" class="btn" onclick="confirmWithdraw()" 
+                            style="padding: 12px 28px; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1;">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">check_circle</span>
+                            Xác nhận rút tiền
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Focus first OTP input
+            setTimeout(() => {
+                const firstInput = document.querySelectorAll('.otp-digit')[0];
+                if (firstInput) firstInput.focus();
+            }, 100);
+
+            // Start countdown timer
+            startOtpCountdown();
+        }
+
+        function handleOtpInput(input, index) {
+            // Only allow digits
+            input.value = input.value.replace(/[^0-9]/g, '');
+            
+            if (input.value && index < 5) {
+                const inputs = document.querySelectorAll('.otp-digit');
+                inputs[index + 1].focus();
+            }
+        }
+
+        function handleOtpKeydown(event, index) {
+            if (event.key === 'Backspace' && !event.target.value && index > 0) {
+                const inputs = document.querySelectorAll('.otp-digit');
+                inputs[index - 1].focus();
+                inputs[index - 1].value = '';
+            }
+            // Allow paste
+            if (event.key === 'v' && (event.ctrlKey || event.metaKey)) {
+                event.preventDefault();
+                navigator.clipboard.readText().then(text => {
+                    const digits = text.replace(/[^0-9]/g, '').slice(0, 6);
+                    const inputs = document.querySelectorAll('.otp-digit');
+                    digits.split('').forEach((d, i) => {
+                        if (inputs[i]) inputs[i].value = d;
+                    });
+                    if (inputs[Math.min(digits.length, 5)]) inputs[Math.min(digits.length, 5)].focus();
+                });
+            }
+        }
+
+        function getOtpCode() {
+            const inputs = document.querySelectorAll('.otp-digit');
+            return Array.from(inputs).map(i => i.value).join('');
+        }
+
+        function startOtpCountdown() {
+            let timeLeft = 300; // 5 minutes in seconds
+            const timerEl = document.getElementById('otp-timer');
+
+            otpCountdown = setInterval(() => {
+                timeLeft--;
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                if (timerEl) {
+                    timerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                    if (timeLeft <= 60) timerEl.style.color = '#dc2626';
+                }
+                if (timeLeft <= 0) {
+                    clearInterval(otpCountdown);
+                    if (timerEl) timerEl.textContent = 'Hết hạn';
+                    const confirmBtn = document.getElementById('otp-confirm-btn');
+                    if (confirmBtn) {
+                        confirmBtn.disabled = true;
+                        confirmBtn.style.opacity = '0.5';
+                    }
+                }
+            }, 1000);
+        }
+
+        async function confirmWithdraw() {
+            const otpCode = getOtpCode();
+            const errorEl = document.getElementById('otp-error');
+            const btn = document.getElementById('otp-confirm-btn');
+
+            if (otpCode.length !== 6) {
+                errorEl.textContent = 'Vui lòng nhập đủ 6 chữ số OTP';
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            // Disable button
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 18px; animation: spin 1s linear infinite;">progress_activity</span> Đang xử lý...';
+            errorEl.style.display = 'none';
+
+            try {
+                const res = await fetch(`${API_BASE}/assets/withdraw/confirm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        email: localStorage.getItem('userEmail'),
+                        otpCode: otpCode,
+                        amount: withdrawAmount,
+                        reason: withdrawReason
+                    })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    closeWithdrawModal();
+                    showWithdrawSuccess(data.withdrawnAmount, data.newBalance);
+                    await loadAssetData();
+                } else {
+                    errorEl.textContent = data.error || 'Xác thực OTP thất bại';
+                    errorEl.style.display = 'block';
+                    btn.disabled = false;
+                    btn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 18px;">check_circle</span> Xác nhận rút tiền';
+                    // Clear OTP inputs
+                    document.querySelectorAll('.otp-digit').forEach(i => i.value = '');
+                    document.querySelectorAll('.otp-digit')[0]?.focus();
+                }
+            } catch (e) {
+                errorEl.textContent = 'Lỗi kết nối server';
+                errorEl.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-outlined" style="font-size: 18px;">check_circle</span> Xác nhận rút tiền';
+            }
+        }
+
+        function showWithdrawSuccess(amount, newBalance) {
+            const successModal = document.createElement('div');
+            successModal.className = 'modal-overlay';
+            successModal.id = 'withdraw-success-modal';
+            successModal.innerHTML = `
+                <div style="background: white; padding: 40px; border-radius: 20px; text-align: center; max-width: 420px; width: 90%; animation: slideUp 0.4s;">
+                    <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #d1fae5, #a7f3d0); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
+                        <span class="material-symbols-outlined" style="font-size: 40px; color: #059669;">check_circle</span>
+                    </div>
+                    <h3 style="font-size: 22px; font-weight: 700; color: #111827; margin: 0 0 8px 0;">Rút tiền thành công!</h3>
+                    <p style="color: #6b7280; font-size: 14px; margin: 0 0 20px 0;">Giao dịch đã được xác thực và xử lý</p>
+                    <div style="background: #f9fafb; border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                            <span style="font-size: 13px; color: #6b7280;">Số tiền rút</span>
+                            <span style="font-size: 14px; font-weight: 700; color: #dc2626;">-${formatCurrency(amount)}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between;">
+                            <span style="font-size: 13px; color: #6b7280;">Số dư mới</span>
+                            <span style="font-size: 14px; font-weight: 700; color: #059669;">${formatCurrency(newBalance)}</span>
+                        </div>
+                    </div>
+                    <button class="btn" onclick="document.getElementById('withdraw-success-modal').remove()" 
+                        style="width: 100%; padding: 14px; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-weight: 600; font-size: 15px;">Đóng</button>
+                </div>
+            `;
+            document.body.appendChild(successModal);
         }
 
         // Export Report to PDF using html2canvas for Vietnamese font support

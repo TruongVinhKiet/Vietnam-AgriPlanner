@@ -4,7 +4,9 @@ import com.agriplanner.model.AssetTransaction;
 import com.agriplanner.model.User;
 import com.agriplanner.repository.AssetTransactionRepository;
 import com.agriplanner.repository.UserRepository;
+import com.agriplanner.service.DiscordOtpService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,17 +17,19 @@ import java.util.regex.Pattern;
 
 /**
  * REST Controller for Asset Management
- * Handles balance tracking and transaction history
+ * Handles balance tracking, transaction history, and withdrawals with OTP verification
  */
 @RestController
 @RequestMapping("/api/assets")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
 @SuppressWarnings("null")
+@Slf4j
 public class AssetController {
 
     private final UserRepository userRepository;
     private final AssetTransactionRepository assetTransactionRepository;
+    private final DiscordOtpService discordOtpService;
 
     // Pattern to validate numeric-only image names (without extension)
     private static final Pattern NUMERIC_PATTERN = Pattern.compile("^\\d+$");
@@ -159,5 +163,119 @@ public class AssetController {
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "newBalance", user.getBalance()));
+    }
+
+    // ==================== WITHDRAWAL WITH DISCORD OTP ====================
+
+    /**
+     * Step 1: Request OTP for withdrawal - sends OTP to Discord channel
+     */
+    @PostMapping("/withdraw/request-otp")
+    public ResponseEntity<?> requestWithdrawOtp(@RequestBody Map<String, Object> request) {
+        try {
+            String email = (String) request.get("email");
+            BigDecimal amount = new BigDecimal(request.get("amount").toString());
+
+            if (email == null || email.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Thiếu thông tin email"));
+            }
+
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Số tiền phải lớn hơn 0"));
+            }
+
+            // Find user
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // Check balance
+            BigDecimal currentBalance = user.getBalance() != null ? user.getBalance() : BigDecimal.ZERO;
+            if (currentBalance.compareTo(amount) < 0) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Số dư không đủ",
+                        "currentBalance", currentBalance,
+                        "requestedAmount", amount));
+            }
+
+            // Generate and send OTP via Discord
+            discordOtpService.generateAndSendOtp(email, user.getFullName(), amount.doubleValue());
+
+            log.info("[WITHDRAW] OTP requested for {} - amount: {}", email, amount);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Mã OTP đã được gửi qua Discord. Vui lòng kiểm tra và nhập mã xác thực.",
+                    "expiresInMinutes", 5));
+        } catch (Exception e) {
+            log.error("[WITHDRAW] Error requesting OTP: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", "Lỗi: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Step 2: Confirm withdrawal with OTP verification
+     */
+    @PostMapping("/withdraw/confirm")
+    public ResponseEntity<?> confirmWithdraw(@RequestBody Map<String, Object> request) {
+        try {
+            String email = (String) request.get("email");
+            String otpCode = (String) request.get("otpCode");
+            BigDecimal amount = new BigDecimal(request.get("amount").toString());
+            String reason = (String) request.getOrDefault("reason", "Rút tiền");
+
+            if (email == null || otpCode == null || otpCode.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Thiếu thông tin email hoặc mã OTP"));
+            }
+
+            // Verify OTP
+            boolean otpValid = discordOtpService.verifyOtp(email, otpCode);
+            if (!otpValid) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng thử lại."));
+            }
+
+            // Find user
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            // Check balance again (double-check)
+            BigDecimal currentBalance = user.getBalance() != null ? user.getBalance() : BigDecimal.ZERO;
+            if (currentBalance.compareTo(amount) < 0) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "error", "Số dư không đủ để rút tiền",
+                        "currentBalance", currentBalance));
+            }
+
+            // Deduct balance
+            user.setBalance(currentBalance.subtract(amount));
+            userRepository.save(user);
+
+            // Log transaction
+            AssetTransaction transaction = AssetTransaction.builder()
+                    .userId(user.getId())
+                    .amount(amount)
+                    .transactionType("EXPENSE")
+                    .category("WITHDRAWAL")
+                    .description("Rút tiền: " + reason + " (Xác thực OTP Discord)")
+                    .build();
+            assetTransactionRepository.save(transaction);
+
+            log.info("[WITHDRAW] Withdrawal successful for {} - amount: {} - new balance: {}",
+                    email, amount, user.getBalance());
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "Rút tiền thành công!",
+                    "withdrawnAmount", amount,
+                    "newBalance", user.getBalance(),
+                    "transactionId", transaction.getId()));
+        } catch (Exception e) {
+            log.error("[WITHDRAW] Error confirming withdrawal: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("error", "Lỗi: " + e.getMessage()));
+        }
     }
 }

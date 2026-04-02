@@ -147,7 +147,7 @@ public class FriendshipController {
         // icon in frontend)
         List<User> suggestions = userRepository.findAll().stream()
                 .filter(u -> !excludeIds.contains(u.getId()))
-                .filter(u -> u.getRole() != UserRole.SYSTEM_ADMIN)
+                .filter(u -> u.getRole() != UserRole.SYSTEM_ADMIN && u.getRole() != UserRole.WORKER)
                 .limit(limit)
                 .collect(Collectors.toList());
 

@@ -156,21 +156,17 @@ public class LaborController {
             return ResponseEntity.badRequest().body("Hồ sơ này đã được xử lý");
         }
 
-        User worker = app.getWorker();
         Farm farm = app.getPost().getFarm();
 
         int currentQuota = farm.getRecruitmentQuota() != null ? farm.getRecruitmentQuota() : 0;
         long currentWorkers = userRepository.findByRoleAndFarmIdAndApprovalStatus(UserRole.WORKER, farm.getId(), User.ApprovalStatus.APPROVED).size();
         if (currentQuota <= 0 || currentWorkers >= currentQuota) {
-            return ResponseEntity.badRequest().body("Hạn mức tuyển dụng đã đầy (" + currentWorkers + "/" + currentQuota + ")");
+            return ResponseEntity.badRequest().body("Hạn mức tuyển dụng đã đầy (" + currentWorkers + "/" + currentQuota + "). Không thể tạo thêm hợp đồng.");
         }
 
-        worker.setFarmId(farm.getId());
-        worker.setApprovalStatus(User.ApprovalStatus.APPROVED);
-        worker.setIsActive(true);
-        userRepository.save(worker);
-
-
+        // We DO NOT set worker's FarmId or Active status here anymore!
+        // That logic is now moved to ContractController.signWorker to ensure
+        // the worker only joins the farm after both parties sign the contract.
 
         app.setStatus("ACCEPTED");
         jobApplicationRepository.save(app);

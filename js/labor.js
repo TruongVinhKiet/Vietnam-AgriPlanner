@@ -3408,6 +3408,31 @@ async function approveApplication(applicationId) {
                 showToast && showToast('Thành công', 'Đã duyệt hồ sơ nhân công!', 'success');
                 loadRecruitmentInfo();
                 loadApprovedWorkers();
+
+                // Ask to create contract
+                const app = window.pendingApplications
+                    ? window.pendingApplications.find(a => a.id === applicationId)
+                    : null;
+                const workerName = app ? (app.fullName || 'Nhân công') : 'Nhân công';
+                let farmName = '';
+                try {
+                    const farms = await fetchAPI(`${LABOR_API_BASE}/farms/my-farms`);
+                    if (farms && farms.length > 0) farmName = farms[0].name || '';
+                } catch(e) {}
+
+                setTimeout(() => {
+                    showConfirmModal(
+                        'Tạo hợp đồng',
+                        `Bạn có muốn tạo hợp đồng lao động cho ${escapeHtml(workerName)} ngay bây giờ?`,
+                        () => {
+                            if (typeof openContractModal === 'function') {
+                                openContractModal(applicationId, workerName, farmName);
+                            }
+                        },
+                        'Tạo hợp đồng',
+                        'Để sau'
+                    );
+                }, 500);
             } catch (e) {
                 agriAlert('Lỗi: ' + e.message, 'error');
             }
@@ -4212,13 +4237,22 @@ async function loadWorkerDetailContent(workerId) {
             <div style="background: white; border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px;">
                     <div style="font-weight: 900; color: #111827;">Thông tin cơ bản</div>
-                    <button onclick="confirmDismissWorker(${workerId}, '${(worker.fullName || 'Nhân công').replace(/'/g, "\\'")}')"
-                        style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);"
-                        onmouseenter="this.style.transform='scale(1.03)'; this.style.boxShadow='0 4px 12px rgba(239, 68, 68, 0.4)'"
-                        onmouseleave="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(239, 68, 68, 0.3)'">
-                        <span class="material-symbols-outlined" style="font-size: 18px;">person_remove</span>
-                        Đuổi việc
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="openViewContractModal(${workerId})"
+                            style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);"
+                            onmouseenter="this.style.transform='scale(1.03)'; this.style.boxShadow='0 4px 12px rgba(16, 185, 129, 0.4)'"
+                            onmouseleave="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(16, 185, 129, 0.3)'">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">description</span>
+                            Xem Hợp đồng
+                        </button>
+                        <button onclick="confirmDismissWorker(${workerId}, '${(worker.fullName || 'Nhân công').replace(/'/g, "\\'")}')"
+                            style="display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: linear-gradient(135deg, #ef4444, #dc2626); color: white; border: none; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);"
+                            onmouseenter="this.style.transform='scale(1.03)'; this.style.boxShadow='0 4px 12px rgba(239, 68, 68, 0.4)'"
+                            onmouseleave="this.style.transform='scale(1)'; this.style.boxShadow='0 2px 8px rgba(239, 68, 68, 0.3)'">
+                            <span class="material-symbols-outlined" style="font-size: 18px;">person_remove</span>
+                            Đuổi việc
+                        </button>
+                    </div>
                 </div>
                 ${renderWorkerDetailInfoBlock(worker)}
             </div>
@@ -4323,14 +4357,11 @@ async function executeDismissWorker(workerId) {
             agriAlert('Đã đuổi nhân công thành công. Hạn mức tuyển dụng đã cập nhật.', 'success');
         }
         // Go back to worker list
-        if (typeof goBackFromWorkerDetail === 'function') {
-            goBackFromWorkerDetail();
+        if (window.location.pathname.includes('worker_detail.html')) {
+            window.location.href = 'labor.html';
         } else {
             // Fallback: reload the section
-            const mainContent = document.getElementById('main-content');
-            if (mainContent) {
-                window.location.reload();
-            }
+            window.location.reload();
         }
     } catch (err) {
         console.error('Dismiss worker error:', err);
@@ -4782,4 +4813,525 @@ async function deletePendingTask(taskId) {
             agriAlert('Không thể xóa công việc: ' + (err.message || 'Lỗi không xác định'), 'error');
         }
     }
+}
+
+// =====================================================================
+// ========== VIEW CONTRACT MODAL (Auto-inject, works on any page) =====
+// =====================================================================
+
+/**
+ * Opens a modal to view a worker's contract.
+ * - Auto-injects modal HTML into document.body (works on labor.html, worker_detail.html, etc.)
+ * - If no contract found → shows a prompt to create a new one
+ * - If contract found → displays readonly contract content with signatures
+ */
+async function openViewContractModal(workerId) {
+    if (!workerId) {
+        if (typeof agriAlert === 'function') agriAlert('Không xác định được nhân công', 'warning');
+        return;
+    }
+
+    // Show loading indicator
+    _showViewContractLoading();
+
+    try {
+        // Fetch contracts for this worker
+        const contracts = await fetchAPI(`${LABOR_API_BASE}/contracts/worker/${workerId}`);
+
+        // Remove loading
+        _removeViewContractLoading();
+
+        if (!contracts || !Array.isArray(contracts) || contracts.length === 0) {
+            // ── No contract found → Prompt to create ──
+            _showNoContractPrompt(workerId);
+            return;
+        }
+
+        // Use the latest contract (last in array or most recent)
+        const contract = contracts[contracts.length - 1];
+        _renderViewContractModal(contract);
+
+    } catch (err) {
+        _removeViewContractLoading();
+        console.error('Error fetching contracts:', err);
+        if (typeof agriAlert === 'function') {
+            agriAlert('Không thể tải hợp đồng: ' + (err.message || 'Lỗi không xác định'), 'error');
+        }
+    }
+}
+
+/** Show a small loading overlay */
+function _showViewContractLoading() {
+    _removeViewContractLoading();
+    const loader = document.createElement('div');
+    loader.id = 'vc-loading-overlay';
+    loader.style.cssText = 'position:fixed; inset:0; z-index:10002; background:rgba(0,0,0,0.35); backdrop-filter:blur(4px); display:flex; align-items:center; justify-content:center; animation:fadeIn 0.2s ease;';
+    loader.innerHTML = `
+        <div style="background:white; padding:28px 36px; border-radius:16px; display:flex; align-items:center; gap:14px; box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+            <span class="material-symbols-outlined" style="font-size:28px; color:#10b981; animation:spin 1s linear infinite;">sync</span>
+            <span style="font-size:15px; font-weight:600; color:#374151;">Đang tải hợp đồng...</span>
+        </div>`;
+    document.body.appendChild(loader);
+}
+
+function _removeViewContractLoading() {
+    const el = document.getElementById('vc-loading-overlay');
+    if (el) el.remove();
+}
+
+/** Prompt user when no contract exists */
+function _showNoContractPrompt(workerId) {
+    const existing = document.getElementById('vc-no-contract-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'vc-no-contract-overlay';
+    overlay.style.cssText = 'position:fixed; inset:0; z-index:10002; background:rgba(0,0,0,0.5); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; animation:fadeIn 0.2s ease;';
+
+    overlay.innerHTML = `
+        <div style="background:white; border-radius:20px; max-width:460px; width:92%; box-shadow:0 25px 60px rgba(0,0,0,0.3); overflow:hidden; animation:slideUp 0.25s ease;">
+            <div style="padding:28px 28px 0; text-align:center;">
+                <div style="width:72px; height:72px; margin:0 auto 16px; background:linear-gradient(135deg,#fef3c7,#fde68a); border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                    <span class="material-symbols-outlined" style="font-size:36px; color:#d97706;">description_off</span>
+                </div>
+                <h3 style="margin:0 0 8px; font-size:19px; font-weight:800; color:#111827;">Chưa có Hợp đồng</h3>
+                <p style="margin:0; color:#6b7280; font-size:14px; line-height:1.6;">Nhân công này chưa được tạo hợp đồng lao động. Bạn có muốn tạo mới ngay bây giờ không?</p>
+            </div>
+            <div style="padding:20px 28px 28px; display:flex; gap:12px; justify-content:center;">
+                <button id="vc-no-contract-cancel" style="padding:11px 24px; border:1px solid #e5e7eb; background:white; color:#6b7280; border-radius:10px; cursor:pointer; font-weight:600; font-size:14px; transition:all 0.15s;"
+                    onmouseenter="this.style.background='#f9fafb'" onmouseleave="this.style.background='white'">
+                    Để sau
+                </button>
+                <button id="vc-no-contract-create" style="padding:11px 24px; border:none; background:linear-gradient(135deg,#10b981,#059669); color:white; border-radius:10px; cursor:pointer; font-weight:700; font-size:14px; display:flex; align-items:center; gap:6px; box-shadow:0 4px 14px rgba(16,185,129,0.35); transition:all 0.15s;"
+                    onmouseenter="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 16px rgba(16,185,129,0.4)'"
+                    onmouseleave="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 14px rgba(16,185,129,0.35)'">
+                    <span class="material-symbols-outlined" style="font-size:18px;">add_circle</span>
+                    Tạo hợp đồng
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Cancel
+    document.getElementById('vc-no-contract-cancel').onclick = () => overlay.remove();
+
+    // Create → find applicationId for this worker, then open the create modal
+    document.getElementById('vc-no-contract-create').onclick = async () => {
+        overlay.remove();
+        await _openCreateContractForWorker(workerId);
+    };
+}
+
+/** Find the ACCEPTED application for a worker and open the contract creation modal */
+async function _openCreateContractForWorker(workerId) {
+    try {
+        // Fetch applications for this worker
+        const apps = await fetchAPI(`${LABOR_API_BASE}/recruitment/applications/worker/${workerId}`);
+        // Find the ACCEPTED application
+        const acceptedApp = (apps || []).find(a => a.status === 'ACCEPTED');
+
+        if (!acceptedApp) {
+            if (typeof agriAlert === 'function') {
+                agriAlert('Không tìm thấy đơn ứng tuyển đã duyệt cho nhân công này. Không thể tạo hợp đồng.', 'warning');
+            }
+            return;
+        }
+
+        const workerName = acceptedApp.worker
+            ? (acceptedApp.worker.fullName || acceptedApp.worker.email || 'Nhân công')
+            : 'Nhân công';
+        let farmName = '';
+        if (acceptedApp.post && acceptedApp.post.farm) {
+            farmName = acceptedApp.post.farm.name || '';
+        }
+        if (!farmName) {
+            try {
+                const farms = await fetchAPI(`${LABOR_API_BASE}/farms/my-farms`);
+                if (farms && farms.length > 0) farmName = farms[0].name || '';
+            } catch(e) {}
+        }
+
+        // Ensure the contract creation modal exists in DOM (auto-inject if not on labor.html)
+        _ensureCreateContractModalExists();
+
+        if (typeof openContractModal === 'function') {
+            openContractModal(acceptedApp.id, workerName, farmName);
+        } else {
+            if (typeof agriAlert === 'function') {
+                agriAlert('Không thể mở form tạo hợp đồng. Vui lòng thử từ trang Nhân công.', 'warning');
+            }
+        }
+    } catch(err) {
+        console.error('Error finding application for worker:', err);
+        if (typeof agriAlert === 'function') {
+            agriAlert('Lỗi khi tìm đơn ứng tuyển: ' + (err.message || ''), 'error');
+        }
+    }
+}
+
+/**
+ * Auto-inject the Contract Creation Modal + its JS logic into document.body
+ * if not already on a page that has it (e.g. worker_detail.html).
+ */
+function _ensureCreateContractModalExists() {
+    if (document.getElementById('contract-modal')) return; // Already exists
+
+    // Need to also add SignaturePad if not loaded
+    if (typeof SignaturePad === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js';
+        document.head.appendChild(script);
+    }
+
+    const modalHTML = `
+    <div id="contract-modal" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:20px; width:95%; max-width:820px; max-height:95vh; overflow:hidden; box-shadow:0 25px 60px rgba(0,0,0,0.3); display:flex; flex-direction:column; animation:fadeIn 0.3s ease;">
+            <div style="padding:20px 28px; background:linear-gradient(135deg,#ecfdf5,#d1fae5); border-bottom:1px solid #a7f3d0; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h2 style="margin:0; font-size:20px; font-weight:700; color:#065f46;">📝 Tạo Hợp đồng lao động</h2>
+                    <p id="contract-modal-subtitle" style="margin:4px 0 0; font-size:13px; color:#047857;"></p>
+                </div>
+                <button onclick="closeContractModal()" style="width:36px; height:36px; border-radius:50%; border:none; background:white; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+                    <span class="material-symbols-outlined" style="font-size:20px; color:#6b7280;">close</span>
+                </button>
+            </div>
+            <div style="flex:1; overflow-y:auto; padding:24px 28px;">
+                <div style="margin-bottom:20px; display:flex; gap:16px; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:180px;">
+                        <label style="font-size:13px; font-weight:600; color:#374151; display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                            <span class="material-symbols-outlined" style="font-size:16px; color:#10b981;">event</span> Ngày bắt đầu
+                        </label>
+                        <input type="date" id="contract-start-date" style="width:100%; padding:10px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:14px; outline:none; font-family:inherit;" onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#e5e7eb'">
+                    </div>
+                    <div style="flex:1; min-width:180px;">
+                        <label style="font-size:13px; font-weight:600; color:#374151; display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                            <span class="material-symbols-outlined" style="font-size:16px; color:#ef4444;">event_busy</span> Ngày kết thúc
+                        </label>
+                        <input type="date" id="contract-end-date" style="width:100%; padding:10px 14px; border:2px solid #e5e7eb; border-radius:10px; font-size:14px; outline:none; font-family:inherit;" onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#e5e7eb'">
+                    </div>
+                    <div style="width:100%;">
+                        <button type="button" onclick="regenerateContractContent()" style="padding:8px 16px; border-radius:8px; border:1px solid #10b981; background:#ecfdf5; color:#065f46; font-size:13px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                            <span class="material-symbols-outlined" style="font-size:16px;">refresh</span> Cập nhật vào hợp đồng
+                        </button>
+                    </div>
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="font-size:13px; font-weight:600; color:#374151; display:flex; justify-content:space-between; margin-bottom:8px;">
+                        <span>Chi tiết hợp đồng (Có thể chỉnh sửa)</span>
+                    </label>
+                    <div id="contract-content" contenteditable="true" style="width:100%; padding:24px; border:2px solid #e5e7eb; border-radius:12px; background:#fff; font-size:14px; line-height:1.7; outline:none; font-family:'Times New Roman', serif; max-height:400px; overflow-y:auto; box-shadow:inset 0 2px 4px rgba(0,0,0,0.02);" onfocus="this.style.borderColor='#10b981'" onblur="this.style.borderColor='#e5e7eb'"></div>
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label style="font-size:13px; font-weight:600; color:#374151; display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+                        <span class="material-symbols-outlined" style="font-size:16px; color:#10b981;">draw</span> Chữ ký Chủ trang trại
+                    </label>
+                    <div style="border:2px solid #e5e7eb; border-radius:12px; overflow:hidden; background:#fafafa; position:relative;">
+                        <canvas id="owner-signature-pad" style="width:100%; height:180px; display:block;"></canvas>
+                        <button onclick="clearOwnerSignature()" style="position:absolute; top:8px; right:8px; background:rgba(239,68,68,0.1); border:1px solid #fca5a5; color:#ef4444; padding:4px 12px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                            <span class="material-symbols-outlined" style="font-size:14px;">refresh</span> Xóa
+                        </button>
+                    </div>
+                    <p style="margin:6px 0 0; font-size:12px; color:#9ca3af;">Dùng chuột hoặc ngón tay để ký trên khung trên</p>
+                </div>
+            </div>
+            <div style="padding:16px 28px; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:12px; background:#f9fafb;">
+                <button onclick="closeContractModal()" style="padding:10px 24px; border-radius:10px; border:1px solid #d1d5db; background:white; color:#374151; font-weight:600; font-size:14px; cursor:pointer;">Hủy</button>
+                <button id="contract-submit-btn" onclick="submitContract()" style="padding:10px 24px; border-radius:10px; border:none; background:linear-gradient(135deg,#10b981,#059669); color:white; font-weight:600; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                    <span class="material-symbols-outlined" style="font-size:18px;">send</span> Gửi hợp đồng
+                </button>
+            </div>
+        </div>
+    </div>`;
+
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+
+    // ── Inject the contract modal JS logic if functions don't exist yet ──
+    if (typeof window.openContractModal !== 'function') {
+        let _ownerSignaturePad = null;
+        let _contractApplicationId = null;
+        let _cWorkerName = '';
+        let _cFarmName = '';
+
+        window.openContractModal = function(applicationId, workerName, farmName) {
+            _contractApplicationId = applicationId;
+            _cWorkerName = workerName || 'Nhân công';
+            _cFarmName = farmName || 'AgriPlanner';
+            const modal = document.getElementById('contract-modal');
+            modal.style.display = 'flex';
+            document.getElementById('contract-modal-subtitle').textContent = `Nhân công: ${_cWorkerName}`;
+
+            const today = new Date();
+            const endDate = new Date(today);
+            endDate.setMonth(endDate.getMonth() + 6);
+            document.getElementById('contract-start-date').value = today.toISOString().split('T')[0];
+            document.getElementById('contract-end-date').value = endDate.toISOString().split('T')[0];
+
+            window.regenerateContractContent();
+
+            setTimeout(() => {
+                const canvas = document.getElementById('owner-signature-pad');
+                canvas.width = canvas.offsetWidth;
+                canvas.height = 180;
+                if (typeof SignaturePad !== 'undefined') {
+                    _ownerSignaturePad = new SignaturePad(canvas, { penColor: '#1e3a5f', backgroundColor: 'rgba(255,255,255,0)' });
+                }
+            }, 200);
+        };
+
+        window.regenerateContractContent = function() {
+            const startVal = document.getElementById('contract-start-date').value;
+            const endVal = document.getElementById('contract-end-date').value;
+            const today = new Date();
+            const formattedDate = `ngày ${today.getDate()} tháng ${today.getMonth() + 1} năm ${today.getFullYear()}`;
+            const ownerName = localStorage.getItem('fullName') || sessionStorage.getItem('fullName') || 'Chủ trang trại';
+            const safeHtml = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+            let durationText = 'Theo thỏa thuận giữa hai bên';
+            if (startVal && endVal) {
+                const s = new Date(startVal);
+                const e = new Date(endVal);
+                durationText = `Từ ngày <b>${s.getDate()}/${s.getMonth()+1}/${s.getFullYear()}</b> đến ngày <b>${e.getDate()}/${e.getMonth()+1}/${e.getFullYear()}</b>`;
+            }
+
+            document.getElementById('contract-content').innerHTML =
+`<div style="text-align: center; margin-bottom: 20px;">
+    <h3 style="margin:0; font-weight:bold; font-size: 16px;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h3>
+    <h4 style="margin:4px 0 0; font-weight:bold; font-size: 14px; text-decoration: underline;">Độc lập - Tự do - Hạnh phúc</h4>
+</div>
+<div style="text-align: center; margin-bottom: 24px;">
+    <h2 style="margin:0; font-weight:bold; font-size: 20px; color: #111827;">HỢP ĐỒNG LAO ĐỘNG NÔNG NGHIỆP</h2>
+    <p style="margin:4px 0 0; font-style: italic; color: #4b5563;">Hôm nay, ${formattedDate}, chúng tôi gồm:</p>
+</div>
+<div style="background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+    <strong>BÊN A (NGƯỜI SỬ DỤNG LAO ĐỘNG):</strong>
+    <ul style="margin: 8px 0 0; padding-left: 20px;">
+        <li>Ông/Bà: <b>${safeHtml(ownerName)}</b></li>
+        <li>Đại diện cho: <b>Nông trại ${safeHtml(_cFarmName)}</b></li>
+    </ul>
+</div>
+<div style="background: #f8fafc; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
+    <strong>BÊN B (NGƯỜI LAO ĐỘNG):</strong>
+    <ul style="margin: 8px 0 0; padding-left: 20px;">
+        <li>Ông/Bà: <b>${safeHtml(_cWorkerName)}</b></li>
+    </ul>
+</div>
+<div style="margin-bottom: 16px;">
+    <h4 style="margin:0 0 8px; font-weight:bold; font-size: 15px;">ĐIỀU 1: NỘI DUNG CÔNG VIỆC</h4>
+    <p style="margin:0; padding-left: 10px;">Bên B đồng ý làm việc tại nông trại của Bên A theo sự phân công trên hệ thống điện tử AgriPlanner.</p>
+</div>
+<div style="margin-bottom: 16px; background:#fffbeb; padding:12px; border-radius:8px; border-left:4px solid #f59e0b;">
+    <h4 style="margin:0 0 8px; font-weight:bold; font-size: 15px;">ĐIỀU 2: THỜI HẠN HỢP ĐỒNG</h4>
+    <p style="margin:0; padding-left: 10px;">${durationText}. Sau khi hết hạn, hai bên có thể gia hạn thêm bằng hợp đồng mới trên hệ thống.</p>
+</div>
+<div style="margin-bottom: 16px;">
+    <h4 style="margin:0 0 8px; font-weight:bold; font-size: 15px;">ĐIỀU 3: LƯƠNG VÀ PHỤ CẤP</h4>
+    <p style="margin:0; padding-left: 10px;">Mức lương và chu kỳ thanh toán sẽ được tự động thỏa thuận và quyết toán thông qua Module Trả lương của hệ thống.</p>
+</div>
+<div style="margin-bottom: 16px;">
+    <h4 style="margin:0 0 8px; font-weight:bold; font-size: 15px;">ĐIỀU 4: CHẤM DỨT HỢP ĐỒNG</h4>
+    <p style="margin:0; padding-left: 10px;">Hợp đồng có thể chấm dứt trước thời hạn khi hai bên thỏa thuận hoặc theo quy định pháp luật. Khi chấm dứt, Bên A phải trả đủ số tiền còn nợ Bên B theo hệ thống ghi nhận.</p>
+</div>
+<p style="font-style: italic; text-align: center; margin-top: 30px; font-weight: bold; color: #1e3a8a;">Hai bên đã đọc, hiểu và đồng ý ký xác nhận bằng Chữ ký Số.</p>`;
+        };
+
+        window.closeContractModal = function() {
+            document.getElementById('contract-modal').style.display = 'none';
+            _ownerSignaturePad = null;
+            _contractApplicationId = null;
+        };
+
+        window.clearOwnerSignature = function() {
+            if (_ownerSignaturePad) _ownerSignaturePad.clear();
+        };
+
+        window.submitContract = async function() {
+            if (!_contractApplicationId) return;
+            const content = document.getElementById('contract-content').innerHTML.trim();
+            if (!content || content.length < 50) {
+                if (typeof agriAlert === 'function') agriAlert('Vui lòng nhập nội dung hợp đồng', 'warning');
+                return;
+            }
+            if (!_ownerSignaturePad || _ownerSignaturePad.isEmpty()) {
+                if (typeof agriAlert === 'function') agriAlert('Vui lòng ký tên trước khi gửi', 'warning');
+                return;
+            }
+
+            const btn = document.getElementById('contract-submit-btn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px; animation: spin 1s linear infinite;">sync</span> Đang gửi...';
+
+            try {
+                const signatureData = _ownerSignaturePad.toDataURL('image/png');
+                await fetchAPI(`${LABOR_API_BASE}/contracts`, 'POST', {
+                    applicationId: _contractApplicationId,
+                    contractContent: content,
+                    ownerSignature: signatureData
+                });
+                if (typeof showToast === 'function') showToast('Thành công', 'Đã tạo và gửi hợp đồng cho nhân công!', 'success');
+                window.closeContractModal();
+            } catch (e) {
+                if (typeof agriAlert === 'function') agriAlert('Lỗi: ' + e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">send</span> Gửi hợp đồng';
+            }
+        };
+
+        // CSS for spin animation
+        if (!document.getElementById('spin-style')) {
+            const s = document.createElement('style');
+            s.id = 'spin-style';
+            s.textContent = '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+            document.head.appendChild(s);
+        }
+    }
+}
+
+/** Render the View Contract modal with contract content and signatures */
+function _renderViewContractModal(contract) {
+    const existing = document.getElementById('vc-view-overlay');
+    if (existing) existing.remove();
+
+    const statusLabels = {
+        'PENDING_WORKER_SIGN': { text: 'Chờ nhân công ký', color: '#d97706', bg: '#fef3c7', icon: 'hourglass_top' },
+        'COMPLETED': { text: 'Đã hoàn tất', color: '#059669', bg: '#d1fae5', icon: 'verified' },
+        'CANCELLED': { text: 'Đã hủy', color: '#dc2626', bg: '#fee2e2', icon: 'cancel' }
+    };
+    const st = statusLabels[contract.status] || statusLabels['PENDING_WORKER_SIGN'];
+
+    // Extract worker/farm info from contract
+    const workerName = (contract.application && contract.application.worker)
+        ? (contract.application.worker.fullName || contract.application.worker.email || 'Nhân công')
+        : 'Nhân công';
+    const farmName = (contract.application && contract.application.post)
+        ? (contract.application.post.farmName || '')
+        : '';
+    const ownerName = localStorage.getItem('fullName') || sessionStorage.getItem('fullName') || 'Chủ trang trại';
+
+    const createdDate = contract.createdAt
+        ? new Date(contract.createdAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : '';
+    const ownerSignedDate = contract.ownerSignedAt
+        ? new Date(contract.ownerSignedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : '';
+    const workerSignedDate = contract.workerSignedAt
+        ? new Date(contract.workerSignedAt).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        : '';
+
+    const overlay = document.createElement('div');
+    overlay.id = 'vc-view-overlay';
+    overlay.style.cssText = 'position:fixed; inset:0; z-index:10001; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; animation:fadeIn 0.2s ease;';
+
+    overlay.innerHTML = `
+        <div style="background:white; border-radius:20px; width:95%; max-width:860px; max-height:95vh; overflow:hidden; box-shadow:0 25px 60px rgba(0,0,0,0.3); display:flex; flex-direction:column; animation:slideUp 0.25s ease;">
+            <!-- Header -->
+            <div style="padding:20px 28px; background:linear-gradient(135deg,#ecfdf5,#d1fae5); border-bottom:1px solid #a7f3d0; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+                <div style="display:flex; align-items:center; gap:16px;">
+                    <div style="width:48px; height:48px; background:linear-gradient(135deg,#10b981,#059669); border-radius:14px; display:flex; align-items:center; justify-content:center;">
+                        <span class="material-symbols-outlined" style="font-size:26px; color:white;">description</span>
+                    </div>
+                    <div>
+                        <h2 style="margin:0; font-size:20px; font-weight:800; color:#065f46;">Hợp đồng lao động</h2>
+                        <div style="display:flex; gap:10px; align-items:center; margin-top:4px; flex-wrap:wrap;">
+                            <span style="font-size:13px; color:#047857; font-weight:500;">Nhân công: <b>${_escHtml(workerName)}</b></span>
+                            ${farmName ? `<span style="font-size:12px; color:#6b7280;">• Nông trại: ${_escHtml(farmName)}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="display:flex; align-items:center; gap:6px; padding:6px 14px; border-radius:999px; background:${st.bg}; color:${st.color}; font-size:13px; font-weight:700;">
+                        <span class="material-symbols-outlined" style="font-size:16px;">${st.icon}</span>
+                        ${st.text}
+                    </div>
+                    <button onclick="document.getElementById('vc-view-overlay').remove()" style="width:36px; height:36px; border-radius:50%; border:none; background:white; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.1); transition:all 0.15s;"
+                        onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='white'">
+                        <span class="material-symbols-outlined" style="font-size:20px; color:#6b7280;">close</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div style="flex:1; overflow-y:auto; padding:24px 28px;">
+                <!-- Info badges -->
+                <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:20px;">
+                    ${createdDate ? `<div style="display:flex; align-items:center; gap:6px; font-size:13px; color:#6b7280;"><span class="material-symbols-outlined" style="font-size:16px;">calendar_today</span> Tạo: <b>${createdDate}</b></div>` : ''}
+                    ${ownerSignedDate ? `<div style="display:flex; align-items:center; gap:6px; font-size:13px; color:#059669;"><span class="material-symbols-outlined" style="font-size:16px;">draw</span> Chủ ký: <b>${ownerSignedDate}</b></div>` : ''}
+                    ${workerSignedDate ? `<div style="display:flex; align-items:center; gap:6px; font-size:13px; color:#2563eb;"><span class="material-symbols-outlined" style="font-size:16px;">draw</span> Nhân công ký: <b>${workerSignedDate}</b></div>` : ''}
+                </div>
+
+                <!-- Contract Content -->
+                <div style="border:2px solid #e5e7eb; border-radius:14px; padding:24px; background:#fefefe; font-family:'Times New Roman', serif; font-size:14px; line-height:1.8; max-height:400px; overflow-y:auto; box-shadow:inset 0 2px 4px rgba(0,0,0,0.02);">
+                    ${contract.contractContent || '<p style="text-align:center; color:#9ca3af;">Không có nội dung hợp đồng</p>'}
+                </div>
+
+                <!-- Signatures Section -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-top:24px;">
+                    <!-- Owner Signature -->
+                    <div style="border:1px solid #e5e7eb; border-radius:14px; padding:16px; background:#f9fafb;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                            <span class="material-symbols-outlined" style="font-size:20px; color:#10b981;">verified_user</span>
+                            <div>
+                                <div style="font-size:13px; font-weight:700; color:#111827;">BÊN A - Chủ trang trại</div>
+                                <div style="font-size:12px; color:#6b7280;">${_escHtml(ownerName)}</div>
+                            </div>
+                        </div>
+                        ${contract.ownerSignature
+                            ? `<img src="${contract.ownerSignature}" alt="Chữ ký Chủ" style="width:100%; max-height:120px; object-fit:contain; border-radius:8px; background:white; border:1px dashed #d1d5db; padding:8px;">`
+                            : `<div style="width:100%; height:80px; display:flex; align-items:center; justify-content:center; border:1px dashed #d1d5db; border-radius:8px; color:#9ca3af; font-size:13px;">Chưa ký</div>`
+                        }
+                    </div>
+
+                    <!-- Worker Signature -->
+                    <div style="border:1px solid #e5e7eb; border-radius:14px; padding:16px; background:#f9fafb;">
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                            <span class="material-symbols-outlined" style="font-size:20px; color:#2563eb;">person</span>
+                            <div>
+                                <div style="font-size:13px; font-weight:700; color:#111827;">BÊN B - Nhân công</div>
+                                <div style="font-size:12px; color:#6b7280;">${_escHtml(workerName)}</div>
+                            </div>
+                        </div>
+                        ${contract.workerSignature
+                            ? `<img src="${contract.workerSignature}" alt="Chữ ký Nhân công" style="width:100%; max-height:120px; object-fit:contain; border-radius:8px; background:white; border:1px dashed #d1d5db; padding:8px;">`
+                            : `<div style="width:100%; height:80px; display:flex; align-items:center; justify-content:center; border:1px dashed #d1d5db; border-radius:8px; color:#9ca3af; font-size:13px; font-style:italic;">
+                                ${contract.status === 'PENDING_WORKER_SIGN' ? '⏳ Đang chờ nhân công ký...' : 'Chưa ký'}
+                              </div>`
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="padding:16px 28px; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:12px; background:#f9fafb; flex-shrink:0;">
+                <button onclick="document.getElementById('vc-view-overlay').remove()" style="padding:10px 24px; border-radius:10px; border:1px solid #d1d5db; background:white; color:#374151; font-weight:600; font-size:14px; cursor:pointer; transition:all 0.15s;"
+                    onmouseenter="this.style.background='#f3f4f6'" onmouseleave="this.style.background='white'">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    `;
+
+    // Add animations if needed
+    if (!document.getElementById('vc-modal-anim-style')) {
+        const style = document.createElement('style');
+        style.id = 'vc-modal-anim-style';
+        style.textContent = `
+            @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        `;
+        document.head.appendChild(style);
+    }
+
+    document.body.appendChild(overlay);
+
+    // Close on overlay click (but not content click)
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+    });
+}
+
+/** Safe HTML escape helper for view contract */
+function _escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }

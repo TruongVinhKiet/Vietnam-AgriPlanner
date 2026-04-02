@@ -350,7 +350,15 @@ async function loadMyApplications() {
                     </span>
                 </div>
                 ${displayMessage ? `<p style="font-size:13px; color:#6b7280; margin-bottom:10px; line-height:1.5;"><strong>Lời nhắn:</strong> ${escapeHtml(displayMessage)}</p>` : ''}
-                ${appliedAt ? `<div style="font-size:12px; color:#9ca3af;">Ngày ứng tuyển: ${appliedAt}</div>` : ''}
+                ${appliedAt ? `<div style="font-size:12px; color:#9ca3af; margin-bottom:10px;">Ngày ứng tuyển: ${appliedAt}</div>` : ''}
+                ${app.status === 'ACCEPTED' ? `
+                    <button onclick="openWorkerContractModal(${app.id})"
+                        style="margin-top:4px; padding:8px 16px; border:none; background:linear-gradient(135deg,#3b82f6,#1d4ed8); color:white; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(59,130,246,0.3); transition:all 0.2s;"
+                        onmouseenter="this.style.transform='scale(1.03)'" onmouseleave="this.style.transform='scale(1)'">
+                        <span class="material-symbols-outlined" style="font-size:16px;">draw</span>
+                        Xem & Ký hợp đồng
+                    </button>
+                ` : ''}
             </div>`;
         }).join('');
 
